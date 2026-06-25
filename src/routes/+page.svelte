@@ -7,8 +7,6 @@
   import Icon from "$lib/components/Icon.svelte";
 
   const IMG = "/assets/images/";
-  const DISCORD = "https://discord.gg/seq";
-
   let smoothScrollY = $state(0);
   let targetScrollY = 0;
   const heroOffset = $derived(Math.max(-18, smoothScrollY * -0.032));
@@ -171,14 +169,17 @@
 <section id="services" style="padding:5rem 1.5rem;max-width:72rem;margin:0 auto">
   <SectionHeading style="margin-bottom:3rem">Services</SectionHeading>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.5rem">
-    <ServiceCard flagship title="Sequoia Map" description="Real-time territory map with war history, guild analytics, and season tracking." cta="Visit" href="https://map.seqwawa.com">
-      {#snippet icon()}<Icon name="map" />{/snippet}
+    <ServiceCard flagship title="Bagshop" description="Marketplace for raid crafterbags." cta="Visit" href="/services/bagshop">
+      {#snippet icon()}<Icon name="bag" />{/snippet}
     </ServiceCard>
-    <ServiceCard title="Guild Discord" description="Our community hub for events, war coordination, and member support." cta="Join" href={DISCORD}>
-      {#snippet icon()}<Icon name="chat" />{/snippet}
+    <ServiceCard title="Announcements" description="Guild-internal announcements for members." cta="Read" href="/services/announcements">
+      {#snippet icon()}<Icon name="document" />{/snippet}
     </ServiceCard>
-    <ServiceCard title="Guides" description="Class builds, raid strategies, leveling paths, and gear progression tips." cta="Read" href="https://wiki.seqwawa.com">
-      {#snippet icon()}<Icon name="book" />{/snippet}
+    <ServiceCard title="Contact" description="Reach the Branchmasters directly." cta="Contact" href="/services/contact">
+      {#snippet icon()}<Icon name="mail" />{/snippet}
+    </ServiceCard>
+    <ServiceCard title="Requests" description="Request Aspects and Guild Tomes here." cta="Request" href="/services/requests">
+      {#snippet icon()}<Icon name="clipboard" />{/snippet}
     </ServiceCard>
   </div>
 </section>
