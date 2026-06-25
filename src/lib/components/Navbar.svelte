@@ -23,7 +23,7 @@
 >
   <div style="max-width:80rem;margin:0 auto;padding:0 1.25rem;height:3.5rem;display:flex;align-items:center;justify-content:space-between">
     <a href="/" style="display:flex;align-items:center;gap:0.55rem;text-decoration:none">
-      <img src="/assets/images/sequoia-logo.avif" alt="" width="26" height="26" style="image-rendering:pixelated" />
+      <img src="/assets/images/fruma-icon.png" alt="" width="26" height="26" style="image-rendering:pixelated" />
       <span style="font-family:var(--font-display);font-size:0.95rem;letter-spacing:0.14em;color:var(--color-gold)">SEQUOIA</span>
     </a>
 
@@ -151,4 +151,3 @@
     </div>
   {/if}
 </nav>
-
