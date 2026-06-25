@@ -1,11 +1,13 @@
 <script lang="ts">
   import "$lib/design-system/styles.css";
   import "../app.css";
+  import { page } from "$app/state";
   import Navbar from "$lib/components/Navbar.svelte";
   import Footer from "$lib/components/Footer.svelte";
   import type { Snippet } from "svelte";
 
   let { children }: { children: Snippet } = $props();
+  const isHome = $derived(page.url.pathname === "/");
 </script>
 
 <div style="min-height:100vh;display:flex;flex-direction:column;position:relative">
@@ -16,7 +18,7 @@
     <div style="position:absolute;inset:0;box-shadow:inset 0 0 240px rgba(0,0,0,0.7)"></div>
   </div>
   <Navbar />
-  <main style="flex:1;position:relative;z-index:1;padding:2.5rem 0 1rem">
+  <main class="seq-main-shell" class:seq-main-home={isHome}>
     {@render children()}
   </main>
   <div style="position:relative;z-index:1">
