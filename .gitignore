@@ -1,12 +1,67 @@
-/tmp
-/out-tsc
-/dist
+# Dependencies
+node_modules/
+.pnp/
+.pnp.*
 
-/node_modules
+# Build output
+build/
+dist/
+out/
+out-tsc/
+package/
+.svelte-kit/
+
+# Tool caches and generated metadata
+.vite/
+.turbo/
+.jj/
+.eslintcache
+.stylelintcache
+*.tsbuildinfo
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# Test and coverage output
+coverage/
+playwright-report/
+test-results/
+
+# Environment and local config
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.local
+
+# Logs
+logs/
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-/.pnp
-.pnp.js
+pnpm-debug.log*
+lerna-debug.log*
 
+# Hosting and deployment metadata
+.vercel/
+.netlify/
+.wrangler/
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+
+# Editors
+.idea/
 .vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/settings.json
+!.vscode/tasks.json
+
+# OS files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
