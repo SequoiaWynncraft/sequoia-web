@@ -1,7 +1,8 @@
 <script lang="ts">
+  import { SECTIONS } from "$lib/site/nav";
+
   const DISCORD = "https://discord.gg/seq";
   const MAP = "https://map.seqwawa.com";
-  const WIKI = "https://wiki.seqwawa.com";
 
   let mobileOpen = $state(false);
 
@@ -13,13 +14,11 @@
   };
 
   const links: NavLink[] = [
-    { label: "Services", href: "/#services" },
-    { label: "Guides", href: WIKI, external: true },
-    { label: "Members", href: "/#members" },
-    { label: "Join", href: "/#join" },
+    ...SECTIONS.filter((section) => section.label === "News" || section.label === "Statistics")
+      .map((section) => ({ label: section.label, href: section.to })),
     { label: "Map", href: MAP, external: true, accent: true },
     { label: "Discord", href: DISCORD, external: true, accent: true },
-  ] as const;
+  ];
 </script>
 
 <svelte:window onscroll={() => { if (mobileOpen) mobileOpen = false; }} />

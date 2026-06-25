@@ -9,23 +9,35 @@
   const IMG = "/assets/images/";
   const DISCORD = "https://discord.gg/seq";
 
-  let scrollY = $state(0);
-  const heroOffset = $derived(Math.max(-96, scrollY * -0.12));
+  let smoothScrollY = $state(0);
+  let targetScrollY = 0;
+  const heroOffset = $derived(Math.max(-18, smoothScrollY * -0.032));
 
   onMount(() => {
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reducedMotion) return;
 
     let raf = 0;
-    const update = () => {
-      raf = 0;
-      scrollY = window.scrollY;
-    };
-    const onScroll = () => {
-      if (!raf) raf = requestAnimationFrame(update);
+    const tick = () => {
+      const delta = targetScrollY - smoothScrollY;
+
+      if (Math.abs(delta) < 0.2) {
+        smoothScrollY = targetScrollY;
+        raf = 0;
+        return;
+      }
+
+      smoothScrollY += delta * 0.14;
+      raf = requestAnimationFrame(tick);
     };
 
-    update();
+    const onScroll = () => {
+      targetScrollY = window.scrollY;
+      if (!raf) raf = requestAnimationFrame(tick);
+    };
+
+    targetScrollY = window.scrollY;
+    smoothScrollY = targetScrollY;
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => {
       window.removeEventListener("scroll", onScroll);
@@ -122,7 +134,7 @@
       decoding="async"
       fetchpriority="high"
       class="seq-hero-bg"
-      style="transform:translate3d(0,{heroOffset}px,0) scale(1.08)"
+      style="transform:translate3d(0,{heroOffset}px,0) scale(1.045)"
     />
   </div>
   <div class="seq-hero-vignette"></div>
