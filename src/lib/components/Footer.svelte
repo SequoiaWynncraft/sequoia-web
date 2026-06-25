@@ -1,6 +1,4 @@
 <script lang="ts">
-  import Button from "$lib/design-system/components/Button.svelte";
-  import DiscordIcon from "./DiscordIcon.svelte";
   import { SECTIONS, leavesOf } from "$lib/site/nav";
 
   const DISCORD = "https://discord.gg/seq";
@@ -12,16 +10,15 @@
     <div style="display:flex;flex-wrap:wrap;gap:2.5rem;justify-content:space-between">
       <div style="max-width:20rem">
         <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.9rem">
-          <img src="/assets/images/sequoia-logo.avif" alt="" width="30" height="30" style="image-rendering:pixelated" />
+          <img src="/assets/images/fruma-icon.png" alt="" width="30" height="30" style="image-rendering:pixelated" />
           <span style="font-family:var(--font-display);font-size:1.05rem;letter-spacing:0.14em;color:var(--color-gold)">SEQUOIA</span>
         </div>
         <p style="color:var(--color-text-secondary);font-size:0.9rem;line-height:1.7;margin:0 0 1rem">
           Sequoia, rooted together in purpose. Wynncraft guild resources, guides, and member stats in one place.
         </p>
-        <Button href={DISCORD} size="sm">
-          {#snippet icon()}<DiscordIcon size={15} />{/snippet}
+        <a href={DISCORD} target="_blank" rel="noreferrer" class="seq-text-cta">
           Join us on Discord
-        </Button>
+        </a>
       </div>
 
       <div style="display:flex;flex-wrap:wrap;gap:2.5rem">

@@ -15,6 +15,8 @@ package/
 .vite/
 .turbo/
 .jj/
+.playwright-cli/
+output/playwright/
 .eslintcache
 .stylelintcache
 *.tsbuildinfo

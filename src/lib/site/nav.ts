@@ -62,7 +62,6 @@ export const SECTIONS: NavSection[] = [
     items: [
       { label: "Bagshop", to: "/services/bagshop", icon: "bag", description: "Marketplace for raid crafterbags." },
       { label: "Announcements", to: "/services/announcements", icon: "document", description: "Guild-internal announcements for members." },
-      { label: "Contact", to: "/services/contact", icon: "mail", description: "Reach the Branchmasters directly." },
       { label: "Requests", to: "/services/requests", icon: "clipboard", description: "Request Aspects and Guild Tomes here." },
     ],
   },

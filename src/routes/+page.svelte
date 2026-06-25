@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, onDestroy } from "svelte";
+  import { onMount } from "svelte";
   import SectionHeading from "$lib/design-system/components/SectionHeading.svelte";
   import StatBlock from "$lib/design-system/components/StatBlock.svelte";
   import ServiceCard from "$lib/design-system/components/ServiceCard.svelte";
@@ -7,13 +7,41 @@
   import Icon from "$lib/components/Icon.svelte";
 
   const IMG = "/assets/images/";
-  const DISCORD = "https://discord.gg/seq";
+  let smoothScrollY = $state(0);
+  let targetScrollY = 0;
+  const heroOffset = $derived(Math.max(-18, smoothScrollY * -0.032));
 
-  // Hero parallax
-  let scrollY = $state(0);
-  function onScroll() { scrollY = window.scrollY; }
-  onMount(() => window.addEventListener("scroll", onScroll, { passive: true }));
-  onDestroy(() => { if (typeof window !== "undefined") window.removeEventListener("scroll", onScroll); });
+  onMount(() => {
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reducedMotion) return;
+
+    let raf = 0;
+    const tick = () => {
+      const delta = targetScrollY - smoothScrollY;
+
+      if (Math.abs(delta) < 0.2) {
+        smoothScrollY = targetScrollY;
+        raf = 0;
+        return;
+      }
+
+      smoothScrollY += delta * 0.14;
+      raf = requestAnimationFrame(tick);
+    };
+
+    const onScroll = () => {
+      targetScrollY = window.scrollY;
+      if (!raf) raf = requestAnimationFrame(tick);
+    };
+
+    targetScrollY = window.scrollY;
+    smoothScrollY = targetScrollY;
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  });
 
   // Fireflies
   let canvas: HTMLCanvasElement;
@@ -95,20 +123,29 @@
 </script>
 
 <!-- Hero -->
-<section style="position:relative;height:88vh;display:flex;align-items:center;justify-content:center;overflow:hidden;margin-top:-2.5rem">
-  <img src={IMG + "fruma_banner.avif"} alt="" aria-hidden="true"
-    style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:translateY({scrollY * -0.3}px) scale(1.1);will-change:transform" />
-  <div style="position:absolute;inset:0;background:radial-gradient(ellipse at center,rgba(12,14,23,0.3) 0%,rgba(12,14,23,0.75) 55%,rgba(12,14,23,0.95) 100%)"></div>
-  <div style="position:absolute;bottom:0;left:0;right:0;height:10rem;background:linear-gradient(to top,var(--color-abyss),transparent)"></div>
-  <canvas bind:this={canvas} style="position:absolute;inset:0;width:100%;height:100%;z-index:10;pointer-events:none"></canvas>
-  <div style="position:relative;z-index:20;text-align:center;padding:0 1.5rem">
-    <h1 class="text-gold-gradient" style="font-family:var(--font-display);font-size:clamp(3rem,11vw,7rem);letter-spacing:0.06em;margin:0;text-shadow:0 0 16px rgba(245,197,66,0.12)">
+<section class="seq-hero seq-home-page">
+  <div class="seq-hero-bg-wrap">
+    <img
+      src={IMG + "fruma_banner.avif"}
+      alt=""
+      aria-hidden="true"
+      decoding="async"
+      fetchpriority="high"
+      class="seq-hero-bg"
+      style="transform:translate3d(0,{heroOffset}px,0) scale(1.045)"
+    />
+  </div>
+  <div class="seq-hero-vignette"></div>
+  <div class="seq-hero-fade"></div>
+  <canvas bind:this={canvas} class="seq-hero-particles"></canvas>
+  <div class="seq-hero-content">
+    <h1 class="seq-hero-title text-gold-gradient">
       Sequoia
     </h1>
   </div>
-  <div style="position:absolute;bottom:2rem;left:50%;transform:translateX(-50%);z-index:20;display:flex;flex-direction:column;align-items:center;gap:0.5rem">
-    <span style="font-family:var(--font-display);font-size:0.75rem;letter-spacing:0.18em;text-transform:uppercase;color:var(--color-text-dim)">Explore</span>
-    <div style="width:1.1rem;height:1.1rem;border-bottom:2px solid rgba(245,197,66,0.5);border-right:2px solid rgba(245,197,66,0.5);transform:rotate(45deg)"></div>
+  <div class="seq-hero-scroll">
+    <span class="seq-hero-kicker">Explore</span>
+    <div class="seq-hero-chevron"></div>
   </div>
 </section>
 
@@ -132,14 +169,14 @@
 <section id="services" style="padding:5rem 1.5rem;max-width:72rem;margin:0 auto">
   <SectionHeading style="margin-bottom:3rem">Services</SectionHeading>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.5rem">
-    <ServiceCard flagship title="Sequoia Map" description="Real-time territory map with war history, guild analytics, and season tracking." cta="Visit" href="https://map.seqwawa.com">
-      {#snippet icon()}<Icon name="map" />{/snippet}
+    <ServiceCard flagship title="Bagshop" description="Marketplace for raid crafterbags." cta="Visit" href="/services/bagshop">
+      {#snippet icon()}<Icon name="bag" />{/snippet}
     </ServiceCard>
-    <ServiceCard title="Guild Discord" description="Our community hub for events, war coordination, and member support." cta="Join" href={DISCORD}>
-      {#snippet icon()}<Icon name="chat" />{/snippet}
+    <ServiceCard title="Announcements" description="Guild-internal announcements for members." cta="Read" href="/services/announcements">
+      {#snippet icon()}<Icon name="document" />{/snippet}
     </ServiceCard>
-    <ServiceCard title="Guides" description="Class builds, raid strategies, leveling paths, and gear progression tips." cta="Read" href="https://wiki.seqwawa.com">
-      {#snippet icon()}<Icon name="book" />{/snippet}
+    <ServiceCard title="Requests" description="Request Aspects and Guild Tomes here." cta="Request" href="/services/requests">
+      {#snippet icon()}<Icon name="clipboard" />{/snippet}
     </ServiceCard>
   </div>
 </section>
