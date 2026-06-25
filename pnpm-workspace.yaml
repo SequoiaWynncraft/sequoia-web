@@ -1,2 +1,6 @@
 allowBuilds:
   esbuild: true
+minimumReleaseAge: 1440
+blockExoticSubdeps: true
+overrides:
+  cookie@<0.7.0: 0.7.2
