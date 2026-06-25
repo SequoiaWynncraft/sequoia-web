@@ -1,0 +1,89 @@
+/* ═══════════════════════════════════════════════════════════════════
+   SEQUOIA — BASE & UTILITY HELPERS
+   Global reset + the handful of reusable utility classes the original
+   site relies on (gradient text, gold dividers, card hover, status dot).
+   These are shipped so component/card HTML can use them directly.
+   ═══════════════════════════════════════════════════════════════════ */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  background: var(--bg-page);
+  color: var(--text-heading);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: var(--leading-normal);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: rgba(168, 85, 247, 0.25);
+  color: var(--color-gold-light);
+}
+::placeholder { color: var(--color-text-dim); opacity: 1; }
+
+/* ── Gradient text ── */
+.text-gold-gradient {
+  background: var(--gradient-gold);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.text-enchant-gradient {
+  background: var(--gradient-enchant);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.text-diamond-gradient {
+  background: var(--gradient-diamond);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ── Gold hairline divider ── */
+.divider-gold {
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(245,197,66,0.18) 30%, rgba(245,197,66,0.18) 70%, transparent);
+}
+
+/* ── Inventory-slot bevel ── */
+.slot-bevel { box-shadow: var(--bevel-slot); }
+
+/* ── Section rhythm ── */
+.section-padding { padding: var(--section-pad-y) var(--section-pad-x); }
+@media (min-width: 640px) {
+  .section-padding { padding: var(--section-pad-y-lg) var(--section-pad-x-lg); }
+}
+
+/* ── Card hover (gold→enchant lift) ── */
+.card-hover {
+  border: 1px solid rgba(245, 197, 66, 0.3);
+  transition: transform var(--dur-slow) var(--ease-out-soft),
+              box-shadow var(--dur-slow) ease,
+              border-color var(--dur-slow) ease;
+}
+.card-hover:hover {
+  transform: translateY(-6px) scale(1.025);
+  box-shadow: var(--shadow-card-hover);
+  border-color: rgba(168, 85, 247, 0.5);
+}
+
+/* ── Online status dot ── */
+.status-pulse { animation: seq-pulse-dot 1.5s ease-in-out infinite; }
+
+/* ── Focus ring ── */
+.focus-ring:focus-visible {
+  outline: 2px solid rgba(245, 197, 66, 0.5);
+  outline-offset: 2px;
+}
+
+/* ── Animation helpers ── */
+.animate-fade-in-up { animation: seq-fade-in-up 0.6s var(--ease-out-soft) both; }
+.animate-fade-in { animation: seq-fade-in 0.5s ease both; }
+.animate-scale-in { animation: seq-scale-in 0.5s var(--ease-out-soft) both; }

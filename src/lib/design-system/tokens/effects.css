@@ -1,0 +1,65 @@
+/* ═══════════════════════════════════════════════════════════════════
+   SEQUOIA — EFFECTS: shadows, glows, transitions, keyframes
+   The brand leans on warm gold/enchant glows, inset bevels (Minecraft
+   inventory slots), and a single signature easing curve.
+   ═══════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Easing — used almost everywhere ── */
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);  /* @kind other */
+  --ease-in-out-soft: cubic-bezier(0.4, 0, 0.15, 1); /* @kind other */
+
+  /* ── Durations ── */
+  --dur-fast: 0.15s;   /* @kind other */
+  --dur-base: 0.25s;   /* @kind other */
+  --dur-slow: 0.35s;   /* @kind other */
+  --dur-slower: 0.6s;  /* @kind other */
+
+  /* ── Elevation shadows (cool, near-black — sits over abyss) ── */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.25);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.45);
+  --shadow-modal: 0 24px 80px rgba(0, 0, 0, 0.6), 0 0 40px rgba(0, 0, 0, 0.3);
+
+  /* ── Inventory-slot bevel (inset) ── */
+  --bevel-slot: inset 1px 1px 0 rgba(255, 255, 255, 0.06), inset -1px -1px 0 rgba(0, 0, 0, 0.3); /* @kind shadow */
+
+  /* ── Accent glows ── */
+  --glow-gold: 0 0 24px rgba(245, 197, 66, 0.35), 0 0 8px rgba(245, 197, 66, 0.2);
+  --glow-gold-soft: 0 0 12px rgba(245, 197, 66, 0.2);
+  --glow-enchant: 0 0 28px rgba(168, 85, 247, 0.18);
+  --glow-diamond: 0 0 20px rgba(92, 232, 228, 0.15);
+
+  /* ── Card hover composite ── */
+  --shadow-card-hover: 0 16px 48px rgba(0, 0, 0, 0.45), 0 0 28px rgba(168, 85, 247, 0.18);
+}
+
+/* ── Signature keyframes (subset shipped to consumers) ── */
+@keyframes seq-fade-in-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes seq-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes seq-scale-in {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes seq-gold-glow-pulse {
+  0%, 100% { box-shadow: 0 0 12px rgba(245,197,66,0.2), 0 0 4px rgba(245,197,66,0.1); }
+  50% { box-shadow: 0 0 24px rgba(245,197,66,0.35), 0 0 8px rgba(245,197,66,0.2); }
+}
+@keyframes seq-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+@keyframes seq-pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+@keyframes seq-ambient-breathe {
+  0%, 100% { opacity: 0.92; }
+  50% { opacity: 1; }
+}

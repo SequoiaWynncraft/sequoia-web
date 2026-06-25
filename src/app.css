@@ -1,0 +1,68 @@
+/* App-level styling on top of the Sequoia design-system tokens. */
+
+#root {
+  isolation: isolate;
+}
+
+/* Data-table row hover */
+.seq-row { transition: background var(--dur-base) ease; }
+.seq-row:hover { background: var(--color-surface-hover); }
+
+/* Footer links shift to gold on hover */
+.seq-footer-link { transition: color var(--dur-base) ease; }
+.seq-footer-link:hover { color: var(--color-gold); }
+
+/* Dropdown items */
+.seq-dropdown-item { color: var(--color-text-dim); }
+.seq-dropdown-item:hover { background: var(--color-surface-hover); color: var(--color-gold); }
+
+/* Responsive navigation: desktop links vs. mobile burger */
+.seq-nav-desktop { display: flex; }
+.seq-nav-burger { display: none; }
+
+@media (max-width: 860px) {
+  .seq-nav-desktop { display: none !important; }
+  .seq-nav-burger { display: inline-flex !important; }
+}
+
+/* ── Homepage: officer marquee ── */
+@keyframes seq-officer-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+/* ── Homepage: art exhibition hover ── */
+.seq-art-frame img {
+  transition: transform 0.5s var(--ease-out-soft), filter 0.5s ease;
+}
+.seq-art-frame:hover img {
+  transform: scale(1.06);
+  filter: brightness(1) saturate(1.05) !important;
+}
+.seq-art-frame:hover {
+  border-color: rgba(168,85,247,0.35) !important;
+}
+.seq-art-cap {
+  transform: translateY(100%);
+  transition: transform 0.4s var(--ease-out-soft);
+}
+.seq-art-frame:hover .seq-art-cap {
+  transform: translateY(0);
+}
+
+/* ── Homepage: responsive stats grid ── */
+@media (max-width: 720px) {
+  .seq-stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
+}
+
+/* Respect reduced-motion: drop the entrance animations */
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in-up,
+  .animate-fade-in,
+  .animate-scale-in {
+    animation: none !important;
+  }
+  [style*="seq-officer-scroll"] {
+    animation: none !important;
+  }
+}

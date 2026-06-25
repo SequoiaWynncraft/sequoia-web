@@ -1,0 +1,46 @@
+/* ═══════════════════════════════════════════════════════════════════
+   SEQUOIA — SPACING, RADII & LAYOUT TOKENS
+   Tailwind-derived 4px base scale. Radii are modest (4–12px) — this is a
+   game UI, edges stay tight. Section rhythm is generous on desktop.
+   ═══════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Spacing scale (4px base) ── */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-24: 6rem;
+
+  /* ── Section padding (mobile → desktop) ── */
+  --section-pad-y: 3rem;
+  --section-pad-y-lg: 6rem;
+  --section-pad-x: 1rem;
+  --section-pad-x-lg: 1.5rem;
+
+  /* ── Container widths ── */
+  --container-sm: 36rem;
+  --container-md: 48rem;
+  --container-lg: 64rem;   /* 6xl — primary content width */
+  --container-xl: 80rem;   /* 7xl — wide / members */
+
+  /* ── Corner radii ── */
+  --radius-xs: 3px;        /* badges, checkboxes */
+  --radius-sm: 4px;        /* inputs, small chips */
+  --radius-md: 6px;        /* item slots, buttons */
+  --radius-lg: 8px;        /* cards, panels */
+  --radius-xl: 12px;       /* modals, large cards */
+  --radius-full: 9999px;   /* dots, pills, avatars-round */
+
+  /* ── Z-index ladder ── */
+  --z-base: 1;        /* @kind other */
+  --z-overlay: 50;    /* @kind other */
+  --z-nav: 100;       /* @kind other */
+  --z-lightbox: 1000; /* @kind other */
+}
