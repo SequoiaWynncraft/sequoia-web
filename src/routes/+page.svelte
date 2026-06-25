@@ -175,9 +175,6 @@
     <ServiceCard title="Announcements" description="Guild-internal announcements for members." cta="Read" href="/services/announcements">
       {#snippet icon()}<Icon name="document" />{/snippet}
     </ServiceCard>
-    <ServiceCard title="Contact" description="Reach the Branchmasters directly." cta="Contact" href="/services/contact">
-      {#snippet icon()}<Icon name="mail" />{/snippet}
-    </ServiceCard>
     <ServiceCard title="Requests" description="Request Aspects and Guild Tomes here." cta="Request" href="/services/requests">
       {#snippet icon()}<Icon name="clipboard" />{/snippet}
     </ServiceCard>

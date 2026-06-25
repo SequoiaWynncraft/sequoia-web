@@ -14,7 +14,7 @@
   };
 
   const links: NavLink[] = [
-    ...SECTIONS.filter((section) => section.label === "News" || section.label === "Statistics")
+    ...SECTIONS.filter((section) => section.label === "News" || section.label === "Statistics" || section.label === "Services")
       .map((section) => ({ label: section.label, href: section.to })),
     { label: "Map", href: MAP, external: true, accent: true },
     { label: "Discord", href: DISCORD, external: true, accent: true },

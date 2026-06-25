@@ -8,7 +8,7 @@
 
 <PageScaffold crumbs={[{ label: "Home", to: "/" }, { label: "Services" }]} {tabs}>
   {#snippet children()}
-    <PageHeader kicker="Services" title="Community" lead="Sequoia services: bagshop, posts, contact, and requests." />
+    <PageHeader kicker="Services" title="Community" lead="Sequoia services: bagshop, announcements, and requests." />
     <SubpageGrid items={tabs} />
   {/snippet}
 </PageScaffold>
