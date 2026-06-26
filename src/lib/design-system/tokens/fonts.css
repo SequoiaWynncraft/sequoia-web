@@ -2,7 +2,7 @@
    Minecraft: the pixel display face used for all headings, nav, badges,
    stat labels and CTAs. Imported verbatim from the sequoia-web repo.
    JetBrains Mono: numeric / code face (stats, item data). Loaded from CDN.
-   Font files are served from /public, so absolute paths are used here. */
+   Font files are served from static assets, so absolute paths are used here. */
 
 @font-face {
   font-family: "Minecraft";
