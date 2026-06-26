@@ -10,6 +10,8 @@
   let smoothScrollY = $state(0);
   let targetScrollY = 0;
   const heroOffset = $derived(Math.max(-18, smoothScrollY * -0.032));
+  let statProgress = $state(0);
+  const statEase = $derived(1 - Math.pow(1 - statProgress, 3));
 
   onMount(() => {
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -46,16 +48,38 @@
   // Fireflies
   let canvas: HTMLCanvasElement;
   onMount(() => {
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reducedMotion || !canvas) return;
+
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    let raf: number, w: number, h: number;
+    let raf = 0, w = 0, h = 0;
+    let visible = true;
+    let pageVisible = !document.hidden;
     const dots = Array.from({ length: 36 }, () => ({
       x: Math.random(), y: Math.random(), r: Math.random() * 1.6 + 0.4,
       p: Math.random() * Math.PI * 2, s: Math.random() * 0.0008 + 0.0002,
     }));
-    const resize = () => { w = canvas.width = canvas.offsetWidth; h = canvas.height = canvas.offsetHeight; };
-    resize(); window.addEventListener("resize", resize);
+    const resize = () => {
+      const ratio = Math.min(window.devicePixelRatio || 1, 2);
+      w = canvas.offsetWidth;
+      h = canvas.offsetHeight;
+      canvas.width = Math.max(1, Math.floor(w * ratio));
+      canvas.height = Math.max(1, Math.floor(h * ratio));
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    };
+    const start = () => {
+      if (!raf && visible && pageVisible) raf = requestAnimationFrame(draw);
+    };
+    const stop = () => {
+      if (raf) cancelAnimationFrame(raf);
+      raf = 0;
+    };
     const draw = (t: number) => {
+      if (!visible || !pageVisible) {
+        raf = 0;
+        return;
+      }
       ctx.clearRect(0, 0, w, h);
       dots.forEach((d) => {
         d.y -= d.s; if (d.y < -0.02) d.y = 1.02;
@@ -66,33 +90,54 @@
       });
       raf = requestAnimationFrame(draw);
     };
-    raf = requestAnimationFrame(draw);
-    return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", resize); };
+
+    const onVisibilityChange = () => {
+      pageVisible = !document.hidden;
+      if (pageVisible) start(); else stop();
+    };
+
+    let observer: IntersectionObserver | undefined;
+    if ("IntersectionObserver" in window) {
+      observer = new IntersectionObserver(([entry]) => {
+        visible = entry.isIntersecting;
+        if (visible) start(); else stop();
+      });
+      observer.observe(canvas);
+    }
+
+    resize();
+    window.addEventListener("resize", resize);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    start();
+    return () => {
+      stop();
+      window.removeEventListener("resize", resize);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      observer?.disconnect();
+    };
   });
 
   // Count-up
-  function countUp(target: number) {
-    let n = $state(target);
-    $effect(() => {
-      let raf: number, start: number;
-      const dur = 1400;
-      const tick = (t: number) => {
-        if (!start) start = t;
-        const p = Math.min((t - start) / dur, 1);
-        n = Math.round(target * (1 - Math.pow(1 - p, 3)));
-        if (p < 1) raf = requestAnimationFrame(tick); else n = target;
-      };
-      raf = requestAnimationFrame(tick);
-      return () => cancelAnimationFrame(raf);
-    });
-    return { get value() { return n; } };
-  }
-  const members = countUp(128);
-  const level = countUp(142);
-  const territories = countUp(312);
-  const wars = countUp(18472);
-  const raids = countUp(9043);
-  const online = countUp(7);
+  onMount(() => {
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reducedMotion) {
+      statProgress = 1;
+      return;
+    }
+
+    let raf = 0, start = 0;
+    const dur = 1400;
+    const tick = (t: number) => {
+      if (!start) start = t;
+      statProgress = Math.min((t - start) / dur, 1);
+      if (statProgress < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+    };
+  });
+  const statValue = (target: number) => Math.round(target * statEase).toLocaleString();
 
   // Officers
   const OFFICERS = [
@@ -154,12 +199,12 @@
   <div style="max-width:64rem;margin:0 auto">
     <div class="divider-gold" style="margin-bottom:3rem"></div>
     <div class="seq-stats-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:2rem 1rem">
-      <StatBlock value={members.value.toLocaleString()} label="Members">{#snippet icon()}<Icon name="users" />{/snippet}</StatBlock>
-      <StatBlock value={level.value.toLocaleString()} label="Guild Level">{#snippet icon()}<Icon name="level" />{/snippet}</StatBlock>
-      <StatBlock value={territories.value.toLocaleString()} label="Territories">{#snippet icon()}<Icon name="territory" />{/snippet}</StatBlock>
-      <StatBlock value={wars.value.toLocaleString()} label="Total Wars">{#snippet icon()}<Icon name="war" />{/snippet}</StatBlock>
-      <StatBlock value={raids.value.toLocaleString()} label="Raids">{#snippet icon()}<Icon name="raid" />{/snippet}</StatBlock>
-      <StatBlock value={online.value.toLocaleString()} label="Online Now">{#snippet icon()}<Icon name="online" />{/snippet}</StatBlock>
+      <StatBlock value={statValue(128)} label="Members">{#snippet icon()}<Icon name="users" />{/snippet}</StatBlock>
+      <StatBlock value={statValue(142)} label="Guild Level">{#snippet icon()}<Icon name="level" />{/snippet}</StatBlock>
+      <StatBlock value={statValue(312)} label="Territories">{#snippet icon()}<Icon name="territory" />{/snippet}</StatBlock>
+      <StatBlock value={statValue(18472)} label="Total Wars">{#snippet icon()}<Icon name="war" />{/snippet}</StatBlock>
+      <StatBlock value={statValue(9043)} label="Raids">{#snippet icon()}<Icon name="raid" />{/snippet}</StatBlock>
+      <StatBlock value={statValue(7)} label="Online Now">{#snippet icon()}<Icon name="online" />{/snippet}</StatBlock>
     </div>
     <div class="divider-gold" style="margin-top:3rem"></div>
   </div>

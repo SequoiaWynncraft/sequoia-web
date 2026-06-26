@@ -13,8 +13,9 @@
     align?: "left" | "center";
   } = $props();
 
-  const gradClass =
-    gradient === "enchant" ? "text-enchant-gradient" : gradient === "diamond" ? "text-diamond-gradient" : "text-gold-gradient";
+  const gradClass = $derived(
+    gradient === "enchant" ? "text-enchant-gradient" : gradient === "diamond" ? "text-diamond-gradient" : "text-gold-gradient"
+  );
 </script>
 
 <header style="text-align:{align};margin-bottom:2.25rem" class="animate-fade-in-up">
