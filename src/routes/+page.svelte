@@ -10,7 +10,7 @@
   let smoothScrollY = $state(0);
   let targetScrollY = 0;
   const heroOffset = $derived(Math.max(-18, smoothScrollY * -0.032));
-  let statProgress = $state(1);
+  let statProgress = $state(0);
   const statEase = $derived(1 - Math.pow(1 - statProgress, 3));
 
   onMount(() => {
@@ -120,9 +120,11 @@
   // Count-up
   onMount(() => {
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reducedMotion) return;
+    if (reducedMotion) {
+      statProgress = 1;
+      return;
+    }
 
-    statProgress = 0;
     let raf = 0, start = 0;
     const dur = 1400;
     const tick = (t: number) => {
