@@ -15,7 +15,7 @@
   } = $props();
 
   let hover = $state(false);
-  const initial = (username || "?").charAt(0).toUpperCase();
+  const initial = $derived((username || "?").charAt(0).toUpperCase());
   const entries = $derived(Object.entries(stats));
 </script>
 

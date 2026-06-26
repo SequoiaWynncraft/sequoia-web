@@ -24,7 +24,7 @@
 
 <script lang="ts">
   let { rank = "recruit" }: { rank?: string } = $props();
-  const r = RANKS[rank] ?? RANKS.recruit;
+  const r = $derived(RANKS[rank] ?? RANKS.recruit);
 </script>
 
 <span style="display:inline-block;font-family:var(--font-display);font-size:0.7rem;letter-spacing:0.1em;text-transform:uppercase;padding:0.15rem 0.5rem;border-radius:var(--radius-sm);background:{r.bg};color:{r.fg};line-height:1.5">

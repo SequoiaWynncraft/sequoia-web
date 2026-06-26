@@ -29,7 +29,9 @@
     lg: "padding:0.8rem 1.7rem;font-size:1rem;gap:0.6rem",
   };
 
-  const base = `display:inline-flex;align-items:center;justify-content:center;font-family:var(--font-display);letter-spacing:0.06em;text-transform:uppercase;text-decoration:none;line-height:1;border-radius:var(--radius-md);border:1px solid transparent;cursor:${disabled ? "not-allowed" : "pointer"};opacity:${disabled ? 0.45 : 1};transition:transform var(--dur-base) var(--ease-out-soft),background var(--dur-base) ease,color var(--dur-base) ease,border-color var(--dur-base) ease,box-shadow var(--dur-base) ease;white-space:nowrap`;
+  const base = $derived(
+    `display:inline-flex;align-items:center;justify-content:center;font-family:var(--font-display);letter-spacing:0.06em;text-transform:uppercase;text-decoration:none;line-height:1;border-radius:var(--radius-md);border:1px solid transparent;cursor:${disabled ? "not-allowed" : "pointer"};opacity:${disabled ? 0.45 : 1};transition:transform var(--dur-base) var(--ease-out-soft),background var(--dur-base) ease,color var(--dur-base) ease,border-color var(--dur-base) ease,box-shadow var(--dur-base) ease;white-space:nowrap`
+  );
 
   const variantStyles: Record<string, string> = {
     primary: "background:var(--color-gold);color:var(--color-abyss);border-color:var(--color-gold-dark);box-shadow:var(--glow-gold-soft)",

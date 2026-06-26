@@ -15,8 +15,9 @@
     style?: string;
   } = $props();
 
-  const gradClass =
-    gradient === "enchant" ? "text-enchant-gradient" : gradient === "diamond" ? "text-diamond-gradient" : gradient === "none" ? "" : "text-gold-gradient";
+  const gradClass = $derived(
+    gradient === "enchant" ? "text-enchant-gradient" : gradient === "diamond" ? "text-diamond-gradient" : gradient === "none" ? "" : "text-gold-gradient"
+  );
 </script>
 
 <div style="text-align:{align};{style}">
