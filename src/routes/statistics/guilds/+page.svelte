@@ -2,13 +2,14 @@
   import PageScaffold from "$lib/components/PageScaffold.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import SubpageGrid from "$lib/components/SubpageGrid.svelte";
-  import { tabsFor } from "$lib/site/nav";
-  const tabs = tabsFor("/statistics/guilds");
+  import { pageView } from "$lib/site/nav";
+
+  const page = pageView("/statistics/guilds");
 </script>
 
-<PageScaffold crumbs={[{ label: "Home", to: "/" }, { label: "Statistics", to: "/statistics" }, { label: "Guilds" }]} {tabs}>
+<PageScaffold crumbs={page.crumbs} tabs={page.tabs}>
   {#snippet children()}
-    <PageHeader kicker="Statistics · Guilds" title="Guild Statistics" lead="Guild-wide war, raid, and ranking statistics." />
-    <SubpageGrid items={tabs} />
+    <PageHeader kicker={page.kicker} title={page.title} lead={page.lead} />
+    <SubpageGrid items={page.cards} />
   {/snippet}
 </PageScaffold>

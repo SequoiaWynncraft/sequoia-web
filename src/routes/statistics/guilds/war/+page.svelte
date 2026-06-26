@@ -2,12 +2,14 @@
   import PageScaffold from "$lib/components/PageScaffold.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import Placeholder from "$lib/components/Placeholder.svelte";
-  import { tabsFor } from "$lib/site/nav";
+  import { pageView } from "$lib/site/nav";
+
+  const page = pageView("/statistics/guilds/war");
 </script>
 
-<PageScaffold crumbs={[{ label: "Home", to: "/" }, { label: "Statistics", to: "/statistics" }, { label: "Guilds", to: "/statistics/guilds" }, { label: "War" }]} tabs={tabsFor("/statistics/guilds")}>
+<PageScaffold crumbs={page.crumbs} tabs={page.tabs}>
   {#snippet children()}
-    <PageHeader kicker="Guilds" title="War" lead="Territory wars, win rate, and battle history." />
-    <Placeholder>Guild War</Placeholder>
+    <PageHeader kicker={page.kicker} title={page.title} lead={page.lead} />
+    <Placeholder>{page.placeholder}</Placeholder>
   {/snippet}
 </PageScaffold>
