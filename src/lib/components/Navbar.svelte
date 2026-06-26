@@ -1,46 +1,94 @@
 <script lang="ts">
+  import { page } from "$app/state";
+  import Icon from "./Icon.svelte";
   import { SECTIONS } from "$lib/site/nav";
 
   const DISCORD = "https://discord.gg/seq";
   const MAP = "https://map.seqwawa.com";
 
+  let open = $state<string | null>(null);
   let mobileOpen = $state(false);
 
-  type NavLink = {
-    label: string;
-    href: string;
-    external?: boolean;
-    accent?: boolean;
-  };
+  function isActive(to: string) {
+    return page.url.pathname === to || page.url.pathname.startsWith(to + "/");
+  }
 
-  const links: NavLink[] = [
-    ...SECTIONS.filter((section) => section.label === "News" || section.label === "Statistics" || section.label === "Services")
-      .map((section) => ({ label: section.label, href: section.to })),
-    { label: "Map", href: MAP, external: true, accent: true },
-    { label: "Discord", href: DISCORD, external: true, accent: true },
-  ];
+  function clampToViewport(node: HTMLElement) {
+    const rect = node.getBoundingClientRect();
+    const overflow = rect.right - (window.innerWidth - 16);
+    if (overflow > 0) node.style.left = `-${overflow}px`;
+  }
 </script>
 
 <svelte:window onscroll={() => { if (mobileOpen) mobileOpen = false; }} />
 
-<nav class="seq-top-nav">
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<nav class="seq-top-nav" onmouseleave={() => open = null}>
   <div class="seq-top-nav-shell">
     <a href="/" class="seq-nav-brand" onclick={() => mobileOpen = false}>
       SEQUOIA
     </a>
 
     <div class="seq-nav-desktop">
-      {#each links as link}
-        <a
-          href={link.href}
-          target={link.external ? "_blank" : undefined}
-          rel={link.external ? "noreferrer" : undefined}
-          class:seq-nav-accent={link.accent}
-          class="seq-nav-link"
-        >
-          {link.label}
-        </a>
+      {#each SECTIONS as s}
+        {@const hasMenu = !!(s.groups || s.items)}
+        {@const active = isActive(s.to)}
+        {@const isOpen = open === s.to}
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <span class="seq-nav-item" onmouseenter={() => open = s.to} style="position:relative">
+          <a
+            href={s.to}
+            class="seq-nav-link"
+            class:seq-nav-link-active={active}
+          >
+            {s.label}
+            {#if hasMenu}
+              <svg class="seq-nav-chevron" class:seq-nav-chevron-open={isOpen} width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6" />
+              </svg>
+            {/if}
+          </a>
+
+          {#if isOpen && hasMenu}
+            <div class="seq-dropdown" use:clampToViewport>
+              {#if s.groups}
+                {#each s.groups as g}
+                  <div class="seq-dropdown-col">
+                    <div class="seq-dropdown-group-header">
+                      {#if g.icon}<Icon name={g.icon} size={14} />{/if}
+                      <a href={g.to} onclick={() => open = null} class="seq-dropdown-group-label">{g.label}</a>
+                    </div>
+                    {#each g.items as it}
+                      <a href={it.to} onclick={() => open = null} class="seq-dropdown-item">
+                        {#if it.icon}<span class="seq-dropdown-item-icon"><Icon name={it.icon} size={17} /></span>{/if}
+                        <span class="seq-dropdown-item-text">
+                          <span class="seq-dropdown-item-label">{it.label}</span>
+                          {#if it.description}<span class="seq-dropdown-item-desc">{it.description}</span>{/if}
+                        </span>
+                      </a>
+                    {/each}
+                  </div>
+                {/each}
+              {:else if s.items}
+                <div class="seq-dropdown-col">
+                  {#each s.items as it}
+                    <a href={it.to} onclick={() => open = null} class="seq-dropdown-item">
+                      {#if it.icon}<span class="seq-dropdown-item-icon"><Icon name={it.icon} size={17} /></span>{/if}
+                      <span class="seq-dropdown-item-text">
+                        <span class="seq-dropdown-item-label">{it.label}</span>
+                        {#if it.description}<span class="seq-dropdown-item-desc">{it.description}</span>{/if}
+                      </span>
+                    </a>
+                  {/each}
+                </div>
+              {/if}
+            </div>
+          {/if}
+        </span>
       {/each}
+
+      <a href={MAP} target="_blank" rel="noreferrer" class="seq-nav-link seq-nav-accent">Map</a>
+      <a href={DISCORD} target="_blank" rel="noreferrer" class="seq-nav-link seq-nav-accent">Discord</a>
     </div>
 
     <button
@@ -58,18 +106,30 @@
   {#if mobileOpen}
     <div class="seq-nav-mobile-panel">
       <div class="seq-nav-mobile-links">
-        {#each links as link}
+        {#each SECTIONS as s}
           <a
-            href={link.href}
-            target={link.external ? "_blank" : undefined}
-            rel={link.external ? "noreferrer" : undefined}
+            href={s.to}
             onclick={() => mobileOpen = false}
-            class:seq-nav-accent={link.accent}
             class="seq-mobile-link"
+            class:seq-mobile-link-active={isActive(s.to)}
           >
-            {link.label}
+            {s.label}
           </a>
+          {#if s.groups}
+            {#each s.groups as g}
+              <div class="seq-mobile-subgroup-label">{g.label}</div>
+              {#each g.items as it}
+                <a href={it.to} onclick={() => mobileOpen = false} class="seq-mobile-sublink">{it.label}</a>
+              {/each}
+            {/each}
+          {:else if s.items}
+            {#each s.items as it}
+              <a href={it.to} onclick={() => mobileOpen = false} class="seq-mobile-sublink">{it.label}</a>
+            {/each}
+          {/if}
         {/each}
+        <a href={MAP} target="_blank" rel="noreferrer" onclick={() => mobileOpen = false} class="seq-mobile-link seq-nav-accent">Map</a>
+        <a href={DISCORD} target="_blank" rel="noreferrer" onclick={() => mobileOpen = false} class="seq-mobile-link seq-nav-accent">Discord</a>
       </div>
     </div>
   {/if}
