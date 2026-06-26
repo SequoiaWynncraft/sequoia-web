@@ -299,6 +299,7 @@ function parentPathFor(path: string): string | undefined {
   const match = findPage(path);
   if (!match) return undefined;
   if ("parent" in match.page && typeof match.page.parent === "string") return match.page.parent;
+  if (match.group && match.group.to === match.page.to) return undefined;
   if (match.group && match.group.to !== match.page.to) return match.group.to;
   if (match.section && match.section.to !== match.page.to) return match.section.to;
   return undefined;

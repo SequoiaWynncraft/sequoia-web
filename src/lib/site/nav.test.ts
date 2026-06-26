@@ -20,6 +20,19 @@ describe("site navigation registry", () => {
     ]);
   });
 
+  it("keeps tabs on statistics group overview pages", () => {
+    expect(pageView("/statistics/player").tabs.map((tab) => tab.to)).toEqual([
+      "/statistics/player/raids",
+      "/statistics/player/activity",
+      "/statistics/player/playercard",
+    ]);
+    expect(pageView("/statistics/guilds").tabs.map((tab) => tab.to)).toEqual([
+      "/statistics/guilds/war",
+      "/statistics/guilds/raid",
+      "/statistics/guilds/rankings",
+    ]);
+  });
+
   it("keeps extra child pages in their parent section without putting them in nav cards", () => {
     const view = pageView("/services/contact");
 

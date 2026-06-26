@@ -66,7 +66,7 @@ export interface operations {
             query: {
                 /** @description Inclusive RFC3339 timestamp for the start of the query window. */
                 from: string;
-                /** @description Exclusive RFC3339 timestamp for the end of the query window. */
+                /** @description Inclusive RFC3339 timestamp for the end of the query window. */
                 to: string;
                 /** @description Comma-separated guild names to include. */
                 guild_names: string;
