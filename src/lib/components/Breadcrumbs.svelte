@@ -3,14 +3,14 @@
   let { items }: { items: Crumb[] } = $props();
 </script>
 
-<nav aria-label="Breadcrumb" style="display:flex;flex-wrap:wrap;align-items:center;gap:0.45rem;margin-bottom:1.25rem">
+<nav aria-label="Breadcrumb" class="seq-breadcrumbs">
   {#each items as c, i}
     {#if c.to && i < items.length - 1}
-      <a href={c.to} style="font-family:var(--font-display);font-size:0.65rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--color-text-dim);text-decoration:none">
+      <a href={c.to} class="seq-breadcrumb-link">
         {c.label}
       </a>
     {:else}
-      <span style="font-family:var(--font-display);font-size:0.65rem;letter-spacing:0.1em;text-transform:uppercase;color:{i === items.length - 1 ? 'var(--color-gold)' : 'var(--color-text-dim)'}">
+      <span class="seq-breadcrumb-label" class:seq-breadcrumb-current={i === items.length - 1}>
         {c.label}
       </span>
     {/if}
