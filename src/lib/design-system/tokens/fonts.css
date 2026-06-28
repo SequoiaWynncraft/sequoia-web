@@ -1,7 +1,6 @@
 /* ── Sequoia webfonts ─────────────────────────────────────────────
    Minecraft: the pixel display face used for all headings, nav, badges,
    stat labels and CTAs. Imported verbatim from the sequoia-web repo.
-   JetBrains Mono: numeric / code face (stats, item data). Loaded from CDN.
    Font files are served from static assets, so absolute paths are used here. */
 
 @font-face {
@@ -32,6 +31,3 @@
   font-weight: 700;
   font-display: swap;
 }
-
-/* JetBrains Mono is imported at the top of styles.css so the @import
-   precedes all @font-face rules in the bundled stylesheet. */
