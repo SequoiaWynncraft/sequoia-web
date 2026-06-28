@@ -2,12 +2,14 @@
   import PageScaffold from "$lib/components/PageScaffold.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import Placeholder from "$lib/components/Placeholder.svelte";
-  import { tabsFor } from "$lib/site/nav";
+  import { pageView } from "$lib/site/nav";
+
+  const page = pageView("/services/announcements");
 </script>
 
-<PageScaffold crumbs={[{ label: "Home", to: "/" }, { label: "Services", to: "/services" }, { label: "Announcements" }]} tabs={tabsFor("/services")}>
+<PageScaffold crumbs={page.crumbs} tabs={page.tabs}>
   {#snippet children()}
-    <PageHeader kicker="Services" title="Announcements" lead="Guild-internal announcements for members." />
-    <Placeholder>Announcements</Placeholder>
+    <PageHeader kicker={page.kicker} title={page.title} lead={page.lead} />
+    <Placeholder>{page.placeholder}</Placeholder>
   {/snippet}
 </PageScaffold>

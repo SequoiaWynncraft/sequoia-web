@@ -6,16 +6,16 @@
   let { items }: { items: NavLeaf[] } = $props();
 </script>
 
-<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:1.25rem">
+<div class="seq-subpage-grid">
   {#each items as it}
     <Card href={it.to} padding="1.4rem" style="display:flex;flex-direction:column;gap:0.6rem">
       {#snippet children()}
-        <span style="color:var(--color-gold)">{#if it.icon}<Icon name={it.icon} size={22} />{/if}</span>
-        <span style="font-family:var(--font-display);font-size:1rem;letter-spacing:0.04em;color:var(--color-text-primary)">
+        <span class="seq-subpage-card-icon">{#if it.icon}<Icon name={it.icon} size={22} />{/if}</span>
+        <span class="seq-subpage-card-title">
           {it.label}
         </span>
         {#if it.description}
-          <span style="font-size:0.85rem;line-height:1.55;color:var(--color-text-secondary)">{it.description}</span>
+          <span class="seq-subpage-card-description">{it.description}</span>
         {/if}
       {/snippet}
     </Card>

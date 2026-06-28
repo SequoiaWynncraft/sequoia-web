@@ -1,13 +1,15 @@
 <script lang="ts">
   import PageScaffold from "$lib/components/PageScaffold.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
+  import { pageView } from "$lib/site/nav";
 
   const CONTACT_EMAIL = "sequoia.branchmasters@gmail.com";
+  const page = pageView("/legal");
 </script>
 
-<PageScaffold crumbs={[{ label: "Home", to: "/" }, { label: "Privacy Policy" }]} width="md">
+<PageScaffold crumbs={page.crumbs} width="md">
   {#snippet children()}
-    <PageHeader kicker="Legal" title="Privacy Policy" />
+    <PageHeader kicker={page.kicker} title={page.title} />
     <div style="color:var(--color-text-secondary);font-size:0.95rem;line-height:1.8">
       <p>Effective date: 25 June 2026</p>
       <p>This Privacy Policy explains how Sequoia [SEQ] ("we", "us", or "our") collects, uses, stores, and protects personal data when you use our Discord server, Discord bot, Minecraft guild chat bridge, website, and related services.</p>

@@ -2,13 +2,14 @@
   import PageScaffold from "$lib/components/PageScaffold.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import SubpageGrid from "$lib/components/SubpageGrid.svelte";
-  import { tabsFor } from "$lib/site/nav";
-  const tabs = tabsFor("/services");
+  import { pageView } from "$lib/site/nav";
+
+  const page = pageView("/services");
 </script>
 
-<PageScaffold crumbs={[{ label: "Home", to: "/" }, { label: "Services" }]} {tabs}>
+<PageScaffold crumbs={page.crumbs} tabs={page.tabs}>
   {#snippet children()}
-    <PageHeader kicker="Services" title="Community" lead="Sequoia services: bagshop, announcements, and requests." />
-    <SubpageGrid items={tabs} />
+    <PageHeader kicker={page.kicker} title={page.title} lead={page.lead} />
+    <SubpageGrid items={page.cards} />
   {/snippet}
 </PageScaffold>

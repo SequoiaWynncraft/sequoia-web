@@ -2,11 +2,14 @@
   import PageScaffold from "$lib/components/PageScaffold.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import Placeholder from "$lib/components/Placeholder.svelte";
+  import { pageView } from "$lib/site/nav";
+
+  const page = pageView("/news");
 </script>
 
-<PageScaffold crumbs={[{ label: "Home", to: "/" }, { label: "News" }]}>
+<PageScaffold crumbs={page.crumbs}>
   {#snippet children()}
-    <PageHeader kicker="News" title="Public Announcements" lead="Latest news and public updates from Sequoia." />
-    <Placeholder>News</Placeholder>
+    <PageHeader kicker={page.kicker} title={page.title} lead={page.lead} />
+    <Placeholder>{page.placeholder}</Placeholder>
   {/snippet}
 </PageScaffold>
