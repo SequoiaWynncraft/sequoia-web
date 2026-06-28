@@ -194,8 +194,6 @@
   ];
   let lightbox = $state<number | null>(null);
 
-  // Recruitment hover
-  let applyHover = $state(false);
 </script>
 
 <!-- Hero -->
@@ -306,9 +304,7 @@
     <div style="width:3rem;height:1px;margin:0 auto 1.75rem;background:linear-gradient(90deg,transparent,rgba(245,197,66,0.3),transparent)"></div>
     <a
       href="https://discord.gg/seq" target="_blank" rel="noreferrer"
-      onmouseenter={() => applyHover = true}
-      onmouseleave={() => applyHover = false}
-      style="display:inline-block;font-family:var(--font-display);font-size:clamp(1.35rem,4vw,2rem);letter-spacing:0.06em;text-transform:uppercase;text-decoration:none;color:{applyHover ? 'var(--color-enchant)' : 'var(--color-gold)'};padding:0.75em 1.6em;text-shadow:{applyHover ? '0 0 16px rgba(168,85,247,0.3)' : '0 1px 0 rgba(0,0,0,0.3)'};transform:{applyHover ? 'translateY(-1px)' : 'none'};transition:color 0.3s ease,text-shadow 0.3s ease,transform 0.2s ease"
+      class="seq-apply-link"
     >
       Apply Now
     </a>

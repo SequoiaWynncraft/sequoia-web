@@ -4,6 +4,65 @@
   isolation: isolate;
 }
 
+.seq-app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.seq-page-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  contain: paint;
+}
+
+.seq-page-backdrop-glow,
+.seq-page-backdrop-vignette {
+  position: absolute;
+}
+
+.seq-page-backdrop-glow {
+  mix-blend-mode: screen;
+}
+
+.seq-page-backdrop-glow-gold {
+  top: -10%;
+  left: -5%;
+  width: 55vw;
+  height: 55vw;
+  background: radial-gradient(circle, rgba(245,197,66,0.05), transparent 60%);
+}
+
+.seq-page-backdrop-glow-enchant {
+  top: 30%;
+  right: -10%;
+  width: 50vw;
+  height: 50vw;
+  background: radial-gradient(circle, rgba(168,85,247,0.05), transparent 60%);
+}
+
+.seq-page-backdrop-glow-low {
+  bottom: -15%;
+  left: 20%;
+  width: 45vw;
+  height: 45vw;
+  background: radial-gradient(circle, rgba(245,197,66,0.018), transparent 62%);
+}
+
+.seq-page-backdrop-vignette {
+  inset: 0;
+  box-shadow: inset 0 0 240px rgba(0,0,0,0.7);
+}
+
+.seq-footer-layer {
+  position: relative;
+  z-index: 1;
+}
+
 .seq-main-shell {
   flex: 1;
   position: relative;
@@ -165,6 +224,291 @@
   font-size: 0.9rem;
   line-height: 1.6;
   color: var(--color-text-dim);
+}
+
+/* Shared cards and controls */
+.seq-card {
+  position: relative;
+  display: block;
+  background: var(--surface-card);
+  border: 1px solid rgba(245,197,66,0.3);
+  border-radius: var(--radius-lg);
+  padding: var(--seq-card-padding, 1.25rem);
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+  transition:
+    transform var(--dur-slow) var(--ease-out-soft),
+    box-shadow var(--dur-slow) ease,
+    border-color var(--dur-slow) ease;
+}
+
+.seq-card-static {
+  border-color: var(--color-border-subtle);
+}
+
+.seq-card-hoverable:hover {
+  transform: translateY(-6px) scale(1.025);
+  box-shadow: var(--shadow-card-hover);
+  border-color: rgba(168,85,247,0.5);
+}
+
+.seq-card-rule {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(245,197,66,0.4), transparent);
+}
+
+.seq-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-decoration: none;
+  line-height: 1;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition:
+    transform var(--dur-base) var(--ease-out-soft),
+    background var(--dur-base) ease,
+    color var(--dur-base) ease,
+    border-color var(--dur-base) ease,
+    box-shadow var(--dur-base) ease;
+  white-space: nowrap;
+}
+
+.seq-button:disabled,
+.seq-button[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.seq-button-sm {
+  padding: 0.4rem 0.85rem;
+  font-size: 0.75rem;
+  gap: 0.4rem;
+}
+
+.seq-button-md {
+  padding: 0.6rem 1.2rem;
+  font-size: 0.85rem;
+  gap: 0.5rem;
+}
+
+.seq-button-lg {
+  padding: 0.8rem 1.7rem;
+  font-size: 1rem;
+  gap: 0.6rem;
+}
+
+.seq-button-primary {
+  background: var(--color-gold);
+  color: var(--color-abyss);
+  border-color: var(--color-gold-dark);
+  box-shadow: var(--glow-gold-soft);
+}
+
+.seq-button-secondary {
+  background: transparent;
+  color: var(--color-text-secondary);
+  border-color: var(--color-border-subtle);
+}
+
+.seq-button-ghost {
+  background: transparent;
+  color: var(--color-gold);
+  border-color: transparent;
+}
+
+.seq-button-enchant {
+  background: rgba(168,85,247,0.12);
+  color: var(--color-enchant);
+  border-color: rgba(168,85,247,0.4);
+}
+
+.seq-button-primary:not(:disabled):not([aria-disabled="true"]):hover {
+  background: var(--color-gold-light);
+  transform: translateY(-1px);
+  box-shadow: var(--glow-gold);
+}
+
+.seq-button-secondary:not(:disabled):not([aria-disabled="true"]):hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-border-accent);
+}
+
+.seq-button-ghost:not(:disabled):not([aria-disabled="true"]):hover {
+  color: var(--color-gold-light);
+}
+
+.seq-button-enchant:not(:disabled):not([aria-disabled="true"]):hover {
+  background: rgba(168,85,247,0.2);
+  color: #c084fc;
+  border-color: rgba(168,85,247,0.6);
+}
+
+.seq-service-card {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.seq-service-card-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1rem;
+  background: var(--color-border-subtle);
+  color: var(--color-text-secondary);
+  transition:
+    color var(--dur-base) ease,
+    transform var(--dur-base) var(--ease-out-soft);
+}
+
+.seq-service-card-icon-flagship {
+  background: rgba(245,197,66,0.1);
+  color: var(--color-gold);
+}
+
+.seq-card-hoverable:hover .seq-service-card-icon {
+  transform: translateY(-2px) scale(1.04);
+}
+
+.seq-card-hoverable:hover .seq-service-card-icon:not(.seq-service-card-icon-flagship) {
+  color: var(--color-enchant);
+}
+
+.seq-service-card-title {
+  font-family: var(--font-display);
+  font-size: 1.125rem;
+  letter-spacing: 0.04em;
+  color: var(--color-text-primary);
+  margin: 0 0 0.5rem;
+}
+
+.seq-service-card-copy {
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.seq-service-card-cta {
+  margin-top: 1rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(245,197,66,0.8);
+  transition: color var(--dur-base) ease;
+}
+
+.seq-card-hoverable:hover .seq-service-card-cta {
+  color: var(--color-gold);
+}
+
+.seq-service-card-arrow {
+  transition: transform var(--dur-base) var(--ease-out-soft);
+}
+
+.seq-card-hoverable:hover .seq-service-card-arrow {
+  transform: translateX(3px);
+}
+
+.seq-officer-card {
+  position: relative;
+  width: 200px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-left: 2px solid var(--seq-officer-border);
+  border-radius: var(--radius-lg);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition:
+    box-shadow var(--dur-slow) ease,
+    transform var(--dur-slow) var(--ease-out-soft);
+}
+
+.seq-officer-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.seq-officer-status {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+}
+
+.seq-officer-avatar {
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-deep);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--bevel-slot);
+  image-rendering: pixelated;
+}
+
+.seq-officer-initial {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  color: var(--color-text-secondary);
+}
+
+.seq-officer-name {
+  font-family: var(--font-display);
+  font-size: 0.875rem;
+  letter-spacing: 0.03em;
+  color: var(--color-text-primary);
+  margin-top: 0.6rem;
+  text-align: center;
+}
+
+.seq-officer-rank {
+  margin-top: 0.35rem;
+}
+
+.seq-officer-stats {
+  width: 100%;
+  margin-top: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.seq-officer-stat-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+}
+
+.seq-officer-stat-key {
+  color: var(--color-text-dim);
+}
+
+.seq-officer-stat-value {
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
 }
 
 .seq-footer {
@@ -778,6 +1122,28 @@
 }
 .seq-art-frame:hover .seq-art-cap {
   transform: translateY(0);
+}
+
+.seq-apply-link {
+  display: inline-block;
+  font-family: var(--font-display);
+  font-size: clamp(1.35rem, 4vw, 2rem);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--color-gold);
+  padding: 0.75em 1.6em;
+  text-shadow: 0 1px 0 rgba(0,0,0,0.3);
+  transition:
+    color 0.3s ease,
+    text-shadow 0.3s ease,
+    transform 0.2s ease;
+}
+
+.seq-apply-link:hover {
+  color: var(--color-enchant);
+  text-shadow: 0 0 16px rgba(168,85,247,0.3);
+  transform: translateY(-1px);
 }
 
 /* ── Homepage: responsive stats grid ── */
