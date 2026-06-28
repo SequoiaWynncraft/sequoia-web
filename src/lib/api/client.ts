@@ -19,18 +19,17 @@ export interface SequoiaApiClient {
 }
 
 export interface SequoiaApiClientOptions {
+  fetch: typeof fetch;
   baseUrl?: string;
-  fetch?: typeof fetch;
 }
 
-export function createSequoiaApiClient(options: SequoiaApiClientOptions = {}): SequoiaApiClient {
+export function createSequoiaApiClient(options: SequoiaApiClientOptions): SequoiaApiClient {
   const baseUrl = options.baseUrl ?? SEQUOIA_API_BASE_URL;
-  const fetchImpl = options.fetch ?? globalThis.fetch.bind(globalThis);
 
   return {
     async getSeasonRaidActivity(query) {
       const url = apiUrl(baseUrl, "/public/season/raid-activity", query);
-      const response = await requestJson(fetchImpl, url);
+      const response = await requestJson(options.fetch, url);
       if (!response.ok) return response;
       if (!isSeasonRaidActivityResponse(response.data)) {
         return {
@@ -42,8 +41,6 @@ export function createSequoiaApiClient(options: SequoiaApiClientOptions = {}): S
     },
   };
 }
-
-export const sequoiaApi = createSequoiaApiClient();
 
 function apiUrl(baseUrl: string, path: string, query: Record<string, string>): string {
   const search = new URLSearchParams(query).toString();

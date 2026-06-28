@@ -42,7 +42,7 @@ describe("createSequoiaApiClient", () => {
     ]);
   });
 
-  it("supports same-origin API routing", async () => {
+  it("supports same-origin API routing through the injected fetch", async () => {
     const requests: string[] = [];
     const client = createSequoiaApiClient({
       baseUrl: "",

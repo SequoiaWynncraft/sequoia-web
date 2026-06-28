@@ -20,6 +20,8 @@ pnpm api:types
 
 Generated files live under `src/lib/api/generated/` and should not be edited by hand. Handwritten clients should wrap generated types and return explicit result objects instead of throwing into route components.
 
+Create API clients with an explicit `fetch`. In SvelteKit `load` functions, server routes, and actions, pass SvelteKit's provided `fetch` so same-origin calls work during SSR and prerendering. Browser-only code paths such as event handlers can pass `globalThis.fetch.bind(globalThis)` explicitly.
+
 ## Coolify Deployment
 
 Both `sequoia-web` and `sequoia-backend` can run on the same Coolify VPS. The web app supports two public API routing modes:
@@ -38,5 +40,6 @@ Add page metadata to `src/lib/site/nav.ts`, then keep route files small by consu
 1. Add or update the backend endpoint and `openapi/public.yaml`.
 2. Run `pnpm api:types` in this repo.
 3. Add a typed wrapper in `src/lib/api/`.
-4. Add unit tests around URL building, error handling, and response validation.
-5. Keep visual route behavior separate from API wiring so layout changes and data changes remain reviewable.
+4. Pass SvelteKit's provided `fetch` from route/load boundaries instead of relying on `globalThis.fetch`.
+5. Add unit tests around URL building, error handling, and response validation.
+6. Keep visual route behavior separate from API wiring so layout changes and data changes remain reviewable.
