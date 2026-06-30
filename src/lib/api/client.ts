@@ -94,8 +94,48 @@ function isSeasonRaidActivityResponse(value: unknown): value is SeasonRaidActivi
     isRecord(value) &&
     typeof value.generated_at === "string" &&
     Array.isArray(value.averages) &&
-    Array.isArray(value.entries)
+    value.averages.every(isRaidTypeAverage) &&
+    Array.isArray(value.entries) &&
+    value.entries.every(isSeasonRaidActivityEntry)
   );
+}
+
+function isRaidTypeAverage(value: unknown): value is SeasonRaidActivityResponse["averages"][number] {
+  return (
+    isRecord(value) &&
+    typeof value.raid_name === "string" &&
+    isFiniteNumber(value.average_sr)
+  );
+}
+
+function isSeasonRaidActivityEntry(value: unknown): value is SeasonRaidActivityResponse["entries"][number] {
+  return (
+    isRecord(value) &&
+    typeof value.guild_name === "string" &&
+    Array.isArray(value.days) &&
+    value.days.every(isSeasonRaidActivityDay)
+  );
+}
+
+function isSeasonRaidActivityDay(value: unknown): value is SeasonRaidActivityResponse["entries"][number]["days"][number] {
+  return (
+    isRecord(value) &&
+    typeof value.day === "string" &&
+    Array.isArray(value.raid_counts) &&
+    value.raid_counts.every(isRaidCount)
+  );
+}
+
+function isRaidCount(value: unknown): value is SeasonRaidActivityResponse["entries"][number]["days"][number]["raid_counts"][number] {
+  return (
+    isRecord(value) &&
+    typeof value.raid_name === "string" &&
+    isFiniteNumber(value.count)
+  );
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
