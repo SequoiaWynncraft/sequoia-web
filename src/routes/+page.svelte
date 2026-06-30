@@ -143,7 +143,8 @@
     let observer: IntersectionObserver | undefined;
     const dur = 1400;
     const animate = () => {
-      statProgress = 0;
+      if (raf) return;
+      start = 0;
       raf = requestAnimationFrame(tick);
     };
     const tick = (t: number) => {
@@ -152,12 +153,13 @@
       if (statProgress < 1) raf = requestAnimationFrame(tick);
     };
 
+    statProgress = 0;
     if ("IntersectionObserver" in window) {
       observer = new IntersectionObserver(([entry]) => {
         if (!entry.isIntersecting) return;
         observer?.disconnect();
         animate();
-      }, { threshold: 0.35 });
+      }, { threshold: 0.01 });
       observer.observe(statsSection);
     } else {
       statProgress = 1;
