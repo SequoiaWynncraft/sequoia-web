@@ -241,20 +241,26 @@ export function tabsFor(path: string): NavLeaf[] {
 }
 
 export function cardsFor(path: string): NavLeaf[] {
-  const section = SECTIONS.find((s) => s.to === path);
-  if (!section) return [];
-  if (section.items) return section.items;
-  if (section.groups) {
-    return section.groups.map((g) => ({
-      label: g.label,
-      to: g.to,
-      icon: g.icon,
-      description: g.description,
-      kicker: g.kicker,
-      title: g.title,
-      lead: g.lead,
-    }));
+  for (const section of SECTIONS) {
+    if (section.to === path) {
+      if (section.items) return section.items;
+      if (section.groups) {
+        return section.groups.map((g) => ({
+          label: g.label,
+          to: g.to,
+          icon: g.icon,
+          description: g.description,
+          kicker: g.kicker,
+          title: g.title,
+          lead: g.lead,
+        }));
+      }
+    }
+
+    const group = section.groups?.find((g) => g.to === path);
+    if (group) return group.items;
   }
+
   return [];
 }
 
@@ -277,7 +283,7 @@ export function pageView(path: string): PageView {
     placeholder: match.page.placeholder,
     crumbs: crumbsFor(path),
     tabs: parent ? tabsFor(parent) : tabsFor(match.page.to),
-    cards: cardsFor(match.page.to).length > 0 ? cardsFor(match.page.to) : tabsFor(match.page.to),
+    cards: cardsFor(match.page.to),
   };
 }
 
