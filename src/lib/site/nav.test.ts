@@ -33,6 +33,14 @@ describe("site navigation registry", () => {
     ]);
   });
 
+  it("uses child cards on group overview pages", () => {
+    expect(pageView("/statistics/player").cards.map((card) => card.to)).toEqual([
+      "/statistics/player/raids",
+      "/statistics/player/activity",
+      "/statistics/player/playercard",
+    ]);
+  });
+
   it("keeps extra child pages in their parent section without putting them in nav cards", () => {
     const view = pageView("/services/contact");
 
@@ -46,6 +54,12 @@ describe("site navigation registry", () => {
       "/services/announcements",
       "/services/requests",
     ]);
+    expect(view.cards).toEqual([]);
+  });
+
+  it("does not reuse sibling tabs as leaf page cards", () => {
+    expect(pageView("/services/bagshop").cards).toEqual([]);
+    expect(pageView("/statistics/player/raids").cards).toEqual([]);
   });
 
   it("uses the original Svelte service set on the homepage", () => {

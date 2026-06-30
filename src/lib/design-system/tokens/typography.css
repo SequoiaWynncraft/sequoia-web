@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════════
    SEQUOIA — TYPOGRAPHY TOKENS
-   Three families: Minecraft (pixel display) for everything titular,
-   system-ui for readable body copy, JetBrains Mono for numerics/data.
+   Minecraft (pixel display) for everything titular, system-ui for
+   readable body copy, and native monospace for numerics/data.
    Headings are uppercase, letter-spaced, and frequently gold-gradient.
    ═══════════════════════════════════════════════════════════════════ */
 
@@ -9,7 +9,7 @@
   /* ── Families ── */
   --font-display: "Minecraft", monospace;
   --font-body: system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-mono: "JetBrains Mono", monospace;
+  --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Code", "Liberation Mono", Menlo, Consolas, monospace;
 
   /* ── Sizes (rem) ── */
   --text-2xs: 0.7rem;     /* tiny captions */

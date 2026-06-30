@@ -97,6 +97,24 @@ describe("createSequoiaApiClient", () => {
     });
   });
 
+  it("rejects malformed nested success payloads", async () => {
+    const client = createSequoiaApiClient({
+      baseUrl: "https://api.example.test",
+      fetch: async () => jsonResponse({ generated_at: "2026-06-26T12:00:00Z", averages: [{}], entries: [{}] }),
+    });
+
+    const result = await client.getSeasonRaidActivity({
+      from: "2026-06-01T00:00:00Z",
+      to: "2026-06-26T00:00:00Z",
+      guild_names: "Sequoia",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "invalid_response", message: "Unexpected season raid activity response." },
+    });
+  });
+
   it("returns network errors without throwing", async () => {
     const client = createSequoiaApiClient({
       baseUrl: "https://api.example.test",

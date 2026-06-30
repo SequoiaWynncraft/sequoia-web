@@ -9,27 +9,34 @@
 
   const IMG = "/assets/images/";
   const SERVICES = homepageServices();
-  let smoothScrollY = $state(0);
-  let targetScrollY = 0;
-  const heroOffset = $derived(Math.max(-18, smoothScrollY * -0.032));
-  let statProgress = $state(0);
+  let heroImage: HTMLImageElement;
+  let statsSection: HTMLElement;
+  let statProgress = $state(1);
   const statEase = $derived(1 - Math.pow(1 - statProgress, 3));
 
   onMount(() => {
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reducedMotion) return;
+    if (reducedMotion || !heroImage) return;
 
+    let smoothScrollY = window.scrollY;
+    let targetScrollY = smoothScrollY;
     let raf = 0;
+    const render = () => {
+      const heroOffset = Math.max(-18, smoothScrollY * -0.032);
+      heroImage.style.transform = `translate3d(0,${heroOffset}px,0) scale(1.045)`;
+    };
     const tick = () => {
       const delta = targetScrollY - smoothScrollY;
 
       if (Math.abs(delta) < 0.2) {
         smoothScrollY = targetScrollY;
+        render();
         raf = 0;
         return;
       }
 
       smoothScrollY += delta * 0.14;
+      render();
       raf = requestAnimationFrame(tick);
     };
 
@@ -40,6 +47,7 @@
 
     targetScrollY = window.scrollY;
     smoothScrollY = targetScrollY;
+    render();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => {
       window.removeEventListener("scroll", onScroll);
@@ -58,6 +66,7 @@
     let raf = 0, w = 0, h = 0;
     let visible = true;
     let pageVisible = !document.hidden;
+    const tau = Math.PI * 2;
     const dots = Array.from({ length: 36 }, () => ({
       x: Math.random(), y: Math.random(), r: Math.random() * 1.6 + 0.4,
       p: Math.random() * Math.PI * 2, s: Math.random() * 0.0008 + 0.0002,
@@ -83,13 +92,15 @@
         return;
       }
       ctx.clearRect(0, 0, w, h);
-      dots.forEach((d) => {
+      ctx.shadowBlur = 6;
+      ctx.shadowColor = "rgba(245,197,66,0.6)";
+      for (let i = 0; i < dots.length; i += 1) {
+        const d = dots[i];
         d.y -= d.s; if (d.y < -0.02) d.y = 1.02;
         const a = 0.35 + 0.45 * Math.sin(t * 0.002 + d.p);
-        ctx.beginPath(); ctx.arc(d.x * w, d.y * h, d.r, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(245,197,66,${a})`; ctx.shadowBlur = 6;
-        ctx.shadowColor = "rgba(245,197,66,0.6)"; ctx.fill();
-      });
+        ctx.beginPath(); ctx.arc(d.x * w, d.y * h, d.r, 0, tau);
+        ctx.fillStyle = `rgba(245,197,66,${a})`; ctx.fill();
+      }
       raf = requestAnimationFrame(draw);
     };
 
@@ -122,21 +133,41 @@
   // Count-up
   onMount(() => {
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reducedMotion) {
-      statProgress = 1;
-      return;
-    }
+    if (reducedMotion || !statsSection) return;
+
+    const initialRect = statsSection.getBoundingClientRect();
+    if (initialRect.bottom > 0 && initialRect.top < window.innerHeight) return;
+    if (initialRect.bottom <= 0) return;
 
     let raf = 0, start = 0;
+    let observer: IntersectionObserver | undefined;
     const dur = 1400;
+    const animate = () => {
+      if (raf) return;
+      start = 0;
+      raf = requestAnimationFrame(tick);
+    };
     const tick = (t: number) => {
       if (!start) start = t;
       statProgress = Math.min((t - start) / dur, 1);
       if (statProgress < 1) raf = requestAnimationFrame(tick);
     };
-    raf = requestAnimationFrame(tick);
+
+    statProgress = 0;
+    if ("IntersectionObserver" in window) {
+      observer = new IntersectionObserver(([entry]) => {
+        if (!entry.isIntersecting) return;
+        observer?.disconnect();
+        animate();
+      }, { threshold: 0.01 });
+      observer.observe(statsSection);
+    } else {
+      statProgress = 1;
+    }
+
     return () => {
       if (raf) cancelAnimationFrame(raf);
+      observer?.disconnect();
     };
   });
   const statValue = (target: number) => Math.round(target * statEase).toLocaleString();
@@ -165,8 +196,6 @@
   ];
   let lightbox = $state<number | null>(null);
 
-  // Recruitment hover
-  let applyHover = $state(false);
 </script>
 
 <!-- Hero -->
@@ -179,7 +208,8 @@
       decoding="async"
       fetchpriority="high"
       class="seq-hero-bg"
-      style="transform:translate3d(0,{heroOffset}px,0) scale(1.045)"
+      bind:this={heroImage}
+      style="transform:translate3d(0,0px,0) scale(1.045)"
     />
   </div>
   <div class="seq-hero-vignette"></div>
@@ -197,7 +227,7 @@
 </section>
 
 <!-- Stats -->
-<section style="padding:4rem 1.5rem;background:var(--color-deep)">
+<section bind:this={statsSection} style="padding:4rem 1.5rem;background:var(--color-deep)">
   <div style="max-width:64rem;margin:0 auto">
     <div class="divider-gold" style="margin-bottom:3rem"></div>
     <div class="seq-stats-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:2rem 1rem">
@@ -252,7 +282,7 @@
       {#each ART as a, i}
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div onclick={() => lightbox = i} class="seq-art-frame" style="break-inside:avoid;margin-bottom:1rem;border-radius:0.75rem;overflow:hidden;border:1px solid rgba(40,44,62,0.6);cursor:pointer;position:relative" role="button" tabindex="0" onkeydown={(e) => { if (e.key === 'Enter') lightbox = i; }}>
-          <img src={IMG + a.src} alt={a.title} loading="lazy" style="width:100%;display:block;filter:brightness(0.92) saturate(0.95)" />
+          <img src={IMG + a.src} alt={a.title} loading="lazy" decoding="async" style="width:100%;display:block;filter:brightness(0.92) saturate(0.95)" />
           <div class="seq-art-cap" style="position:absolute;bottom:0;left:0;right:0;padding:0.7rem 0.85rem;background:linear-gradient(to top,rgba(12,14,23,0.9),transparent)">
             <div style="font-family:var(--font-display);font-size:0.8rem;letter-spacing:0.08em;text-transform:uppercase;color:rgba(245,197,66,0.9)">{a.title}</div>
             <div style="font-size:0.72rem;color:rgba(154,149,144,0.8)">{a.desc}</div>
@@ -276,9 +306,7 @@
     <div style="width:3rem;height:1px;margin:0 auto 1.75rem;background:linear-gradient(90deg,transparent,rgba(245,197,66,0.3),transparent)"></div>
     <a
       href="https://discord.gg/seq" target="_blank" rel="noreferrer"
-      onmouseenter={() => applyHover = true}
-      onmouseleave={() => applyHover = false}
-      style="display:inline-block;font-family:var(--font-display);font-size:clamp(1.35rem,4vw,2rem);letter-spacing:0.06em;text-transform:uppercase;text-decoration:none;color:{applyHover ? 'var(--color-enchant)' : 'var(--color-gold)'};padding:0.75em 1.6em;text-shadow:{applyHover ? '0 0 16px rgba(168,85,247,0.3)' : '0 1px 0 rgba(0,0,0,0.3)'};transform:{applyHover ? 'translateY(-1px)' : 'none'};transition:color 0.3s ease,text-shadow 0.3s ease,transform 0.2s ease"
+      class="seq-apply-link"
     >
       Apply Now
     </a>
