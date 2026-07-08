@@ -216,18 +216,46 @@
   const statValue = (target: number) => Math.round(target * statEase).toLocaleString();
   const nmsrHeadIsoUrl = (username: string) =>
     `${NMSR_BASE_URL.replace(/\/+$/, "")}/headiso/${encodeURIComponent(username)}?w=128`;
+  let branchmastersScroller: HTMLElement;
+  let branchmastersDragging = $state(false);
+  let branchmastersDragStartX = 0;
+  let branchmastersDragStartScrollLeft = 0;
+
+  function handleBranchmastersPointerDown(event: PointerEvent) {
+    if (!branchmastersScroller || event.button !== 0) return;
+    branchmastersDragging = true;
+    branchmastersDragStartX = event.clientX;
+    branchmastersDragStartScrollLeft = branchmastersScroller.scrollLeft;
+    branchmastersScroller.setPointerCapture(event.pointerId);
+  }
+
+  function handleBranchmastersPointerMove(event: PointerEvent) {
+    if (!branchmastersDragging || !branchmastersScroller) return;
+    event.preventDefault();
+    branchmastersScroller.scrollLeft = branchmastersDragStartScrollLeft - (event.clientX - branchmastersDragStartX);
+  }
+
+  function handleBranchmastersPointerEnd(event: PointerEvent) {
+    branchmastersDragging = false;
+    if (branchmastersScroller?.hasPointerCapture(event.pointerId)) {
+      branchmastersScroller.releasePointerCapture(event.pointerId);
+    }
+  }
 
   // Officers
   const OFFICERS = [
-    { username: "Amber", rank: "owner", online: true, stats: { XP: "4.1M", Wars: "612", Raids: "188", Joined: "Jan 2022" } },
-    { username: "RaidKeeper", rank: "strategist", online: false, stats: { XP: "2.3M", Wars: "401", Raids: "240", Joined: "Mar 2023" } },
-    { username: "Wisteria", rank: "chief", online: true, stats: { XP: "3.4M", Wars: "528", Raids: "201", Joined: "Feb 2022" } },
-    { username: "Bramblewood", rank: "chief", online: false, stats: { XP: "2.9M", Wars: "470", Raids: "176", Joined: "May 2022" } },
-    { username: "Thornbark", rank: "strategist", online: true, stats: { XP: "1.9M", Wars: "352", Raids: "159", Joined: "Aug 2023" } },
-    { username: "Larkspur", rank: "captain", online: false, stats: { XP: "1.4M", Wars: "288", Raids: "121", Joined: "Nov 2023" } },
+    { username: "Tannslee", rank: "chief", online: false, stats: { XP: "6.8T", Wars: "9,420", Raids: "12", Joined: "May 2024" } },
+    { username: "cela41", rank: "strategist", online: true, stats: { XP: "4.2T", Wars: "5,812", Raids: "88", Joined: "Jun 2024" } },
+    { username: "GlacWe", rank: "chief", online: false, stats: { XP: "7.6T", Wars: "11378", Raids: "0", Joined: "Aug 2024" } },
+    { username: "pantiifre", rank: "strategist", online: true, stats: { XP: "3.9T", Wars: "4,731", Raids: "44", Joined: "Sep 2024" } },
+    { username: "RaidKeeper", rank: "chief", online: true, stats: { XP: "2.3M", Wars: "401", Raids: "240", Joined: "Mar 2023" } },
+    { username: "Sup3rZ", rank: "strategist", online: false, stats: { XP: "3.1T", Wars: "3,920", Raids: "17", Joined: "Oct 2024" } },
+    { username: "Shisouhan", rank: "chief", online: false, stats: { XP: "5.5T", Wars: "7,184", Raids: "62", Joined: "Apr 2024" } },
+    { username: "TM20", rank: "strategist", online: false, stats: { XP: "2.8T", Wars: "2,601", Raids: "31", Joined: "Nov 2024" } },
+    { username: "Purrrated", rank: "chief", online: false, stats: { XP: "5.9T", Wars: "8,046", Raids: "74", Joined: "Jul 2024" } },
+    { username: "0_Nickname_0", rank: "strategist", online: false, stats: { XP: "2.5T", Wars: "2,114", Raids: "26", Joined: "Dec 2024" } },
   ];
   const branchmasters = OFFICERS.map((officer) => ({ ...officer, avatarUrl: nmsrHeadIsoUrl(officer.username) }));
-  const officerLoop = [...branchmasters, ...branchmasters];
 
   // Exhibition
   const ART = [
@@ -307,15 +335,26 @@
 </section>
 
 <!-- Members -->
-<section id="members" style="padding:5rem 0">
-  <div style="max-width:80rem;margin:0 auto">
-    <SectionHeading kicker="The Guild" style="margin-bottom:2.5rem;padding:0 1.5rem">The Branchmasters</SectionHeading>
-    <div style="overflow:hidden;-webkit-mask-image:linear-gradient(to right,transparent,black 6%,black 94%,transparent);mask-image:linear-gradient(to right,transparent,black 6%,black 94%,transparent)">
-      <div style="display:flex;gap:1.25rem;width:max-content;animation:seq-officer-scroll 48s linear infinite;padding:0.5rem 0">
-        {#each officerLoop as o}
-          <OfficerCard username={o.username} rank={o.rank} online={o.online} avatarUrl={o.avatarUrl} stats={o.stats} />
-        {/each}
-      </div>
+<section id="members" class="seq-branchmasters-section">
+  <div class="seq-branchmasters-heading">
+    <SectionHeading kicker="The Guild">The Branchmasters</SectionHeading>
+  </div>
+  <div
+    bind:this={branchmastersScroller}
+    class="seq-branchmasters-strip"
+    class:seq-branchmasters-strip--dragging={branchmastersDragging}
+    role="region"
+    aria-label="Branchmasters roster"
+    onpointerdown={handleBranchmastersPointerDown}
+    onpointermove={handleBranchmastersPointerMove}
+    onpointerup={handleBranchmastersPointerEnd}
+    onpointercancel={handleBranchmastersPointerEnd}
+    onlostpointercapture={() => branchmastersDragging = false}
+  >
+    <div class="seq-branchmasters-track">
+      {#each branchmasters as o}
+        <OfficerCard username={o.username} rank={o.rank} online={o.online} avatarUrl={o.avatarUrl} stats={o.stats} />
+      {/each}
     </div>
   </div>
 </section>

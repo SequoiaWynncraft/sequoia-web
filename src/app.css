@@ -428,23 +428,69 @@
   transform: translateX(3px);
 }
 
+.seq-branchmasters-section {
+  padding: 5rem 0;
+  border-top: 1px solid rgba(40, 44, 62, 0.45);
+  border-bottom: 1px solid rgba(40, 44, 62, 0.45);
+}
+
+.seq-branchmasters-heading {
+  max-width: 80rem;
+  margin: 0 auto 2.5rem;
+  padding: 0 1.5rem;
+}
+
+.seq-branchmasters-strip {
+  overflow-x: auto;
+  overflow-y: hidden;
+  cursor: grab;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+  mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+}
+
+.seq-branchmasters-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.seq-branchmasters-strip--dragging {
+  cursor: grabbing;
+}
+
+.seq-branchmasters-track {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  grid-auto-columns: clamp(18rem, 21vw, 19rem);
+  gap: 1.75rem 1.85rem;
+  width: max-content;
+  padding: 0.75rem max(1.5rem, calc((100vw - 80rem) / 2)) 1.2rem;
+}
+
 .seq-officer-card {
   position: relative;
-  width: 200px;
+  width: 100%;
+  min-height: 16.4rem;
   background: var(--color-surface);
   border: 1px solid var(--color-border-subtle);
   border-left: 2px solid var(--seq-officer-border);
   border-radius: var(--radius-lg);
-  padding: 1rem;
+  padding: 1.45rem 1.9rem 1.2rem;
   display: flex;
   flex-direction: column;
   align-items: center;
+  scroll-snap-align: center;
   transition:
+    border-color var(--dur-slow) ease,
     box-shadow var(--dur-slow) ease,
     transform var(--dur-slow) var(--ease-out-soft);
 }
 
 .seq-officer-card:hover {
+  border-color: var(--seq-officer-border);
   box-shadow: var(--shadow-md);
   transform: translateY(-2px);
 }
@@ -456,8 +502,8 @@
 }
 
 .seq-officer-avatar {
-  width: 4rem;
-  height: 4rem;
+  width: 4.4rem;
+  height: 4.4rem;
   border-radius: var(--radius-md);
   overflow: hidden;
   background:
@@ -493,7 +539,7 @@
 
 .seq-officer-name {
   font-family: var(--font-display);
-  font-size: 0.875rem;
+  font-size: 0.95rem;
   letter-spacing: 0.03em;
   color: var(--color-text-primary);
   margin-top: 0.6rem;
@@ -507,9 +553,24 @@
 .seq-officer-stats {
   width: 100%;
   margin-top: 0.85rem;
+  min-height: 5.2rem;
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-0.25rem);
+  transition:
+    opacity var(--dur-base) ease,
+    transform var(--dur-base) var(--ease-out-soft),
+    visibility 0s linear var(--dur-base);
+}
+
+.seq-officer-card:hover .seq-officer-stats {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+  transition-delay: 0s;
 }
 
 .seq-officer-stat-row {
