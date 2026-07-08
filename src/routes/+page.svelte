@@ -7,6 +7,7 @@
   import Icon from "$lib/components/Icon.svelte";
   import { createSequoiaApiClient } from "$lib/api/client";
   import type { HomepageStatsResponse } from "$lib/api/client";
+  import { NMSR_BASE_URL } from "$lib/config/public";
   import { homepageServices } from "$lib/site/nav";
 
   const IMG = "/assets/images/";
@@ -213,6 +214,8 @@
     };
   });
   const statValue = (target: number) => Math.round(target * statEase).toLocaleString();
+  const nmsrHeadUrl = (username: string) =>
+    `${NMSR_BASE_URL.replace(/\/+$/, "")}/head/${encodeURIComponent(username)}?w=128`;
 
   // Officers
   const OFFICERS = [
@@ -223,7 +226,8 @@
     { username: "Thornbark", rank: "strategist", online: true, stats: { XP: "1.9M", Wars: "352", Raids: "159", Joined: "Aug 2023" } },
     { username: "Larkspur", rank: "captain", online: false, stats: { XP: "1.4M", Wars: "288", Raids: "121", Joined: "Nov 2023" } },
   ];
-  const officerLoop = [...OFFICERS, ...OFFICERS];
+  const branchmasters = OFFICERS.map((officer) => ({ ...officer, avatarUrl: nmsrHeadUrl(officer.username) }));
+  const officerLoop = [...branchmasters, ...branchmasters];
 
   // Exhibition
   const ART = [
@@ -309,7 +313,7 @@
     <div style="overflow:hidden;-webkit-mask-image:linear-gradient(to right,transparent,black 6%,black 94%,transparent);mask-image:linear-gradient(to right,transparent,black 6%,black 94%,transparent)">
       <div style="display:flex;gap:1.25rem;width:max-content;animation:seq-officer-scroll 48s linear infinite;padding:0.5rem 0">
         {#each officerLoop as o}
-          <OfficerCard username={o.username} rank={o.rank} online={o.online} stats={o.stats} />
+          <OfficerCard username={o.username} rank={o.rank} online={o.online} avatarUrl={o.avatarUrl} stats={o.stats} />
         {/each}
       </div>
     </div>

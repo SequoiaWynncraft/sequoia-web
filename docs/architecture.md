@@ -31,6 +31,8 @@ Both `sequoia-web` and `sequoia-backend` can run on the same Coolify VPS. The we
 
 For same-origin production deploys, configure Coolify or the front proxy to forward `/public/**` to `sequoia-backend` on its application port, typically `8081`. Keep Postgres credentials on the backend service only; the web app should reach homepage stats through `/public/homepage/stats`.
 
+Player skin renders use `PUBLIC_NMSR_BASE_URL`, defaulting to the public NMSR route at `https://api.seqwawa.com/nmsr`. If the web origin also proxies `/nmsr/**`, set `PUBLIC_NMSR_BASE_URL=same-origin`; backend/container-only calls can use the internal Coolify service URL `http://nmsr:8080`.
+
 Local development defaults to `http://localhost:8081` when no value is configured.
 
 ## Adding Pages

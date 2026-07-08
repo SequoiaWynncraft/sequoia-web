@@ -6,14 +6,17 @@
     username,
     rank = "recruit",
     online = false,
+    avatarUrl,
     stats = {},
   }: {
     username: string;
     rank?: string;
     online?: boolean;
+    avatarUrl?: string;
     stats?: Record<string, string>;
   } = $props();
 
+  let avatarFailed = $state(false);
   const initial = $derived((username || "?").charAt(0).toUpperCase());
   const entries = $derived(Object.entries(stats));
 </script>
@@ -28,7 +31,19 @@
     </span>
   {/if}
   <div class="seq-officer-avatar">
-    <span class="seq-officer-initial">{initial}</span>
+    {#if avatarUrl && !avatarFailed}
+      <img
+        src={avatarUrl}
+        alt=""
+        aria-hidden="true"
+        loading="lazy"
+        decoding="async"
+        class="seq-officer-avatar-image"
+        onerror={() => avatarFailed = true}
+      />
+    {:else}
+      <span class="seq-officer-initial">{initial}</span>
+    {/if}
   </div>
   <div class="seq-officer-name">
     {username}
