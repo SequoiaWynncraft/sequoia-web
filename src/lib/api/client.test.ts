@@ -1,9 +1,19 @@
 import { describe, expect, it } from "vitest";
 
 import { createSequoiaApiClient } from "$lib/api/client";
-import type { SeasonRaidActivityResponse } from "$lib/api/client";
+import type { HomepageStatsResponse, SeasonRaidActivityResponse } from "$lib/api/client";
 
-const responseBody: SeasonRaidActivityResponse = {
+const homepageStatsBody: HomepageStatsResponse = {
+  generated_at: "2026-07-08T12:00:00Z",
+  members: 128,
+  guild_level: 142,
+  territories: 312,
+  total_wars: 18_472,
+  raids: 9_043,
+  online_now: 7,
+};
+
+const seasonRaidActivityBody: SeasonRaidActivityResponse = {
   generated_at: "2026-06-26T12:00:00Z",
   averages: [{ raid_name: "Nest of the Grootslangs", average_sr: 14.2 }],
   entries: [
@@ -20,13 +30,43 @@ const responseBody: SeasonRaidActivityResponse = {
 };
 
 describe("createSequoiaApiClient", () => {
+  it("requests public homepage stats without query parameters", async () => {
+    const requests: string[] = [];
+    const client = createSequoiaApiClient({
+      baseUrl: "https://api.example.test/",
+      fetch: async (input) => {
+        requests.push(String(input));
+        return jsonResponse(homepageStatsBody);
+      },
+    });
+
+    const result = await client.getHomepageStats();
+
+    expect(result).toEqual({ ok: true, data: homepageStatsBody });
+    expect(requests).toEqual(["https://api.example.test/public/homepage/stats"]);
+  });
+
+  it("rejects malformed homepage stats success payloads", async () => {
+    const client = createSequoiaApiClient({
+      baseUrl: "https://api.example.test",
+      fetch: async () => jsonResponse({ generated_at: "2026-07-08T12:00:00Z", members: "128" }),
+    });
+
+    const result = await client.getHomepageStats();
+
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "invalid_response", message: "Unexpected homepage stats response." },
+    });
+  });
+
   it("requests public season raid activity with typed query parameters", async () => {
     const requests: string[] = [];
     const client = createSequoiaApiClient({
       baseUrl: "https://api.example.test/",
       fetch: async (input) => {
         requests.push(String(input));
-        return jsonResponse(responseBody);
+        return jsonResponse(seasonRaidActivityBody);
       },
     });
 
@@ -36,7 +76,7 @@ describe("createSequoiaApiClient", () => {
       guild_names: "Sequoia",
     });
 
-    expect(result).toEqual({ ok: true, data: responseBody });
+    expect(result).toEqual({ ok: true, data: seasonRaidActivityBody });
     expect(requests).toEqual([
       "https://api.example.test/public/season/raid-activity?from=2026-06-01T00%3A00%3A00Z&to=2026-06-26T00%3A00%3A00Z&guild_names=Sequoia",
     ]);
@@ -48,7 +88,7 @@ describe("createSequoiaApiClient", () => {
       baseUrl: "",
       fetch: async (input) => {
         requests.push(String(input));
-        return jsonResponse(responseBody);
+        return jsonResponse(seasonRaidActivityBody);
       },
     });
 

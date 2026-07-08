@@ -1,6 +1,7 @@
 import { SEQUOIA_API_BASE_URL } from "$lib/config/public";
 import type { components, operations } from "$lib/api/generated/public-api";
 
+export type HomepageStatsResponse = components["schemas"]["HomepageStatsResponse"];
 export type SeasonRaidActivityResponse = components["schemas"]["SeasonRaidActivityResponse"];
 export type GetSeasonRaidActivityQuery = operations["getSeasonRaidActivity"]["parameters"]["query"];
 
@@ -15,6 +16,7 @@ export interface ApiError {
 export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: ApiError };
 
 export interface SequoiaApiClient {
+  getHomepageStats(): Promise<ApiResult<HomepageStatsResponse>>;
   getSeasonRaidActivity(query: GetSeasonRaidActivityQuery): Promise<ApiResult<SeasonRaidActivityResponse>>;
 }
 
@@ -27,6 +29,19 @@ export function createSequoiaApiClient(options: SequoiaApiClientOptions): Sequoi
   const baseUrl = options.baseUrl ?? SEQUOIA_API_BASE_URL;
 
   return {
+    async getHomepageStats() {
+      const url = apiUrl(baseUrl, "/public/homepage/stats");
+      const response = await requestJson(options.fetch, url);
+      if (!response.ok) return response;
+      if (!isHomepageStatsResponse(response.data)) {
+        return {
+          ok: false,
+          error: { code: "invalid_response", message: "Unexpected homepage stats response." },
+        };
+      }
+      return { ok: true, data: response.data };
+    },
+
     async getSeasonRaidActivity(query) {
       const url = apiUrl(baseUrl, "/public/season/raid-activity", query);
       const response = await requestJson(options.fetch, url);
@@ -42,10 +57,10 @@ export function createSequoiaApiClient(options: SequoiaApiClientOptions): Sequoi
   };
 }
 
-function apiUrl(baseUrl: string, path: string, query: Record<string, string>): string {
-  const search = new URLSearchParams(query).toString();
+function apiUrl(baseUrl: string, path: string, query?: Record<string, string>): string {
+  const search = query ? new URLSearchParams(query).toString() : "";
   const normalizedBaseUrl = baseUrl.replace(/\/+$/, "");
-  return `${normalizedBaseUrl}${path}?${search}`;
+  return `${normalizedBaseUrl}${path}${search ? `?${search}` : ""}`;
 }
 
 async function requestJson(fetchImpl: typeof fetch, url: string): Promise<ApiResult<unknown>> {
@@ -87,6 +102,19 @@ async function readJson(response: Response): Promise<unknown> {
 function errorMessage(value: unknown, fallback: string): string {
   if (isRecord(value) && typeof value.error === "string") return value.error;
   return fallback;
+}
+
+function isHomepageStatsResponse(value: unknown): value is HomepageStatsResponse {
+  return (
+    isRecord(value) &&
+    typeof value.generated_at === "string" &&
+    isFiniteNumber(value.members) &&
+    isFiniteNumber(value.guild_level) &&
+    isFiniteNumber(value.territories) &&
+    isFiniteNumber(value.total_wars) &&
+    isFiniteNumber(value.raids) &&
+    isFiniteNumber(value.online_now)
+  );
 }
 
 function isSeasonRaidActivityResponse(value: unknown): value is SeasonRaidActivityResponse {

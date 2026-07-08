@@ -5,14 +5,52 @@
   import ServiceCard from "$lib/design-system/components/ServiceCard.svelte";
   import OfficerCard from "$lib/design-system/components/OfficerCard.svelte";
   import Icon from "$lib/components/Icon.svelte";
+  import { createSequoiaApiClient } from "$lib/api/client";
+  import type { HomepageStatsResponse } from "$lib/api/client";
   import { homepageServices } from "$lib/site/nav";
 
   const IMG = "/assets/images/";
   const SERVICES = homepageServices();
+  type HomepageStats = Pick<
+    HomepageStatsResponse,
+    "members" | "guild_level" | "territories" | "total_wars" | "raids" | "online_now"
+  >;
+  const HOMEPAGE_STATS_FALLBACK: HomepageStats = {
+    members: 128,
+    guild_level: 142,
+    territories: 312,
+    total_wars: 18_472,
+    raids: 9_043,
+    online_now: 7,
+  };
   let heroImage: HTMLImageElement;
   let statsSection: HTMLElement;
+  let homepageStats = $state<HomepageStats>(HOMEPAGE_STATS_FALLBACK);
+  let pendingHomepageStats: HomepageStats | null = null;
   let statProgress = $state(1);
   const statEase = $derived(1 - Math.pow(1 - statProgress, 3));
+
+  onMount(() => {
+    const client = createSequoiaApiClient({ fetch: window.fetch.bind(window) });
+    let cancelled = false;
+
+    client.getHomepageStats().then((result) => {
+      if (cancelled || !result.ok) return;
+      applyHomepageStats(result.data);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  });
+
+  function applyHomepageStats(stats: HomepageStats) {
+    if (statProgress > 0 && statProgress < 1) {
+      pendingHomepageStats = stats;
+      return;
+    }
+    homepageStats = stats;
+  }
 
   onMount(() => {
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -151,6 +189,10 @@
       if (!start) start = t;
       statProgress = Math.min((t - start) / dur, 1);
       if (statProgress < 1) raf = requestAnimationFrame(tick);
+      else if (pendingHomepageStats) {
+        homepageStats = pendingHomepageStats;
+        pendingHomepageStats = null;
+      }
     };
 
     statProgress = 0;
@@ -231,12 +273,12 @@
   <div style="max-width:64rem;margin:0 auto">
     <div class="divider-gold" style="margin-bottom:3rem"></div>
     <div class="seq-stats-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:2rem 1rem">
-      <StatBlock value={statValue(128)} label="Members">{#snippet icon()}<Icon name="users" />{/snippet}</StatBlock>
-      <StatBlock value={statValue(142)} label="Guild Level">{#snippet icon()}<Icon name="level" />{/snippet}</StatBlock>
-      <StatBlock value={statValue(312)} label="Territories">{#snippet icon()}<Icon name="territory" />{/snippet}</StatBlock>
-      <StatBlock value={statValue(18472)} label="Total Wars">{#snippet icon()}<Icon name="war" />{/snippet}</StatBlock>
-      <StatBlock value={statValue(9043)} label="Raids">{#snippet icon()}<Icon name="raid" />{/snippet}</StatBlock>
-      <StatBlock value={statValue(7)} label="Online Now">{#snippet icon()}<Icon name="online" />{/snippet}</StatBlock>
+      <StatBlock value={statValue(homepageStats.members)} label="Members">{#snippet icon()}<Icon name="users" />{/snippet}</StatBlock>
+      <StatBlock value={statValue(homepageStats.guild_level)} label="Guild Level">{#snippet icon()}<Icon name="level" />{/snippet}</StatBlock>
+      <StatBlock value={statValue(homepageStats.territories)} label="Territories">{#snippet icon()}<Icon name="territory" />{/snippet}</StatBlock>
+      <StatBlock value={statValue(homepageStats.total_wars)} label="Total Wars">{#snippet icon()}<Icon name="war" />{/snippet}</StatBlock>
+      <StatBlock value={statValue(homepageStats.raids)} label="Raids">{#snippet icon()}<Icon name="raid" />{/snippet}</StatBlock>
+      <StatBlock value={statValue(homepageStats.online_now)} label="Online Now">{#snippet icon()}<Icon name="online" />{/snippet}</StatBlock>
     </div>
     <div class="divider-gold" style="margin-top:3rem"></div>
   </div>

@@ -4,6 +4,40 @@
  */
 
 export interface paths {
+    "/api/badges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get public player badges and insignias. */
+        get: operations["getBadges"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/public/homepage/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get public homepage counters for the Sequoia guild. */
+        get: operations["getHomepageStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/public/season/raid-activity": {
         parameters: {
             query?: never;
@@ -25,6 +59,33 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        HomepageStatsResponse: {
+            /** Format: date-time */
+            generated_at: string;
+            /** Format: int64 */
+            members: number;
+            /** Format: int64 */
+            guild_level: number;
+            /** Format: int64 */
+            territories: number;
+            /** Format: int64 */
+            total_wars: number;
+            /** Format: int64 */
+            raids: number;
+            /** Format: int64 */
+            online_now: number;
+        };
+        BadgeListResponse: {
+            badges: components["schemas"]["BadgeEntry"][];
+        };
+        BadgeEntry: {
+            /** Format: uuid */
+            player_uuid: string;
+            /** @enum {string} */
+            type: "WTP" | "NOL" | "INSIGNIA";
+            /** @enum {string} */
+            tier: "DIAMOND" | "GOLD" | "SILVER" | "BRONZE";
+        };
         SeasonRaidActivityResponse: {
             /** Format: date-time */
             generated_at: string;
@@ -61,6 +122,46 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getBadges: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Active public badge and insignia grants. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BadgeListResponse"];
+                };
+            };
+        };
+    };
+    getHomepageStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current public homepage counters. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HomepageStatsResponse"];
+                };
+            };
+        };
+    };
     getSeasonRaidActivity: {
         parameters: {
             query: {

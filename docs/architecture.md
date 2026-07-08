@@ -29,6 +29,8 @@ Both `sequoia-web` and `sequoia-backend` can run on the same Coolify VPS. The we
 - `PUBLIC_SEQUOIA_API_BASE_URL=https://api.seqwawa.com` for a separate backend origin.
 - `PUBLIC_SEQUOIA_API_BASE_URL=same-origin` when the proxy routes `/public/**` from the web origin to the backend service.
 
+For same-origin production deploys, configure Coolify or the front proxy to forward `/public/**` to `sequoia-backend` on its application port, typically `8081`. Keep Postgres credentials on the backend service only; the web app should reach homepage stats through `/public/homepage/stats`.
+
 Local development defaults to `http://localhost:8081` when no value is configured.
 
 ## Adding Pages
