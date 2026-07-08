@@ -530,10 +530,6 @@
   will-change: transform;
 }
 
-.seq-chibi-parade:hover .seq-chibi-track {
-  animation-play-state: paused;
-}
-
 .seq-chibi-strip {
   display: block;
   flex: 0 0 auto;
