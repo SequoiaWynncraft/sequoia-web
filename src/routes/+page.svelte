@@ -6,7 +6,8 @@
   import OfficerStrip from "$lib/design-system/components/OfficerStrip.svelte";
   import Icon from "$lib/components/Icon.svelte";
   import { createSequoiaApiClient } from "$lib/api/client";
-  import type { BranchmastersResponse, HomepageStatsResponse } from "$lib/api/client";
+  import type { HomepageStatsResponse } from "$lib/api/client";
+  import type { BranchmastersResponse } from "$lib/api/branchmasters";
   import { NMSR_BASE_URL } from "$lib/config/public";
   import { homepageServices } from "$lib/site/nav";
 
@@ -225,23 +226,22 @@
     stats: Record<string, string>;
   };
   const branchmasters = $state<{ members: BranchmasterCard[] }>({ members: [] });
-  const branchmasterMidpoint = $derived(Math.ceil(branchmasters.members.length / 2));
-  const branchmasterTopLane = $derived(branchmasters.members.slice(0, branchmasterMidpoint));
-  const branchmasterBottomLane = $derived(branchmasters.members.slice(branchmasterMidpoint));
+  let branchmastersLoaded = $state(false);
+  const branchmasterTopLane = $derived(branchmasters.members.filter((member) => member.rank !== "strategist"));
+  const branchmasterBottomLane = $derived(branchmasters.members.filter((member) => member.rank === "strategist"));
 
   onMount(() => {
     let cancelled = false;
     const client = createSequoiaApiClient({ fetch: window.fetch.bind(window) });
 
     client.getBranchmasters().then((result) => {
-      if (cancelled) return;
-      branchmasters.members = result.ok
-        ? result.data.members.map(branchmasterCard)
-        : fallbackBranchmasters.map(branchmasterCard);
-    }).catch(() => {
-      if (cancelled) return;
-      branchmasters.members = fallbackBranchmasters.map(branchmasterCard);
-    });
+      if (!cancelled && result.ok) {
+        branchmasters.members = result.data.members.map(branchmasterCard);
+      }
+    }).catch(() => undefined)
+      .finally(() => {
+        if (!cancelled) branchmastersLoaded = true;
+      });
 
     return () => {
       cancelled = true;
@@ -272,19 +272,6 @@
     if (Number.isNaN(date.valueOf())) return "Unknown";
     return date.toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
   }
-
-  const fallbackBranchmasters: BranchmastersResponse["members"] = [
-    { username: "Tannslee", rank: "chief", online: false, contributed: 6_800_000_000_000, contribution_rank: 1, wars: 9_420, raids: 12, joined: "2024-05-01T00:00:00Z" },
-    { username: "cela41", rank: "strategist", online: true, contributed: 4_200_000_000_000, contribution_rank: 2, wars: 5_812, raids: 88, joined: "2024-06-01T00:00:00Z" },
-    { username: "GlacWe", rank: "chief", online: false, contributed: 7_600_000_000_000, contribution_rank: 3, wars: 11_378, raids: 0, joined: "2024-08-01T00:00:00Z" },
-    { username: "pantiifre", rank: "strategist", online: true, contributed: 3_900_000_000_000, contribution_rank: 4, wars: 4_731, raids: 44, joined: "2024-09-01T00:00:00Z" },
-    { username: "RaidKeeper", rank: "chief", online: true, contributed: 2_300_000, contribution_rank: 5, wars: 401, raids: 240, joined: "2023-03-01T00:00:00Z" },
-    { username: "Sup3rZ", rank: "strategist", online: false, contributed: 3_100_000_000_000, contribution_rank: 6, wars: 3_920, raids: 17, joined: "2024-10-01T00:00:00Z" },
-    { username: "Shisouhan", rank: "chief", online: false, contributed: 5_500_000_000_000, contribution_rank: 7, wars: 7_184, raids: 62, joined: "2024-04-01T00:00:00Z" },
-    { username: "TM20", rank: "strategist", online: false, contributed: 2_800_000_000_000, contribution_rank: 8, wars: 2_601, raids: 31, joined: "2024-11-01T00:00:00Z" },
-    { username: "Purrrated", rank: "chief", online: false, contributed: 5_900_000_000_000, contribution_rank: 9, wars: 8_046, raids: 74, joined: "2024-07-01T00:00:00Z" },
-    { username: "0_Nickname_0", rank: "strategist", online: false, contributed: 2_500_000_000_000, contribution_rank: 10, wars: 2_114, raids: 26, joined: "2024-12-01T00:00:00Z" },
-  ];
 
   // Exhibition
   const ART = [
@@ -372,7 +359,7 @@
     {#if branchmasters.members.length > 0}
       <OfficerStrip officers={branchmasterTopLane} direction="ltr" />
       <OfficerStrip officers={branchmasterBottomLane} direction="rtl" />
-    {:else}
+    {:else if !branchmastersLoaded}
       <div class="seq-branchmasters-loading" aria-hidden="true"></div>
     {/if}
   </div>

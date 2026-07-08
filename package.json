@@ -12,12 +12,13 @@
     "dev": "vite dev",
     "build": "vite build",
     "preview": "vite preview",
+    "start": "node build",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "test:unit": "svelte-kit sync && vitest run",
     "api:types": "openapi-typescript ../sequoia-backend/src/main/resources/openapi/public.yaml -o src/lib/api/generated/public-api.ts"
   },
   "devDependencies": {
-    "@sveltejs/adapter-static": "3.0.10",
+    "@sveltejs/adapter-node": "^5.5.7",
     "@sveltejs/kit": "2.67.0",
     "@sveltejs/vite-plugin-svelte": "7.1.2",
     "@types/node": "26.0.0",
@@ -27,5 +28,8 @@
     "typescript": "5.9.3",
     "vite": "8.1.0",
     "vitest": "^4.1.9"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.17.4"
   }
 }

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { createSequoiaApiClient } from "$lib/api/client";
-import type { BranchmastersResponse, HomepageStatsResponse, SeasonRaidActivityResponse } from "$lib/api/client";
+import type { HomepageStatsResponse, SeasonRaidActivityResponse } from "$lib/api/client";
+import type { BranchmastersResponse } from "$lib/api/branchmasters";
 
 const homepageStatsBody: HomepageStatsResponse = {
   generated_at: "2026-07-08T12:00:00Z",
@@ -117,7 +118,7 @@ describe("createSequoiaApiClient", () => {
     expect(requests[0]?.startsWith("/public/season/raid-activity?")).toBe(true);
   });
 
-  it("requests public branchmasters without query parameters", async () => {
+  it("requests web-owned branchmasters without using the backend base URL", async () => {
     const requests: string[] = [];
     const client = createSequoiaApiClient({
       baseUrl: "https://api.example.test/",
@@ -130,7 +131,7 @@ describe("createSequoiaApiClient", () => {
     const result = await client.getBranchmasters();
 
     expect(result).toEqual({ ok: true, data: branchmastersBody });
-    expect(requests).toEqual(["https://api.example.test/public/guild/branchmasters"]);
+    expect(requests).toEqual(["/api/branchmasters"]);
   });
 
   it("rejects malformed branchmasters payloads", async () => {
