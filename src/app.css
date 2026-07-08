@@ -489,6 +489,61 @@
   animation: seq-shimmer 1.4s ease-in-out infinite;
 }
 
+.seq-chibi-section {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(2rem, 4vw, 3.5rem) 0;
+  background: var(--color-deep);
+  content-visibility: auto;
+  contain-intrinsic-size: 22rem;
+}
+
+.seq-chibi-divider {
+  width: min(64rem, calc(100vw - 3rem));
+  margin: 0 auto;
+}
+
+.seq-chibi-kicker {
+  margin: clamp(1.15rem, 2vw, 1.9rem) 1rem;
+  color: rgba(245, 197, 66, 0.42);
+  font-family: var(--font-display);
+  font-size: 0.86rem;
+  letter-spacing: 0.3em;
+  line-height: 1.2;
+  text-align: center;
+  text-transform: uppercase;
+  animation: seq-ambient-breathe 8s ease-in-out infinite;
+}
+
+.seq-chibi-parade {
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%);
+}
+
+.seq-chibi-track {
+  display: flex;
+  width: max-content;
+  transform: translate3d(0, 0, 0);
+  animation: seq-chibi-scroll 300s linear infinite;
+  backface-visibility: hidden;
+  will-change: transform;
+}
+
+.seq-chibi-parade:hover .seq-chibi-track {
+  animation-play-state: paused;
+}
+
+.seq-chibi-strip {
+  display: block;
+  flex: 0 0 auto;
+  width: auto;
+  height: 7.5rem;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
 .seq-officer-card {
   position: relative;
   width: 100%;
@@ -1248,6 +1303,11 @@
   100% { background-position: -40% 0; }
 }
 
+@keyframes seq-chibi-scroll {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-50%, 0, 0); }
+}
+
 /* ── Homepage: branchmaster conveyor ── */
 /* ── Homepage: art exhibition hover ── */
 .seq-art-frame img {
@@ -1295,6 +1355,18 @@
   .seq-stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
 }
 
+@media (min-width: 640px) {
+  .seq-chibi-strip {
+    height: 12.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .seq-chibi-strip {
+    height: 15rem;
+  }
+}
+
 @media (max-width: 720px) {
   .seq-branchmasters-marquee {
     gap: 0.8rem;
@@ -1315,7 +1387,9 @@
   }
   .seq-hero-title,
   .seq-hero-kicker,
-  .seq-hero-chevron {
+  .seq-hero-chevron,
+  .seq-chibi-kicker,
+  .seq-chibi-track {
     animation: none !important;
   }
 }

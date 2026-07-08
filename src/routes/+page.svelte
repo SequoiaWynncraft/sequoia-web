@@ -4,6 +4,7 @@
   import StatBlock from "$lib/design-system/components/StatBlock.svelte";
   import ServiceCard from "$lib/design-system/components/ServiceCard.svelte";
   import OfficerStrip from "$lib/design-system/components/OfficerStrip.svelte";
+  import SequoianTree from "$lib/components/SequoianTree.svelte";
   import Icon from "$lib/components/Icon.svelte";
   import { createSequoiaApiClient } from "$lib/api/client";
   import type { HomepageStatsResponse } from "$lib/api/client";
@@ -349,6 +350,8 @@
     {/each}
   </div>
 </section>
+
+<SequoianTree />
 
 <!-- Members -->
 <section id="members" class="seq-branchmasters-section">
