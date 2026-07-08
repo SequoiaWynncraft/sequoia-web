@@ -216,31 +216,6 @@
   const statValue = (target: number) => Math.round(target * statEase).toLocaleString();
   const nmsrHeadIsoUrl = (username: string) =>
     `${NMSR_BASE_URL.replace(/\/+$/, "")}/headiso/${encodeURIComponent(username)}?w=128`;
-  let branchmastersScroller: HTMLElement;
-  let branchmastersDragging = $state(false);
-  let branchmastersDragStartX = 0;
-  let branchmastersDragStartScrollLeft = 0;
-
-  function handleBranchmastersPointerDown(event: PointerEvent) {
-    if (!branchmastersScroller || event.button !== 0) return;
-    branchmastersDragging = true;
-    branchmastersDragStartX = event.clientX;
-    branchmastersDragStartScrollLeft = branchmastersScroller.scrollLeft;
-    branchmastersScroller.setPointerCapture(event.pointerId);
-  }
-
-  function handleBranchmastersPointerMove(event: PointerEvent) {
-    if (!branchmastersDragging || !branchmastersScroller) return;
-    event.preventDefault();
-    branchmastersScroller.scrollLeft = branchmastersDragStartScrollLeft - (event.clientX - branchmastersDragStartX);
-  }
-
-  function handleBranchmastersPointerEnd(event: PointerEvent) {
-    branchmastersDragging = false;
-    if (branchmastersScroller?.hasPointerCapture(event.pointerId)) {
-      branchmastersScroller.releasePointerCapture(event.pointerId);
-    }
-  }
 
   // Officers
   const OFFICERS = [
@@ -256,6 +231,21 @@
     { username: "0_Nickname_0", rank: "strategist", online: false, stats: { XP: "2.5T", Wars: "2,114", Raids: "26", Joined: "Dec 2024" } },
   ];
   const branchmasters = OFFICERS.map((officer) => ({ ...officer, avatarUrl: nmsrHeadIsoUrl(officer.username) }));
+  const branchmasterLoopCopies = [0, 1, 2];
+  const rotateBranchmasters = (offset: number) => [
+    ...branchmasters.slice(offset),
+    ...branchmasters.slice(0, offset),
+  ];
+  const branchmasterRows = [
+    {
+      reverse: false,
+      members: branchmasters,
+    },
+    {
+      reverse: true,
+      members: rotateBranchmasters(Math.ceil(branchmasters.length / 2)),
+    },
+  ];
 
   // Exhibition
   const ART = [
@@ -339,23 +329,28 @@
   <div class="seq-branchmasters-heading">
     <SectionHeading kicker="The Guild">The Branchmasters</SectionHeading>
   </div>
-  <div
-    bind:this={branchmastersScroller}
-    class="seq-branchmasters-strip"
-    class:seq-branchmasters-strip--dragging={branchmastersDragging}
-    role="region"
-    aria-label="Branchmasters roster"
-    onpointerdown={handleBranchmastersPointerDown}
-    onpointermove={handleBranchmastersPointerMove}
-    onpointerup={handleBranchmastersPointerEnd}
-    onpointercancel={handleBranchmastersPointerEnd}
-    onlostpointercapture={() => branchmastersDragging = false}
-  >
-    <div class="seq-branchmasters-track">
-      {#each branchmasters as o}
-        <OfficerCard username={o.username} rank={o.rank} online={o.online} avatarUrl={o.avatarUrl} stats={o.stats} />
-      {/each}
-    </div>
+  <div class="seq-branchmasters-marquee" role="region" aria-label="Branchmasters roster">
+    {#each branchmasterRows as row, rowIndex}
+      <div class="seq-branchmasters-lane" class:seq-branchmasters-lane--reverse={row.reverse}>
+        <div class="seq-branchmasters-track">
+          {#each branchmasterLoopCopies as repeat}
+            <div class="seq-branchmasters-loop" aria-hidden={repeat > 0}>
+              {#each row.members as member (`${rowIndex}-${repeat}-${member.username}`)}
+                <div class="seq-branchmasters-item">
+                  <OfficerCard
+                    username={member.username}
+                    rank={member.rank}
+                    online={member.online}
+                    avatarUrl={member.avatarUrl}
+                    stats={member.stats}
+                  />
+                </div>
+              {/each}
+            </div>
+          {/each}
+        </div>
+      </div>
+    {/each}
   </div>
 </section>
 

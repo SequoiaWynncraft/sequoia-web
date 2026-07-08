@@ -30,25 +30,27 @@
       <StatusDot tone="online" size={9} />
     </span>
   {/if}
-  <div class="seq-officer-avatar" class:seq-officer-avatar--image={avatarUrl && !avatarFailed}>
-    {#if avatarUrl && !avatarFailed}
-      <img
-        src={avatarUrl}
-        alt=""
-        aria-hidden="true"
-        loading="lazy"
-        decoding="async"
-        class="seq-officer-avatar-image"
-        onerror={() => avatarFailed = true}
-      />
-    {:else}
-      <span class="seq-officer-initial">{initial}</span>
-    {/if}
+  <div class="seq-officer-main">
+    <div class="seq-officer-avatar" class:seq-officer-avatar--image={avatarUrl && !avatarFailed}>
+      {#if avatarUrl && !avatarFailed}
+        <img
+          src={avatarUrl}
+          alt=""
+          aria-hidden="true"
+          loading="lazy"
+          decoding="async"
+          class="seq-officer-avatar-image"
+          onerror={() => avatarFailed = true}
+        />
+      {:else}
+        <span class="seq-officer-initial">{initial}</span>
+      {/if}
+    </div>
+    <div class="seq-officer-name">
+      {username}
+    </div>
+    <span class="seq-officer-rank"><RankBadge {rank} /></span>
   </div>
-  <div class="seq-officer-name">
-    {username}
-  </div>
-  <span class="seq-officer-rank"><RankBadge {rank} /></span>
   {#if entries.length > 0}
     <div class="seq-officer-stats">
       {#each entries as [k, v]}

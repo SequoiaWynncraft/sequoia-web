@@ -440,70 +440,102 @@
   padding: 0 1.5rem;
 }
 
-.seq-branchmasters-strip {
-  overflow-x: auto;
-  overflow-y: hidden;
-  cursor: grab;
-  scroll-snap-type: x proximity;
-  scrollbar-width: none;
-  touch-action: pan-y;
-  user-select: none;
+.seq-branchmasters-marquee {
+  display: flex;
+  flex-direction: column;
+  gap: 1.55rem;
+  overflow: hidden;
+  padding: 0.35rem 0 0.55rem;
   -webkit-mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
   mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
 }
 
-.seq-branchmasters-strip::-webkit-scrollbar {
-  display: none;
-}
-
-.seq-branchmasters-strip--dragging {
-  cursor: grabbing;
+.seq-branchmasters-lane {
+  overflow: visible;
+  width: 100%;
 }
 
 .seq-branchmasters-track {
-  display: grid;
-  grid-auto-flow: column;
-  grid-template-rows: repeat(2, minmax(0, 1fr));
-  grid-auto-columns: clamp(18rem, 21vw, 19rem);
-  gap: 1.75rem 1.85rem;
+  display: flex;
   width: max-content;
-  padding: 0.75rem max(1.5rem, calc((100vw - 80rem) / 2)) 1.2rem;
+  min-width: max-content;
+  animation: seq-branchmasters-marquee 56s linear infinite;
+  will-change: transform;
+}
+
+.seq-branchmasters-lane--reverse .seq-branchmasters-track {
+  animation-name: seq-branchmasters-marquee-reverse;
+  animation-duration: 60s;
+}
+
+.seq-branchmasters-lane:hover .seq-branchmasters-track {
+  animation-play-state: paused;
+}
+
+.seq-branchmasters-loop {
+  display: flex;
+  gap: 1.85rem;
+  padding-right: 1.85rem;
+}
+
+.seq-branchmasters-item {
+  flex: 0 0 clamp(15.25rem, 15.8vw, 17.25rem);
+  min-width: 0;
 }
 
 .seq-officer-card {
   position: relative;
   width: 100%;
-  min-height: 16.4rem;
+  height: 15.25rem;
+  overflow: hidden;
   background: var(--color-surface);
   border: 1px solid var(--color-border-subtle);
   border-left: 2px solid var(--seq-officer-border);
   border-radius: var(--radius-lg);
-  padding: 1.45rem 1.9rem 1.2rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  scroll-snap-align: center;
+  padding: 1rem;
+  contain: layout;
+  transform: translateZ(0);
+  backface-visibility: hidden;
   transition:
     border-color var(--dur-slow) ease,
-    box-shadow var(--dur-slow) ease,
-    transform var(--dur-slow) var(--ease-out-soft);
+    box-shadow var(--dur-slow) ease;
 }
 
 .seq-officer-card:hover {
   border-color: var(--seq-officer-border);
   box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
 }
 
 .seq-officer-status {
   position: absolute;
   top: 0.6rem;
   right: 0.6rem;
+  z-index: 3;
+}
+
+.seq-officer-main {
+  position: absolute;
+  inset: 1rem;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transform: translate3d(0, 0, 0) scale(1);
+  transform-origin: 50% 42%;
+  transition:
+    opacity var(--dur-slow) ease,
+    transform var(--dur-slow) var(--ease-out-soft);
+}
+
+.seq-officer-card:hover .seq-officer-main {
+  opacity: 0.96;
+  transform: translate3d(0, -2.45rem, 0) scale(0.8);
 }
 
 .seq-officer-avatar {
-  width: 4.4rem;
-  height: 4.4rem;
+  width: 5.7rem;
+  height: 5.7rem;
   border-radius: var(--radius-md);
   overflow: hidden;
   background:
@@ -539,10 +571,12 @@
 
 .seq-officer-name {
   font-family: var(--font-display);
-  font-size: 0.95rem;
+  font-size: 1.02rem;
   letter-spacing: 0.03em;
   color: var(--color-text-primary);
-  margin-top: 0.6rem;
+  margin-top: 0.7rem;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   text-align: center;
 }
 
@@ -551,42 +585,54 @@
 }
 
 .seq-officer-stats {
-  width: 100%;
-  margin-top: 0.85rem;
-  min-height: 5.2rem;
+  position: absolute;
+  right: 0.95rem;
+  bottom: 0.85rem;
+  left: 0.95rem;
+  z-index: 2;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.13rem;
+  height: 4.8rem;
+  padding: 0.48rem 0.62rem 0.52rem;
+  border: 1px solid rgba(40, 44, 62, 0.82);
+  border-radius: var(--radius-sm);
+  background:
+    linear-gradient(180deg, rgba(24, 28, 42, 0.86), rgba(13, 15, 24, 0.94));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
   opacity: 0;
-  visibility: hidden;
-  transform: translateY(-0.25rem);
+  overflow: hidden;
+  pointer-events: none;
+  transform: translate3d(0, 0.55rem, 0);
   transition:
     opacity var(--dur-base) ease,
-    transform var(--dur-base) var(--ease-out-soft),
-    visibility 0s linear var(--dur-base);
+    transform var(--dur-base) var(--ease-out-soft);
 }
 
 .seq-officer-card:hover .seq-officer-stats {
   opacity: 1;
-  visibility: visible;
-  transform: translateY(0);
-  transition-delay: 0s;
+  transform: translate3d(0, 0, 0);
 }
 
 .seq-officer-stat-row {
   display: flex;
   justify-content: space-between;
-  font-size: 0.75rem;
+  gap: 0.75rem;
+  font-size: 0.68rem;
+  line-height: 1.22;
 }
 
 .seq-officer-stat-key {
   color: var(--color-text-dim);
+  white-space: nowrap;
 }
 
 .seq-officer-stat-value {
   color: var(--color-text-secondary);
   font-family: var(--font-mono);
   font-size: 0.7rem;
+  white-space: nowrap;
 }
 
 .seq-footer {
@@ -1177,10 +1223,15 @@
   50% { transform: translateY(6px) rotate(45deg); }
 }
 
-/* ── Homepage: officer marquee ── */
-@keyframes seq-officer-scroll {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
+/* ── Homepage: branchmaster marquee ── */
+@keyframes seq-branchmasters-marquee {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(calc(-100% / 3), 0, 0); }
+}
+
+@keyframes seq-branchmasters-marquee-reverse {
+  from { transform: translate3d(calc(-100% / 3), 0, 0); }
+  to { transform: translate3d(0, 0, 0); }
 }
 
 /* ── Homepage: art exhibition hover ── */
@@ -1239,7 +1290,8 @@
   .seq-hero-title,
   .seq-hero-kicker,
   .seq-hero-chevron,
-  [style*="seq-officer-scroll"] {
+  .seq-branchmasters-track {
     animation: none !important;
+    transform: translate3d(0, 0, 0) !important;
   }
 }
