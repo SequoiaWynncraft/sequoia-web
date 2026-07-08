@@ -18,9 +18,9 @@
     direction?: "ltr" | "rtl";
   } = $props();
 
-  const stripCopies = [0, 1];
+  const stripCopies = [0, 1, 2];
   const speedPxPerMs = 42 / 1000;
-  const priorityCopy = $derived(direction === "rtl" ? 1 : 0);
+  const priorityCopy = 1;
 
   let container: HTMLElement;
   let track: HTMLElement;
@@ -42,10 +42,12 @@
   };
 
   function measureUnitWidth() {
-    const unit = track?.querySelector<HTMLElement>("[data-branchmasters-set]");
-    unitWidth = unit?.getBoundingClientRect().width ?? 0;
+    const first = track?.querySelector<HTMLElement>('[data-branchmasters-copy="0"][data-branchmasters-index="0"]');
+    const second = track?.querySelector<HTMLElement>('[data-branchmasters-copy="1"][data-branchmasters-index="0"]');
+    if (!first || !second) return;
+
+    unitWidth = second.getBoundingClientRect().left - first.getBoundingClientRect().left;
     if (!initialized && unitWidth > 0) {
-      position = direction === "rtl" ? unitWidth - 1 : 0;
       initialized = true;
     } else {
       position = wrapPosition(position);
@@ -57,7 +59,7 @@
     if (!track) return;
     const dpr = window.devicePixelRatio || 1;
     const snapped = Math.round(position * dpr) / dpr;
-    track.style.transform = `translate3d(${-snapped}px, 0, 0)`;
+    track.style.transform = `translate3d(${-(unitWidth + snapped)}px, 0, 0)`;
   }
 
   function startedOnInteractiveTarget(target: EventTarget | null) {
@@ -175,20 +177,23 @@
 >
   <div bind:this={track} class="seq-branchmasters-track">
     {#each stripCopies as copy}
-      <div class="seq-branchmasters-set" data-branchmasters-set aria-hidden={copy !== priorityCopy}>
-        {#each officers as officer, index (`${copy}-${index}-${officer.username}`)}
-          <div class="seq-branchmasters-item">
-            <OfficerCard
-              username={officer.username}
-              rank={officer.rank}
-              online={officer.online}
-              avatarUrl={officer.avatarUrl}
-              avatarLoading={copy === priorityCopy ? "eager" : "lazy"}
-              stats={officer.stats}
-            />
-          </div>
-        {/each}
-      </div>
+      {#each officers as officer, index (`${copy}-${index}-${officer.username}`)}
+        <div
+          class="seq-branchmasters-item"
+          data-branchmasters-copy={copy}
+          data-branchmasters-index={index}
+          aria-hidden={copy !== priorityCopy}
+        >
+          <OfficerCard
+            username={officer.username}
+            rank={officer.rank}
+            online={officer.online}
+            avatarUrl={officer.avatarUrl}
+            avatarLoading={copy === priorityCopy ? "eager" : "lazy"}
+            stats={officer.stats}
+          />
+        </div>
+      {/each}
     {/each}
   </div>
 </div>

@@ -465,17 +465,11 @@
 
 .seq-branchmasters-track {
   display: flex;
+  gap: var(--seq-branchmasters-gap);
   width: max-content;
   transform: translate3d(0, 0, 0);
   will-change: transform;
   backface-visibility: hidden;
-}
-
-.seq-branchmasters-set {
-  display: flex;
-  flex: 0 0 auto;
-  gap: var(--seq-branchmasters-gap);
-  padding-right: var(--seq-branchmasters-gap);
 }
 
 .seq-branchmasters-item {
