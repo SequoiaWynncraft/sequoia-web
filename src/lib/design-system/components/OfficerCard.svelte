@@ -7,12 +7,14 @@
     rank = "recruit",
     online = false,
     avatarUrl,
+    avatarLoading = "eager",
     stats = {},
   }: {
     username: string;
     rank?: string;
     online?: boolean;
     avatarUrl?: string;
+    avatarLoading?: "eager" | "lazy";
     stats?: Record<string, string>;
   } = $props();
 
@@ -23,6 +25,7 @@
 
 <div
   class="seq-officer-card"
+  data-officer-card="true"
   style="--seq-officer-border:{borderColor(rank)}"
 >
   {#if online}
@@ -37,7 +40,7 @@
           src={avatarUrl}
           alt=""
           aria-hidden="true"
-          loading="lazy"
+          loading={avatarLoading}
           decoding="async"
           class="seq-officer-avatar-image"
           onerror={() => avatarFailed = true}

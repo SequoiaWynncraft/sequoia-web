@@ -2,6 +2,7 @@ import { SEQUOIA_API_BASE_URL } from "$lib/config/public";
 import type { components, operations } from "$lib/api/generated/public-api";
 
 export type HomepageStatsResponse = components["schemas"]["HomepageStatsResponse"];
+export type BranchmastersResponse = components["schemas"]["BranchmastersResponse"];
 export type SeasonRaidActivityResponse = components["schemas"]["SeasonRaidActivityResponse"];
 export type GetSeasonRaidActivityQuery = operations["getSeasonRaidActivity"]["parameters"]["query"];
 
@@ -17,6 +18,7 @@ export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: ApiError 
 
 export interface SequoiaApiClient {
   getHomepageStats(): Promise<ApiResult<HomepageStatsResponse>>;
+  getBranchmasters(): Promise<ApiResult<BranchmastersResponse>>;
   getSeasonRaidActivity(query: GetSeasonRaidActivityQuery): Promise<ApiResult<SeasonRaidActivityResponse>>;
 }
 
@@ -37,6 +39,19 @@ export function createSequoiaApiClient(options: SequoiaApiClientOptions): Sequoi
         return {
           ok: false,
           error: { code: "invalid_response", message: "Unexpected homepage stats response." },
+        };
+      }
+      return { ok: true, data: response.data };
+    },
+
+    async getBranchmasters() {
+      const url = apiUrl(baseUrl, "/public/guild/branchmasters");
+      const response = await requestJson(options.fetch, url);
+      if (!response.ok) return response;
+      if (!isBranchmastersResponse(response.data)) {
+        return {
+          ok: false,
+          error: { code: "invalid_response", message: "Unexpected branchmasters response." },
         };
       }
       return { ok: true, data: response.data };
@@ -102,6 +117,33 @@ async function readJson(response: Response): Promise<unknown> {
 function errorMessage(value: unknown, fallback: string): string {
   if (isRecord(value) && typeof value.error === "string") return value.error;
   return fallback;
+}
+
+function isBranchmastersResponse(value: unknown): value is BranchmastersResponse {
+  return (
+    isRecord(value) &&
+    typeof value.generated_at === "string" &&
+    Array.isArray(value.members) &&
+    value.members.every(isBranchmasterMember)
+  );
+}
+
+function isBranchmasterMember(value: unknown): value is BranchmastersResponse["members"][number] {
+  return (
+    isRecord(value) &&
+    typeof value.username === "string" &&
+    isBranchmasterRank(value.rank) &&
+    typeof value.online === "boolean" &&
+    isFiniteNumber(value.contributed) &&
+    isFiniteNumber(value.contribution_rank) &&
+    isFiniteNumber(value.wars) &&
+    isFiniteNumber(value.raids) &&
+    typeof value.joined === "string"
+  );
+}
+
+function isBranchmasterRank(value: unknown): value is BranchmastersResponse["members"][number]["rank"] {
+  return value === "owner" || value === "chief" || value === "strategist";
 }
 
 function isHomepageStatsResponse(value: unknown): value is HomepageStatsResponse {

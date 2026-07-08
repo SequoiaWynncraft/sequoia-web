@@ -432,6 +432,7 @@
   padding: 5rem 0;
   border-top: 1px solid rgba(40, 44, 62, 0.45);
   border-bottom: 1px solid rgba(40, 44, 62, 0.45);
+  overflow: hidden;
 }
 
 .seq-branchmasters-heading {
@@ -443,44 +444,55 @@
 .seq-branchmasters-marquee {
   display: flex;
   flex-direction: column;
-  gap: 1.55rem;
-  overflow: hidden;
-  padding: 0.35rem 0 0.55rem;
-  -webkit-mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
-  mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+  gap: 1.15rem;
 }
 
-.seq-branchmasters-lane {
-  overflow: visible;
-  width: 100%;
+.seq-branchmasters-strip {
+  --seq-branchmasters-gap: 1.65rem;
+  --seq-branchmasters-card-width: clamp(15.25rem, 13.5vw, 17.25rem);
+  overflow: hidden;
+  cursor: grab;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-mask-image: linear-gradient(to right, transparent, black 7%, black 93%, transparent);
+  mask-image: linear-gradient(to right, transparent, black 7%, black 93%, transparent);
+}
+
+.seq-branchmasters-strip--dragging {
+  cursor: grabbing;
 }
 
 .seq-branchmasters-track {
   display: flex;
   width: max-content;
-  min-width: max-content;
-  animation: seq-branchmasters-marquee 56s linear infinite;
+  transform: translate3d(0, 0, 0);
   will-change: transform;
+  backface-visibility: hidden;
 }
 
-.seq-branchmasters-lane--reverse .seq-branchmasters-track {
-  animation-name: seq-branchmasters-marquee-reverse;
-  animation-duration: 60s;
-}
-
-.seq-branchmasters-lane:hover .seq-branchmasters-track {
-  animation-play-state: paused;
-}
-
-.seq-branchmasters-loop {
+.seq-branchmasters-set {
   display: flex;
-  gap: 1.85rem;
-  padding-right: 1.85rem;
+  flex: 0 0 auto;
+  gap: var(--seq-branchmasters-gap);
+  padding-right: var(--seq-branchmasters-gap);
 }
 
 .seq-branchmasters-item {
-  flex: 0 0 clamp(15.25rem, 15.8vw, 17.25rem);
+  flex: 0 0 var(--seq-branchmasters-card-width);
   min-width: 0;
+}
+
+.seq-branchmasters-loading {
+  height: 31.65rem;
+  margin: 0 auto;
+  max-width: 80rem;
+  border-radius: var(--radius-md);
+  background:
+    linear-gradient(90deg, transparent, rgba(245, 197, 66, 0.05), transparent),
+    rgba(26, 29, 42, 0.18);
+  background-size: 160% 100%;
+  animation: seq-shimmer 1.4s ease-in-out infinite;
 }
 
 .seq-officer-card {
@@ -493,9 +505,7 @@
   border-left: 2px solid var(--seq-officer-border);
   border-radius: var(--radius-lg);
   padding: 1rem;
-  contain: layout;
-  transform: translateZ(0);
-  backface-visibility: hidden;
+  contain: layout paint;
   transition:
     border-color var(--dur-slow) ease,
     box-shadow var(--dur-slow) ease;
@@ -529,8 +539,8 @@
 }
 
 .seq-officer-card:hover .seq-officer-main {
-  opacity: 0.96;
-  transform: translate3d(0, -2.45rem, 0) scale(0.8);
+  opacity: 0.98;
+  transform: translate3d(0, -1.05rem, 0) scale(0.9);
 }
 
 .seq-officer-avatar {
@@ -586,25 +596,16 @@
 
 .seq-officer-stats {
   position: absolute;
-  right: 0.95rem;
-  bottom: 0.85rem;
-  left: 0.95rem;
+  top: 7.15rem;
+  right: 1.05rem;
+  left: 1.05rem;
   z-index: 2;
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  gap: 0.13rem;
-  height: 4.8rem;
-  padding: 0.48rem 0.62rem 0.52rem;
-  border: 1px solid rgba(40, 44, 62, 0.82);
-  border-radius: var(--radius-sm);
-  background:
-    linear-gradient(180deg, rgba(24, 28, 42, 0.86), rgba(13, 15, 24, 0.94));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  display: grid;
+  grid-template-columns: minmax(3.2rem, 1fr) minmax(3.2rem, 1fr);
+  gap: 0.35rem 6.05rem;
   opacity: 0;
-  overflow: hidden;
   pointer-events: none;
-  transform: translate3d(0, 0.55rem, 0);
+  transform: translate3d(0, 0.18rem, 0) scale(0.98);
   transition:
     opacity var(--dur-base) ease,
     transform var(--dur-base) var(--ease-out-soft);
@@ -617,10 +618,16 @@
 
 .seq-officer-stat-row {
   display: flex;
-  justify-content: space-between;
-  gap: 0.75rem;
-  font-size: 0.68rem;
-  line-height: 1.22;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.08rem;
+  font-size: 0.65rem;
+  line-height: 1.1;
+}
+
+.seq-officer-stat-row:nth-child(even) {
+  align-items: flex-end;
+  text-align: right;
 }
 
 .seq-officer-stat-key {
@@ -631,8 +638,27 @@
 .seq-officer-stat-value {
   color: var(--color-text-secondary);
   font-family: var(--font-mono);
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   white-space: nowrap;
+}
+
+.seq-branchmasters-strip--dragging .seq-officer-card,
+.seq-branchmasters-strip--dragging .seq-officer-main,
+.seq-branchmasters-strip--dragging .seq-officer-stats {
+  transition: none;
+}
+
+.seq-branchmasters-strip--dragging .seq-officer-card {
+  pointer-events: none;
+}
+
+.seq-branchmasters-strip--dragging .seq-officer-card:hover .seq-officer-main {
+  transform: translate3d(0, 0, 0) scale(1);
+}
+
+.seq-branchmasters-strip--dragging .seq-officer-card:hover .seq-officer-stats {
+  opacity: 0;
+  transform: translate3d(0, 0.18rem, 0) scale(0.98);
 }
 
 .seq-footer {
@@ -1223,17 +1249,12 @@
   50% { transform: translateY(6px) rotate(45deg); }
 }
 
-/* ── Homepage: branchmaster marquee ── */
-@keyframes seq-branchmasters-marquee {
-  from { transform: translate3d(0, 0, 0); }
-  to { transform: translate3d(calc(-100% / 3), 0, 0); }
+@keyframes seq-shimmer {
+  0% { background-position: 120% 0; }
+  100% { background-position: -40% 0; }
 }
 
-@keyframes seq-branchmasters-marquee-reverse {
-  from { transform: translate3d(calc(-100% / 3), 0, 0); }
-  to { transform: translate3d(0, 0, 0); }
-}
-
+/* ── Homepage: branchmaster conveyor ── */
 /* ── Homepage: art exhibition hover ── */
 .seq-art-frame img {
   transition: transform 0.5s var(--ease-out-soft), filter 0.5s ease;
@@ -1280,6 +1301,17 @@
   .seq-stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
 }
 
+@media (max-width: 720px) {
+  .seq-branchmasters-marquee {
+    gap: 0.8rem;
+  }
+
+  .seq-branchmasters-strip {
+    --seq-branchmasters-gap: 0.85rem;
+    --seq-branchmasters-card-width: clamp(11.5rem, 60vw, 13.75rem);
+  }
+}
+
 /* Respect reduced-motion: drop the entrance animations */
 @media (prefers-reduced-motion: reduce) {
   .animate-fade-in-up,
@@ -1289,9 +1321,7 @@
   }
   .seq-hero-title,
   .seq-hero-kicker,
-  .seq-hero-chevron,
-  .seq-branchmasters-track {
+  .seq-hero-chevron {
     animation: none !important;
-    transform: translate3d(0, 0, 0) !important;
   }
 }

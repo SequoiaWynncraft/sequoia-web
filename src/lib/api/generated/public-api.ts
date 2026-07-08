@@ -4,23 +4,6 @@
  */
 
 export interface paths {
-    "/api/badges": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get public player badges and insignias. */
-        get: operations["getBadges"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/public/homepage/stats": {
         parameters: {
             query?: never;
@@ -38,6 +21,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/badges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get public player badges and insignias. */
+        get: operations["getBadges"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/public/season/raid-activity": {
         parameters: {
             query?: never;
@@ -47,6 +47,23 @@ export interface paths {
         };
         /** Get guild raid activity grouped by UTC day. */
         get: operations["getSeasonRaidActivity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/public/guild/branchmasters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get public Sequoia owner, chief, and strategist roster cards. */
+        get: operations["getBranchmasters"];
         put?: never;
         post?: never;
         delete?: never;
@@ -86,6 +103,27 @@ export interface components {
             /** @enum {string} */
             tier: "DIAMOND" | "GOLD" | "SILVER" | "BRONZE";
         };
+        BranchmastersResponse: {
+            /** Format: date-time */
+            generated_at: string;
+            members: components["schemas"]["BranchmasterMember"][];
+        };
+        BranchmasterMember: {
+            username: string;
+            /** @enum {string} */
+            rank: "owner" | "chief" | "strategist";
+            online: boolean;
+            /** Format: int64 */
+            contributed: number;
+            /** Format: int64 */
+            contribution_rank: number;
+            /** Format: int64 */
+            wars: number;
+            /** Format: int64 */
+            raids: number;
+            /** Format: date-time */
+            joined: string;
+        };
         SeasonRaidActivityResponse: {
             /** Format: date-time */
             generated_at: string;
@@ -122,26 +160,6 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    getBadges: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Active public badge and insignia grants. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BadgeListResponse"];
-                };
-            };
-        };
-    };
     getHomepageStats: {
         parameters: {
             query?: never;
@@ -158,6 +176,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HomepageStatsResponse"];
+                };
+            };
+        };
+    };
+    getBadges: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Active public badge and insignia grants. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BadgeListResponse"];
                 };
             };
         };
@@ -194,6 +232,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getBranchmasters: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current public branchmaster roster snapshot. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BranchmastersResponse"];
                 };
             };
         };

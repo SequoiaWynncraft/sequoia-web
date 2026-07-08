@@ -3,10 +3,10 @@
   import SectionHeading from "$lib/design-system/components/SectionHeading.svelte";
   import StatBlock from "$lib/design-system/components/StatBlock.svelte";
   import ServiceCard from "$lib/design-system/components/ServiceCard.svelte";
-  import OfficerCard from "$lib/design-system/components/OfficerCard.svelte";
+  import OfficerStrip from "$lib/design-system/components/OfficerStrip.svelte";
   import Icon from "$lib/components/Icon.svelte";
   import { createSequoiaApiClient } from "$lib/api/client";
-  import type { HomepageStatsResponse } from "$lib/api/client";
+  import type { BranchmastersResponse, HomepageStatsResponse } from "$lib/api/client";
   import { NMSR_BASE_URL } from "$lib/config/public";
   import { homepageServices } from "$lib/site/nav";
 
@@ -217,34 +217,73 @@
   const nmsrHeadIsoUrl = (username: string) =>
     `${NMSR_BASE_URL.replace(/\/+$/, "")}/headiso/${encodeURIComponent(username)}?w=128`;
 
-  // Officers
-  const OFFICERS = [
-    { username: "Tannslee", rank: "chief", online: false, stats: { XP: "6.8T", Wars: "9,420", Raids: "12", Joined: "May 2024" } },
-    { username: "cela41", rank: "strategist", online: true, stats: { XP: "4.2T", Wars: "5,812", Raids: "88", Joined: "Jun 2024" } },
-    { username: "GlacWe", rank: "chief", online: false, stats: { XP: "7.6T", Wars: "11378", Raids: "0", Joined: "Aug 2024" } },
-    { username: "pantiifre", rank: "strategist", online: true, stats: { XP: "3.9T", Wars: "4,731", Raids: "44", Joined: "Sep 2024" } },
-    { username: "RaidKeeper", rank: "chief", online: true, stats: { XP: "2.3M", Wars: "401", Raids: "240", Joined: "Mar 2023" } },
-    { username: "Sup3rZ", rank: "strategist", online: false, stats: { XP: "3.1T", Wars: "3,920", Raids: "17", Joined: "Oct 2024" } },
-    { username: "Shisouhan", rank: "chief", online: false, stats: { XP: "5.5T", Wars: "7,184", Raids: "62", Joined: "Apr 2024" } },
-    { username: "TM20", rank: "strategist", online: false, stats: { XP: "2.8T", Wars: "2,601", Raids: "31", Joined: "Nov 2024" } },
-    { username: "Purrrated", rank: "chief", online: false, stats: { XP: "5.9T", Wars: "8,046", Raids: "74", Joined: "Jul 2024" } },
-    { username: "0_Nickname_0", rank: "strategist", online: false, stats: { XP: "2.5T", Wars: "2,114", Raids: "26", Joined: "Dec 2024" } },
-  ];
-  const branchmasters = OFFICERS.map((officer) => ({ ...officer, avatarUrl: nmsrHeadIsoUrl(officer.username) }));
-  const branchmasterLoopCopies = [0, 1, 2];
-  const rotateBranchmasters = (offset: number) => [
-    ...branchmasters.slice(offset),
-    ...branchmasters.slice(0, offset),
-  ];
-  const branchmasterRows = [
-    {
-      reverse: false,
-      members: branchmasters,
-    },
-    {
-      reverse: true,
-      members: rotateBranchmasters(Math.ceil(branchmasters.length / 2)),
-    },
+  type BranchmasterCard = {
+    username: string;
+    rank: string;
+    online: boolean;
+    avatarUrl: string;
+    stats: Record<string, string>;
+  };
+  const branchmasters = $state<{ members: BranchmasterCard[] }>({ members: [] });
+  const branchmasterMidpoint = $derived(Math.ceil(branchmasters.members.length / 2));
+  const branchmasterTopLane = $derived(branchmasters.members.slice(0, branchmasterMidpoint));
+  const branchmasterBottomLane = $derived(branchmasters.members.slice(branchmasterMidpoint));
+
+  onMount(() => {
+    let cancelled = false;
+    const client = createSequoiaApiClient({ fetch: window.fetch.bind(window) });
+
+    client.getBranchmasters().then((result) => {
+      if (cancelled) return;
+      branchmasters.members = result.ok
+        ? result.data.members.map(branchmasterCard)
+        : fallbackBranchmasters.map(branchmasterCard);
+    }).catch(() => {
+      if (cancelled) return;
+      branchmasters.members = fallbackBranchmasters.map(branchmasterCard);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  });
+
+  function branchmasterCard(member: BranchmastersResponse["members"][number]): BranchmasterCard {
+    return {
+      username: member.username,
+      rank: member.rank,
+      online: member.online,
+      avatarUrl: nmsrHeadIsoUrl(member.username),
+      stats: {
+        XP: compactNumber(member.contributed),
+        Wars: member.wars.toLocaleString(),
+        Raids: member.raids.toLocaleString(),
+        Joined: joinedMonth(member.joined),
+      },
+    };
+  }
+
+  function compactNumber(value: number): string {
+    return Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(value);
+  }
+
+  function joinedMonth(value: string): string {
+    const date = new Date(value);
+    if (Number.isNaN(date.valueOf())) return "Unknown";
+    return date.toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
+  }
+
+  const fallbackBranchmasters: BranchmastersResponse["members"] = [
+    { username: "Tannslee", rank: "chief", online: false, contributed: 6_800_000_000_000, contribution_rank: 1, wars: 9_420, raids: 12, joined: "2024-05-01T00:00:00Z" },
+    { username: "cela41", rank: "strategist", online: true, contributed: 4_200_000_000_000, contribution_rank: 2, wars: 5_812, raids: 88, joined: "2024-06-01T00:00:00Z" },
+    { username: "GlacWe", rank: "chief", online: false, contributed: 7_600_000_000_000, contribution_rank: 3, wars: 11_378, raids: 0, joined: "2024-08-01T00:00:00Z" },
+    { username: "pantiifre", rank: "strategist", online: true, contributed: 3_900_000_000_000, contribution_rank: 4, wars: 4_731, raids: 44, joined: "2024-09-01T00:00:00Z" },
+    { username: "RaidKeeper", rank: "chief", online: true, contributed: 2_300_000, contribution_rank: 5, wars: 401, raids: 240, joined: "2023-03-01T00:00:00Z" },
+    { username: "Sup3rZ", rank: "strategist", online: false, contributed: 3_100_000_000_000, contribution_rank: 6, wars: 3_920, raids: 17, joined: "2024-10-01T00:00:00Z" },
+    { username: "Shisouhan", rank: "chief", online: false, contributed: 5_500_000_000_000, contribution_rank: 7, wars: 7_184, raids: 62, joined: "2024-04-01T00:00:00Z" },
+    { username: "TM20", rank: "strategist", online: false, contributed: 2_800_000_000_000, contribution_rank: 8, wars: 2_601, raids: 31, joined: "2024-11-01T00:00:00Z" },
+    { username: "Purrrated", rank: "chief", online: false, contributed: 5_900_000_000_000, contribution_rank: 9, wars: 8_046, raids: 74, joined: "2024-07-01T00:00:00Z" },
+    { username: "0_Nickname_0", rank: "strategist", online: false, contributed: 2_500_000_000_000, contribution_rank: 10, wars: 2_114, raids: 26, joined: "2024-12-01T00:00:00Z" },
   ];
 
   // Exhibition
@@ -330,27 +369,12 @@
     <SectionHeading kicker="The Guild">The Branchmasters</SectionHeading>
   </div>
   <div class="seq-branchmasters-marquee" role="region" aria-label="Branchmasters roster">
-    {#each branchmasterRows as row, rowIndex}
-      <div class="seq-branchmasters-lane" class:seq-branchmasters-lane--reverse={row.reverse}>
-        <div class="seq-branchmasters-track">
-          {#each branchmasterLoopCopies as repeat}
-            <div class="seq-branchmasters-loop" aria-hidden={repeat > 0}>
-              {#each row.members as member (`${rowIndex}-${repeat}-${member.username}`)}
-                <div class="seq-branchmasters-item">
-                  <OfficerCard
-                    username={member.username}
-                    rank={member.rank}
-                    online={member.online}
-                    avatarUrl={member.avatarUrl}
-                    stats={member.stats}
-                  />
-                </div>
-              {/each}
-            </div>
-          {/each}
-        </div>
-      </div>
-    {/each}
+    {#if branchmasters.members.length > 0}
+      <OfficerStrip officers={branchmasterTopLane} direction="ltr" />
+      <OfficerStrip officers={branchmasterBottomLane} direction="rtl" />
+    {:else}
+      <div class="seq-branchmasters-loading" aria-hidden="true"></div>
+    {/if}
   </div>
 </section>
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createSequoiaApiClient } from "$lib/api/client";
-import type { HomepageStatsResponse, SeasonRaidActivityResponse } from "$lib/api/client";
+import type { BranchmastersResponse, HomepageStatsResponse, SeasonRaidActivityResponse } from "$lib/api/client";
 
 const homepageStatsBody: HomepageStatsResponse = {
   generated_at: "2026-07-08T12:00:00Z",
@@ -25,6 +25,22 @@ const seasonRaidActivityBody: SeasonRaidActivityResponse = {
           raid_counts: [{ raid_name: "Nest of the Grootslangs", count: 7 }],
         },
       ],
+    },
+  ],
+};
+
+const branchmastersBody: BranchmastersResponse = {
+  generated_at: "2026-07-08T12:00:00Z",
+  members: [
+    {
+      username: "Branchmaster",
+      rank: "chief",
+      online: true,
+      contributed: 1200,
+      contribution_rank: 2,
+      wars: 11,
+      raids: 7,
+      joined: "2024-01-01T00:00:00Z",
     },
   ],
 };
@@ -99,6 +115,36 @@ describe("createSequoiaApiClient", () => {
     });
 
     expect(requests[0]?.startsWith("/public/season/raid-activity?")).toBe(true);
+  });
+
+  it("requests public branchmasters without query parameters", async () => {
+    const requests: string[] = [];
+    const client = createSequoiaApiClient({
+      baseUrl: "https://api.example.test/",
+      fetch: async (input) => {
+        requests.push(String(input));
+        return jsonResponse(branchmastersBody);
+      },
+    });
+
+    const result = await client.getBranchmasters();
+
+    expect(result).toEqual({ ok: true, data: branchmastersBody });
+    expect(requests).toEqual(["https://api.example.test/public/guild/branchmasters"]);
+  });
+
+  it("rejects malformed branchmasters payloads", async () => {
+    const client = createSequoiaApiClient({
+      baseUrl: "https://api.example.test",
+      fetch: async () => jsonResponse({ generated_at: "2026-07-08T12:00:00Z", members: [{}] }),
+    });
+
+    const result = await client.getBranchmasters();
+
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "invalid_response", message: "Unexpected branchmasters response." },
+    });
   });
 
   it("returns backend validation errors without throwing", async () => {
