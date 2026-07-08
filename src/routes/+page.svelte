@@ -214,8 +214,8 @@
     };
   });
   const statValue = (target: number) => Math.round(target * statEase).toLocaleString();
-  const nmsrHeadUrl = (username: string) =>
-    `${NMSR_BASE_URL.replace(/\/+$/, "")}/head/${encodeURIComponent(username)}?w=128`;
+  const nmsrHeadIsoUrl = (username: string) =>
+    `${NMSR_BASE_URL.replace(/\/+$/, "")}/headiso/${encodeURIComponent(username)}?w=128`;
 
   // Officers
   const OFFICERS = [
@@ -226,7 +226,7 @@
     { username: "Thornbark", rank: "strategist", online: true, stats: { XP: "1.9M", Wars: "352", Raids: "159", Joined: "Aug 2023" } },
     { username: "Larkspur", rank: "captain", online: false, stats: { XP: "1.4M", Wars: "288", Raids: "121", Joined: "Nov 2023" } },
   ];
-  const branchmasters = OFFICERS.map((officer) => ({ ...officer, avatarUrl: nmsrHeadUrl(officer.username) }));
+  const branchmasters = OFFICERS.map((officer) => ({ ...officer, avatarUrl: nmsrHeadIsoUrl(officer.username) }));
   const officerLoop = [...branchmasters, ...branchmasters];
 
   // Exhibition
