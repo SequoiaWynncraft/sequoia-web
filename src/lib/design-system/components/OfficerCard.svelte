@@ -30,7 +30,7 @@
       <StatusDot tone="online" size={9} />
     </span>
   {/if}
-  <div class="seq-officer-avatar">
+  <div class="seq-officer-avatar" class:seq-officer-avatar--image={avatarUrl && !avatarFailed}>
     {#if avatarUrl && !avatarFailed}
       <img
         src={avatarUrl}
