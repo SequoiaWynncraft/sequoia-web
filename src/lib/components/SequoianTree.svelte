@@ -8,11 +8,11 @@
   <p id="sequoian-tree-title" class="seq-chibi-kicker">The Sequoian Tree</p>
   <div class="seq-chibi-parade" aria-label="The Sequoian Tree guild art">
     <div class="seq-chibi-track">
-      {#each STRIPS as strip}
+      {#each STRIPS as strip (strip)}
         <img
           src={TREE_IMAGE}
-          alt={strip === 0 ? "Illustration of Sequoia guild members" : ""}
-          aria-hidden={strip === 0 ? undefined : "true"}
+          alt=""
+          aria-hidden="true"
           class="seq-chibi-strip"
           draggable="false"
           loading="lazy"
