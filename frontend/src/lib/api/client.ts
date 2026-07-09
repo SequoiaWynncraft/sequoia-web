@@ -4,6 +4,8 @@ import { isGuildOverviewResponse, type GuildOverviewResponse } from "$lib/api/gu
 
 export type SeasonRaidActivityResponse = components["schemas"]["SeasonRaidActivityResponse"];
 export type GetSeasonRaidActivityQuery = operations["getSeasonRaidActivity"]["parameters"]["query"];
+export type BadgeListResponse = components["schemas"]["BadgeListResponse"];
+export type BadgeEntry = components["schemas"]["BadgeEntry"];
 
 export type ApiErrorCode = "http_error" | "invalid_response" | "network_error";
 
@@ -18,6 +20,7 @@ export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: ApiError 
 export interface SequoiaApiClient {
   getGuildOverview(): Promise<ApiResult<GuildOverviewResponse>>;
   getSeasonRaidActivity(query: GetSeasonRaidActivityQuery): Promise<ApiResult<SeasonRaidActivityResponse>>;
+  getBadges(): Promise<ApiResult<BadgeListResponse>>;
 }
 
 export interface SequoiaApiClientOptions {
@@ -54,7 +57,39 @@ export function createSequoiaApiClient(options: SequoiaApiClientOptions): Sequoi
       }
       return { ok: true, data: response.data };
     },
+
+    async getBadges() {
+      const url = apiUrl(baseUrl, "/api/badges");
+      const response = await requestJson(options.fetch, url);
+      if (!response.ok) return response;
+      if (!isBadgeListResponse(response.data)) {
+        return {
+          ok: false,
+          error: { code: "invalid_response", message: "Unexpected badge list response." },
+        };
+      }
+      return { ok: true, data: response.data };
+    },
   };
+}
+
+const BADGE_TYPES = new Set(["WTP", "NOL", "INSIGNIA"]);
+const BADGE_TIERS = new Set(["DIAMOND", "GOLD", "SILVER", "BRONZE"]);
+
+function isBadgeListResponse(value: unknown): value is BadgeListResponse {
+  return (
+    isRecord(value) &&
+    Array.isArray(value.badges) &&
+    value.badges.every(
+      (badge) =>
+        isRecord(badge) &&
+        typeof badge.player_uuid === "string" &&
+        typeof badge.type === "string" &&
+        BADGE_TYPES.has(badge.type) &&
+        typeof badge.tier === "string" &&
+        BADGE_TIERS.has(badge.tier),
+    )
+  );
 }
 
 function apiUrl(baseUrl: string, path: string, query?: Record<string, string>): string {

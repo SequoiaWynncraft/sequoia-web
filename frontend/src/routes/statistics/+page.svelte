@@ -306,7 +306,7 @@
   .online-name {
     color: var(--text-heading);
     font-family: var(--font-display);
-    font-size: var(--text-2xs);
+    font-size: var(--text-xs);
     letter-spacing: var(--tracking-wide);
   }
 

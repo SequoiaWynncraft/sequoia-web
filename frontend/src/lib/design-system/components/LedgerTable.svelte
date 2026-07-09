@@ -104,7 +104,7 @@
             {@const link = column.href?.(row) ?? null}
             {@const secondary = column.secondary?.(row) ?? null}
             {@const avatar = column.avatar?.(row) ?? null}
-            <td class:numeric={column.numeric}>
+            <td class:numeric={column.numeric} class:name-cell={column.nameStyle}>
               {#if avatar}<img class="avatar" src={avatar} alt="" loading="lazy" width="22" height="22" />{/if}
               {#if mark}<span class="mark" style="background:{mark}" aria-hidden="true"></span>{/if}
               {#if link}
@@ -235,6 +235,17 @@
     margin-right: 10px;
     vertical-align: -5px;
     image-rendering: pixelated;
+  }
+
+  /* The pixel face renders optically smaller than Inter — size up a step. */
+  td.name-cell {
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    letter-spacing: var(--tracking-wide);
+  }
+
+  td.name-cell .secondary {
+    font-size: var(--text-xs);
   }
 
   .cell-link {

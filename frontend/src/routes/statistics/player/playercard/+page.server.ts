@@ -1,6 +1,8 @@
 import type { PageServerLoad } from "./$types";
 
+import type { BadgeEntry } from "$lib/api/client";
 import type { PlayerCardResponse } from "$lib/api/playerCard";
+import { getPlayerBadges } from "$lib/server/badges";
 import { getGuildStats } from "$lib/server/guildStats";
 import { getPlayerCard, PlayerNotFoundError } from "$lib/server/playerCard";
 
@@ -9,6 +11,7 @@ export const prerender = false;
 export interface PlayerCardResult {
   ok: boolean;
   card: PlayerCardResponse | null;
+  badges: BadgeEntry[];
   error: string | null;
 }
 
@@ -26,11 +29,13 @@ export const load: PageServerLoad = async ({ fetch, url }) => {
 
 async function loadCard(fetchImpl: typeof fetch, player: string): Promise<PlayerCardResult> {
   try {
-    return { ok: true, card: await getPlayerCard(fetchImpl, player, { allowStale: true }), error: null };
+    const card = await getPlayerCard(fetchImpl, player, { allowStale: true });
+    const badges = await getPlayerBadges(fetchImpl, card.uuid);
+    return { ok: true, card, badges, error: null };
   } catch (error) {
     if (error instanceof PlayerNotFoundError) {
-      return { ok: false, card: null, error: error.message };
+      return { ok: false, card: null, badges: [], error: error.message };
     }
-    return { ok: false, card: null, error: "The player profile could not be loaded right now." };
+    return { ok: false, card: null, badges: [], error: "The player profile could not be loaded right now." };
   }
 }

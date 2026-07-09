@@ -72,6 +72,7 @@
     {
       key: "member",
       label: "Member",
+      nameStyle: true,
       value: (entry) => entry.username,
       sortValue: (entry) => entry.username.toLowerCase(),
       secondary: (entry) => rankLabels[entry.rank] ?? entry.rank,
