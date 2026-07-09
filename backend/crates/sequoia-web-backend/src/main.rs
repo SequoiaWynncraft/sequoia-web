@@ -1,6 +1,7 @@
 use anyhow::Context;
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
+mod auth;
 mod config;
 mod db;
 mod deltas;
@@ -15,6 +16,7 @@ async fn main() -> anyhow::Result<()> {
 
     let config = std::sync::Arc::new(config::Config::from_env()?);
     let db = std::sync::Arc::new(db::Database::connect(&config.database_url).await?);
+    let oauth = auth::OAuthClient::new(&config);
     let wynn = config
         .wynn_access_token
         .clone()
@@ -38,6 +40,7 @@ async fn main() -> anyhow::Result<()> {
             config,
             db,
             tracker,
+            oauth,
         }),
     )
     .await

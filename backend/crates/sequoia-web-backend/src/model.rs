@@ -60,3 +60,9 @@ pub struct RaidLeaderboardEntry {
     pub raids: i64,
     pub rank: String,
 }
+
+#[derive(Clone, Debug, Serialize)]
+pub struct SessionUser {
+    pub player_uuid: Uuid,
+    pub username: String,
+}
