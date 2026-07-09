@@ -556,7 +556,8 @@
     box-shadow var(--dur-slow) ease;
 }
 
-.seq-officer-card:hover {
+.seq-officer-card:hover,
+.seq-branchmasters-item--drag-active .seq-officer-card {
   border-color: var(--seq-officer-border);
   box-shadow: var(--shadow-md);
 }
@@ -583,7 +584,8 @@
     transform var(--dur-slow) var(--ease-out-soft);
 }
 
-.seq-officer-card:hover .seq-officer-main {
+.seq-officer-card:hover .seq-officer-main,
+.seq-branchmasters-item--drag-active .seq-officer-main {
   opacity: 0.98;
   transform: translate3d(0, -1.35rem, 0) scale(0.9);
 }
@@ -656,7 +658,8 @@
     transform var(--dur-base) var(--ease-out-soft);
 }
 
-.seq-officer-card:hover .seq-officer-stats {
+.seq-officer-card:hover .seq-officer-stats,
+.seq-branchmasters-item--drag-active .seq-officer-stats {
   opacity: 1;
   transform: translate3d(0, 0, 0);
 }
@@ -695,15 +698,6 @@
 
 .seq-branchmasters-strip--dragging .seq-officer-card {
   pointer-events: none;
-}
-
-.seq-branchmasters-strip--dragging .seq-officer-card:hover .seq-officer-main {
-  transform: translate3d(0, 0, 0) scale(1);
-}
-
-.seq-branchmasters-strip--dragging .seq-officer-card:hover .seq-officer-stats {
-  opacity: 0;
-  transform: translate3d(0, 0.18rem, 0) scale(0.98);
 }
 
 .seq-footer {

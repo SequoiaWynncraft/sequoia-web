@@ -32,6 +32,7 @@
   let position = 0;
   let dragStartX = 0;
   let dragStartPosition = 0;
+  let dragActiveItem: HTMLElement | null = null;
   let initialized = false;
 
   const wrapPosition = (next: number) => {
@@ -75,6 +76,10 @@
     if (unitWidth <= 0) return;
 
     event.preventDefault();
+    dragActiveItem = event.target instanceof Element
+      ? event.target.closest<HTMLElement>(".seq-branchmasters-item")
+      : null;
+    dragActiveItem?.classList.add("seq-branchmasters-item--drag-active");
     dragging = true;
     dragStartX = event.clientX;
     dragStartPosition = position;
@@ -94,6 +99,12 @@
     if (container?.hasPointerCapture(event.pointerId)) {
       container.releasePointerCapture(event.pointerId);
     }
+    clearDragActiveItem();
+  }
+
+  function clearDragActiveItem() {
+    dragActiveItem?.classList.remove("seq-branchmasters-item--drag-active");
+    dragActiveItem = null;
   }
 
   $effect(() => {
@@ -150,6 +161,7 @@
     if (!reducedMotion) raf = requestAnimationFrame(tick);
 
     return () => {
+      clearDragActiveItem();
       if (raf) cancelAnimationFrame(raf);
       if (measureTimer) window.clearInterval(measureTimer);
       observer?.disconnect();
@@ -173,6 +185,7 @@
   onlostpointercapture={() => {
     dragging = false;
     hoverPaused = container?.matches(":hover") ?? false;
+    clearDragActiveItem();
   }}
 >
   <div bind:this={track} class="seq-branchmasters-track">
