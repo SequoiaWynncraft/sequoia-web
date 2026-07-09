@@ -107,8 +107,7 @@
 {#if ownPosition}
   <p class="standing-callout">
     Season {season}: <strong>{guildName}</strong> holds
-    <span class="standing-position" class:standing-first={ownPosition === 1}>#{ownPosition}</span>
-    of {rankings?.entries.length ?? 0} ranked guilds.
+    <span class="standing-position" class:standing-first={ownPosition === 1}>#{ownPosition}</span>.
   </p>
 {/if}
 

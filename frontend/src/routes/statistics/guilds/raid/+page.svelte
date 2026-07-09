@@ -87,7 +87,7 @@
   ];
 
   function formatDay(value: string): string {
-    return new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(
+    return new Intl.DateTimeFormat("en", { month: "short", day: "numeric", timeZone: "UTC" }).format(
       new Date(`${value}T00:00:00Z`),
     );
   }
