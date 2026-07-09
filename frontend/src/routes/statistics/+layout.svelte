@@ -34,7 +34,6 @@
 
     {#if data.shell}
       <div class="stats-side-foot">
-        <span class="stats-side-dot" aria-hidden="true"></span>
         <span class="stats-side-online">{data.shell.online_now} online</span>
         <span class="stats-side-members">/ {data.shell.members_total}</span>
       </div>
@@ -141,14 +140,6 @@
     gap: 8px;
     margin-top: auto;
     padding: 18px 18px 4px 2px;
-  }
-
-  .stats-side-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: var(--radius-full);
-    background: var(--status-online);
-    align-self: center;
   }
 
   .stats-side-online {

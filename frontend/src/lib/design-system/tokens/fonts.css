@@ -32,12 +32,12 @@
   font-display: swap;
 }
 
-/* Space Grotesk: the data face for values and numerics — geometric enough
-   to sit beside the pixel display font, with tabular figures for columns. */
+/* Inter: the single text face — body copy and data values alike — so numbers
+   and prose stay consistent. Tabular figures via font-variant-numeric. */
 @font-face {
-  font-family: "Space Grotesk";
-  src: url("/assets/fonts/space-grotesk.woff2") format("woff2");
+  font-family: "Inter";
+  src: url("/assets/fonts/inter-variable.woff2") format("woff2");
   font-style: normal;
-  font-weight: 300 700;
+  font-weight: 100 900;
   font-display: swap;
 }

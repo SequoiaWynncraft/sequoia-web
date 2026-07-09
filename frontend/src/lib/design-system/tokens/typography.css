@@ -8,9 +8,9 @@
 :root {
   /* ── Families ── */
   --font-display: "Minecraft", monospace;
-  --font-body: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Code", "Liberation Mono", Menlo, Consolas, monospace;
-  --font-data: "Space Grotesk", "Segoe UI", system-ui, sans-serif; /* values & numerics */
+  --font-data: "Inter", system-ui, sans-serif; /* values & numerics — tabular via font-variant-numeric */
 
   /* ── Sizes (rem) ── */
   --text-2xs: 0.7rem;     /* tiny captions */
