@@ -6,7 +6,10 @@ use uuid::Uuid;
 use crate::model::SessionUser;
 use crate::{
     deltas::calculate_deltas,
-    model::{GuildSnapshot, MemberRaidCounter, RaidEvent, RaidLeaderboardEntry, TrackerAnomaly},
+    model::{
+        GuildSnapshot, MemberRaidCounter, MemberRaidHistoryPoint, RaidEvent, RaidLeaderboardEntry,
+        TrackerAnomaly,
+    },
 };
 
 #[derive(Clone)]
@@ -174,6 +177,22 @@ impl Database {
         rows.into_iter().map(row_to_raid_event).collect()
     }
 
+    pub async fn raid_event(&self, event_id: Uuid) -> anyhow::Result<Option<RaidEvent>> {
+        let row = sqlx::query(
+            r#"
+            SELECT id, slug, name, starts_at, ends_at
+            FROM raid_events
+            WHERE id = $1
+            "#,
+        )
+        .bind(event_id)
+        .fetch_optional(&self.pool)
+        .await
+        .context("failed to load raid event")?;
+
+        row.map(row_to_raid_event).transpose()
+    }
+
     pub async fn create_raid_event(
         &self,
         slug: &str,
@@ -251,6 +270,34 @@ impl Database {
                     username: row.try_get("username")?,
                     rank: row.try_get("rank")?,
                     raids: row.try_get("raids")?,
+                })
+            })
+            .collect()
+    }
+
+    pub async fn member_raid_history(
+        &self,
+        player_uuid: Uuid,
+    ) -> anyhow::Result<Vec<MemberRaidHistoryPoint>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT captured_at, current_guild_raids, total_guild_raids
+            FROM member_raid_counters
+            WHERE player_uuid = $1
+            ORDER BY captured_at ASC
+            "#,
+        )
+        .bind(player_uuid)
+        .fetch_all(&self.pool)
+        .await
+        .context("failed to load member raid history")?;
+
+        rows.into_iter()
+            .map(|row| {
+                Ok(MemberRaidHistoryPoint {
+                    captured_at: row.try_get("captured_at")?,
+                    current_guild_raids: row.try_get("current_guild_raids")?,
+                    total_guild_raids: row.try_get("total_guild_raids")?,
                 })
             })
             .collect()

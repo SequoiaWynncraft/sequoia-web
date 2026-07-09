@@ -55,9 +55,14 @@ pub fn router(state: AppState) -> Router {
         .route("/auth/logout", post(auth_logout))
         .route("/v1/me", get(me))
         .route("/v1/raid-events", get(list_raid_events))
+        .route("/v1/raid-events/{event_id}", get(raid_event))
         .route(
             "/v1/raid-events/{event_id}/leaderboard",
             get(raid_event_leaderboard),
+        )
+        .route(
+            "/v1/members/{player_uuid}/guild-raids",
+            get(member_raid_history),
         )
         .route("/internal/poll-now", post(poll_now))
         .route("/internal/raid-events", post(create_raid_event))
@@ -168,9 +173,31 @@ async fn me(State(state): State<AppState>, headers: HeaderMap) -> Result<Respons
 async fn raid_event_leaderboard(
     State(state): State<AppState>,
     Path(event_id): Path<Uuid>,
+    headers: HeaderMap,
 ) -> Result<Response, ApiError> {
+    require_member_session(&state, &headers).await?;
     let leaderboard = state.db.raid_event_leaderboard(event_id).await?;
     Ok(Json(leaderboard).into_response())
+}
+
+async fn raid_event(
+    State(state): State<AppState>,
+    Path(event_id): Path<Uuid>,
+) -> Result<Response, ApiError> {
+    let Some(event) = state.db.raid_event(event_id).await? else {
+        return Err(ApiError::new(StatusCode::NOT_FOUND, "raid event not found"));
+    };
+    Ok(Json(event).into_response())
+}
+
+async fn member_raid_history(
+    State(state): State<AppState>,
+    Path(player_uuid): Path<Uuid>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    require_member_session(&state, &headers).await?;
+    let history = state.db.member_raid_history(player_uuid).await?;
+    Ok(Json(history).into_response())
 }
 
 async fn poll_now(State(state): State<AppState>, headers: HeaderMap) -> Result<Response, ApiError> {
@@ -258,6 +285,17 @@ async fn session_user_from_headers(
 
     let session_id = auth::hash_session_token(session_secret, session_token);
     Ok(state.db.session_user(&session_id).await?)
+}
+
+async fn require_member_session(state: &AppState, headers: &HeaderMap) -> Result<(), ApiError> {
+    if session_user_from_headers(state, headers).await?.is_some() {
+        Ok(())
+    } else {
+        Err(ApiError::new(
+            StatusCode::UNAUTHORIZED,
+            "Sequoia member login is required",
+        ))
+    }
 }
 
 fn session_token_from_headers(headers: &HeaderMap) -> Option<&str> {

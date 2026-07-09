@@ -62,6 +62,13 @@ pub struct RaidLeaderboardEntry {
 }
 
 #[derive(Clone, Debug, Serialize)]
+pub struct MemberRaidHistoryPoint {
+    pub captured_at: OffsetDateTime,
+    pub current_guild_raids: Option<i64>,
+    pub total_guild_raids: Option<i64>,
+}
+
+#[derive(Clone, Debug, Serialize)]
 pub struct SessionUser {
     pub player_uuid: Uuid,
     pub username: String,
