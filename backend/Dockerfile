@@ -4,6 +4,8 @@ WORKDIR /app
 COPY rust-toolchain.toml rustfmt.toml ./
 COPY backend/Cargo.toml backend/Cargo.lock backend/
 COPY backend/crates/sequoia-web-backend/Cargo.toml backend/crates/sequoia-web-backend/Cargo.toml
+RUN mkdir -p backend/crates/sequoia-web-backend/src \
+    && touch backend/crates/sequoia-web-backend/src/main.rs
 RUN cargo fetch --manifest-path backend/Cargo.toml
 
 COPY backend backend
