@@ -123,21 +123,23 @@
     />
   </section>
 
-  {#if data.territories && data.territories.territories.length > 0}
-    <section class="block" aria-label="Territories held right now">
-      <SectionLabel meta="longest hold first">
-        {#snippet children()}Territories held{/snippet}
-      </SectionLabel>
-      <div class="territories">
-        {#each data.territories.territories as territory (territory.name)}
-          <span class="territory">
-            <span class="territory-name">{territory.name}</span>
-            <span class="territory-held">{heldFor(territory.acquired)}</span>
-          </span>
-        {/each}
-      </div>
-    </section>
-  {/if}
+  {#await data.territories then held}
+    {#if held && held.territories.length > 0}
+      <section class="block" aria-label="Territories held right now">
+        <SectionLabel meta="longest hold first">
+          {#snippet children()}Territories held{/snippet}
+        </SectionLabel>
+        <div class="territories">
+          {#each held.territories as territory (territory.name)}
+            <span class="territory">
+              <span class="territory-name">{territory.name}</span>
+              <span class="territory-held">{heldFor(territory.acquired)}</span>
+            </span>
+          {/each}
+        </div>
+      </section>
+    {/if}
+  {/await}
 
   <section class="block" aria-label="Territory finishes by season">
     <SectionLabel meta="completed seasons">
