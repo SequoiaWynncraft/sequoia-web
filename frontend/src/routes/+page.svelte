@@ -7,28 +7,15 @@
   import SequoianTree from "$lib/components/SequoianTree.svelte";
   import Icon from "$lib/components/Icon.svelte";
   import { createSequoiaApiClient } from "$lib/api/client";
-  import type { HomepageStatsResponse } from "$lib/api/client";
-  import type { BranchmastersResponse } from "$lib/api/branchmasters";
+  import type { BranchmasterMember, HomepageStats } from "$lib/api/guildOverview";
   import { NMSR_BASE_URL } from "$lib/config/public";
   import { homepageServices } from "$lib/site/nav";
 
   const IMG = "/assets/images/";
   const SERVICES = homepageServices();
-  type HomepageStats = Pick<
-    HomepageStatsResponse,
-    "members" | "guild_level" | "territories" | "total_wars" | "raids" | "online_now"
-  >;
-  const HOMEPAGE_STATS_FALLBACK: HomepageStats = {
-    members: 128,
-    guild_level: 142,
-    territories: 312,
-    total_wars: 18_472,
-    raids: 9_043,
-    online_now: 7,
-  };
   let heroImage: HTMLImageElement;
   let statsSection: HTMLElement;
-  let homepageStats = $state<HomepageStats>(HOMEPAGE_STATS_FALLBACK);
+  let homepageStats = $state<HomepageStats | null>(null);
   let pendingHomepageStats: HomepageStats | null = null;
   let statProgress = $state(1);
   const statEase = $derived(1 - Math.pow(1 - statProgress, 3));
@@ -37,10 +24,16 @@
     const client = createSequoiaApiClient({ fetch: window.fetch.bind(window) });
     let cancelled = false;
 
-    client.getHomepageStats().then((result) => {
-      if (cancelled || !result.ok) return;
-      applyHomepageStats(result.data);
-    });
+    client.getGuildOverview()
+      .then((result) => {
+        if (cancelled || !result.ok) return;
+        applyHomepageStats(result.data.stats);
+        branchmasters.members = result.data.branchmasters.map(branchmasterCard);
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancelled) branchmastersLoaded = true;
+      });
 
     return () => {
       cancelled = true;
@@ -215,7 +208,8 @@
       observer?.disconnect();
     };
   });
-  const statValue = (target: number) => Math.round(target * statEase).toLocaleString();
+  const statValue = (target: number | undefined) =>
+    target === undefined ? "—" : Math.round(target * statEase).toLocaleString();
   const nmsrHeadIsoUrl = (username: string) =>
     `${NMSR_BASE_URL.replace(/\/+$/, "")}/headiso/${encodeURIComponent(username)}?w=128`;
 
@@ -231,46 +225,34 @@
   const branchmasterTopLane = $derived(branchmasters.members.filter((member) => member.rank !== "strategist"));
   const branchmasterBottomLane = $derived(branchmasters.members.filter((member) => member.rank === "strategist"));
 
-  onMount(() => {
-    let cancelled = false;
-    const client = createSequoiaApiClient({ fetch: window.fetch.bind(window) });
-
-    client.getBranchmasters().then((result) => {
-      if (!cancelled && result.ok) {
-        branchmasters.members = result.data.members.map(branchmasterCard);
-      }
-    }).catch(() => undefined)
-      .finally(() => {
-        if (!cancelled) branchmastersLoaded = true;
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  });
-
-  function branchmasterCard(member: BranchmastersResponse["members"][number]): BranchmasterCard {
+  function branchmasterCard(member: BranchmasterMember): BranchmasterCard {
     return {
       username: member.username,
       rank: member.rank,
-      online: member.online,
+      online: member.online === true,
       avatarUrl: nmsrHeadIsoUrl(member.username),
       stats: {
         XP: compactNumber(member.contributed),
-        Wars: member.wars.toLocaleString(),
-        Raids: member.raids.toLocaleString(),
+        Wars: formattedNumber(member.wars),
+        Raids: formattedNumber(member.raids),
         Joined: joinedMonth(member.joined),
       },
     };
   }
 
-  function compactNumber(value: number): string {
+  function compactNumber(value: number | null): string {
+    if (value === null) return "—";
     return Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(value);
   }
 
-  function joinedMonth(value: string): string {
+  function formattedNumber(value: number | null): string {
+    return value === null ? "—" : value.toLocaleString();
+  }
+
+  function joinedMonth(value: string | null): string {
+    if (!value) return "—";
     const date = new Date(value);
-    if (Number.isNaN(date.valueOf())) return "Unknown";
+    if (Number.isNaN(date.valueOf())) return "—";
     return date.toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
   }
 
@@ -322,12 +304,12 @@
   <div style="max-width:64rem;margin:0 auto">
     <div class="divider-gold" style="margin-bottom:3rem"></div>
     <div class="seq-stats-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:2rem 1rem">
-      <StatBlock value={statValue(homepageStats.members)} label="Members">{#snippet icon()}<Icon name="users" />{/snippet}</StatBlock>
-      <StatBlock value={statValue(homepageStats.guild_level)} label="Guild Level">{#snippet icon()}<Icon name="level" />{/snippet}</StatBlock>
-      <StatBlock value={statValue(homepageStats.territories)} label="Territories">{#snippet icon()}<Icon name="territory" />{/snippet}</StatBlock>
-      <StatBlock value={statValue(homepageStats.total_wars)} label="Total Wars">{#snippet icon()}<Icon name="war" />{/snippet}</StatBlock>
-      <StatBlock value={statValue(homepageStats.raids)} label="Raids">{#snippet icon()}<Icon name="raid" />{/snippet}</StatBlock>
-      <StatBlock value={statValue(homepageStats.online_now)} label="Online Now">{#snippet icon()}<Icon name="online" />{/snippet}</StatBlock>
+      <StatBlock value={statValue(homepageStats?.members)} label="Members">{#snippet icon()}<Icon name="users" />{/snippet}</StatBlock>
+      <StatBlock value={statValue(homepageStats?.guild_level)} label="Guild Level">{#snippet icon()}<Icon name="level" />{/snippet}</StatBlock>
+      <StatBlock value={statValue(homepageStats?.territories)} label="Territories">{#snippet icon()}<Icon name="territory" />{/snippet}</StatBlock>
+      <StatBlock value={statValue(homepageStats?.total_wars)} label="Total Wars">{#snippet icon()}<Icon name="war" />{/snippet}</StatBlock>
+      <StatBlock value={statValue(homepageStats?.raids)} label="Raids">{#snippet icon()}<Icon name="raid" />{/snippet}</StatBlock>
+      <StatBlock value={statValue(homepageStats?.online_now)} label="Online Now">{#snippet icon()}<Icon name="online" />{/snippet}</StatBlock>
     </div>
     <div class="divider-gold" style="margin-top:3rem"></div>
   </div>
