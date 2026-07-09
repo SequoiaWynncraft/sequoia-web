@@ -82,7 +82,6 @@
 <StatsHeader
   kicker="Player"
   title="Playercard"
-  lead="A shareable profile for any Sequoia member."
 />
 
 <form class="search" onsubmit={search} role="search" aria-label="Find a member">
@@ -395,7 +394,7 @@
   .meta-row dd {
     margin: 0;
     color: var(--text-heading);
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: var(--text-sm);
     font-variant-numeric: tabular-nums;
   }
@@ -458,7 +457,7 @@
 
   .character-level {
     color: var(--text-muted);
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: var(--text-2xs);
   }
 

@@ -59,7 +59,6 @@
 <StatsHeader
   kicker="Player"
   title="Raids"
-  lead="Every member's raid completions, by raid — sorted however you need it."
 />
 
 {#if stats}
@@ -183,7 +182,7 @@
 
   .podium-value {
     color: var(--text-muted);
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: var(--text-2xs);
   }
 

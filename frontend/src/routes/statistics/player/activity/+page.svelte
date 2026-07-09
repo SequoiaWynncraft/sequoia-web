@@ -86,7 +86,6 @@
 <StatsHeader
   kicker="Player"
   title="Activity"
-  lead="Who's on, who's been on, and how many hours the roster has put in."
 />
 
 {#if stats}
