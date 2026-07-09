@@ -9,7 +9,9 @@ overrides:
 
 importers:
 
-  .:
+  .: {}
+
+  frontend:
     dependencies:
       '@libsql/client':
         specifier: ^0.17.4
