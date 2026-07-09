@@ -29,7 +29,7 @@
   style="--seq-officer-border:{borderColor(rank)}"
 >
   {#if online}
-    <span class="seq-officer-status">
+    <span class="seq-officer-status" title={`${username} is online`} aria-label={`${username} is online`}>
       <StatusDot tone="online" size={9} />
     </span>
   {/if}

@@ -1,8 +1,7 @@
 import { SEQUOIA_API_BASE_URL } from "$lib/config/public";
 import type { components, operations } from "$lib/api/generated/public-api";
-import { isBranchmastersResponse, type BranchmastersResponse } from "$lib/api/branchmasters";
+import { isGuildOverviewResponse, type GuildOverviewResponse } from "$lib/api/guildOverview";
 
-export type HomepageStatsResponse = components["schemas"]["HomepageStatsResponse"];
 export type SeasonRaidActivityResponse = components["schemas"]["SeasonRaidActivityResponse"];
 export type GetSeasonRaidActivityQuery = operations["getSeasonRaidActivity"]["parameters"]["query"];
 
@@ -17,8 +16,7 @@ export interface ApiError {
 export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: ApiError };
 
 export interface SequoiaApiClient {
-  getHomepageStats(): Promise<ApiResult<HomepageStatsResponse>>;
-  getBranchmasters(): Promise<ApiResult<BranchmastersResponse>>;
+  getGuildOverview(): Promise<ApiResult<GuildOverviewResponse>>;
   getSeasonRaidActivity(query: GetSeasonRaidActivityQuery): Promise<ApiResult<SeasonRaidActivityResponse>>;
 }
 
@@ -31,27 +29,14 @@ export function createSequoiaApiClient(options: SequoiaApiClientOptions): Sequoi
   const baseUrl = options.baseUrl ?? SEQUOIA_API_BASE_URL;
 
   return {
-    async getHomepageStats() {
-      const url = apiUrl(baseUrl, "/public/homepage/stats");
+    async getGuildOverview() {
+      const url = "/api/guild-overview";
       const response = await requestJson(options.fetch, url);
       if (!response.ok) return response;
-      if (!isHomepageStatsResponse(response.data)) {
+      if (!isGuildOverviewResponse(response.data)) {
         return {
           ok: false,
-          error: { code: "invalid_response", message: "Unexpected homepage stats response." },
-        };
-      }
-      return { ok: true, data: response.data };
-    },
-
-    async getBranchmasters() {
-      const url = "/api/branchmasters";
-      const response = await requestJson(options.fetch, url);
-      if (!response.ok) return response;
-      if (!isBranchmastersResponse(response.data)) {
-        return {
-          ok: false,
-          error: { code: "invalid_response", message: "Unexpected branchmasters response." },
+          error: { code: "invalid_response", message: "Unexpected guild overview response." },
         };
       }
       return { ok: true, data: response.data };
@@ -117,19 +102,6 @@ async function readJson(response: Response): Promise<unknown> {
 function errorMessage(value: unknown, fallback: string): string {
   if (isRecord(value) && typeof value.error === "string") return value.error;
   return fallback;
-}
-
-function isHomepageStatsResponse(value: unknown): value is HomepageStatsResponse {
-  return (
-    isRecord(value) &&
-    typeof value.generated_at === "string" &&
-    isFiniteNumber(value.members) &&
-    isFiniteNumber(value.guild_level) &&
-    isFiniteNumber(value.territories) &&
-    isFiniteNumber(value.total_wars) &&
-    isFiniteNumber(value.raids) &&
-    isFiniteNumber(value.online_now)
-  );
 }
 
 function isSeasonRaidActivityResponse(value: unknown): value is SeasonRaidActivityResponse {

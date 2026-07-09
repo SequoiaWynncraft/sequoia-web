@@ -1,17 +1,32 @@
 import { describe, expect, it } from "vitest";
 
 import { createSequoiaApiClient } from "$lib/api/client";
-import type { HomepageStatsResponse, SeasonRaidActivityResponse } from "$lib/api/client";
-import type { BranchmastersResponse } from "$lib/api/branchmasters";
+import type { SeasonRaidActivityResponse } from "$lib/api/client";
+import type { GuildOverviewResponse } from "$lib/api/guildOverview";
 
-const homepageStatsBody: HomepageStatsResponse = {
+const guildOverviewBody: GuildOverviewResponse = {
   generated_at: "2026-07-08T12:00:00Z",
-  members: 128,
-  guild_level: 142,
-  territories: 312,
-  total_wars: 18_472,
-  raids: 9_043,
-  online_now: 7,
+  stale: false,
+  stats: {
+    members: 149,
+    guild_level: 240,
+    territories: 60,
+    total_wars: 149_330,
+    raids: 142_884,
+    online_now: 19,
+  },
+  branchmasters: [
+    {
+      username: "Branchmaster",
+      rank: "chief",
+      online: true,
+      contributed: 1200,
+      contribution_rank: 2,
+      wars: 11,
+      raids: 7,
+      joined: "2024-01-01T00:00:00Z",
+    },
+  ],
 };
 
 const seasonRaidActivityBody: SeasonRaidActivityResponse = {
@@ -30,50 +45,34 @@ const seasonRaidActivityBody: SeasonRaidActivityResponse = {
   ],
 };
 
-const branchmastersBody: BranchmastersResponse = {
-  generated_at: "2026-07-08T12:00:00Z",
-  members: [
-    {
-      username: "Branchmaster",
-      rank: "chief",
-      online: true,
-      contributed: 1200,
-      contribution_rank: 2,
-      wars: 11,
-      raids: 7,
-      joined: "2024-01-01T00:00:00Z",
-    },
-  ],
-};
-
 describe("createSequoiaApiClient", () => {
-  it("requests public homepage stats without query parameters", async () => {
+  it("requests the web-owned guild overview without using the backend base URL", async () => {
     const requests: string[] = [];
     const client = createSequoiaApiClient({
       baseUrl: "https://api.example.test/",
       fetch: async (input) => {
         requests.push(String(input));
-        return jsonResponse(homepageStatsBody);
+        return jsonResponse(guildOverviewBody);
       },
     });
 
-    const result = await client.getHomepageStats();
+    const result = await client.getGuildOverview();
 
-    expect(result).toEqual({ ok: true, data: homepageStatsBody });
-    expect(requests).toEqual(["https://api.example.test/public/homepage/stats"]);
+    expect(result).toEqual({ ok: true, data: guildOverviewBody });
+    expect(requests).toEqual(["/api/guild-overview"]);
   });
 
-  it("rejects malformed homepage stats success payloads", async () => {
+  it("rejects malformed guild overview payloads", async () => {
     const client = createSequoiaApiClient({
       baseUrl: "https://api.example.test",
-      fetch: async () => jsonResponse({ generated_at: "2026-07-08T12:00:00Z", members: "128" }),
+      fetch: async () => jsonResponse({ generated_at: "2026-07-08T12:00:00Z", stats: {} }),
     });
 
-    const result = await client.getHomepageStats();
+    const result = await client.getGuildOverview();
 
     expect(result).toEqual({
       ok: false,
-      error: { code: "invalid_response", message: "Unexpected homepage stats response." },
+      error: { code: "invalid_response", message: "Unexpected guild overview response." },
     });
   });
 
@@ -116,36 +115,6 @@ describe("createSequoiaApiClient", () => {
     });
 
     expect(requests[0]?.startsWith("/public/season/raid-activity?")).toBe(true);
-  });
-
-  it("requests web-owned branchmasters without using the backend base URL", async () => {
-    const requests: string[] = [];
-    const client = createSequoiaApiClient({
-      baseUrl: "https://api.example.test/",
-      fetch: async (input) => {
-        requests.push(String(input));
-        return jsonResponse(branchmastersBody);
-      },
-    });
-
-    const result = await client.getBranchmasters();
-
-    expect(result).toEqual({ ok: true, data: branchmastersBody });
-    expect(requests).toEqual(["/api/branchmasters"]);
-  });
-
-  it("rejects malformed branchmasters payloads", async () => {
-    const client = createSequoiaApiClient({
-      baseUrl: "https://api.example.test",
-      fetch: async () => jsonResponse({ generated_at: "2026-07-08T12:00:00Z", members: [{}] }),
-    });
-
-    const result = await client.getBranchmasters();
-
-    expect(result).toEqual({
-      ok: false,
-      error: { code: "invalid_response", message: "Unexpected branchmasters response." },
-    });
   });
 
   it("returns backend validation errors without throwing", async () => {
