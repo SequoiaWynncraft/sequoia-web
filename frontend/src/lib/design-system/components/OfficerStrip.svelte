@@ -32,7 +32,7 @@
   let position = 0;
   let dragStartX = 0;
   let dragStartPosition = 0;
-  let dragActiveItem: HTMLElement | null = null;
+  let dragActiveItems: HTMLElement[] = [];
   let initialized = false;
 
   const wrapPosition = (next: number) => {
@@ -76,10 +76,10 @@
     if (unitWidth <= 0) return;
 
     event.preventDefault();
-    dragActiveItem = event.target instanceof Element
+    const activeItem = event.target instanceof Element
       ? event.target.closest<HTMLElement>(".seq-branchmasters-item")
       : null;
-    dragActiveItem?.classList.add("seq-branchmasters-item--drag-active");
+    setDragActiveItems(activeItem);
     dragging = true;
     dragStartX = event.clientX;
     dragStartPosition = position;
@@ -99,12 +99,23 @@
     if (container?.hasPointerCapture(event.pointerId)) {
       container.releasePointerCapture(event.pointerId);
     }
-    clearDragActiveItem();
+    clearDragActiveItems();
   }
 
-  function clearDragActiveItem() {
-    dragActiveItem?.classList.remove("seq-branchmasters-item--drag-active");
-    dragActiveItem = null;
+  function setDragActiveItems(activeItem: HTMLElement | null) {
+    clearDragActiveItems();
+    const index = activeItem?.dataset.branchmastersIndex;
+    if (index === undefined) return;
+
+    dragActiveItems = Array.from(
+      track.querySelectorAll<HTMLElement>(`.seq-branchmasters-item[data-branchmasters-index="${index}"]`),
+    );
+    for (const item of dragActiveItems) item.classList.add("seq-branchmasters-item--drag-active");
+  }
+
+  function clearDragActiveItems() {
+    for (const item of dragActiveItems) item.classList.remove("seq-branchmasters-item--drag-active");
+    dragActiveItems = [];
   }
 
   $effect(() => {
@@ -161,7 +172,7 @@
     if (!reducedMotion) raf = requestAnimationFrame(tick);
 
     return () => {
-      clearDragActiveItem();
+      clearDragActiveItems();
       if (raf) cancelAnimationFrame(raf);
       if (measureTimer) window.clearInterval(measureTimer);
       observer?.disconnect();
@@ -185,7 +196,7 @@
   onlostpointercapture={() => {
     dragging = false;
     hoverPaused = container?.matches(":hover") ?? false;
-    clearDragActiveItem();
+    clearDragActiveItems();
   }}
 >
   <div bind:this={track} class="seq-branchmasters-track">
