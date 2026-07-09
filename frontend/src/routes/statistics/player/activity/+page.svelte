@@ -14,9 +14,8 @@
   const totalPlaytime = $derived(
     stats ? stats.members.reduce((sum, member) => sum + (member.playtime ?? 0), 0) : 0,
   );
-  const onlineCount = $derived(
-    stats ? stats.members.filter((member) => member.online === true).length : 0,
-  );
+  // Aggregate count — per-member flags are null for restricted or stale presence.
+  const onlineCount = $derived(stats?.guild.online_now ?? 0);
   const activeThisWeek = $derived(
     stats
       ? stats.members.filter(
