@@ -1,4 +1,5 @@
 import { createSequoiaApiClient, type BadgeEntry } from "$lib/api/client";
+import { SEQUOIA_API_BASE_URL } from "$lib/config/public";
 import { createCachedResource } from "$lib/server/serverCache";
 
 const FRESH_MS = 10 * 60 * 1000;
@@ -12,11 +13,11 @@ const resource = createCachedResource<BadgeEntry[]>({
   validate: isBadgeList,
 });
 
-/** Active badge grants for one player, from the public badge feed. */
-export async function getPlayerBadges(fetchImpl: typeof fetch, playerUuid: string): Promise<BadgeEntry[]> {
+/** The full public badge feed; empty on failure. */
+export async function getBadgeFeed(fetchImpl: typeof fetch): Promise<BadgeEntry[]> {
   try {
     const value = await resource.get(fetchImpl, { allowStale: true });
-    return value.data.filter((badge) => badge.player_uuid === playerUuid);
+    return value.data;
   } catch {
     return [];
   }
@@ -25,7 +26,12 @@ export async function getPlayerBadges(fetchImpl: typeof fetch, playerUuid: strin
 async function loadBadges(fetchImpl: typeof fetch): Promise<BadgeEntry[]> {
   const timedFetch: typeof fetch = (input, init) =>
     fetchImpl(input, { ...init, signal: AbortSignal.timeout(6000) });
-  const client = createSequoiaApiClient({ fetch: timedFetch });
+  // Server-side fetch: /api/badges is not part of the documented same-origin
+  // proxy surface, so an absolute upstream base is required here.
+  const client = createSequoiaApiClient({
+    fetch: timedFetch,
+    baseUrl: SEQUOIA_API_BASE_URL || "https://api.seqwawa.com",
+  });
   const result = await client.getBadges();
   if (!result.ok) throw new Error(result.error.message);
   return result.data.badges;

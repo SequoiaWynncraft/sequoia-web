@@ -2,7 +2,7 @@ import type { PageServerLoad } from "./$types";
 
 import type { BadgeEntry } from "$lib/api/client";
 import type { PlayerCardResponse } from "$lib/api/playerCard";
-import { getPlayerBadges } from "$lib/server/badges";
+import { getBadgeFeed } from "$lib/server/badges";
 import { getGuildStats } from "$lib/server/guildStats";
 import { getPlayerCard, PlayerNotFoundError } from "$lib/server/playerCard";
 
@@ -28,9 +28,12 @@ export const load: PageServerLoad = async ({ fetch, url }) => {
 };
 
 async function loadCard(fetchImpl: typeof fetch, player: string): Promise<PlayerCardResult> {
+  // The badge feed warms concurrently so it never delays the card itself.
+  const feedPromise = getBadgeFeed(fetchImpl);
   try {
     const card = await getPlayerCard(fetchImpl, player, { allowStale: true });
-    const badges = await getPlayerBadges(fetchImpl, card.uuid);
+    const feed = await feedPromise;
+    const badges = feed.filter((badge) => badge.player_uuid === card.uuid);
     return { ok: true, card, badges, error: null };
   } catch (error) {
     if (error instanceof PlayerNotFoundError) {
