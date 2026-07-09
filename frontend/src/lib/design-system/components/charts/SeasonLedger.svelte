@@ -103,7 +103,7 @@
               width={column.width}
               height={column.height}
             />
-            {#if first}
+            {#if first && !column.live}
               <rect class="ledger-cap" x={column.x} y={column.y} width={column.width} height="3" />
             {/if}
             {#if !compact && column.position && column.width >= 18}
