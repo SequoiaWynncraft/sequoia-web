@@ -3,7 +3,6 @@
   import SubpageGrid from "$lib/components/SubpageGrid.svelte";
   import Icon from "$lib/components/Icon.svelte";
   import StatBlock from "$lib/design-system/components/StatBlock.svelte";
-  import SeasonLedger from "$lib/design-system/components/charts/SeasonLedger.svelte";
   import { pageView } from "$lib/site/nav";
   import type { GuildMemberStats } from "$lib/api/guildStats";
 
@@ -40,16 +39,24 @@
   const topRaids = $derived(stats ? topBy(stats.members, (member) => member.raids_total) : null);
   const topPlaytime = $derived(stats ? topBy(stats.members, (member) => member.playtime) : null);
   const topContributed = $derived(stats ? topBy(stats.members, (member) => member.contributed) : null);
-  const firstFinishes = $derived(
+
+  const onlineMembers = $derived(
     stats
-      ? Object.keys(stats.rankings).filter(
-          (slug) => slug.startsWith("guildSeason") && stats.rankings[slug] === 1,
-        ).length
-      : 0,
+      ? stats.members
+          .filter((member) => member.online === true)
+          .sort(
+            (a, b) =>
+              (a.server ?? "").localeCompare(b.server ?? "") || a.username.localeCompare(b.username),
+          )
+      : [],
   );
 
   function compact(value: number): string {
     return Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(value);
+  }
+
+  function playercardHref(username: string): string {
+    return `/statistics/player/playercard?player=${encodeURIComponent(username)}`;
   }
 
   const STALE_NOTE_AFTER_MS = 30 * 60 * 1000;
@@ -60,37 +67,8 @@
 
 <PageHeader kicker={page.kicker} title={page.title} lead={page.lead} />
 
-{#if stats && currentSeason}
-  <section class="season-hero animate-fade-in-up" aria-label="Current guild season">
-    <div class="season-hero-info">
-      <span class="season-eyebrow">Guild Season {currentSeason.season} · Live</span>
-      <span class="season-rank" class:text-gold-gradient={currentPosition === 1}>
-        {currentPosition ? `Rank #${currentPosition}` : "In progress"}
-      </span>
-      <div class="season-facts">
-        <span class="season-fact">
-          <span class="season-fact-label">Season rating</span>
-          <span class="season-fact-value">{currentSeason.rating.toLocaleString()}</span>
-        </span>
-        {#if bestSeason && bestSeason.season !== currentSeason.season}
-          <span class="season-fact">
-            <span class="season-fact-label">Best season (S{bestSeason.season})</span>
-            <span class="season-fact-value">{bestSeason.rating.toLocaleString()}</span>
-          </span>
-        {/if}
-        <span class="season-fact">
-          <span class="season-fact-label">#1 finishes</span>
-          <span class="season-fact-value">{firstFinishes}</span>
-        </span>
-      </div>
-      <a class="season-link" href="/statistics/guilds/rankings">Full season history →</a>
-    </div>
-    <div class="season-hero-chart">
-      <SeasonLedger seasons={stats.season_ranks} positions={stats.rankings} compact />
-    </div>
-  </section>
-
-  <div class="vitals-strip">
+{#if stats}
+  <div class="vitals-strip animate-fade-in-up">
     <div class="divider-gold"></div>
     <div class="vitals">
       <StatBlock value={stats.guild.members_total.toLocaleString()} label="Members">
@@ -122,25 +100,25 @@
         {#if topWars}
           <div class="record">
             <dt>Most wars</dt>
-            <dd><a class="record-name" href="/statistics/player/playercard?player={encodeURIComponent(topWars.member.username)}">{topWars.member.username}</a>{topWars.value.toLocaleString()}</dd>
+            <dd><a class="record-name" href={playercardHref(topWars.member.username)}>{topWars.member.username}</a>{topWars.value.toLocaleString()}</dd>
           </div>
         {/if}
         {#if topRaids}
           <div class="record">
             <dt>Most guild raids</dt>
-            <dd><a class="record-name" href="/statistics/player/playercard?player={encodeURIComponent(topRaids.member.username)}">{topRaids.member.username}</a>{topRaids.value.toLocaleString()}</dd>
+            <dd><a class="record-name" href={playercardHref(topRaids.member.username)}>{topRaids.member.username}</a>{topRaids.value.toLocaleString()}</dd>
           </div>
         {/if}
         {#if topPlaytime}
           <div class="record">
             <dt>Most playtime</dt>
-            <dd><a class="record-name" href="/statistics/player/playercard?player={encodeURIComponent(topPlaytime.member.username)}">{topPlaytime.member.username}</a>{Math.round(topPlaytime.value).toLocaleString()} h</dd>
+            <dd><a class="record-name" href={playercardHref(topPlaytime.member.username)}>{topPlaytime.member.username}</a>{Math.round(topPlaytime.value).toLocaleString()} h</dd>
           </div>
         {/if}
         {#if topContributed}
           <div class="record">
             <dt>Most XP contributed</dt>
-            <dd><a class="record-name" href="/statistics/player/playercard?player={encodeURIComponent(topContributed.member.username)}">{topContributed.member.username}</a>{compact(topContributed.value)}</dd>
+            <dd><a class="record-name" href={playercardHref(topContributed.member.username)}>{topContributed.member.username}</a>{compact(topContributed.value)}</dd>
           </div>
         {/if}
       </dl>
@@ -149,10 +127,12 @@
     <section aria-label="Guild records">
       <h2 class="records-title"><span class="records-diamond" aria-hidden="true">◆</span>Guild records</h2>
       <dl class="records-list">
-        <div class="record">
-          <dt>Season {currentSeason.season} standing</dt>
-          <dd>{currentPosition ? `#${currentPosition}` : "—"}</dd>
-        </div>
+        {#if currentSeason}
+          <div class="record">
+            <dt>Season {currentSeason.season} standing</dt>
+            <dd>{currentPosition ? `#${currentPosition}` : "—"}</dd>
+          </div>
+        {/if}
         <div class="record">
           <dt>Best season rating</dt>
           <dd>{bestSeason ? bestSeason.rating.toLocaleString() : "—"}</dd>
@@ -169,6 +149,24 @@
     </section>
   </div>
 
+  {#if onlineMembers.length > 0}
+    <section class="online" aria-label="Members online now">
+      <h2 class="records-title">
+        <span class="records-diamond" aria-hidden="true">◆</span>Online now
+        <span class="online-count">{onlineMembers.length}</span>
+      </h2>
+      <div class="online-grid">
+        {#each onlineMembers as member (member.uuid ?? member.username)}
+          <a class="online-chip" href={playercardHref(member.username)}>
+            <span class="online-dot status-pulse" aria-hidden="true"></span>
+            <span class="online-name">{member.username}</span>
+            {#if member.server}<span class="online-server">{member.server}</span>{/if}
+          </a>
+        {/each}
+      </div>
+    </section>
+  {/if}
+
   {#if staleForLong}
     <p class="stale-note">Live data is currently unavailable — showing the last recorded snapshot.</p>
   {/if}
@@ -178,89 +176,6 @@
 {/if}
 
 <style>
-  .season-hero {
-    display: grid;
-    grid-template-columns: minmax(280px, 2fr) minmax(320px, 3fr);
-    gap: 32px;
-    align-items: end;
-    margin-bottom: 40px;
-    padding: 28px 28px 22px;
-    border: 1px solid rgba(245, 197, 66, 0.22);
-    background: rgba(26, 29, 42, 0.55);
-    box-shadow: var(--bevel-slot);
-  }
-
-  .season-hero-info {
-    display: grid;
-    gap: 14px;
-    justify-items: start;
-  }
-
-  .season-eyebrow {
-    color: var(--text-muted);
-    font-family: var(--font-display);
-    font-size: var(--text-2xs);
-    letter-spacing: var(--tracking-widest);
-    text-transform: uppercase;
-  }
-
-  .season-rank {
-    color: var(--text-heading);
-    font-family: var(--font-display);
-    font-size: clamp(2rem, 4vw, 3.25rem);
-    letter-spacing: var(--tracking-wide);
-    line-height: var(--leading-tight);
-    text-transform: uppercase;
-  }
-
-  .season-facts {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 24px;
-  }
-
-  .season-fact {
-    display: grid;
-    gap: 2px;
-  }
-
-  .season-fact-label {
-    color: var(--text-muted);
-    font-family: var(--font-display);
-    font-size: var(--text-2xs);
-    letter-spacing: var(--tracking-wider);
-    text-transform: uppercase;
-  }
-
-  .season-fact-value {
-    color: var(--text-heading);
-    font-family: var(--font-mono);
-    font-size: var(--text-base);
-  }
-
-  .season-link {
-    color: var(--color-gold);
-    font-family: var(--font-display);
-    font-size: var(--text-2xs);
-    letter-spacing: var(--tracking-wider);
-    text-transform: uppercase;
-    text-decoration: none;
-  }
-
-  .season-link:hover {
-    color: var(--color-gold-light);
-  }
-
-  .season-link:focus-visible {
-    outline: 2px solid rgba(245, 197, 66, 0.5);
-    outline-offset: 2px;
-  }
-
-  .season-hero-chart {
-    min-width: 0;
-    padding: 8px 6px 0;
-  }
-
   .vitals-strip {
     margin-bottom: 44px;
   }
@@ -276,6 +191,7 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 24px 48px;
+    margin-bottom: 44px;
   }
 
   .records-title {
@@ -340,21 +256,67 @@
     outline-offset: 2px;
   }
 
+  .online-count {
+    margin-left: 10px;
+    color: var(--status-online);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+  }
+
+  .online-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .online-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px;
+    border: 1px solid var(--color-border-subtle);
+    background: rgba(19, 22, 31, 0.6);
+    text-decoration: none;
+    transition: border-color var(--dur-fast) ease, background var(--dur-fast) ease;
+  }
+
+  .online-chip:hover {
+    border-color: rgba(245, 197, 66, 0.4);
+    background: rgba(245, 197, 66, 0.05);
+  }
+
+  .online-chip:focus-visible {
+    outline: 2px solid rgba(245, 197, 66, 0.5);
+    outline-offset: 2px;
+  }
+
+  .online-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: var(--radius-full);
+    background: var(--status-online);
+  }
+
+  .online-name {
+    color: var(--text-heading);
+    font-size: var(--text-xs);
+  }
+
+  .online-server {
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+  }
+
   .stale-note {
     margin-top: 20px;
     color: var(--text-muted);
     font-size: var(--text-xs);
   }
 
-  @media (max-width: 1100px) {
-    .season-hero {
-      grid-template-columns: 1fr;
-      align-items: start;
-    }
-  }
-
   @media (prefers-reduced-motion: reduce) {
-    .season-hero {
+    .vitals-strip {
       animation: none;
     }
   }
