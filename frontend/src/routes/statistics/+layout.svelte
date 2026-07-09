@@ -3,7 +3,9 @@
   import { page } from "$app/state";
   import { SECTIONS } from "$lib/site/nav";
 
-  let { data, children }: { data: { shell: { online_now: number; members_total: number } | null }; children: Snippet } = $props();
+  import type { ShellStats } from "./+layout.server";
+
+  let { data, children }: { data: { shell: Promise<ShellStats | null> }; children: Snippet } = $props();
 
   const statistics = SECTIONS.find((section) => section.to === "/statistics");
   const groups = statistics?.groups ?? [];
@@ -32,12 +34,14 @@
       {/each}
     </nav>
 
-    {#if data.shell}
-      <div class="stats-side-foot">
-        <span class="stats-side-online">{data.shell.online_now} online</span>
-        <span class="stats-side-members">/ {data.shell.members_total}</span>
-      </div>
-    {/if}
+    {#await data.shell then shell}
+      {#if shell}
+        <div class="stats-side-foot">
+          <span class="stats-side-online">{shell.online_now} online</span>
+          <span class="stats-side-members">/ {shell.members_total}</span>
+        </div>
+      {/if}
+    {/await}
   </aside>
 
   <div class="stats-content">
