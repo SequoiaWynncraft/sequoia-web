@@ -94,6 +94,7 @@ async fn auth_start(State(state): State<AppState>) -> Result<Response, ApiError>
         .await?;
     let url = state.oauth.authorization_url(&oauth_state)?;
     let cookie = auth::oauth_state_cookie(
+        &state.config.oauth_state_cookie_name,
         &oauth_state,
         state.config.session_cookie_domain.as_deref(),
         state.config.session_cookie_secure,
@@ -110,7 +111,7 @@ async fn auth_callback(
     headers: HeaderMap,
     Query(query): Query<OAuthCallbackQuery>,
 ) -> Result<Response, ApiError> {
-    if oauth_state_from_headers(&headers) != Some(query.state.as_str()) {
+    if oauth_state_from_headers(&state, &headers) != Some(query.state.as_str()) {
         return Err(ApiError::new(
             StatusCode::UNAUTHORIZED,
             "invalid or expired OAuth state",
@@ -152,6 +153,7 @@ async fn auth_callback(
         .await?;
 
     let cookie = auth::session_cookie(
+        &state.config.session_cookie_name,
         &session_token,
         state.config.session_cookie_domain.as_deref(),
         state.config.session_cookie_secure,
@@ -159,6 +161,7 @@ async fn auth_callback(
     );
 
     let expired_state_cookie = auth::expired_oauth_state_cookie(
+        &state.config.oauth_state_cookie_name,
         state.config.session_cookie_domain.as_deref(),
         state.config.session_cookie_secure,
     );
@@ -175,13 +178,14 @@ async fn auth_logout(
 ) -> Result<Response, ApiError> {
     if let (Some(session_secret), Some(session_token)) = (
         state.config.session_secret.as_deref(),
-        session_token_from_headers(&headers),
+        session_token_from_headers(&state, &headers),
     ) {
         let session_id = auth::hash_session_token(session_secret, session_token);
         state.db.delete_session(&session_id).await?;
     }
 
     let cookie = auth::expired_session_cookie(
+        &state.config.session_cookie_name,
         state.config.session_cookie_domain.as_deref(),
         state.config.session_cookie_secure,
     );
@@ -303,7 +307,7 @@ async fn session_user_from_headers(
     let Some(session_secret) = state.config.session_secret.as_deref() else {
         return Ok(None);
     };
-    let Some(session_token) = session_token_from_headers(headers) else {
+    let Some(session_token) = session_token_from_headers(state, headers) else {
         return Ok(None);
     };
 
@@ -333,18 +337,22 @@ async fn require_member_session(state: &AppState, headers: &HeaderMap) -> Result
     }
 }
 
-fn session_token_from_headers(headers: &HeaderMap) -> Option<&str> {
+fn session_token_from_headers<'a>(state: &AppState, headers: &'a HeaderMap) -> Option<&'a str> {
     headers
         .get(header::COOKIE)
         .and_then(|value| value.to_str().ok())
-        .and_then(auth::session_token_from_cookie)
+        .and_then(|cookies| {
+            auth::session_token_from_cookie(cookies, &state.config.session_cookie_name)
+        })
 }
 
-fn oauth_state_from_headers(headers: &HeaderMap) -> Option<&str> {
+fn oauth_state_from_headers<'a>(state: &AppState, headers: &'a HeaderMap) -> Option<&'a str> {
     headers
         .get(header::COOKIE)
         .and_then(|value| value.to_str().ok())
-        .and_then(auth::oauth_state_from_cookie)
+        .and_then(|cookies| {
+            auth::oauth_state_from_cookie(cookies, &state.config.oauth_state_cookie_name)
+        })
 }
 
 fn append_set_cookie(headers: &mut HeaderMap, cookie: String) -> Result<(), ApiError> {

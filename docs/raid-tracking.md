@@ -23,6 +23,8 @@ Required production env:
 - `SESSION_SECRET`
 - `SESSION_COOKIE_DOMAIN=.seqwawa.com`
 - `SESSION_COOKIE_SECURE=true`
+- `SESSION_COOKIE_NAME=seq_session`
+- `OAUTH_STATE_COOKIE_NAME=seq_oauth_state`
 - `INTERNAL_API_TOKEN`
 - `FRONTEND_AUTH_SUCCESS_URL`
 

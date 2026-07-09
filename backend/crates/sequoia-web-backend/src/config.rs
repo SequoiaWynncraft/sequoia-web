@@ -16,6 +16,8 @@ pub struct Config {
     pub poll_interval: Duration,
     pub internal_api_token: Option<String>,
     pub session_secret: Option<String>,
+    pub session_cookie_name: String,
+    pub oauth_state_cookie_name: String,
     pub session_cookie_domain: Option<String>,
     pub session_cookie_secure: bool,
     pub frontend_auth_success_url: String,
@@ -58,6 +60,8 @@ impl Config {
             poll_interval: Duration::from_secs(poll_interval_seconds),
             internal_api_token: optional_env("INTERNAL_API_TOKEN"),
             session_secret: optional_env("SESSION_SECRET"),
+            session_cookie_name: env_or_default("SESSION_COOKIE_NAME", "seq_session"),
+            oauth_state_cookie_name: env_or_default("OAUTH_STATE_COOKIE_NAME", "seq_oauth_state"),
             session_cookie_domain: optional_env("SESSION_COOKIE_DOMAIN"),
             session_cookie_secure: env_or_default("SESSION_COOKIE_SECURE", "true") != "false",
             frontend_auth_success_url: env_or_default(

@@ -9,8 +9,6 @@ use uuid::Uuid;
 
 use crate::model::SessionUser;
 
-const SESSION_COOKIE: &str = "seq_session";
-const OAUTH_STATE_COOKIE: &str = "seq_oauth_state";
 const OAUTH_STATE_COOKIE_PATH: &str = "/auth/wynn";
 
 #[derive(Clone)]
@@ -143,26 +141,28 @@ pub fn oauth_state_expires_at() -> OffsetDateTime {
 }
 
 pub fn session_cookie(
+    name: &str,
     token: &str,
     domain: Option<&str>,
     secure: bool,
     expires_at: OffsetDateTime,
 ) -> String {
-    expiring_cookie(SESSION_COOKIE, token, "/", domain, secure, expires_at)
+    expiring_cookie(name, token, "/", domain, secure, expires_at)
 }
 
-pub fn expired_session_cookie(domain: Option<&str>, secure: bool) -> String {
-    expired_cookie(SESSION_COOKIE, "/", domain, secure)
+pub fn expired_session_cookie(name: &str, domain: Option<&str>, secure: bool) -> String {
+    expired_cookie(name, "/", domain, secure)
 }
 
 pub fn oauth_state_cookie(
+    name: &str,
     state: &str,
     domain: Option<&str>,
     secure: bool,
     expires_at: OffsetDateTime,
 ) -> String {
     expiring_cookie(
-        OAUTH_STATE_COOKIE,
+        name,
         state,
         OAUTH_STATE_COOKIE_PATH,
         domain,
@@ -171,12 +171,12 @@ pub fn oauth_state_cookie(
     )
 }
 
-pub fn expired_oauth_state_cookie(domain: Option<&str>, secure: bool) -> String {
-    expired_cookie(OAUTH_STATE_COOKIE, OAUTH_STATE_COOKIE_PATH, domain, secure)
+pub fn expired_oauth_state_cookie(name: &str, domain: Option<&str>, secure: bool) -> String {
+    expired_cookie(name, OAUTH_STATE_COOKIE_PATH, domain, secure)
 }
 
-pub fn oauth_state_from_cookie(cookie_header: &str) -> Option<&str> {
-    cookie_value(cookie_header, OAUTH_STATE_COOKIE)
+pub fn oauth_state_from_cookie<'a>(cookie_header: &'a str, name: &str) -> Option<&'a str> {
+    cookie_value(cookie_header, name)
 }
 
 fn expiring_cookie(
@@ -214,8 +214,8 @@ fn expired_cookie(name: &str, path: &str, domain: Option<&str>, secure: bool) ->
     cookie
 }
 
-pub fn session_token_from_cookie(cookie_header: &str) -> Option<&str> {
-    cookie_value(cookie_header, SESSION_COOKIE)
+pub fn session_token_from_cookie<'a>(cookie_header: &'a str, name: &str) -> Option<&'a str> {
+    cookie_value(cookie_header, name)
 }
 
 fn cookie_value<'a>(cookie_header: &'a str, name: &str) -> Option<&'a str> {
@@ -284,7 +284,7 @@ mod tests {
     #[test]
     fn extracts_session_token_from_cookie_header() {
         assert_eq!(
-            session_token_from_cookie("theme=dark; seq_session=abc123; other=yes"),
+            session_token_from_cookie("theme=dark; seq_session=abc123; other=yes", "seq_session"),
             Some("abc123")
         );
     }
@@ -299,7 +299,10 @@ mod tests {
     #[test]
     fn extracts_oauth_state_from_cookie_header() {
         assert_eq!(
-            oauth_state_from_cookie("seq_oauth_state=state123; seq_session=abc123"),
+            oauth_state_from_cookie(
+                "seq_oauth_state=state123; seq_session=abc123",
+                "seq_oauth_state",
+            ),
             Some("state123")
         );
     }
