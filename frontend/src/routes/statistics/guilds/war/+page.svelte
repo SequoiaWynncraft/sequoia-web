@@ -55,9 +55,10 @@
   const territorySeries = [
     { key: "territories", label: "Final territories", color: "var(--chart-amber)" },
   ];
+  // The live season has no final count yet — only completed seasons chart.
   const territoryColumns = $derived(
     stats
-      ? stats.season_ranks.map((entry) => ({
+      ? stats.season_ranks.slice(0, -1).map((entry) => ({
           label: `S${entry.season}`,
           values: { territories: entry.final_territories },
         }))
@@ -112,7 +113,7 @@
   </section>
 
   <section class="block" aria-label="Territory finishes by season">
-    <SectionLabel meta="held at season end">
+    <SectionLabel meta="completed seasons">
       {#snippet children()}Territory finishes{/snippet}
     </SectionLabel>
     <StackedColumns series={territorySeries} columns={territoryColumns} height={170} />

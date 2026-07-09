@@ -28,17 +28,27 @@
 
   const sorted = $derived.by(() => {
     const column = columns.find((candidate) => candidate.key === sortKey) ?? columns[0];
-    const direction = descending ? -1 : 1;
+    return orderRows(column, descending);
+  });
+
+  /** Ranks stay pinned to the default ordering so re-sorting never re-ranks rows. */
+  const ranks = $derived.by(() => {
+    const column = columns.find((candidate) => candidate.key === defaultSort) ?? columns[0];
+    return new Map(orderRows(column, defaultDescending).map((row, index) => [rowKey(row), index + 1]));
+  });
+
+  function orderRows(column: LedgerColumn<Row>, direction: boolean): Row[] {
+    const factor = direction ? -1 : 1;
     return rows.toSorted((a, b) => {
       const left = sortRank(column, a);
       const right = sortRank(column, b);
       if (left === null && right === null) return 0;
       if (left === null) return 1;
       if (right === null) return -1;
-      if (typeof left === "number" && typeof right === "number") return (left - right) * direction;
-      return String(left).localeCompare(String(right)) * direction;
+      if (typeof left === "number" && typeof right === "number") return (left - right) * factor;
+      return String(left).localeCompare(String(right)) * factor;
     });
-  });
+  }
 
   function sortRank(column: LedgerColumn<Row>, row: Row): number | string | null {
     return column.sortValue ? column.sortValue(row) : column.value(row);
@@ -82,9 +92,9 @@
       </tr>
     </thead>
     <tbody>
-      {#each sorted as row, index (rowKey(row))}
+      {#each sorted as row (rowKey(row))}
         <tr class="seq-row" class:highlight={highlight?.(row) === true}>
-          {#if showRank}<td class="rank-cell">{index + 1}</td>{/if}
+          {#if showRank}<td class="rank-cell">{ranks.get(rowKey(row))}</td>{/if}
           {#each columns as column (column.key)}
             {@const mark = column.color?.(row) ?? null}
             {@const link = column.href?.(row) ?? null}
