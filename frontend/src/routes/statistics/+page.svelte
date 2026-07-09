@@ -65,7 +65,7 @@
   );
 </script>
 
-<PageHeader kicker={page.kicker} title={page.title} lead={page.lead} />
+<PageHeader kicker={page.kicker} title={page.title} />
 
 {#if stats}
   <div class="vitals-strip animate-fade-in-up">
@@ -234,7 +234,7 @@
     gap: 12px;
     margin: 0;
     color: var(--text-heading);
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: var(--text-sm);
     font-variant-numeric: tabular-nums;
   }
@@ -259,7 +259,7 @@
   .online-count {
     margin-left: 10px;
     color: var(--text-muted);
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: var(--text-xs);
   }
 
@@ -306,7 +306,7 @@
 
   .online-server {
     color: var(--text-muted);
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: var(--text-2xs);
   }
 

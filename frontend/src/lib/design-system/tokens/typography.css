@@ -10,6 +10,7 @@
   --font-display: "Minecraft", monospace;
   --font-body: system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Code", "Liberation Mono", Menlo, Consolas, monospace;
+  --font-data: "Space Grotesk", "Segoe UI", system-ui, sans-serif; /* values & numerics */
 
   /* ── Sizes (rem) ── */
   --text-2xs: 0.7rem;     /* tiny captions */

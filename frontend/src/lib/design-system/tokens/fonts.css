@@ -31,3 +31,13 @@
   font-weight: 700;
   font-display: swap;
 }
+
+/* Space Grotesk: the data face for values and numerics — geometric enough
+   to sit beside the pixel display font, with tabular figures for columns. */
+@font-face {
+  font-family: "Space Grotesk";
+  src: url("/assets/fonts/space-grotesk.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+}

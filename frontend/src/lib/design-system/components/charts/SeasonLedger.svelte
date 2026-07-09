@@ -253,7 +253,7 @@
 
   .tip-row span:last-child {
     color: var(--text-heading);
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
   }
 
   .ledger-caption {
@@ -311,6 +311,6 @@
 
   .ledger-table td {
     color: var(--text-body);
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
   }
 </style>

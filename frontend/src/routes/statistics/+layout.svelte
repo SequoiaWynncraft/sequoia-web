@@ -34,7 +34,7 @@
 
     {#if data.shell}
       <div class="stats-side-foot">
-        <span class="stats-side-dot status-pulse" aria-hidden="true"></span>
+        <span class="stats-side-dot" aria-hidden="true"></span>
         <span class="stats-side-online">{data.shell.online_now} online</span>
         <span class="stats-side-members">/ {data.shell.members_total}</span>
       </div>
@@ -153,13 +153,13 @@
 
   .stats-side-online {
     color: var(--text-heading);
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: var(--text-xs);
   }
 
   .stats-side-members {
     color: var(--text-muted);
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: var(--text-2xs);
   }
 
