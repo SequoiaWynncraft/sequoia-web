@@ -19,23 +19,46 @@ const STALE_MS = 3 * 24 * 60 * 60 * 1000;
 const RANKS = ["owner", "chief", "strategist"] as const;
 const RANK_ORDER = new Map<BranchmasterRank, number>(RANKS.map((rank, index) => [rank, index]));
 
+type CacheEntry = { data: GuildOverviewResponse; updatedAt: number };
+type GuildOverviewOptions = { allowStale?: boolean };
+
 let dbPromise: Promise<Client> | undefined;
+let memoryCache: CacheEntry | null = null;
 let refreshPromise: Promise<GuildOverviewResponse> | undefined;
 
-export async function getGuildOverview(fetchImpl: typeof fetch): Promise<GuildOverviewResponse> {
-  const cached = await readCache().catch(() => null);
+export async function getGuildOverview(
+  fetchImpl: typeof fetch,
+  options: GuildOverviewOptions = {},
+): Promise<GuildOverviewResponse> {
   const now = Date.now();
+  if (memoryCache && now - memoryCache.updatedAt < FRESH_MS) {
+    return withStaleness(memoryCache.data, false);
+  }
+
+  const persisted = await readCache().catch(() => null);
+  const cached = newestCacheEntry(memoryCache, persisted);
+  memoryCache = cached;
   if (cached && now - cached.updatedAt < FRESH_MS) return withStaleness(cached.data, false);
 
+  const refresh = refreshGuildOverviewOnce(fetchImpl);
+  if (options.allowStale && cached && now - cached.updatedAt < STALE_MS) {
+    void refresh.catch(() => undefined);
+    return withStaleness(cached.data, true);
+  }
+
   try {
-    refreshPromise ??= refreshGuildOverview(fetchImpl).finally(() => {
-      refreshPromise = undefined;
-    });
-    return await refreshPromise;
+    return await refresh;
   } catch {
     if (cached && now - cached.updatedAt < STALE_MS) return withStaleness(cached.data, true);
     throw new Error("Unable to load guild overview.");
   }
+}
+
+function refreshGuildOverviewOnce(fetchImpl: typeof fetch): Promise<GuildOverviewResponse> {
+  refreshPromise ??= refreshGuildOverview(fetchImpl).finally(() => {
+    refreshPromise = undefined;
+  });
+  return refreshPromise;
 }
 
 export async function fetchWynncraftGuildOverview(fetchImpl: typeof fetch): Promise<GuildOverviewResponse> {
@@ -76,8 +99,16 @@ export function parseWynncraftGuildOverview(value: unknown): GuildOverviewRespon
 
 async function refreshGuildOverview(fetchImpl: typeof fetch): Promise<GuildOverviewResponse> {
   const fresh = await fetchWynncraftGuildOverview(fetchImpl);
-  await writeCache(fresh, Date.now()).catch(() => undefined);
+  const updatedAt = Date.now();
+  memoryCache = { data: fresh, updatedAt };
+  await writeCache(fresh, updatedAt).catch(() => undefined);
   return fresh;
+}
+
+function newestCacheEntry(first: CacheEntry | null, second: CacheEntry | null): CacheEntry | null {
+  if (!first) return second;
+  if (!second) return first;
+  return first.updatedAt >= second.updatedAt ? first : second;
 }
 
 function withStaleness(data: GuildOverviewResponse, stale: boolean): GuildOverviewResponse {
@@ -90,7 +121,7 @@ function withStaleness(data: GuildOverviewResponse, stale: boolean): GuildOvervi
   };
 }
 
-async function readCache(): Promise<{ data: GuildOverviewResponse; updatedAt: number } | null> {
+async function readCache(): Promise<CacheEntry | null> {
   const db = await database();
   const result = await db.execute({
     sql: "SELECT value, updated_at FROM api_cache WHERE key = ?",
