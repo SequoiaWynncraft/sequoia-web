@@ -13,9 +13,11 @@
 
   const IMG = "/assets/images/";
   const SERVICES = homepageServices();
+  let { data } = $props();
   let heroImage: HTMLImageElement;
   let statsSection: HTMLElement;
-  let homepageStats = $state<HomepageStats | null>(null);
+  let refreshedHomepageStats = $state<HomepageStats | null>(null);
+  const homepageStats = $derived(refreshedHomepageStats ?? data.homepageStats);
   let pendingHomepageStats: HomepageStats | null = null;
   let statProgress = $state(1);
   const statEase = $derived(1 - Math.pow(1 - statProgress, 3));
@@ -45,7 +47,7 @@
       pendingHomepageStats = stats;
       return;
     }
-    homepageStats = stats;
+    refreshedHomepageStats = stats;
   }
 
   onMount(() => {
@@ -186,7 +188,7 @@
       statProgress = Math.min((t - start) / dur, 1);
       if (statProgress < 1) raf = requestAnimationFrame(tick);
       else if (pendingHomepageStats) {
-        homepageStats = pendingHomepageStats;
+        refreshedHomepageStats = pendingHomepageStats;
         pendingHomepageStats = null;
       }
     };
