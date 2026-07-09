@@ -9,6 +9,10 @@ use uuid::Uuid;
 
 use crate::model::SessionUser;
 
+const SESSION_COOKIE: &str = "seq_session";
+const OAUTH_STATE_COOKIE: &str = "seq_oauth_state";
+const OAUTH_STATE_COOKIE_PATH: &str = "/auth/wynn";
+
 #[derive(Clone)]
 pub struct OAuthClient {
     http: reqwest::Client,
@@ -144,9 +148,48 @@ pub fn session_cookie(
     secure: bool,
     expires_at: OffsetDateTime,
 ) -> String {
+    expiring_cookie(SESSION_COOKIE, token, "/", domain, secure, expires_at)
+}
+
+pub fn expired_session_cookie(domain: Option<&str>, secure: bool) -> String {
+    expired_cookie(SESSION_COOKIE, "/", domain, secure)
+}
+
+pub fn oauth_state_cookie(
+    state: &str,
+    domain: Option<&str>,
+    secure: bool,
+    expires_at: OffsetDateTime,
+) -> String {
+    expiring_cookie(
+        OAUTH_STATE_COOKIE,
+        state,
+        OAUTH_STATE_COOKIE_PATH,
+        domain,
+        secure,
+        expires_at,
+    )
+}
+
+pub fn expired_oauth_state_cookie(domain: Option<&str>, secure: bool) -> String {
+    expired_cookie(OAUTH_STATE_COOKIE, OAUTH_STATE_COOKIE_PATH, domain, secure)
+}
+
+pub fn oauth_state_from_cookie(cookie_header: &str) -> Option<&str> {
+    cookie_value(cookie_header, OAUTH_STATE_COOKIE)
+}
+
+fn expiring_cookie(
+    name: &str,
+    value: &str,
+    path: &str,
+    domain: Option<&str>,
+    secure: bool,
+    expires_at: OffsetDateTime,
+) -> String {
     let max_age = (expires_at - OffsetDateTime::now_utc()).whole_seconds();
     let mut cookie = format!(
-        "seq_session={token}; Path=/; HttpOnly; SameSite=Lax; Max-Age={}",
+        "{name}={value}; Path={path}; HttpOnly; SameSite=Lax; Max-Age={}",
         max_age.max(0)
     );
     if let Some(domain) = domain {
@@ -159,8 +202,8 @@ pub fn session_cookie(
     cookie
 }
 
-pub fn expired_session_cookie(domain: Option<&str>, secure: bool) -> String {
-    let mut cookie = "seq_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0".to_owned();
+fn expired_cookie(name: &str, path: &str, domain: Option<&str>, secure: bool) -> String {
+    let mut cookie = format!("{name}=; Path={path}; HttpOnly; SameSite=Lax; Max-Age=0");
     if let Some(domain) = domain {
         cookie.push_str("; Domain=");
         cookie.push_str(domain);
@@ -172,10 +215,15 @@ pub fn expired_session_cookie(domain: Option<&str>, secure: bool) -> String {
 }
 
 pub fn session_token_from_cookie(cookie_header: &str) -> Option<&str> {
+    cookie_value(cookie_header, SESSION_COOKIE)
+}
+
+fn cookie_value<'a>(cookie_header: &'a str, name: &str) -> Option<&'a str> {
+    let prefix = format!("{name}=");
     cookie_header.split(';').find_map(|part| {
         let trimmed = part.trim();
         trimmed
-            .strip_prefix("seq_session=")
+            .strip_prefix(&prefix)
             .filter(|value| !value.is_empty())
     })
 }
@@ -231,7 +279,7 @@ fn select_profile(profiles: BTreeMap<Uuid, OAuthIdentityProfile>) -> anyhow::Res
 
 #[cfg(test)]
 mod tests {
-    use super::{hash_session_token, session_token_from_cookie};
+    use super::{hash_session_token, oauth_state_from_cookie, session_token_from_cookie};
 
     #[test]
     fn extracts_session_token_from_cookie_header() {
@@ -246,5 +294,13 @@ mod tests {
         let first = hash_session_token("secret-a", "session");
         let second = hash_session_token("secret-b", "session");
         assert_ne!(first, second);
+    }
+
+    #[test]
+    fn extracts_oauth_state_from_cookie_header() {
+        assert_eq!(
+            oauth_state_from_cookie("seq_oauth_state=state123; seq_session=abc123"),
+            Some("state123")
+        );
     }
 }

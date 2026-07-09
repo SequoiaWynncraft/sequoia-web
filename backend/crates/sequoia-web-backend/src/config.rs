@@ -23,7 +23,7 @@ pub struct Config {
 
 impl Config {
     pub fn from_env() -> anyhow::Result<Self> {
-        let bind_addr = env_or_default("BIND_ADDR", "127.0.0.1:8080");
+        let bind_addr = env_or_default("BIND_ADDR", "0.0.0.0:8080");
         let bind_addr = SocketAddr::from_str(&bind_addr).context("invalid BIND_ADDR")?;
 
         let database_url = std::env::var("DATABASE_URL")

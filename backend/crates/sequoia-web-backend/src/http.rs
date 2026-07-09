@@ -3,7 +3,7 @@ use std::sync::Arc;
 use axum::{
     Json, Router,
     extract::{Path, Query, State},
-    http::{HeaderMap, StatusCode, header},
+    http::{HeaderMap, HeaderValue, StatusCode, header},
     response::{IntoResponse, Redirect, Response},
     routing::{get, post},
 };
@@ -32,7 +32,9 @@ struct HealthResponse {
 struct CreateRaidEventRequest {
     slug: String,
     name: String,
+    #[serde(with = "time::serde::rfc3339")]
     starts_at: OffsetDateTime,
+    #[serde(with = "time::serde::rfc3339")]
     ends_at: OffsetDateTime,
 }
 
@@ -83,20 +85,38 @@ async fn list_raid_events(State(state): State<AppState>) -> Result<Response, Api
     Ok(Json(events).into_response())
 }
 
-async fn auth_start(State(state): State<AppState>) -> Result<Redirect, ApiError> {
+async fn auth_start(State(state): State<AppState>) -> Result<Response, ApiError> {
     let oauth_state = auth::new_opaque_token();
+    let expires_at = auth::oauth_state_expires_at();
     state
         .db
-        .insert_oauth_state(&oauth_state, auth::oauth_state_expires_at())
+        .insert_oauth_state(&oauth_state, expires_at)
         .await?;
     let url = state.oauth.authorization_url(&oauth_state)?;
-    Ok(Redirect::temporary(&url))
+    let cookie = auth::oauth_state_cookie(
+        &oauth_state,
+        state.config.session_cookie_domain.as_deref(),
+        state.config.session_cookie_secure,
+        expires_at,
+    );
+
+    let mut response = Redirect::temporary(&url).into_response();
+    append_set_cookie(response.headers_mut(), cookie)?;
+    Ok(response)
 }
 
 async fn auth_callback(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Query(query): Query<OAuthCallbackQuery>,
 ) -> Result<Response, ApiError> {
+    if oauth_state_from_headers(&headers) != Some(query.state.as_str()) {
+        return Err(ApiError::new(
+            StatusCode::UNAUTHORIZED,
+            "invalid or expired OAuth state",
+        ));
+    }
+
     if !state.db.consume_oauth_state(&query.state).await? {
         return Err(ApiError::new(
             StatusCode::UNAUTHORIZED,
@@ -138,11 +158,15 @@ async fn auth_callback(
         expires_at,
     );
 
-    Ok((
-        [(header::SET_COOKIE, cookie)],
-        Redirect::temporary(&state.config.frontend_auth_success_url),
-    )
-        .into_response())
+    let expired_state_cookie = auth::expired_oauth_state_cookie(
+        state.config.session_cookie_domain.as_deref(),
+        state.config.session_cookie_secure,
+    );
+
+    let mut response = Redirect::temporary(&state.config.frontend_auth_success_url).into_response();
+    append_set_cookie(response.headers_mut(), cookie)?;
+    append_set_cookie(response.headers_mut(), expired_state_cookie)?;
+    Ok(response)
 }
 
 async fn auth_logout(
@@ -284,7 +308,18 @@ async fn session_user_from_headers(
     };
 
     let session_id = auth::hash_session_token(session_secret, session_token);
-    Ok(state.db.session_user(&session_id).await?)
+    let Some(user) = state.db.session_user(&session_id).await? else {
+        return Ok(None);
+    };
+    if state
+        .db
+        .is_current_member(&state.config.guild_prefix, user.player_uuid)
+        .await?
+    {
+        Ok(Some(user))
+    } else {
+        Ok(None)
+    }
 }
 
 async fn require_member_session(state: &AppState, headers: &HeaderMap) -> Result<(), ApiError> {
@@ -303,6 +338,24 @@ fn session_token_from_headers(headers: &HeaderMap) -> Option<&str> {
         .get(header::COOKIE)
         .and_then(|value| value.to_str().ok())
         .and_then(auth::session_token_from_cookie)
+}
+
+fn oauth_state_from_headers(headers: &HeaderMap) -> Option<&str> {
+    headers
+        .get(header::COOKIE)
+        .and_then(|value| value.to_str().ok())
+        .and_then(auth::oauth_state_from_cookie)
+}
+
+fn append_set_cookie(headers: &mut HeaderMap, cookie: String) -> Result<(), ApiError> {
+    let value = HeaderValue::from_str(&cookie).map_err(|_| {
+        ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "invalid generated cookie",
+        )
+    })?;
+    headers.append(header::SET_COOKIE, value);
+    Ok(())
 }
 
 struct ApiError {

@@ -8,7 +8,6 @@ use crate::{
     deltas::calculate_deltas,
     model::{
         GuildSnapshot, MemberRaidCounter, MemberRaidHistoryPoint, RaidEvent, RaidLeaderboardEntry,
-        TrackerAnomaly,
     },
 };
 
@@ -34,6 +33,7 @@ pub struct StoredAnomaly {
     pub username: Option<String>,
     pub anomaly_type: String,
     pub details: serde_json::Value,
+    #[serde(with = "time::serde::rfc3339")]
     pub created_at: OffsetDateTime,
 }
 
@@ -55,6 +55,25 @@ impl Database {
 
     pub async fn ingest_snapshot(&self, snapshot: GuildSnapshot) -> anyhow::Result<IngestSummary> {
         let mut tx = self.pool.begin().await.context("failed to begin ingest")?;
+        sqlx::query("SELECT pg_advisory_xact_lock(1845692265, hashtext($1))")
+            .bind(&snapshot.guild_prefix)
+            .execute(&mut *tx)
+            .await
+            .context("failed to acquire guild ingest lock")?;
+
+        let previous_snapshot_id = sqlx::query_scalar::<_, i64>(
+            r#"
+            SELECT id
+            FROM guild_snapshots
+            WHERE guild_prefix = $1
+            ORDER BY id DESC
+            LIMIT 1
+            "#,
+        )
+        .bind(&snapshot.guild_prefix)
+        .fetch_optional(&mut *tx)
+        .await
+        .context("failed to load previous snapshot id")?;
 
         let snapshot_row = sqlx::query(
             r#"
@@ -129,14 +148,10 @@ impl Database {
             .context("failed to insert member raid counter")?;
         }
 
-        tx.commit()
-            .await
-            .context("failed to commit snapshot ingest")?;
-
-        let previous_snapshot_id = self
-            .previous_snapshot_id(&snapshot.guild_prefix, snapshot_id)
-            .await?;
         let Some(previous_snapshot_id) = previous_snapshot_id else {
+            tx.commit()
+                .await
+                .context("failed to commit baseline snapshot ingest")?;
             return Ok(IngestSummary {
                 inserted: true,
                 snapshot_id: Some(snapshot_id),
@@ -146,12 +161,65 @@ impl Database {
             });
         };
 
-        let previous_members = self.member_counters(previous_snapshot_id).await?;
+        let previous_members = member_counters_in_tx(&mut tx, previous_snapshot_id).await?;
         let report = calculate_deltas(&previous_members, &snapshot.members);
-        self.insert_deltas(previous_snapshot_id, snapshot_id, &report.deltas)
-            .await?;
-        self.insert_anomalies(snapshot_id, &report.anomalies)
-            .await?;
+        for delta in &report.deltas {
+            sqlx::query(
+                r#"
+                INSERT INTO member_raid_deltas (
+                    from_snapshot_id,
+                    to_snapshot_id,
+                    player_uuid,
+                    username,
+                    rank,
+                    observed_at,
+                    raid_delta,
+                    previous_current_guild_raids,
+                    current_guild_raids
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                "#,
+            )
+            .bind(previous_snapshot_id)
+            .bind(snapshot_id)
+            .bind(delta.player_uuid)
+            .bind(&delta.username)
+            .bind(&delta.rank)
+            .bind(delta.observed_at)
+            .bind(delta.raid_delta)
+            .bind(delta.previous_current_guild_raids)
+            .bind(delta.current_guild_raids)
+            .execute(&mut *tx)
+            .await
+            .context("failed to insert member raid delta")?;
+        }
+
+        for anomaly in &report.anomalies {
+            sqlx::query(
+                r#"
+                INSERT INTO tracker_anomalies (
+                    snapshot_id,
+                    player_uuid,
+                    username,
+                    anomaly_type,
+                    details
+                )
+                VALUES ($1, $2, $3, $4, $5)
+                "#,
+            )
+            .bind(snapshot_id)
+            .bind(anomaly.player_uuid)
+            .bind(&anomaly.username)
+            .bind(&anomaly.anomaly_type)
+            .bind(&anomaly.details)
+            .execute(&mut *tx)
+            .await
+            .context("failed to insert tracker anomaly")?;
+        }
+
+        tx.commit()
+            .await
+            .context("failed to commit snapshot ingest")?;
 
         Ok(IngestSummary {
             inserted: true,
@@ -477,135 +545,46 @@ impl Database {
 
         Ok(())
     }
+}
 
-    async fn previous_snapshot_id(
-        &self,
-        guild_prefix: &str,
-        snapshot_id: i64,
-    ) -> anyhow::Result<Option<i64>> {
-        sqlx::query_scalar(
-            r#"
-            SELECT id
-            FROM guild_snapshots
-            WHERE guild_prefix = $1 AND id < $2
-            ORDER BY id DESC
-            LIMIT 1
-            "#,
-        )
-        .bind(guild_prefix)
-        .bind(snapshot_id)
-        .fetch_optional(&self.pool)
-        .await
-        .context("failed to load previous snapshot id")
-    }
+async fn member_counters_in_tx(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    snapshot_id: i64,
+) -> anyhow::Result<Vec<MemberRaidCounter>> {
+    let rows = sqlx::query(
+        r#"
+        SELECT
+            player_uuid,
+            username,
+            rank,
+            online,
+            joined_at,
+            current_guild_raids,
+            total_guild_raids,
+            captured_at
+        FROM member_raid_counters
+        WHERE snapshot_id = $1
+        "#,
+    )
+    .bind(snapshot_id)
+    .fetch_all(&mut **tx)
+    .await
+    .context("failed to load member raid counters")?;
 
-    async fn member_counters(&self, snapshot_id: i64) -> anyhow::Result<Vec<MemberRaidCounter>> {
-        let rows = sqlx::query(
-            r#"
-            SELECT
-                player_uuid,
-                username,
-                rank,
-                online,
-                joined_at,
-                current_guild_raids,
-                total_guild_raids,
-                captured_at
-            FROM member_raid_counters
-            WHERE snapshot_id = $1
-            "#,
-        )
-        .bind(snapshot_id)
-        .fetch_all(&self.pool)
-        .await
-        .context("failed to load member raid counters")?;
-
-        rows.into_iter()
-            .map(|row| {
-                Ok(MemberRaidCounter {
-                    player_uuid: row.try_get("player_uuid")?,
-                    username: row.try_get("username")?,
-                    rank: row.try_get("rank")?,
-                    online: row.try_get("online")?,
-                    joined_at: row.try_get("joined_at")?,
-                    current_guild_raids: row.try_get("current_guild_raids")?,
-                    total_guild_raids: row.try_get("total_guild_raids")?,
-                    captured_at: row.try_get("captured_at")?,
-                })
+    rows.into_iter()
+        .map(|row| {
+            Ok(MemberRaidCounter {
+                player_uuid: row.try_get("player_uuid")?,
+                username: row.try_get("username")?,
+                rank: row.try_get("rank")?,
+                online: row.try_get("online")?,
+                joined_at: row.try_get("joined_at")?,
+                current_guild_raids: row.try_get("current_guild_raids")?,
+                total_guild_raids: row.try_get("total_guild_raids")?,
+                captured_at: row.try_get("captured_at")?,
             })
-            .collect()
-    }
-
-    async fn insert_deltas(
-        &self,
-        from_snapshot_id: i64,
-        to_snapshot_id: i64,
-        deltas: &[crate::model::MemberRaidDelta],
-    ) -> anyhow::Result<()> {
-        for delta in deltas {
-            sqlx::query(
-                r#"
-                INSERT INTO member_raid_deltas (
-                    from_snapshot_id,
-                    to_snapshot_id,
-                    player_uuid,
-                    username,
-                    rank,
-                    observed_at,
-                    raid_delta,
-                    previous_current_guild_raids,
-                    current_guild_raids
-                )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-                "#,
-            )
-            .bind(from_snapshot_id)
-            .bind(to_snapshot_id)
-            .bind(delta.player_uuid)
-            .bind(&delta.username)
-            .bind(&delta.rank)
-            .bind(delta.observed_at)
-            .bind(delta.raid_delta)
-            .bind(delta.previous_current_guild_raids)
-            .bind(delta.current_guild_raids)
-            .execute(&self.pool)
-            .await
-            .context("failed to insert member raid delta")?;
-        }
-
-        Ok(())
-    }
-
-    async fn insert_anomalies(
-        &self,
-        snapshot_id: i64,
-        anomalies: &[TrackerAnomaly],
-    ) -> anyhow::Result<()> {
-        for anomaly in anomalies {
-            sqlx::query(
-                r#"
-                INSERT INTO tracker_anomalies (
-                    snapshot_id,
-                    player_uuid,
-                    username,
-                    anomaly_type,
-                    details
-                )
-                VALUES ($1, $2, $3, $4, $5)
-                "#,
-            )
-            .bind(snapshot_id)
-            .bind(anomaly.player_uuid)
-            .bind(&anomaly.username)
-            .bind(&anomaly.anomaly_type)
-            .bind(&anomaly.details)
-            .execute(&self.pool)
-            .await
-            .context("failed to insert tracker anomaly")?;
-        }
-
-        Ok(())
-    }
+        })
+        .collect()
 }
 
 fn row_to_raid_event(row: sqlx::postgres::PgRow) -> anyhow::Result<RaidEvent> {

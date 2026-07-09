@@ -29,7 +29,7 @@ export async function proxySequoiaWebBackend(
     return Response.json({ error: "Sequoia web backend is unavailable." }, { status: 503 });
   }
 
-  const body = await response.arrayBuffer();
+  const body = responseAllowsBody(response.status) ? await response.arrayBuffer() : null;
   const proxiedHeaders = new Headers();
   const contentType = response.headers.get("content-type");
   const setCookie = response.headers.get("set-cookie");
@@ -41,4 +41,8 @@ export async function proxySequoiaWebBackend(
     status: response.status,
     headers: proxiedHeaders,
   });
+}
+
+function responseAllowsBody(status: number): boolean {
+  return status !== 204 && status !== 205 && status !== 304;
 }
