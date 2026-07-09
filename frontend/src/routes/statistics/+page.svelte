@@ -158,7 +158,7 @@
       <div class="online-grid">
         {#each onlineMembers as member (member.uuid ?? member.username)}
           <a class="online-chip" href={playercardHref(member.username)}>
-            <span class="online-dot status-pulse" aria-hidden="true"></span>
+            <span class="online-dot" aria-hidden="true"></span>
             <span class="online-name">{member.username}</span>
             {#if member.server}<span class="online-server">{member.server}</span>{/if}
           </a>
@@ -258,7 +258,7 @@
 
   .online-count {
     margin-left: 10px;
-    color: var(--status-online);
+    color: var(--text-muted);
     font-family: var(--font-mono);
     font-size: var(--text-xs);
   }
@@ -292,10 +292,11 @@
   }
 
   .online-dot {
-    width: 6px;
-    height: 6px;
+    width: 5px;
+    height: 5px;
     border-radius: var(--radius-full);
     background: var(--status-online);
+    opacity: 0.7;
   }
 
   .online-name {
