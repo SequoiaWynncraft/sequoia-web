@@ -143,7 +143,11 @@
     <SectionLabel meta="seasons {stats.season_ranks[0]?.season ?? 0}–{stats.season_ranks.at(-1)?.season ?? 0}">
       {#snippet children()}Season history{/snippet}
     </SectionLabel>
-    <SeasonLedger seasons={stats.season_ranks} positions={stats.rankings} />
+    <SeasonLedger
+      seasons={stats.season_ranks}
+      positions={stats.rankings}
+      liveSeason={stats.season_ranks.at(-1)?.season ?? null}
+    />
   </section>
 
   <section class="block" aria-label="Leaderboard positions">
