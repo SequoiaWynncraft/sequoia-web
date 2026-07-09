@@ -28,6 +28,10 @@ coverage/
 playwright-report/
 test-results/
 
+# Rust
+target/
+.sqlx/
+
 # Environment and local config
 .data/
 .env

@@ -10,14 +10,19 @@
   "scripts": {
     "dev": "pnpm --dir frontend dev",
     "dev:web": "pnpm --dir frontend dev",
-    "build": "pnpm --dir frontend build",
+    "build": "pnpm build:web && pnpm build:backend",
     "build:web": "pnpm --dir frontend build",
+    "build:backend": "cargo build --manifest-path backend/Cargo.toml --workspace --all-features",
     "preview:web": "pnpm --dir frontend preview",
     "start:web": "pnpm --dir frontend start",
-    "check": "pnpm --dir frontend check",
+    "check": "pnpm check:web && pnpm check:backend",
     "check:web": "pnpm --dir frontend check",
-    "test": "pnpm --dir frontend test:unit",
+    "check:backend": "cargo check --manifest-path backend/Cargo.toml --workspace --all-targets --all-features",
+    "clippy:backend": "cargo clippy --manifest-path backend/Cargo.toml --workspace --all-targets --all-features -- -D warnings",
+    "fmt:backend": "cargo fmt --manifest-path backend/Cargo.toml --all --check",
+    "test": "pnpm test:web && pnpm test:backend",
     "test:web": "pnpm --dir frontend test:unit",
+    "test:backend": "cargo test --manifest-path backend/Cargo.toml --workspace --all-features",
     "api:types": "pnpm --dir frontend api:types"
   }
 }
