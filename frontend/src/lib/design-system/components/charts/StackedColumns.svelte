@@ -153,11 +153,11 @@
         </tr>
       </thead>
       <tbody>
-        {#each rendered as column (column.label)}
+        {#each columns as column (column.label)}
           <tr>
             <td>{column.label}</td>
             {#each series as entry (entry.key)}<td>{(column.values[entry.key] ?? 0).toLocaleString()}</td>{/each}
-            <td>{column.total.toLocaleString()}</td>
+            <td>{total(column).toLocaleString()}</td>
           </tr>
         {/each}
       </tbody>
