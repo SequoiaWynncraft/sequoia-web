@@ -57,6 +57,10 @@
 
   const step = $derived(labelStep(columns.length));
 
+  function positionFor(season: number): number | null {
+    return positions[`guildSeason${season}`] ?? null;
+  }
+
   function columnLabel(column: LedgerColumn): string {
     const placement = column.position ? `, finished #${column.position}` : "";
     return `Season ${column.season} — ${column.rating.toLocaleString()} rating, ${column.territories} final territories${placement}`;
@@ -138,12 +142,12 @@
           <tr><th scope="col">Season</th><th scope="col">Rating</th><th scope="col">Final territories</th><th scope="col">Placement</th></tr>
         </thead>
         <tbody>
-          {#each [...columns].reverse() as column (column.season)}
+          {#each [...seasons].reverse() as entry (entry.season)}
             <tr>
-              <td>{column.season}</td>
-              <td>{column.rating.toLocaleString()}</td>
-              <td>{column.territories}</td>
-              <td>{column.position ? `#${column.position}` : "—"}</td>
+              <td>{entry.season}</td>
+              <td>{entry.rating.toLocaleString()}</td>
+              <td>{entry.final_territories}</td>
+              <td>{positionFor(entry.season) ? `#${positionFor(entry.season)}` : "—"}</td>
             </tr>
           {/each}
         </tbody>
