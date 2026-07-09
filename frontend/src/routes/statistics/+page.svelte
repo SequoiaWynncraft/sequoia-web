@@ -134,6 +134,10 @@
           </div>
         {/if}
         <div class="record">
+          <dt>Level {stats.guild.level} progress</dt>
+          <dd>{stats.guild.xp_percent}%</dd>
+        </div>
+        <div class="record">
           <dt>Best season rating</dt>
           <dd>{bestSeason ? bestSeason.rating.toLocaleString() : "—"}</dd>
         </div>
@@ -301,7 +305,9 @@
 
   .online-name {
     color: var(--text-heading);
-    font-size: var(--text-xs);
+    font-family: var(--font-display);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-wide);
   }
 
   .online-server {
