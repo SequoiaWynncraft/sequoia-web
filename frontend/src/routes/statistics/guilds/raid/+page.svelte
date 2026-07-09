@@ -1,7 +1,15 @@
 <script lang="ts">
-  import PageHeader from "$lib/components/PageHeader.svelte";
+  import StatsHeader from "$lib/components/StatsHeader.svelte";
+  import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
+  import LedgerTable from "$lib/design-system/components/LedgerTable.svelte";
+  import type { LedgerColumn } from "$lib/design-system/components/ledgerTable";
+  import BarList from "$lib/design-system/components/BarList.svelte";
+  import StackedColumns from "$lib/design-system/components/charts/StackedColumns.svelte";
+  import { raidSeriesFor } from "$lib/site/raids";
 
   let { data } = $props();
+
+  const stats = $derived(data.stats);
 
   const rankLabels: Record<string, string> = {
     owner: "Owner",
@@ -12,261 +20,322 @@
     recruit: "Recruit",
   };
 
+  /** Guild-wide totals per raid, summed from every member's per-raid counts. */
+  const raidTotals = $derived.by(() => {
+    if (!stats) return [];
+    const totals = new Map<string, number>();
+    for (const member of stats.members) {
+      for (const [raid, count] of Object.entries(member.raids)) {
+        totals.set(raid, (totals.get(raid) ?? 0) + count);
+      }
+    }
+    const series = raidSeriesFor([...totals.keys()]);
+    return series.map((raid) => ({
+      label: raid.key,
+      value: totals.get(raid.key) ?? 0,
+      color: raid.color,
+    }));
+  });
+
+  const topRaider = $derived.by(() => {
+    if (!stats) return null;
+    let best = null;
+    for (const member of stats.members) {
+      if (member.raids_total !== null && (best === null || member.raids_total > (best.raids_total ?? 0))) {
+        best = member;
+      }
+    }
+    return best;
+  });
+
+  const activitySeries = $derived.by(() => {
+    if (!data.activity || data.activity.length === 0) return [];
+    const names = new Set<string>();
+    for (const day of data.activity) {
+      for (const count of day.raid_counts) names.add(count.raid_name);
+    }
+    return raidSeriesFor([...names]).map((raid) => ({
+      key: raid.key,
+      label: raid.key,
+      color: raid.color,
+    }));
+  });
+
+  const activityColumns = $derived(
+    (data.activity ?? []).map((day) => ({
+      label: formatDay(day.day),
+      values: Object.fromEntries(day.raid_counts.map((count) => [count.raid_name, count.count])),
+    })),
+  );
+
+  const eventColumns: LedgerColumn<(typeof data.leaderboard)[number]>[] = [
+    {
+      key: "member",
+      label: "Member",
+      value: (entry) => entry.username,
+      sortValue: (entry) => entry.username.toLowerCase(),
+      secondary: (entry) => rankLabels[entry.rank] ?? entry.rank,
+      href: (entry) => `/statistics/player/playercard?player=${encodeURIComponent(entry.username)}`,
+    },
+    {
+      key: "raids",
+      label: "Raids",
+      numeric: true,
+      value: (entry) => entry.raids.toLocaleString(),
+      sortValue: (entry) => entry.raids,
+    },
+  ];
+
+  function formatDay(value: string): string {
+    return new Intl.DateTimeFormat("en", { month: "short", day: "numeric", timeZone: "UTC" }).format(
+      new Date(`${value}T00:00:00Z`),
+    );
+  }
+
   function formatDate(value: string): string {
     return new Intl.DateTimeFormat("en", {
       month: "short",
       day: "numeric",
-      year: "numeric",
       hour: "2-digit",
       minute: "2-digit",
     }).format(new Date(value));
   }
-
-  function rankLabel(rank: string): string {
-    return rankLabels[rank] ?? rank;
-  }
 </script>
 
-<PageHeader
+<StatsHeader
   kicker="Guilds"
-  title="Raid Events"
-  lead="Sequoia guild raid event windows and member contribution leaderboards."
-/>
-
-<section class="raid-shell" aria-label="Guild raid events">
-  <div class="auth-strip">
+  title="Raid"
+>
+  {#snippet actions()}
     {#if data.me.authenticated}
-      <span>Signed in as {data.me.username}</span>
+      <span class="auth-note">Signed in as {data.me.username}</span>
     {:else}
-      <span>Member leaderboard access requires Wynncraft sign-in.</span>
       <a class="auth-link" href="/api/guild-raids/auth/start">Sign in</a>
     {/if}
-  </div>
+  {/snippet}
+</StatsHeader>
 
-  <div class="raid-layout">
-    <section class="event-list" aria-label="Raid events">
-      <h2>Events</h2>
-      {#if data.events.length > 0}
-        <div class="event-stack">
-          {#each data.events as event}
-            <a
-              class:selected={data.selectedEvent?.id === event.id}
-              class="event-row"
-              href={`/statistics/guilds/raid?event=${event.id}`}
-            >
-              <span>{event.name}</span>
-              <time>{formatDate(event.starts_at)}</time>
-            </a>
-          {/each}
-        </div>
-      {:else}
-        <p class="muted">No raid events are configured yet.</p>
-      {/if}
-    </section>
-
-    <section class="leaderboard" aria-label="Raid event leaderboard">
-      <div class="leaderboard-head">
-        <div>
-          <h2>{data.selectedEvent?.name ?? "Leaderboard"}</h2>
-          {#if data.selectedEvent}
-            <p>
-              {formatDate(data.selectedEvent.starts_at)} - {formatDate(data.selectedEvent.ends_at)}
-            </p>
-          {/if}
-        </div>
+{#if stats}
+  <div class="divider-gold"></div>
+  <div class="raid-vitals">
+    <div class="raid-vital">
+      <span class="raid-vital-value">{stats.guild.raids.toLocaleString()}</span>
+      <span class="raid-vital-label">Lifetime guild raids</span>
+    </div>
+    <div class="raid-vital">
+      <span class="raid-vital-value">{raidTotals.reduce((sum, raid) => sum + raid.value, 0).toLocaleString()}</span>
+      <span class="raid-vital-label">Member raid completions</span>
+    </div>
+    {#if topRaider}
+      <div class="raid-vital">
+        <span class="raid-vital-value raid-vital-name">{topRaider.username}</span>
+        <span class="raid-vital-label">{(topRaider.raids_total ?? 0).toLocaleString()} completions — most in guild</span>
       </div>
-
-      {#if !data.me.authenticated}
-        <div class="empty-state">
-          <p>Sign in to view member raid contributions.</p>
-        </div>
-      {:else if data.leaderboardError}
-        <div class="empty-state error">
-          <p>{data.leaderboardError}</p>
-        </div>
-      {:else if data.leaderboard.length > 0}
-        <div class="leaderboard-table">
-          <div class="table-row table-head">
-            <span>Rank</span>
-            <span>Member</span>
-            <span>Role</span>
-            <span>Raids</span>
-          </div>
-          {#each data.leaderboard as entry, index}
-            <div class="table-row">
-              <span>{index + 1}</span>
-              <span>{entry.username}</span>
-              <span>{rankLabel(entry.rank)}</span>
-              <span>{entry.raids.toLocaleString()}</span>
-            </div>
-          {/each}
-        </div>
-      {:else}
-        <div class="empty-state">
-          <p>No raid deltas have been observed for this event yet.</p>
-        </div>
-      {/if}
-    </section>
+    {/if}
   </div>
+  <div class="divider-gold divider-below"></div>
+
+  <section class="block" aria-label="Member raid completions by raid">
+    <SectionLabel meta="lifetime, summed across current members">
+      {#snippet children()}Completions by raid{/snippet}
+    </SectionLabel>
+    <BarList items={raidTotals} />
+  </section>
+{/if}
+
+<section class="block" aria-label="Daily raid activity">
+  <SectionLabel meta="last 14 days">
+    {#snippet children()}Daily activity{/snippet}
+  </SectionLabel>
+  {#if data.activity === null}
+    <p class="muted">The daily activity feed is temporarily unavailable.</p>
+  {:else if activityColumns.length === 0}
+    <p class="muted">No raid activity recorded in this window yet — the feed is collecting.</p>
+  {:else}
+    <StackedColumns series={activitySeries} columns={activityColumns} height={190} />
+    {#if activityColumns.length < 3}
+      <p class="muted accumulating">Daily history is accumulating — this feed started recording in July 2026.</p>
+    {/if}
+  {/if}
 </section>
 
-<style>
-  .raid-shell {
-    width: min(1120px, calc(100% - 32px));
-    margin: 0 auto 96px;
-  }
+<div class="event-grid">
+  <section class="block" aria-label="Raid events">
+    <SectionLabel>
+      {#snippet children()}Events{/snippet}
+    </SectionLabel>
+    {#if data.events.length > 0}
+      <div class="event-stack">
+        {#each data.events as event (event.id)}
+          <a
+            class="event-row"
+            class:selected={data.selectedEvent?.id === event.id}
+            href={`/statistics/guilds/raid?event=${event.id}`}
+          >
+            <span class="event-name">{event.name}</span>
+            <time class="event-time">{formatDate(event.starts_at)} – {formatDate(event.ends_at)}</time>
+          </a>
+        {/each}
+      </div>
+    {:else}
+      <p class="muted">No raid events are configured yet.</p>
+    {/if}
+  </section>
 
-  .auth-strip {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    min-height: 52px;
-    margin-bottom: 18px;
-    padding: 0 18px;
-    border: 1px solid rgba(235, 197, 69, 0.18);
-    background: rgba(26, 29, 42, 0.72);
-    color: var(--text-body);
+  <section class="block" aria-label="Event contribution leaderboard">
+    <SectionLabel meta={data.selectedEvent ? `${formatDate(data.selectedEvent.starts_at)} – ${formatDate(data.selectedEvent.ends_at)}` : undefined}>
+      {#snippet children()}{data.selectedEvent?.name ?? "Contribution"}{/snippet}
+    </SectionLabel>
+    {#if !data.me.authenticated}
+      <p class="muted">Sign in with Wynncraft to view member raid contributions for this event.</p>
+    {:else if data.leaderboardError}
+      <p class="muted error">{data.leaderboardError}</p>
+    {:else if data.leaderboard.length > 0}
+      <LedgerTable
+        columns={eventColumns}
+        rows={data.leaderboard}
+        rowKey={(entry) => entry.player_uuid}
+        defaultSort="raids"
+        maxHeight="480px"
+      />
+    {:else}
+      <p class="muted">No raid deltas have been observed for this event yet.</p>
+    {/if}
+  </section>
+</div>
+
+<style>
+  .auth-note {
+    color: var(--text-muted);
     font-family: var(--font-display);
-    font-size: var(--text-xs);
+    font-size: var(--text-2xs);
     letter-spacing: var(--tracking-wider);
     text-transform: uppercase;
   }
 
   .auth-link {
     color: var(--color-gold);
+    font-family: var(--font-display);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+    text-decoration: none;
+  }
+
+  .auth-link:hover {
+    color: var(--color-gold-light);
+  }
+
+  .auth-link:focus-visible {
+    outline: 2px solid rgba(245, 197, 66, 0.5);
+    outline-offset: 2px;
+  }
+
+  .raid-vitals {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    padding: 24px 8px;
+  }
+
+  .raid-vital {
+    display: grid;
+    gap: 4px;
+  }
+
+  .raid-vital-value {
+    color: var(--text-heading);
+    font-family: var(--font-display);
+    font-size: var(--text-2xl);
+    line-height: var(--leading-tight);
+  }
+
+  .raid-vital-name {
+    color: var(--color-gold);
+    font-size: var(--text-xl);
+  }
+
+  .raid-vital-label {
+    color: var(--text-muted);
+    font-family: var(--font-display);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-wider);
     text-transform: uppercase;
   }
 
-  .raid-layout {
-    display: grid;
-    grid-template-columns: minmax(240px, 320px) 1fr;
-    gap: 18px;
+  .divider-below {
+    margin-bottom: 40px;
   }
 
-  .event-list,
-  .leaderboard {
-    border: 1px solid rgba(129, 87, 213, 0.34);
-    background: rgba(26, 29, 42, 0.74);
+  .block {
+    margin-bottom: 40px;
   }
 
-  .event-list {
-    padding: 18px;
-  }
-
-  h2 {
+  .muted {
     margin: 0;
-    color: var(--text-heading);
-    font-family: var(--font-display);
-    font-size: var(--text-lg);
-    line-height: var(--leading-tight);
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+  }
+
+  .muted.error {
+    color: var(--status-error);
+  }
+
+  .accumulating {
+    margin-top: 10px;
+    font-size: var(--text-xs);
+  }
+
+  .event-grid {
+    display: grid;
+    grid-template-columns: minmax(240px, 340px) minmax(0, 1fr);
+    gap: 40px;
   }
 
   .event-stack {
     display: grid;
-    gap: 10px;
-    margin-top: 16px;
+    gap: 8px;
   }
 
   .event-row {
     display: grid;
-    gap: 6px;
-    padding: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    color: var(--text-heading);
+    gap: 5px;
+    padding: 12px 14px;
+    border: 1px solid var(--color-border-subtle);
+    background: rgba(19, 22, 31, 0.6);
     text-decoration: none;
+    transition: border-color var(--dur-fast) ease, background var(--dur-fast) ease;
   }
 
   .event-row:hover,
   .event-row.selected {
-    border-color: rgba(235, 197, 69, 0.55);
-    background: rgba(235, 197, 69, 0.06);
+    border-color: rgba(245, 197, 66, 0.45);
+    background: rgba(245, 197, 66, 0.05);
   }
 
-  .event-row time,
-  .muted,
-  .leaderboard-head p,
-  .empty-state {
-    color: var(--text-body);
+  .event-row:focus-visible {
+    outline: 2px solid rgba(245, 197, 66, 0.5);
+    outline-offset: 2px;
   }
 
-  .leaderboard {
-    min-height: 420px;
-  }
-
-  .leaderboard-head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    padding: 18px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  }
-
-  .leaderboard-head p {
-    margin: 8px 0 0;
-    font-family: var(--font-display);
-    font-size: var(--text-xs);
-    letter-spacing: var(--tracking-wider);
-  }
-
-  .leaderboard-table {
-    display: grid;
-  }
-
-  .table-row {
-    display: grid;
-    grid-template-columns: 72px minmax(160px, 1fr) minmax(120px, 160px) 96px;
-    gap: 12px;
-    align-items: center;
-    min-height: 52px;
-    padding: 0 18px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  .event-name {
     color: var(--text-heading);
-  }
-
-  .table-head {
-    min-height: 42px;
-    color: var(--text-body);
     font-family: var(--font-display);
     font-size: var(--text-xs);
-    letter-spacing: var(--tracking-wider);
+    letter-spacing: var(--tracking-wide);
     text-transform: uppercase;
   }
 
-  .table-row span:last-child {
-    color: var(--color-gold);
-    text-align: right;
+  .event-time {
+    color: var(--text-muted);
+    font-family: var(--font-data);
+    font-size: var(--text-2xs);
   }
 
-  .empty-state {
-    display: grid;
-    min-height: 280px;
-    place-items: center;
-    padding: 24px;
-    text-align: center;
-  }
-
-  .empty-state.error {
-    color: var(--status-error);
-  }
-
-  @media (max-width: 760px) {
-    .auth-strip,
-    .raid-layout {
+  @media (max-width: 860px) {
+    .event-grid {
       grid-template-columns: 1fr;
-    }
-
-    .auth-strip {
-      align-items: flex-start;
-      flex-direction: column;
-      padding: 14px;
-    }
-
-    .table-row {
-      grid-template-columns: 44px minmax(96px, 1fr) 88px 72px;
-      gap: 8px;
-      padding: 0 12px;
-      font-size: 0.82rem;
+      gap: 0;
     }
   }
 </style>
