@@ -19,7 +19,9 @@
     stats ? [...stats.season_ranks].reverse().map((entry) => entry.season) : [],
   );
   const ownPosition = $derived(
-    rankings?.entries.find((entry) => entry.name === guildName)?.position ?? null,
+    rankings?.entries.find((entry) => entry.name === guildName)?.position ??
+      // Outside the fetched top slice, the guild's own rankings map still knows the placement.
+      (season !== null ? (stats?.rankings[`guildSeason${season}`] ?? null) : null),
   );
 
   const standingsColumns: LedgerColumn<SeasonRankingEntry>[] = [
