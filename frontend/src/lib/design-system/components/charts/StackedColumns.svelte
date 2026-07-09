@@ -259,7 +259,7 @@
 
   .tip-row > span:last-child {
     color: var(--text-heading);
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
   }
 
   .tip-total {
@@ -316,6 +316,6 @@
 
   .table-view td {
     color: var(--text-body);
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
   }
 </style>

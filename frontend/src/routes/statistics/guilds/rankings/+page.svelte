@@ -60,8 +60,11 @@
 
   const trophies: Trophy[] = $derived.by(() => {
     if (!stats) return [];
+    // The live season is a standing, not a finish — it stays off the wall.
+    const liveSeasonSlug = `guildSeason${stats.season_ranks.at(-1)?.season ?? -1}`;
     const entries: Trophy[] = [];
     for (const [slug, position] of Object.entries(stats.rankings)) {
+      if (slug === liveSeasonSlug) continue;
       for (const [pattern, label] of TROPHY_LABELS) {
         const match = slug.match(pattern);
         if (match) {
@@ -84,7 +87,6 @@
 <StatsHeader
   kicker="Guilds"
   title="Rankings"
-  lead="Where Sequoia stands against every other guild, season by season."
 >
   {#snippet actions()}
     {#if seasonOptions.length > 0}
@@ -170,7 +172,7 @@
     border: 1px solid var(--color-border-accent);
     background: var(--color-surface);
     color: var(--text-heading);
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: var(--text-xs);
   }
 
@@ -195,7 +197,7 @@
   }
 
   .standing-position {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     color: var(--text-heading);
   }
 

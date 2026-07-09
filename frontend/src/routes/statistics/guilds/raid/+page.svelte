@@ -105,7 +105,6 @@
 <StatsHeader
   kicker="Guilds"
   title="Raid"
-  lead="Guild raid output — lifetime totals by raid, the live daily feed, and event contribution boards."
 >
   {#snippet actions()}
     {#if data.me.authenticated}
@@ -329,7 +328,7 @@
 
   .event-time {
     color: var(--text-muted);
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: var(--text-2xs);
   }
 

@@ -49,7 +49,7 @@
 
   .deferred-since {
     color: var(--text-muted);
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: var(--text-2xs);
     letter-spacing: var(--tracking-tight);
     text-transform: uppercase;

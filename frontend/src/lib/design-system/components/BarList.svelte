@@ -84,7 +84,7 @@
 
   .bar-value {
     color: var(--text-heading);
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: var(--text-xs);
     font-variant-numeric: tabular-nums;
     text-align: right;

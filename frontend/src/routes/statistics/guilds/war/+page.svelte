@@ -72,7 +72,6 @@
 <StatsHeader
   kicker="Guilds"
   title="War"
-  lead="Territory wars fought under the Sequoia banner — lifetime output and who carries the front line."
 />
 
 {#if stats}

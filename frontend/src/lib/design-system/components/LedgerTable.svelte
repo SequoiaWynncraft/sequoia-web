@@ -186,13 +186,13 @@
 
   td.numeric {
     text-align: right;
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-variant-numeric: tabular-nums;
   }
 
   .rank-cell {
     color: var(--text-muted);
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: var(--text-xs);
     font-variant-numeric: tabular-nums;
   }
