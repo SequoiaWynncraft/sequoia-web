@@ -31,8 +31,13 @@ export async function getGuildOverview(
   options: GuildOverviewOptions = {},
 ): Promise<GuildOverviewResponse> {
   const now = Date.now();
-  if (memoryCache && now - memoryCache.updatedAt < FRESH_MS) {
+  const memoryAge = memoryCache ? now - memoryCache.updatedAt : Number.POSITIVE_INFINITY;
+  if (memoryCache && memoryAge < FRESH_MS) {
     return withStaleness(memoryCache.data, false);
+  }
+  if (options.allowStale && memoryCache && memoryAge < STALE_MS) {
+    void refreshGuildOverviewOnce(fetchImpl).catch(() => undefined);
+    return withStaleness(memoryCache.data, true);
   }
 
   const persisted = await readCache().catch(() => null);
