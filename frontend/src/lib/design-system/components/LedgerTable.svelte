@@ -78,9 +78,13 @@
         {#each columns as column (column.key)}
           <th scope="col" class:numeric={column.numeric} aria-sort={ariaSort(column)}>
             {#if column.sortable === false}
-              <span class="head-label">{column.label}</span>
+              <span class="head-label">
+                {#if column.headerColor}<span class="mark" style="background:{column.headerColor}" aria-hidden="true"></span>{/if}
+                {column.label}
+              </span>
             {:else}
               <button class="head-sort" onclick={() => toggleSort(column)}>
+                {#if column.headerColor}<span class="mark" style="background:{column.headerColor}" aria-hidden="true"></span>{/if}
                 {column.label}
                 <span class="sort-arrow" class:sort-active={sortKey === column.key} aria-hidden="true">
                   {sortKey === column.key ? (descending ? "▼" : "▲") : "▹"}
@@ -99,7 +103,9 @@
             {@const mark = column.color?.(row) ?? null}
             {@const link = column.href?.(row) ?? null}
             {@const secondary = column.secondary?.(row) ?? null}
+            {@const avatar = column.avatar?.(row) ?? null}
             <td class:numeric={column.numeric}>
+              {#if avatar}<img class="avatar" src={avatar} alt="" loading="lazy" width="22" height="22" />{/if}
               {#if mark}<span class="mark" style="background:{mark}" aria-hidden="true"></span>{/if}
               {#if link}
                 <a href={link} class="cell-link">{column.value(row)}</a>
@@ -223,6 +229,12 @@
     height: 9px;
     margin-right: 8px;
     vertical-align: 1px;
+  }
+
+  .avatar {
+    margin-right: 10px;
+    vertical-align: -5px;
+    image-rendering: pixelated;
   }
 
   .cell-link {
