@@ -26,6 +26,13 @@
 
   const standingsColumns: LedgerColumn<SeasonRankingEntry>[] = [
     {
+      key: "position",
+      label: "#",
+      numeric: true,
+      value: (entry) => String(entry.position),
+      sortValue: (entry) => entry.position,
+    },
+    {
       key: "guild",
       label: "Guild",
       value: (entry) => entry.name,
@@ -120,7 +127,9 @@
       columns={standingsColumns}
       rows={rankings.entries}
       rowKey={(entry) => `${entry.position}:${entry.name}`}
-      defaultSort="rating"
+      defaultSort="position"
+      defaultDescending={false}
+      showRank={false}
       highlight={(entry) => entry.name === guildName}
       maxHeight="480px"
     />
