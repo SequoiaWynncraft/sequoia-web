@@ -70,6 +70,29 @@ curl -X POST https://api.seqwawa.com/internal/poll-now \
   -H "authorization: Bearer $INTERNAL_API_TOKEN"
 ```
 
+### Development deployment
+
+The isolated website development stack lives in the `development` environment of the
+Coolify `sequoia-web` project:
+
+- Git branch: `dev`
+- Frontend: `https://dev.seqwawa.com`
+- Website-only API: `https://web-api.dev.seqwawa.com`
+- Database: private `sequoia-web-dev-postgres` service
+- Internal backend alias: `http://sequoia-web-dev-backend:8080`
+
+Both applications use the Coolify GitHub App and automatically redeploy when `dev` is
+pushed. The exact, unproxied DNS records for the two development hosts override the
+proxied `*.seqwawa.com` catch-all, so requests do not enter its redirect ruleset.
+
+Development auth is isolated with the `.dev.seqwawa.com` cookie domain and the
+`seq_dev_session` and `seq_dev_oauth_state` cookie names. Add this exact redirect URI to
+the existing Wynncraft OAuth application before testing login:
+
+```text
+https://web-api.dev.seqwawa.com/auth/wynn/callback
+```
+
 ## Validation
 
 Local checks:
