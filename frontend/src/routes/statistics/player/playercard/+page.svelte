@@ -48,7 +48,7 @@
 
   function formatDate(value: string | null): string {
     if (!value) return "—";
-    return new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric" }).format(
+    return new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(
       new Date(value),
     );
   }

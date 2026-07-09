@@ -73,7 +73,7 @@
       numeric: true,
       value: (member) =>
         member.joined
-          ? new Intl.DateTimeFormat("en", { month: "short", year: "numeric" }).format(
+          ? new Intl.DateTimeFormat("en", { month: "short", year: "numeric", timeZone: "UTC" }).format(
               new Date(member.joined),
             )
           : "—",
