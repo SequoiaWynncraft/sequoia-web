@@ -31,6 +31,7 @@
     {
       key: "member",
       label: "Member",
+      nameStyle: true,
       value: (member) => member.username,
       sortValue: (member) => member.username.toLowerCase(),
       secondary: (member) => RANK_LABELS[member.rank] ?? member.rank,
@@ -69,6 +70,14 @@
     return new Intl.DateTimeFormat("en", { month: "short", year: "numeric", timeZone: "UTC" }).format(
       new Date(value),
     );
+  }
+
+  function heldFor(acquired: string): string {
+    const minutes = Math.max(1, Math.floor((Date.now() - Date.parse(acquired)) / 60_000));
+    if (minutes < 60) return `${minutes} min`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 48) return `${hours} h`;
+    return `${Math.floor(hours / 24)} d`;
   }
 </script>
 
@@ -113,6 +122,24 @@
       maxHeight="560px"
     />
   </section>
+
+  {#await data.territories then held}
+    {#if held && held.territories.length > 0}
+      <section class="block" aria-label="Territories held right now">
+        <SectionLabel meta="longest hold first">
+          {#snippet children()}Territories held{/snippet}
+        </SectionLabel>
+        <div class="territories">
+          {#each held.territories as territory (territory.name)}
+            <span class="territory">
+              <span class="territory-name">{territory.name}</span>
+              <span class="territory-held">{heldFor(territory.acquired)}</span>
+            </span>
+          {/each}
+        </div>
+      </section>
+    {/if}
+  {/await}
 
   <section class="block" aria-label="Territory finishes by season">
     <SectionLabel meta="completed seasons">
@@ -177,5 +204,35 @@
 
   .block {
     margin-bottom: 40px;
+  }
+
+  .territories {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .territory {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 6px 11px;
+    border: 1px solid var(--color-border-subtle);
+    background: rgba(19, 22, 31, 0.6);
+  }
+
+  .territory-name {
+    color: var(--text-heading);
+    font-family: var(--font-display);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+  }
+
+  .territory-held {
+    color: var(--text-muted);
+    font-family: var(--font-data);
+    font-size: var(--text-2xs);
+    font-variant-numeric: tabular-nums;
   }
 </style>

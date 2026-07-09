@@ -47,6 +47,7 @@
     {
       key: "member",
       label: "Member",
+      nameStyle: true,
       value: (member) => member.username,
       sortValue: (member) => member.username.toLowerCase(),
       avatar: (member) => nmsrFace(member.uuid ?? member.username, 22),

@@ -35,6 +35,7 @@
     {
       key: "guild",
       label: "Guild",
+      nameStyle: true,
       value: (entry) => entry.name,
       sortValue: (entry) => entry.name.toLowerCase(),
       secondary: (entry) => (entry.prefix ? `[${entry.prefix}]` : null),

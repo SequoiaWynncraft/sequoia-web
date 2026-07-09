@@ -33,6 +33,13 @@
     }));
   }
 
+  const TIER_COLORS: Record<string, string> = {
+    DIAMOND: "var(--color-diamond)",
+    GOLD: "var(--color-gold)",
+    SILVER: "#aeb4c4",
+    BRONZE: "#c2894f",
+  };
+
   const CLASS_LABELS: Record<string, string> = {
     WARRIOR: "Warrior",
     ARCHER: "Archer",
@@ -134,6 +141,13 @@
                 {#if card.online === true}
                   <span class="tag tag-online">online{card.server ? ` · ${card.server}` : ""}</span>
                 {/if}
+                {#await data.badges then badges}
+                  {#each badges as badge (badge.type + badge.tier)}
+                    <span class="tag tag-badge" style="--tier-color:{TIER_COLORS[badge.tier] ?? 'var(--text-muted)'}">
+                      {badge.type} · {badge.tier.toLowerCase()}
+                    </span>
+                  {/each}
+                {/await}
               </p>
             </div>
             <button class="copy-button" type="button" onclick={copyLink}>
@@ -348,6 +362,11 @@
   .tag-online {
     border-color: rgba(80, 200, 120, 0.4);
     color: var(--status-online);
+  }
+
+  .tag-badge {
+    border-color: color-mix(in srgb, var(--tier-color) 45%, transparent);
+    color: var(--tier-color);
   }
 
   .copy-button {

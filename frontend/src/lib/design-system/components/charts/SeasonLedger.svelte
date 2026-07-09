@@ -225,7 +225,7 @@
   .ledger-place {
     fill: var(--color-text-dim);
     font-family: var(--font-display);
-    font-size: 0.55rem;
+    font-size: 0.625rem;
     letter-spacing: 0.04em;
   }
 
@@ -236,7 +236,7 @@
   .ledger-axis {
     fill: var(--color-text-dim);
     font-family: var(--font-display);
-    font-size: 0.55rem;
+    font-size: 0.625rem;
     letter-spacing: 0.04em;
   }
 
