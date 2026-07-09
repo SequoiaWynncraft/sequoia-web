@@ -13,7 +13,7 @@ RUN cargo build --manifest-path backend/Cargo.toml --release --bin sequoia-web-b
 
 FROM debian:bookworm-slim AS runtime
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates \
+    && apt-get install -y --no-install-recommends ca-certificates curl \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /app/backend/target/release/sequoia-web-backend /usr/local/bin/sequoia-web-backend
