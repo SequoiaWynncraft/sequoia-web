@@ -44,6 +44,16 @@
   --rarity-fabled:    #ff5555;
   --rarity-mythic:    #aa00aa;
 
+  /* ── Chart series (CVD-checked against --color-surface) ──
+     Categorical marks only; fixed assignment order amber → emerald →
+     teal → enchant → nether. Gold stays reserved for Sequoia/emphasis. */
+  --chart-amber:   #a5821e;
+  --chart-emerald: #35a35e;
+  --chart-teal:    #1fa9a6;
+  --chart-enchant: #a855f7;
+  --chart-nether:  #e05252;
+  --chart-context: #6b7194;  /* de-emphasized series (rivals, history) */
+
   /* ═══ SEMANTIC ALIASES ═══ */
   --bg-page: var(--color-abyss);
   --bg-alt: var(--color-deep);
