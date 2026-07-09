@@ -51,6 +51,12 @@
 
 <style>
   .stats-shell {
+    /* The data-dense register reads small — scale the type tokens up a step. */
+    --text-2xs: 0.75rem;
+    --text-xs: 0.8125rem;
+    --text-sm: 0.9375rem;
+    --text-base: 1.0625rem;
+    --text-lg: 1.1875rem;
     display: grid;
     grid-template-columns: 224px minmax(0, 1fr);
     width: min(1720px, 100% - 3rem);
