@@ -6,6 +6,7 @@
     rating: number;
     territories: number;
     position: number | null;
+    live: boolean;
     x: number;
     y: number;
     width: number;
@@ -16,11 +17,14 @@
     seasons,
     positions = {},
     compact = false,
+    liveSeason = null,
   }: {
     seasons: GuildSeasonRank[];
     /** Leaderboard slug → placement, e.g. { guildSeason31: 1 }. */
     positions?: Record<string, number>;
     compact?: boolean;
+    /** Season still in progress — shown as a standing, not a finish. */
+    liveSeason?: number | null;
   } = $props();
 
   const GAP = 2;
@@ -41,6 +45,7 @@
         rating: entry.rating,
         territories: entry.final_territories,
         position: positions[`guildSeason${entry.season}`] ?? null,
+        live: entry.season === liveSeason,
         x: Math.round(index * slot + (slot - barWidth) / 2),
         y: plotHeight - barHeight,
         width: barWidth,
@@ -62,6 +67,10 @@
   }
 
   function columnLabel(column: LedgerColumn): string {
+    if (column.live) {
+      const standing = column.position ? `, currently #${column.position}` : "";
+      return `Season ${column.season} (in progress) — ${column.rating.toLocaleString()} rating${standing}`;
+    }
     const placement = column.position ? `, finished #${column.position}` : "";
     return `Season ${column.season} — ${column.rating.toLocaleString()} rating, ${column.territories} final territories${placement}`;
   }
@@ -124,16 +133,22 @@
           style="left:{Math.min(Math.max(hovered.x + hovered.width / 2, 70), width - 70)}px"
           role="status"
         >
-          <span class="tip-title">Season {hovered.season}{hovered.position ? ` · #${hovered.position}` : ""}</span>
+          <span class="tip-title">
+            Season {hovered.season}{hovered.position ? ` · #${hovered.position}` : ""}{hovered.live ? " · live" : ""}
+          </span>
           <span class="tip-row"><span>Rating</span><span>{hovered.rating.toLocaleString()}</span></span>
-          <span class="tip-row"><span>Final territories</span><span>{hovered.territories}</span></span>
+          {#if !hovered.live}
+            <span class="tip-row"><span>Final territories</span><span>{hovered.territories}</span></span>
+          {/if}
         </div>
       {/if}
     {/if}
   </div>
   {#if !compact}
     <figcaption class="ledger-caption">
-      Guild season rating by season · gold marks a #1 finish
+      Guild season rating by season · gold marks a #1 placement{liveSeason !== null
+        ? ` · season ${liveSeason} is in progress`
+        : ""}
     </figcaption>
     <details class="ledger-table">
       <summary>View as table</summary>
@@ -143,11 +158,12 @@
         </thead>
         <tbody>
           {#each [...seasons].reverse() as entry (entry.season)}
+            {@const live = entry.season === liveSeason}
             <tr>
               <td>{entry.season}</td>
               <td>{entry.rating.toLocaleString()}</td>
-              <td>{entry.final_territories}</td>
-              <td>{positionFor(entry.season) ? `#${positionFor(entry.season)}` : "—"}</td>
+              <td>{live ? "—" : entry.final_territories}</td>
+              <td>{positionFor(entry.season) ? `#${positionFor(entry.season)}${live ? " (live)" : ""}` : "—"}</td>
             </tr>
           {/each}
         </tbody>
