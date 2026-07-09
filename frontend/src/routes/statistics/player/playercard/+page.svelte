@@ -141,11 +141,13 @@
                 {#if card.online === true}
                   <span class="tag tag-online">online{card.server ? ` · ${card.server}` : ""}</span>
                 {/if}
-                {#each result.badges as badge (badge.type + badge.tier)}
-                  <span class="tag tag-badge" style="--tier-color:{TIER_COLORS[badge.tier] ?? 'var(--text-muted)'}">
-                    {badge.type} · {badge.tier.toLowerCase()}
-                  </span>
-                {/each}
+                {#await data.badges then badges}
+                  {#each badges as badge (badge.type + badge.tier)}
+                    <span class="tag tag-badge" style="--tier-color:{TIER_COLORS[badge.tier] ?? 'var(--text-muted)'}">
+                      {badge.type} · {badge.tier.toLowerCase()}
+                    </span>
+                  {/each}
+                {/await}
               </p>
             </div>
             <button class="copy-button" type="button" onclick={copyLink}>
