@@ -23,7 +23,8 @@ export async function getPlayerCard(
   name: string,
   options: PlayerCardOptions = {},
 ): Promise<PlayerCardResponse> {
-  const guild = await getWynncraftGuild(fetchImpl, { allowStale: true });
+  // Fresh roster for the member gate; stale data is only used if the refresh fails.
+  const guild = await getWynncraftGuild(fetchImpl);
   const member = findMember(guild.data.members, name);
   if (!member) throw new PlayerNotFoundError(name);
 
