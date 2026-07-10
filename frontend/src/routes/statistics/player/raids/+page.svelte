@@ -105,14 +105,14 @@
     </SectionLabel>
     <DeferredPanel title="Awaiting feed" since="July 2026">
       {#snippet children()}
-        Per-run records — completion times, party compositions, and personal bests — are being
+        Per-run records - completion times, party compositions, and personal bests - are being
         collected. This ledger unlocks once enough runs have been recorded.
       {/snippet}
     </DeferredPanel>
   </section>
 {:else}
   <DeferredPanel title="Data unavailable">
-    {#snippet children()}Player statistics are temporarily unavailable — try again shortly.{/snippet}
+    {#snippet children()}Player statistics are temporarily unavailable - try again shortly.{/snippet}
   </DeferredPanel>
 {/if}
 

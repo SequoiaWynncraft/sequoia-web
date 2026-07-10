@@ -48,7 +48,7 @@
       key: "joined",
       label: "Joined",
       numeric: true,
-      value: (member) => (member.joined ? formatDate(member.joined) : "—"),
+      value: (member) => (member.joined ? formatDate(member.joined) : "-"),
       sortValue: (member) => (member.joined ? Date.parse(member.joined) : null),
     },
   ];
@@ -104,7 +104,7 @@
     {#if topWarrer}
       <div class="war-vital">
         <span class="war-vital-value war-vital-name">{topWarrer.username}</span>
-        <span class="war-vital-label">{(topWarrer.wars ?? 0).toLocaleString()} wars — most in guild</span>
+        <span class="war-vital-label">{(topWarrer.wars ?? 0).toLocaleString()} wars - most in guild</span>
       </div>
     {/if}
   </div>
@@ -154,14 +154,14 @@
     </SectionLabel>
     <DeferredPanel title="Awaiting feed" since="July 2026">
       {#snippet children()}
-        War-by-war records — outcomes, territories, and participants — are being collected. This
+        War-by-war records - outcomes, territories, and participants - are being collected. This
         ledger unlocks once enough history has been recorded.
       {/snippet}
     </DeferredPanel>
   </section>
 {:else}
   <DeferredPanel title="Data unavailable">
-    {#snippet children()}Guild statistics are temporarily unavailable — try again shortly.{/snippet}
+    {#snippet children()}Guild statistics are temporarily unavailable - try again shortly.{/snippet}
   </DeferredPanel>
 {/if}
 

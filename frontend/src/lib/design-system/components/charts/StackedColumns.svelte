@@ -101,7 +101,7 @@
             class="column"
             tabindex="0"
             role="img"
-            aria-label={`${column.label} — ${column.total.toLocaleString()}${unit}`}
+            aria-label={`${column.label} - ${column.total.toLocaleString()}${unit}`}
             onmouseenter={() => (hovered = column)}
             onmouseleave={() => (hovered = null)}
             onfocus={() => (hovered = column)}
