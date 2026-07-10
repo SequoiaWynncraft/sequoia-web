@@ -8,7 +8,8 @@
 
   const DISCORD = "https://discord.gg/seq";
   const MAP = "https://map.seqwawa.com";
-  const AUTH_BASE = `${SEQUOIA_API_BASE_URL || "https://api.seqwawa.com"}/auth/web`;
+  // Empty base means same-origin mode - the auth links stay relative.
+  const AUTH_BASE = `${SEQUOIA_API_BASE_URL}/auth/web`;
 
   let { viewer = null }: { viewer?: Viewer | null } = $props();
 

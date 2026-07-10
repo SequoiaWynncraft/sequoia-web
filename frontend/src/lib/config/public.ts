@@ -1,8 +1,8 @@
 import { dev } from "$app/environment";
 import * as publicEnv from "$env/static/public";
 
-const configuredBaseUrl = envValue("PUBLIC_SEQUOIA_API_BASE_URL").trim();
-const configuredNmsrBaseUrl = envValue("PUBLIC_NMSR_BASE_URL").trim();
+const configuredBaseUrl = envValue("PUBLIC_SEQUOIA_API_BASE_URL").trim().replace(/\/+$/, "");
+const configuredNmsrBaseUrl = envValue("PUBLIC_NMSR_BASE_URL").trim().replace(/\/+$/, "");
 
 export const SEQUOIA_API_BASE_URL =
   configuredBaseUrl === "same-origin"
