@@ -46,6 +46,32 @@ const seasonRaidActivityBody: SeasonRaidActivityResponse = {
 };
 
 describe("createSequoiaApiClient", () => {
+  it("requests the linked rank-profile snapshot by default", async () => {
+    const requests: string[] = [];
+    const body = {
+      schema_version: 1,
+      revision: "test-revision",
+      generated_at: "2026-07-10T12:00:00Z",
+      source: { stale: false, guilds: [] },
+      catalog: { roles: [], awards: [], assets: [] },
+      profiles: [],
+    };
+    const client = createSequoiaApiClient({
+      baseUrl: "https://api.example.test/",
+      fetch: async (input) => {
+        requests.push(String(input));
+        return jsonResponse(body);
+      },
+    });
+
+    const result = await client.getRankProfiles();
+
+    expect(result).toEqual({ ok: true, data: body });
+    expect(requests).toEqual([
+      "https://api.example.test/v1/rank-profiles?scope=linked",
+    ]);
+  });
+
   it("requests the web-owned guild overview without using the backend base URL", async () => {
     const requests: string[] = [];
     const client = createSequoiaApiClient({

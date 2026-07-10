@@ -2,9 +2,9 @@ import type { PageServerLoad } from "./$types";
 
 import type { BadgeEntry } from "$lib/api/client";
 import type { PlayerCardResponse } from "$lib/api/playerCard";
-import { getBadgeFeed } from "$lib/server/badges";
 import { getGuildStats } from "$lib/server/guildStats";
 import { getPlayerCard, PlayerNotFoundError } from "$lib/server/playerCard";
+import { badgesForMinecraft, getLinkedRankProfiles } from "$lib/server/rankProfiles";
 
 export const prerender = false;
 
@@ -45,9 +45,8 @@ async function loadBadges(
   fetchImpl: typeof fetch,
   resultPromise: Promise<PlayerCardResult>,
 ): Promise<BadgeEntry[]> {
-  const feedPromise = getBadgeFeed(fetchImpl);
+  const rankProfilesPromise = getLinkedRankProfiles(fetchImpl);
   const result = await resultPromise;
   if (!result.ok || !result.card) return [];
-  const uuid = result.card.uuid;
-  return (await feedPromise).filter((badge) => badge.player_uuid === uuid);
+  return badgesForMinecraft(await rankProfilesPromise, result.card.uuid);
 }

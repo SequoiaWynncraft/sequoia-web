@@ -15,7 +15,7 @@
     "start": "node build",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "test:unit": "svelte-kit sync && vitest run",
-    "api:types": "openapi-typescript ../../sequoia-backend/src/main/resources/openapi/public.yaml -o src/lib/api/generated/public-api.ts"
+    "api:types": "openapi-typescript ../../sequoia-backend/openapi/public.yaml -o src/lib/api/generated/public-api.ts"
   },
   "devDependencies": {
     "@sveltejs/adapter-node": "^5.5.7",
