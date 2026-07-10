@@ -71,12 +71,10 @@
       key: "honours",
       label: "Honours",
       numeric: true,
-      value: (member) => {
-        const honours = standingOf(member)?.honours ?? 0;
-        return honours > 0 ? honours.toLocaleString() : "—";
-      },
-      // Null (not 0) for blank rows so LedgerTable sinks them in either sort direction.
-      sortValue: (member) => standingOf(member)?.honours || null,
+      // Linked members show a real count (including 0); unlinked rows show a dash
+      // and sort as null so LedgerTable sinks them in either direction.
+      value: (member) => standingOf(member)?.honours.toLocaleString() ?? "—",
+      sortValue: (member) => standingOf(member)?.honours ?? null,
     },
     {
       key: "playtime",
