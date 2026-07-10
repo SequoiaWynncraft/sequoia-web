@@ -208,15 +208,19 @@
             {@const events = eventBadgesOf(badges)}
             {#if events.length > 0}
               <div class="card-section">
-                <SectionLabel meta="{events.length} earned">
-                  {#snippet children()}Event badges{/snippet}
+                <SectionLabel meta="{events.length} awarded">
+                  {#snippet children()}Honours{/snippet}
                 </SectionLabel>
-                <div class="badges">
-                  {#each events as badge (badge.type + badge.tier)}
-                    <span class="tag tag-badge" style="--tier-color:{tierColor(badge.tier)}">
-                      {badge.type} · {badge.tier.toLowerCase()}
-                    </span>
-                  {/each}
+                <!-- One row per honour category — war honours and future awards slot in as rows. -->
+                <div class="honour-row">
+                  <span class="honour-label">Event badges</span>
+                  <div class="badges">
+                    {#each events as badge (badge.type + badge.tier)}
+                      <span class="tag tag-badge" style="--tier-color:{tierColor(badge.tier)}">
+                        {badge.type} · {badge.tier.toLowerCase()}
+                      </span>
+                    {/each}
+                  </div>
                 </div>
               </div>
             {/if}
@@ -418,10 +422,35 @@
     color: var(--tier-color);
   }
 
+  .honour-row {
+    display: grid;
+    grid-template-columns: 150px minmax(0, 1fr);
+    align-items: start;
+    gap: 12px;
+    padding: 9px 2px;
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+
+  .honour-label {
+    padding-top: 5px;
+    color: var(--text-muted);
+    font-family: var(--font-display);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+  }
+
   .badges {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
+  }
+
+  @media (max-width: 560px) {
+    .honour-row {
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
   }
 
   .online-now {
