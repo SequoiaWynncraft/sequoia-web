@@ -105,6 +105,16 @@ export const SECTIONS: NavSection[] = [
             placeholder: "Player Activity",
           },
           {
+            label: "Progress",
+            to: "/statistics/player/progress",
+            icon: "chart",
+            description: "Gains over time.",
+            kicker: "Player",
+            title: "Progress",
+            lead: "Gains over time.",
+            placeholder: "Player Progress",
+          },
+          {
             label: "Playercard",
             to: "/statistics/player/playercard",
             icon: "clipboard",
