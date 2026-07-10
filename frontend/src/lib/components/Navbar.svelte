@@ -1,0 +1,188 @@
+<script lang="ts">
+  import { page } from "$app/state";
+  import Icon from "./Icon.svelte";
+  import { SECTIONS } from "$lib/site/nav";
+  import { SEQUOIA_API_BASE_URL } from "$lib/config/public";
+  import { nmsrFace } from "$lib/site/nmsr";
+  import type { Viewer } from "$lib/site/viewer";
+
+  const DISCORD = "https://discord.gg/seq";
+  const MAP = "https://map.seqwawa.com";
+  // Empty base means same-origin mode - the auth links stay relative.
+  const AUTH_BASE = `${SEQUOIA_API_BASE_URL}/auth/web`;
+
+  let { viewer = null }: { viewer?: Viewer | null } = $props();
+
+  const signInUrl = $derived(`${AUTH_BASE}/start?return_to=${encodeURIComponent(page.url.href)}`);
+  const signOutUrl = $derived(`${AUTH_BASE}/logout?return_to=${encodeURIComponent(page.url.href)}`);
+  const viewerCardUrl = $derived(
+    viewer?.minecraftUsername
+      ? `/statistics/player/playercard?player=${encodeURIComponent(viewer.minecraftUsername)}`
+      : null,
+  );
+
+  let open = $state<string | null>(null);
+  let mobileOpen = $state(false);
+
+  function isActive(to: string) {
+    return page.url.pathname === to || page.url.pathname.startsWith(to + "/");
+  }
+
+  function clampToViewport(node: HTMLElement) {
+    const rect = node.getBoundingClientRect();
+    const overflow = rect.right - (window.innerWidth - 16);
+    if (overflow > 0) node.style.left = `-${overflow}px`;
+  }
+</script>
+
+<svelte:window onscroll={() => { if (mobileOpen) mobileOpen = false; }} />
+
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<nav class="seq-top-nav" onmouseleave={() => open = null}>
+  <div class="seq-top-nav-shell">
+    <a href="/" class="seq-nav-brand" onclick={() => mobileOpen = false}>
+      SEQUOIA
+    </a>
+
+    <div class="seq-nav-desktop">
+      {#each SECTIONS as s}
+        {@const hasMenu = !!(s.groups || s.items)}
+        {@const active = isActive(s.to)}
+        {@const isOpen = open === s.to}
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <span class="seq-nav-item" onmouseenter={() => open = s.to} style="position:relative">
+          <a
+            href={s.to}
+            class="seq-nav-link"
+            class:seq-nav-link-active={active}
+          >
+            {s.label}
+            {#if hasMenu}
+              <svg class="seq-nav-chevron" class:seq-nav-chevron-open={isOpen} width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6" />
+              </svg>
+            {/if}
+          </a>
+
+          {#if isOpen && hasMenu}
+            <div class="seq-dropdown" use:clampToViewport>
+              {#if s.groups}
+                {#each s.groups as g}
+                  <div class="seq-dropdown-col">
+                    <div class="seq-dropdown-group-header">
+                      {#if g.icon}<Icon name={g.icon} size={14} />{/if}
+                      <a href={g.to} onclick={() => open = null} class="seq-dropdown-group-label">{g.label}</a>
+                    </div>
+                    {#each g.items as it}
+                      <a href={it.to} onclick={() => open = null} class="seq-dropdown-item">
+                        {#if it.icon}<span class="seq-dropdown-item-icon"><Icon name={it.icon} size={17} /></span>{/if}
+                        <span class="seq-dropdown-item-text">
+                          <span class="seq-dropdown-item-label">{it.label}</span>
+                          {#if it.description}<span class="seq-dropdown-item-desc">{it.description}</span>{/if}
+                        </span>
+                      </a>
+                    {/each}
+                  </div>
+                {/each}
+              {:else if s.items}
+                <div class="seq-dropdown-col">
+                  {#each s.items as it}
+                    <a href={it.to} onclick={() => open = null} class="seq-dropdown-item">
+                      {#if it.icon}<span class="seq-dropdown-item-icon"><Icon name={it.icon} size={17} /></span>{/if}
+                      <span class="seq-dropdown-item-text">
+                        <span class="seq-dropdown-item-label">{it.label}</span>
+                        {#if it.description}<span class="seq-dropdown-item-desc">{it.description}</span>{/if}
+                      </span>
+                    </a>
+                  {/each}
+                </div>
+              {/if}
+            </div>
+          {/if}
+        </span>
+      {/each}
+
+      <a href={MAP} target="_blank" rel="noreferrer" class="seq-nav-link seq-nav-accent">Map</a>
+      <a href={DISCORD} target="_blank" rel="noreferrer" class="seq-nav-link seq-nav-accent">Discord</a>
+      {#if viewer}
+        {#if viewerCardUrl}
+          <a href={viewerCardUrl} class="seq-nav-link seq-nav-viewer">
+            <img class="seq-nav-face" src={nmsrFace(viewer.minecraftUuid, 18)} alt="" />
+            {viewer.minecraftUsername}
+          </a>
+        {/if}
+        <a href={signOutUrl} class="seq-nav-link seq-nav-session">Sign out</a>
+      {:else}
+        <a href={signInUrl} class="seq-nav-link seq-nav-session">Sign in</a>
+      {/if}
+    </div>
+
+    <button
+      class="seq-nav-burger"
+      aria-label="Toggle menu"
+      aria-expanded={mobileOpen}
+      onclick={() => mobileOpen = !mobileOpen}
+    >
+      <span class:seq-nav-burger-line-open-top={mobileOpen}></span>
+      <span class:seq-nav-burger-line-hidden={mobileOpen}></span>
+      <span class:seq-nav-burger-line-open-bottom={mobileOpen}></span>
+    </button>
+  </div>
+
+  {#if mobileOpen}
+    <div class="seq-nav-mobile-panel">
+      <div class="seq-nav-mobile-links">
+        {#each SECTIONS as s}
+          <a
+            href={s.to}
+            onclick={() => mobileOpen = false}
+            class="seq-mobile-link"
+            class:seq-mobile-link-active={isActive(s.to)}
+          >
+            {s.label}
+          </a>
+          {#if s.groups}
+            {#each s.groups as g}
+              <div class="seq-mobile-subgroup-label">{g.label}</div>
+              {#each g.items as it}
+                <a href={it.to} onclick={() => mobileOpen = false} class="seq-mobile-sublink">{it.label}</a>
+              {/each}
+            {/each}
+          {:else if s.items}
+            {#each s.items as it}
+              <a href={it.to} onclick={() => mobileOpen = false} class="seq-mobile-sublink">{it.label}</a>
+            {/each}
+          {/if}
+        {/each}
+        <a href={MAP} target="_blank" rel="noreferrer" onclick={() => mobileOpen = false} class="seq-mobile-link seq-nav-accent">Map</a>
+        <a href={DISCORD} target="_blank" rel="noreferrer" onclick={() => mobileOpen = false} class="seq-mobile-link seq-nav-accent">Discord</a>
+        {#if viewer}
+          {#if viewerCardUrl}
+            <a href={viewerCardUrl} onclick={() => mobileOpen = false} class="seq-mobile-link">{viewer.minecraftUsername}</a>
+          {/if}
+          <a href={signOutUrl} class="seq-mobile-link">Sign out</a>
+        {:else}
+          <a href={signInUrl} class="seq-mobile-link">Sign in</a>
+        {/if}
+      </div>
+    </div>
+  {/if}
+</nav>
+
+<style>
+  .seq-nav-viewer {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .seq-nav-face {
+    width: 18px;
+    height: 18px;
+    image-rendering: pixelated;
+  }
+
+  .seq-nav-session {
+    color: var(--text-muted);
+  }
+</style>

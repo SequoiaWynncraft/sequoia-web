@@ -1,0 +1,43 @@
+/* ── Sequoia webfonts ─────────────────────────────────────────────
+   Minecraft: the pixel display face used for all headings, nav, badges,
+   stat labels and CTAs. Imported verbatim from the sequoia-web repo.
+   Font files are served from static assets, so absolute paths are used here. */
+
+@font-face {
+  font-family: "Minecraft";
+  src: url("/assets/fonts/minecraft-regular.otf") format("opentype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Minecraft";
+  src: url("/assets/fonts/minecraft-italic.otf") format("opentype");
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Minecraft";
+  src: url("/assets/fonts/minecraft-bold.otf") format("opentype");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Minecraft";
+  src: url("/assets/fonts/minecraft-bold-italic.otf") format("opentype");
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+}
+
+/* Inter: the single text face — body copy and data values alike — so numbers
+   and prose stay consistent. Tabular figures via font-variant-numeric. */
+@font-face {
+  font-family: "Inter";
+  src: url("/assets/fonts/inter-variable.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
