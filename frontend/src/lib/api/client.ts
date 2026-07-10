@@ -4,7 +4,6 @@ import { isGuildOverviewResponse, type GuildOverviewResponse } from "$lib/api/gu
 
 export type SeasonRaidActivityResponse = components["schemas"]["SeasonRaidActivityResponse"];
 export type GetSeasonRaidActivityQuery = operations["getSeasonRaidActivity"]["parameters"]["query"];
-export type BadgeListResponse = components["schemas"]["BadgeListResponse"];
 export type BadgeEntry = components["schemas"]["BadgeEntry"];
 export type RankProfilesResponse = components["schemas"]["RankProfilesResponse"];
 export type RankProfile = components["schemas"]["RankProfile"];
@@ -23,7 +22,6 @@ export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: ApiError 
 export interface SequoiaApiClient {
   getGuildOverview(): Promise<ApiResult<GuildOverviewResponse>>;
   getSeasonRaidActivity(query: GetSeasonRaidActivityQuery): Promise<ApiResult<SeasonRaidActivityResponse>>;
-  getBadges(): Promise<ApiResult<BadgeListResponse>>;
   getRankProfiles(scope?: RankProfileScope): Promise<ApiResult<RankProfilesResponse>>;
 }
 
@@ -62,19 +60,6 @@ export function createSequoiaApiClient(options: SequoiaApiClientOptions): Sequoi
       return { ok: true, data: response.data };
     },
 
-    async getBadges() {
-      const url = apiUrl(baseUrl, "/api/badges");
-      const response = await requestJson(options.fetch, url);
-      if (!response.ok) return response;
-      if (!isBadgeListResponse(response.data)) {
-        return {
-          ok: false,
-          error: { code: "invalid_response", message: "Unexpected badge list response." },
-        };
-      }
-      return { ok: true, data: response.data };
-    },
-
     async getRankProfiles(scope = "linked") {
       const url = apiUrl(baseUrl, "/v1/rank-profiles", { scope });
       const response = await requestJson(options.fetch, url);
@@ -88,25 +73,6 @@ export function createSequoiaApiClient(options: SequoiaApiClientOptions): Sequoi
       return { ok: true, data: response.data };
     },
   };
-}
-
-const BADGE_TYPES = new Set(["WTP", "NOL", "INSIGNIA"]);
-const BADGE_TIERS = new Set(["DIAMOND", "GOLD", "SILVER", "BRONZE"]);
-
-function isBadgeListResponse(value: unknown): value is BadgeListResponse {
-  return (
-    isRecord(value) &&
-    Array.isArray(value.badges) &&
-    value.badges.every(
-      (badge) =>
-        isRecord(badge) &&
-        typeof badge.player_uuid === "string" &&
-        typeof badge.type === "string" &&
-        BADGE_TYPES.has(badge.type) &&
-        typeof badge.tier === "string" &&
-        BADGE_TIERS.has(badge.tier),
-    )
-  );
 }
 
 function isRankProfilesResponse(value: unknown): value is RankProfilesResponse {
