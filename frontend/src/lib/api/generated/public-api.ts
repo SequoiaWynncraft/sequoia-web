@@ -4,15 +4,49 @@
  */
 
 export interface paths {
-    "/public/homepage/stats": {
+    "/v1/rank-profiles": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Get public homepage counters for the Sequoia guild. */
-        get: operations["getHomepageStats"];
+        /** Get the public Sequoia rank and award roster in one response. */
+        get: operations["getRankProfiles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/rank-profiles/minecraft/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get one rank profile by Minecraft UUID. */
+        get: operations["getRankProfileByMinecraftUuid"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/rank-profiles/discord/{discord_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get one rank profile by Discord user ID. */
+        get: operations["getRankProfileByDiscordId"];
         put?: never;
         post?: never;
         delete?: never;
@@ -55,42 +89,103 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/public/guild/branchmasters": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get public Sequoia owner, chief, and strategist roster cards. */
-        get: operations["getBranchmasters"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        HomepageStatsResponse: {
+        RankProfilesResponse: {
+            /** @enum {integer} */
+            schema_version: 1;
+            revision: string;
             /** Format: date-time */
             generated_at: string;
+            source: components["schemas"]["RankSourceStatus"];
+            catalog: components["schemas"]["RankCatalog"];
+            profiles: components["schemas"]["RankProfile"][];
+        };
+        RankSourceStatus: {
+            stale: boolean;
+            guilds: {
+                guild_id: string;
+                /** Format: date-time */
+                last_full_sync_at?: string | null;
+                /** Format: date-time */
+                last_event_at?: string | null;
+                last_error?: string | null;
+            }[];
+        };
+        RankCatalog: {
+            roles: components["schemas"]["RoleDefinition"][];
+            awards: components["schemas"]["AwardDefinition"][];
+            assets: components["schemas"]["AssetDefinition"][];
+        };
+        RoleDefinition: {
+            key: string;
+            label: string;
+            /** @enum {string} */
+            category: "progression_rank" | "in_game_rank" | "leadership" | "branch" | "branch_trainee" | "branch_responsibility" | "insignia" | "military" | "military_specialty" | "notification" | "war_honour" | "membership_status" | "reward";
+            /** @enum {string} */
+            source_guild: "main" | "branchmasters";
+            source_guild_id: string;
+            source_role_ids: string[];
+            legacy: boolean;
+            /** @enum {string} */
+            tier?: "bronze" | "silver" | "gold" | "diamond";
+            branch?: string;
+            asset_key?: string;
             /** Format: int64 */
-            members: number;
-            /** Format: int64 */
-            guild_level: number;
-            /** Format: int64 */
-            territories: number;
-            /** Format: int64 */
-            total_wars: number;
-            /** Format: int64 */
-            raids: number;
-            /** Format: int64 */
-            online_now: number;
+            position?: number;
+        };
+        AwardDefinition: {
+            key: string;
+            category: string;
+            series?: string | null;
+            tier?: string | null;
+            title: string;
+            subtitle?: string | null;
+            asset_key?: string | null;
+            display_order: number;
+        };
+        AssetDefinition: {
+            key: string;
+            /** Format: uri */
+            url: string;
+            content_type: string;
+            sha256: string;
+        };
+        RankProfile: {
+            discord: components["schemas"]["DiscordIdentity"] | null;
+            minecraft: components["schemas"]["MinecraftIdentity"] | null;
+            role_keys: string[];
+            award_keys: string[];
+            summary: components["schemas"]["RankSummary"];
+        };
+        DiscordIdentity: {
+            id: string;
+            username: string;
+            display_name?: string | null;
+            /** Format: uri */
+            avatar_url?: string | null;
+        };
+        MinecraftIdentity: {
+            /** Format: uuid */
+            uuid: string;
+            username: string | null;
+        };
+        RankSummary: {
+            progression_rank: string | null;
+            in_game_rank: string | null;
+            leadership: string | null;
+            insignia: string | null;
+            war_honour: string | null;
+            insignias: string[];
+            war_honours: string[];
+            branches: {
+                key: string;
+                branch: string;
+                /** @enum {string} */
+                level: "member" | "trainee";
+            }[];
         };
         BadgeListResponse: {
             badges: components["schemas"]["BadgeEntry"][];
@@ -102,27 +197,11 @@ export interface components {
             type: "WTP" | "NOL" | "INSIGNIA";
             /** @enum {string} */
             tier: "DIAMOND" | "GOLD" | "SILVER" | "BRONZE";
-        };
-        BranchmastersResponse: {
-            /** Format: date-time */
-            generated_at: string;
-            members: components["schemas"]["BranchmasterMember"][];
-        };
-        BranchmasterMember: {
-            username: string;
-            /** @enum {string} */
-            rank: "owner" | "chief" | "strategist";
-            online: boolean;
-            /** Format: int64 */
-            contributed: number;
-            /** Format: int64 */
-            contribution_rank: number;
-            /** Format: int64 */
-            wars: number;
-            /** Format: int64 */
-            raids: number;
-            /** Format: date-time */
-            joined: string;
+            /**
+             * Format: uri
+             * @description Content-versioned public URL for the badge or insignia image.
+             */
+            asset_url: string;
         };
         SeasonRaidActivityResponse: {
             /** Format: date-time */
@@ -160,23 +239,102 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    getHomepageStats: {
+    getRankProfiles: {
         parameters: {
-            query?: never;
+            query?: {
+                scope?: "linked" | "recognized";
+            };
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Current public homepage counters. */
+            /** @description A complete immutable rank-profile snapshot. */
+            200: {
+                headers: {
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RankProfilesResponse"];
+                };
+            };
+            /** @description Invalid scope. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No complete Discord snapshot is available yet. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getRankProfileByMinecraftUuid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A one-profile snapshot using the bulk response shape. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HomepageStatsResponse"];
+                    "application/json": components["schemas"]["RankProfilesResponse"];
                 };
+            };
+            /** @description Profile not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getRankProfileByDiscordId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                discord_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A one-profile snapshot using the bulk response shape. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RankProfilesResponse"];
+                };
+            };
+            /** @description Profile not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -232,26 +390,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    getBranchmasters: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Current public branchmaster roster snapshot. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BranchmastersResponse"];
                 };
             };
         };

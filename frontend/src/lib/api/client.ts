@@ -6,6 +6,9 @@ export type SeasonRaidActivityResponse = components["schemas"]["SeasonRaidActivi
 export type GetSeasonRaidActivityQuery = operations["getSeasonRaidActivity"]["parameters"]["query"];
 export type BadgeListResponse = components["schemas"]["BadgeListResponse"];
 export type BadgeEntry = components["schemas"]["BadgeEntry"];
+export type RankProfilesResponse = components["schemas"]["RankProfilesResponse"];
+export type RankProfile = components["schemas"]["RankProfile"];
+export type RankProfileScope = "linked" | "recognized";
 
 export type ApiErrorCode = "http_error" | "invalid_response" | "network_error";
 
@@ -21,6 +24,7 @@ export interface SequoiaApiClient {
   getGuildOverview(): Promise<ApiResult<GuildOverviewResponse>>;
   getSeasonRaidActivity(query: GetSeasonRaidActivityQuery): Promise<ApiResult<SeasonRaidActivityResponse>>;
   getBadges(): Promise<ApiResult<BadgeListResponse>>;
+  getRankProfiles(scope?: RankProfileScope): Promise<ApiResult<RankProfilesResponse>>;
 }
 
 export interface SequoiaApiClientOptions {
@@ -70,6 +74,19 @@ export function createSequoiaApiClient(options: SequoiaApiClientOptions): Sequoi
       }
       return { ok: true, data: response.data };
     },
+
+    async getRankProfiles(scope = "linked") {
+      const url = apiUrl(baseUrl, "/v1/rank-profiles", { scope });
+      const response = await requestJson(options.fetch, url);
+      if (!response.ok) return response;
+      if (!isRankProfilesResponse(response.data)) {
+        return {
+          ok: false,
+          error: { code: "invalid_response", message: "Unexpected rank-profile response." },
+        };
+      }
+      return { ok: true, data: response.data };
+    },
   };
 }
 
@@ -89,6 +106,37 @@ function isBadgeListResponse(value: unknown): value is BadgeListResponse {
         typeof badge.tier === "string" &&
         BADGE_TIERS.has(badge.tier),
     )
+  );
+}
+
+function isRankProfilesResponse(value: unknown): value is RankProfilesResponse {
+  return (
+    isRecord(value) &&
+    value.schema_version === 1 &&
+    typeof value.revision === "string" &&
+    typeof value.generated_at === "string" &&
+    isRecord(value.source) &&
+    typeof value.source.stale === "boolean" &&
+    Array.isArray(value.source.guilds) &&
+    isRecord(value.catalog) &&
+    Array.isArray(value.catalog.roles) &&
+    Array.isArray(value.catalog.awards) &&
+    Array.isArray(value.catalog.assets) &&
+    Array.isArray(value.profiles) &&
+    value.profiles.every(isRankProfile)
+  );
+}
+
+function isRankProfile(value: unknown): value is RankProfile {
+  return (
+    isRecord(value) &&
+    (value.discord === null || isRecord(value.discord)) &&
+    (value.minecraft === null || isRecord(value.minecraft)) &&
+    Array.isArray(value.role_keys) &&
+    value.role_keys.every((key) => typeof key === "string") &&
+    Array.isArray(value.award_keys) &&
+    value.award_keys.every((key) => typeof key === "string") &&
+    isRecord(value.summary)
   );
 }
 

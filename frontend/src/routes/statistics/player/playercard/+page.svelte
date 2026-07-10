@@ -7,7 +7,6 @@
   import { raidSeriesFor } from "$lib/site/raids";
   import { nmsrFullBodyIso } from "$lib/site/nmsr";
   import type { PlayerCardResponse } from "$lib/api/playerCard";
-  import type { BadgeEntry } from "$lib/api/client";
 
   let { data } = $props();
 
@@ -40,21 +39,6 @@
     SILVER: "#aeb4c4",
     BRONZE: "#c2894f",
   };
-
-  const TIER_ORDER = ["DIAMOND", "GOLD", "SILVER", "BRONZE"];
-
-  /** A member holds exactly one insignia — their current grade on the rank ladder. */
-  function insigniaOf(badges: BadgeEntry[]): BadgeEntry | null {
-    return (
-      badges
-        .filter((badge) => badge.type === "INSIGNIA")
-        .sort((a, b) => TIER_ORDER.indexOf(a.tier) - TIER_ORDER.indexOf(b.tier))[0] ?? null
-    );
-  }
-
-  function eventBadgesOf(badges: BadgeEntry[]): BadgeEntry[] {
-    return badges.filter((badge) => badge.type !== "INSIGNIA");
-  }
 
   function tierColor(tier: string): string {
     return TIER_COLORS[tier] ?? "var(--text-muted)";
@@ -139,6 +123,7 @@
   {:then result}
     {#if result && result.ok && result.card}
       {@const card = result.card}
+      {@const honours = result.honours}
       <article class="card slot-bevel" aria-label="{card.username}'s playercard">
         <div class="card-render">
           <img
@@ -153,17 +138,19 @@
             <div>
               <h2 class="card-name">{card.username}</h2>
               <p class="card-tags">
-                {#if card.guild_rank}
-                  <span class="tag tag-gold">{card.guild_rank.toLowerCase()} {card.guild_rank_stars ?? ""}</span>
+                {#if honours.rank}
+                  <span class="tag tag-gold">{honours.rank.toLowerCase()}</span>
                 {/if}
-                {#await data.badges then badges}
-                  {@const insignia = insigniaOf(badges)}
-                  {#if insignia}
-                    <span class="insignia" style="--tier-color:{tierColor(insignia.tier)}">
-                      ◆ {insignia.tier.toLowerCase()} insignia
-                    </span>
-                  {/if}
-                {/await}
+                {#if honours.insignia}
+                  <span class="insignia" style="--tier-color:{tierColor(honours.insignia.tier)}">
+                    ◆ {honours.insignia.tier.toLowerCase()} insignia
+                  </span>
+                {/if}
+                {#if card.guild_rank}
+                  <span class="tag" class:tag-gold={!honours.rank}>
+                    {card.guild_rank.toLowerCase()} {card.guild_rank_stars ?? ""}
+                  </span>
+                {/if}
                 {#if card.support_rank}<span class="tag">{card.support_rank}</span>{/if}
                 {#if card.veteran}<span class="tag">veteran</span>{/if}
               </p>
@@ -204,27 +191,24 @@
             {/each}
           </div>
 
-          {#await data.badges then badges}
-            {@const events = eventBadgesOf(badges)}
-            {#if events.length > 0}
-              <div class="card-section">
-                <SectionLabel meta="{events.length} awarded">
-                  {#snippet children()}Honours{/snippet}
-                </SectionLabel>
-                <!-- One row per honour category — war honours and future awards slot in as rows. -->
-                <div class="honour-row">
-                  <span class="honour-label">Event badges</span>
-                  <div class="badges">
-                    {#each events as badge (badge.type + badge.tier)}
-                      <span class="tag tag-badge" style="--tier-color:{tierColor(badge.tier)}">
-                        {badge.type} · {badge.tier.toLowerCase()}
-                      </span>
-                    {/each}
-                  </div>
+          {#if honours.badges.length > 0}
+            <div class="card-section">
+              <SectionLabel meta="{honours.badges.length} awarded">
+                {#snippet children()}Honours{/snippet}
+              </SectionLabel>
+              <!-- One row per honour category — war honours and future awards slot in as rows. -->
+              <div class="honour-row">
+                <span class="honour-label">Event badges</span>
+                <div class="badges">
+                  {#each honours.badges as badge (badge.type + badge.tier)}
+                    <span class="tag tag-badge" style="--tier-color:{tierColor(badge.tier)}">
+                      {badge.type} · {badge.tier.toLowerCase()}
+                    </span>
+                  {/each}
                 </div>
               </div>
-            {/if}
-          {/await}
+            </div>
+          {/if}
 
           {#if Object.keys(card.raids).length > 0}
             <div class="card-section">
