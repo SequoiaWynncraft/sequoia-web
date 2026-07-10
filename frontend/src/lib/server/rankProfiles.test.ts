@@ -9,7 +9,7 @@ const RETIRED = "33333333-3333-3333-3333-333333333333";
 function role(
   key: string,
   label: string,
-  category: "progression_rank" | "insignia" | "war_honour",
+  category: "progression_rank" | "insignia" | "war_honour" | "leadership" | "branch",
   extra: Record<string, unknown> = {},
 ): RankProfilesResponse["catalog"]["roles"][number] {
   return {
@@ -57,6 +57,9 @@ const response: RankProfilesResponse = {
       }),
       role("war_honour.silver", "Silver Honours", "war_honour", { tier: "silver" }),
       role("war_honour.diamond", "Diamond Honours", "war_honour", { tier: "diamond" }),
+      role("leadership.branchmaster", "Branchmaster", "leadership"),
+      role("branch.military", "Military Branch", "branch", { branch: "military" }),
+      role("branch.moderation", "Moderation Twig", "branch", { branch: "moderation" }),
     ],
     awards: [
       {
@@ -111,6 +114,11 @@ const response: RankProfilesResponse = {
         insignias: ["insignia.gold"],
         war_honour: "war_honour.diamond",
         war_honours: ["war_honour.silver", "war_honour.diamond"],
+        leadership: "leadership.branchmaster",
+        branches: [
+          { key: "branch.military", branch: "military", level: "member" },
+          { key: "branch.moderation", branch: "moderation", level: "trainee" },
+        ],
       }),
     },
     {
@@ -131,6 +139,8 @@ describe("honoursForMinecraft", () => {
         tier: "GOLD",
         assetUrl: "https://assets.seqwawa.com/v1/gold/insignia-gold.png",
       },
+      leadership: "Branchmaster",
+      branches: ["Military", "Moderation (trainee)"],
       warHonours: [{ tier: "DIAMOND" }, { tier: "SILVER" }],
       badges: [
         {
@@ -170,6 +180,8 @@ describe("honoursForMinecraft", () => {
     expect(honoursForMinecraft(response, "22222222-2222-2222-2222-222222222222")).toEqual({
       rank: null,
       insignia: null,
+      leadership: null,
+      branches: [],
       warHonours: [],
       badges: [],
     });

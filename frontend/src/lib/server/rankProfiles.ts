@@ -45,9 +45,12 @@ export function honoursForMinecraft(
   const assets = new Map(response.catalog.assets.map((asset) => [asset.key, asset]));
   const awards = new Map(response.catalog.awards.map((award) => [award.key, award]));
 
+  const rank = rankLabel(roles, profile.summary.progression_rank);
   return {
-    rank: rankLabel(roles, profile.summary.progression_rank),
+    rank,
     insignia: heldInsignia(roles, assets, profile.summary.insignia),
+    leadership: leadershipLabel(roles, profile.summary.leadership, rank),
+    branches: branchNames(roles, profile.summary.branches),
     warHonours: warHonours(roles, profile.summary.war_honours),
     badges: eventBadges(awards, assets, profile.award_keys, playerUuid),
   };
@@ -111,6 +114,27 @@ function heldInsignia(
   if (!role || !isBadgeTier(tier)) return null;
   const assetUrl = role.asset_key ? (assets.get(role.asset_key)?.url ?? null) : null;
   return { tier, assetUrl };
+}
+
+function leadershipLabel(
+  roles: RoleMap,
+  key: string | null,
+  rank: string | null,
+): string | null {
+  const label = key ? (roles.get(key)?.label ?? null) : null;
+  // The guild leader's leadership role repeats their rank - show it once.
+  return label === rank ? null : label;
+}
+
+function branchNames(
+  roles: RoleMap,
+  branches: { key: string; branch: string; level: "member" | "trainee" }[],
+): string[] {
+  return branches.map((entry) => {
+    const label = roles.get(entry.key)?.label ?? entry.branch;
+    const name = label.replace(/ Branch( Trainee)?$| Twig$/, "");
+    return entry.level === "trainee" ? `${name} (trainee)` : name;
+  });
 }
 
 function warHonours(roles: RoleMap, keys: string[]): PlayerHonours["warHonours"] {
