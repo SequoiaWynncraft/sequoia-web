@@ -69,10 +69,10 @@
   function columnLabel(column: LedgerColumn): string {
     if (column.live) {
       const standing = column.position ? `, currently #${column.position}` : "";
-      return `Season ${column.season} (in progress) — ${column.rating.toLocaleString()} rating${standing}`;
+      return `Season ${column.season} (in progress) - ${column.rating.toLocaleString()} rating${standing}`;
     }
     const placement = column.position ? `, finished #${column.position}` : "";
-    return `Season ${column.season} — ${column.rating.toLocaleString()} rating, ${column.territories} final territories${placement}`;
+    return `Season ${column.season} - ${column.rating.toLocaleString()} rating, ${column.territories} final territories${placement}`;
   }
 </script>
 
@@ -162,8 +162,8 @@
             <tr>
               <td>{entry.season}</td>
               <td>{entry.rating.toLocaleString()}</td>
-              <td>{live ? "—" : entry.final_territories}</td>
-              <td>{positionFor(entry.season) ? `#${positionFor(entry.season)}${live ? " (live)" : ""}` : "—"}</td>
+              <td>{live ? "-" : entry.final_territories}</td>
+              <td>{positionFor(entry.season) ? `#${positionFor(entry.season)}${live ? " (live)" : ""}` : "-"}</td>
             </tr>
           {/each}
         </tbody>

@@ -211,7 +211,7 @@
     };
   });
   const statValue = (target: number | undefined) =>
-    target === undefined ? "—" : Math.round(target * statEase).toLocaleString();
+    target === undefined ? "-" : Math.round(target * statEase).toLocaleString();
   const nmsrHeadIsoUrl = (username: string) =>
     `${NMSR_BASE_URL.replace(/\/+$/, "")}/headiso/${encodeURIComponent(username)}?w=128`;
 
@@ -243,18 +243,18 @@
   }
 
   function compactNumber(value: number | null): string {
-    if (value === null) return "—";
+    if (value === null) return "-";
     return Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(value);
   }
 
   function formattedNumber(value: number | null): string {
-    return value === null ? "—" : value.toLocaleString();
+    return value === null ? "-" : value.toLocaleString();
   }
 
   function joinedMonth(value: string | null): string {
-    if (!value) return "—";
+    if (!value) return "-";
     const date = new Date(value);
-    if (Number.isNaN(date.valueOf())) return "—";
+    if (Number.isNaN(date.valueOf())) return "-";
     return date.toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
   }
 

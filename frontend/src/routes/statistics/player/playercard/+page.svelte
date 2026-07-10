@@ -58,7 +58,7 @@
   }
 
   function formatDate(value: string | null): string {
-    if (!value) return "—";
+    if (!value) return "-";
     return new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(
       new Date(value),
     );
@@ -114,7 +114,7 @@
 </form>
 
 {#if !data.player}
-  <p class="hint">Pick a member to render their playercard — stats, characters, and standings.</p>
+  <p class="hint">Pick a member to render their playercard - stats, characters, and standings.</p>
 {:else}
   {#await data.result}
     <div class="card card-loading slot-bevel" aria-label="Loading playercard">
@@ -182,7 +182,7 @@
                 {/if}
               </dd>
             </div>
-            <div class="meta-row"><dt>Playtime</dt><dd>{card.playtime === null ? "—" : `${Math.round(card.playtime).toLocaleString()} h`}</dd></div>
+            <div class="meta-row"><dt>Playtime</dt><dd>{card.playtime === null ? "-" : `${Math.round(card.playtime).toLocaleString()} h`}</dd></div>
             {#if honours.branches.length > 0}
               <div class="meta-row"><dt>Branches</dt><dd>{honours.branches.join(" · ")}</dd></div>
             {/if}
@@ -198,7 +198,7 @@
               ["Chests", card.chests_found],
             ] as [label, value] (label)}
               <div class="stat-cell">
-                <span class="stat-value">{value === null ? "—" : Number(value).toLocaleString()}</span>
+                <span class="stat-value">{value === null ? "-" : Number(value).toLocaleString()}</span>
                 <span class="stat-label">{label}</span>
               </div>
             {/each}

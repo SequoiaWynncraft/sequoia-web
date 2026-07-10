@@ -130,7 +130,7 @@
         {#if currentSeason}
           <div class="record">
             <dt>Season {currentSeason.season} standing</dt>
-            <dd>{currentPosition ? `#${currentPosition}` : "—"}</dd>
+            <dd>{currentPosition ? `#${currentPosition}` : "-"}</dd>
           </div>
         {/if}
         <div class="record">
@@ -139,7 +139,7 @@
         </div>
         <div class="record">
           <dt>Best season rating</dt>
-          <dd>{bestSeason ? bestSeason.rating.toLocaleString() : "—"}</dd>
+          <dd>{bestSeason ? bestSeason.rating.toLocaleString() : "-"}</dd>
         </div>
         <div class="record">
           <dt>Lifetime wars</dt>
@@ -172,7 +172,7 @@
   {/if}
 
   {#if staleForLong}
-    <p class="stale-note">Live data is currently unavailable — showing the last recorded snapshot.</p>
+    <p class="stale-note">Live data is currently unavailable - showing the last recorded snapshot.</p>
   {/if}
 {:else}
   <SubpageGrid items={page.cards} />

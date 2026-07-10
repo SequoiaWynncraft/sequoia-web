@@ -121,7 +121,7 @@
 
 <section class="block" aria-label="Season standings">
   <SectionLabel meta={rankings ? `top ${rankings.entries.length}` : undefined}>
-    {#snippet children()}Season {season ?? "—"} standings{/snippet}
+    {#snippet children()}Season {season ?? "-"} standings{/snippet}
   </SectionLabel>
   {#if rankings && rankings.entries.length > 0}
     <LedgerTable
@@ -166,7 +166,7 @@
   </section>
 {:else}
   <DeferredPanel title="Data unavailable">
-    {#snippet children()}Guild statistics are temporarily unavailable — try again shortly.{/snippet}
+    {#snippet children()}Guild statistics are temporarily unavailable - try again shortly.{/snippet}
   </DeferredPanel>
 {/if}
 

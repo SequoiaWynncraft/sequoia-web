@@ -130,7 +130,7 @@
     {#if topRaider}
       <div class="raid-vital">
         <span class="raid-vital-value raid-vital-name">{topRaider.username}</span>
-        <span class="raid-vital-label">{(topRaider.raids_total ?? 0).toLocaleString()} completions — most in guild</span>
+        <span class="raid-vital-label">{(topRaider.raids_total ?? 0).toLocaleString()} completions - most in guild</span>
       </div>
     {/if}
   </div>
@@ -151,11 +151,11 @@
   {#if data.activity === null}
     <p class="muted">The daily activity feed is temporarily unavailable.</p>
   {:else if activityColumns.length === 0}
-    <p class="muted">No raid activity recorded in this window yet — the feed is collecting.</p>
+    <p class="muted">No raid activity recorded in this window yet - the feed is collecting.</p>
   {:else}
     <StackedColumns series={activitySeries} columns={activityColumns} height={190} />
     {#if activityColumns.length < 3}
-      <p class="muted accumulating">Daily history is accumulating — this feed started recording in July 2026.</p>
+      <p class="muted accumulating">Daily history is accumulating - this feed started recording in July 2026.</p>
     {/if}
   {/if}
 </section>

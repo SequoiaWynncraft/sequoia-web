@@ -29,7 +29,7 @@
 
   function lastSeenLabel(member: GuildMemberStats): string {
     if (member.online === true) return member.server ? `Online · ${member.server}` : "Online";
-    if (!member.last_join) return "—";
+    if (!member.last_join) return "-";
     const days = Math.floor((Date.now() - Date.parse(member.last_join)) / (24 * 60 * 60 * 1000));
     if (days <= 0) return "Today";
     if (days === 1) return "Yesterday";
@@ -61,7 +61,7 @@
       key: "rank",
       label: "Rank",
       nameStyle: true,
-      value: (member) => standingOf(member)?.rank ?? "—",
+      value: (member) => standingOf(member)?.rank ?? "-",
       sortValue: (member) => standingOf(member)?.rankOrder ?? null,
       icon: (member) => {
         const standing = standingOf(member);
@@ -83,7 +83,7 @@
       numeric: true,
       // Linked members show a real count (including 0); unlinked rows show a dash
       // and sort as null so LedgerTable sinks them in either direction.
-      value: (member) => standingOf(member)?.honours.toLocaleString() ?? "—",
+      value: (member) => standingOf(member)?.honours.toLocaleString() ?? "-",
       sortValue: (member) => standingOf(member)?.honours ?? null,
     },
     {
@@ -91,7 +91,7 @@
       label: "Playtime",
       numeric: true,
       value: (member) =>
-        member.playtime === null ? "—" : `${Math.round(member.playtime).toLocaleString()} h`,
+        member.playtime === null ? "-" : `${Math.round(member.playtime).toLocaleString()} h`,
       sortValue: (member) => member.playtime,
     },
     {
@@ -110,7 +110,7 @@
           ? new Intl.DateTimeFormat("en", { month: "short", year: "numeric", timeZone: "UTC" }).format(
               new Date(member.joined),
             )
-          : "—",
+          : "-",
       sortValue: (member) => (member.joined ? Date.parse(member.joined) : null),
     },
   ];
@@ -165,7 +165,7 @@
   </section>
 {:else}
   <DeferredPanel title="Data unavailable">
-    {#snippet children()}Player statistics are temporarily unavailable — try again shortly.{/snippet}
+    {#snippet children()}Player statistics are temporarily unavailable - try again shortly.{/snippet}
   </DeferredPanel>
 {/if}
 
