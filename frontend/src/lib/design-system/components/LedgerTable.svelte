@@ -104,6 +104,7 @@
             {@const link = column.href?.(row) ?? null}
             {@const secondary = column.secondary?.(row) ?? null}
             {@const avatar = column.avatar?.(row) ?? null}
+            {@const icon = column.icon?.(row) ?? null}
             <td class:numeric={column.numeric} class:name-cell={column.nameStyle}>
               {#if avatar}<img class="avatar" src={avatar} alt="" loading="lazy" width="22" height="22" />{/if}
               {#if mark}<span class="mark" style="background:{mark}" aria-hidden="true"></span>{/if}
@@ -113,6 +114,7 @@
                 {column.value(row)}
               {/if}
               {#if secondary}<span class="secondary">{secondary}</span>{/if}
+              {#if icon}<img class="cell-icon" src={icon.src} alt={icon.alt} title={icon.alt} loading="lazy" width="16" height="16" />{/if}
             </td>
           {/each}
         </tr>
@@ -234,6 +236,12 @@
   .avatar {
     margin-right: 10px;
     vertical-align: -5px;
+    image-rendering: pixelated;
+  }
+
+  .cell-icon {
+    margin-left: 8px;
+    vertical-align: -3px;
     image-rendering: pixelated;
   }
 

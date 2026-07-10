@@ -60,11 +60,14 @@
     {
       key: "rank",
       label: "Rank",
+      nameStyle: true,
       value: (member) => standingOf(member)?.rank ?? "—",
       sortValue: (member) => standingOf(member)?.rankOrder ?? null,
-      secondary: (member) => {
-        const tier = standingOf(member)?.insignia;
-        return tier ? `◆ ${tier.toLowerCase()}` : null;
+      icon: (member) => {
+        const standing = standingOf(member);
+        return standing?.insigniaUrl
+          ? { src: standing.insigniaUrl, alt: `${standing.insignia?.toLowerCase()} insignia` }
+          : null;
       },
     },
     {

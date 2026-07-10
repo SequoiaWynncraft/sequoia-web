@@ -171,8 +171,14 @@ describe("honoursForMinecraft", () => {
 
   it("indexes rank standing by lowercased UUID for the whole roster", () => {
     expect(memberRanksByUuid(response)).toEqual({
-      [MEMBER]: { rank: "Treant", rankOrder: 105, insignia: "GOLD", honours: 4 },
-      [RETIRED]: { rank: "Treant", rankOrder: 105, insignia: null, honours: 0 },
+      [MEMBER]: {
+        rank: "Treant",
+        rankOrder: 105,
+        insignia: "GOLD",
+        insigniaUrl: "https://assets.seqwawa.com/v1/gold/insignia-gold.png",
+        honours: 4,
+      },
+      [RETIRED]: { rank: "Treant", rankOrder: 105, insignia: null, insigniaUrl: null, honours: 0 },
     });
   });
 

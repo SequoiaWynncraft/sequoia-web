@@ -14,4 +14,6 @@ export interface LedgerColumn<Row> {
   href?: (row: Row) => string | null;
   /** Image URL rendered as a small avatar before the cell text. */
   avatar?: (row: Row) => string | null;
+  /** Small pixel-art icon rendered after the cell text; alt doubles as the tooltip. */
+  icon?: (row: Row) => { src: string; alt: string } | null;
 }

@@ -142,9 +142,18 @@
                   <span class="tag tag-gold">{honours.rank.toLowerCase()}</span>
                 {/if}
                 {#if honours.insignia}
-                  <span class="insignia" style="--tier-color:{tierColor(honours.insignia.tier)}">
-                    ◆ {honours.insignia.tier.toLowerCase()} insignia
-                  </span>
+                  {#if honours.insignia.assetUrl}
+                    <img
+                      class="insignia-icon"
+                      src={honours.insignia.assetUrl}
+                      alt="{honours.insignia.tier.toLowerCase()} insignia"
+                      title="{honours.insignia.tier.toLowerCase()} insignia"
+                    />
+                  {:else}
+                    <span class="insignia" style="--tier-color:{tierColor(honours.insignia.tier)}">
+                      ◆ {honours.insignia.tier.toLowerCase()}
+                    </span>
+                  {/if}
                 {/if}
                 {#if card.guild_rank}
                   <span class="tag" class:tag-gold={!honours.rank}>
@@ -418,6 +427,13 @@
     font-size: var(--text-2xs);
     letter-spacing: var(--tracking-wider);
     text-transform: uppercase;
+  }
+
+  .insignia-icon {
+    width: 22px;
+    height: 22px;
+    align-self: center;
+    image-rendering: pixelated;
   }
 
   .tag-badge {
