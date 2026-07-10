@@ -27,16 +27,22 @@ export const load: PageServerLoad = async ({ fetch, url }) => {
   };
 };
 
+/** How long honours may keep a resolved card waiting before the card ships without them. */
+const HONOURS_GRACE_MS = 1500;
+
 async function loadCard(fetchImpl: typeof fetch, player: string): Promise<PlayerCardResult> {
   // Rank profiles come from the local server cache, so awaiting them alongside
-  // the card costs nothing and lets the identity row render in one pass.
+  // the card normally costs nothing and lets the identity row render in one pass.
   const profilesPromise = getLinkedRankProfiles(fetchImpl);
   profilesPromise.catch(() => {});
   try {
     const card = await getPlayerCard(fetchImpl, player, { allowStale: true });
-    const honours = await profilesPromise
-      .then((profiles) => honoursForMinecraft(profiles, card.uuid))
-      .catch(() => EMPTY_HONOURS);
+    const honours = await Promise.race([
+      profilesPromise.then((profiles) => honoursForMinecraft(profiles, card.uuid)),
+      new Promise<PlayerHonours>((resolve) => {
+        setTimeout(resolve, HONOURS_GRACE_MS, EMPTY_HONOURS);
+      }),
+    ]).catch(() => EMPTY_HONOURS);
     return { ok: true, card, honours, error: null };
   } catch (error) {
     if (error instanceof PlayerNotFoundError) {
