@@ -69,6 +69,13 @@
           ? { src: standing.insigniaUrl, alt: `${standing.insignia?.toLowerCase()} insignia` }
           : null;
       },
+      // Text fallback so an insignia without artwork still shows its grade.
+      secondary: (member) => {
+        const standing = standingOf(member);
+        return standing?.insignia && !standing.insigniaUrl
+          ? `◆ ${standing.insignia.toLowerCase()}`
+          : null;
+      },
     },
     {
       key: "honours",
