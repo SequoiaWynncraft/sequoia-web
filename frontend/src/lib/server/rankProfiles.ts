@@ -62,6 +62,7 @@ export interface MemberRankEntry {
   /** Ladder position from the role catalog — higher is more senior. */
   rankOrder: number | null;
   insignia: BadgeEntry["tier"] | null;
+  insigniaUrl: string | null;
   /** War honours plus event badges held. */
   honours: number;
 }
@@ -78,10 +79,12 @@ export function memberRanksByUuid(
     const uuid = profile.minecraft?.uuid;
     if (!uuid) continue;
     const rankRole = resolveRankRole(roles, profile.summary.progression_rank);
+    const insignia = heldInsignia(roles, assets, profile.summary.insignia);
     entries[uuid.toLowerCase()] = {
       rank: rankRole?.label ?? null,
       rankOrder: rankRole?.position ?? null,
-      insignia: heldInsignia(roles, assets, profile.summary.insignia)?.tier ?? null,
+      insignia: insignia?.tier ?? null,
+      insigniaUrl: insignia?.assetUrl ?? null,
       honours:
         warHonours(roles, profile.summary.war_honours).length +
         eventBadges(awards, assets, profile.award_keys, uuid).length,

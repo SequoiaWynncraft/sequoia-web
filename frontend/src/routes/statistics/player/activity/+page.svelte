@@ -60,11 +60,21 @@
     {
       key: "rank",
       label: "Rank",
+      nameStyle: true,
       value: (member) => standingOf(member)?.rank ?? "—",
       sortValue: (member) => standingOf(member)?.rankOrder ?? null,
+      icon: (member) => {
+        const standing = standingOf(member);
+        return standing?.insigniaUrl
+          ? { src: standing.insigniaUrl, alt: `${standing.insignia?.toLowerCase()} insignia` }
+          : null;
+      },
+      // Text fallback so an insignia without artwork still shows its grade.
       secondary: (member) => {
-        const tier = standingOf(member)?.insignia;
-        return tier ? `◆ ${tier.toLowerCase()}` : null;
+        const standing = standingOf(member);
+        return standing?.insignia && !standing.insigniaUrl
+          ? `◆ ${standing.insignia.toLowerCase()}`
+          : null;
       },
     },
     {
