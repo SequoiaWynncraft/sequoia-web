@@ -7,3 +7,4 @@ minimumReleaseAge: 1440
 blockExoticSubdeps: true
 overrides:
   cookie@<0.7.0: 0.7.2
+  js-yaml@<4.2.0: 4.2.0
