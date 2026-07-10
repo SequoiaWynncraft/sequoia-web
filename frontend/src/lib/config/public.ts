@@ -12,7 +12,12 @@ export const SEQUOIA_API_BASE_URL =
 export const NMSR_BASE_URL =
   configuredNmsrBaseUrl === "same-origin"
     ? "/nmsr"
-    : configuredNmsrBaseUrl || "https://api.seqwawa.com/nmsr";
+    : configuredNmsrBaseUrl || "https://nmsr.seqwawa.com";
+
+/** Origin to preconnect to for skin renders, when served from a dedicated host. */
+export const NMSR_PRECONNECT_ORIGIN = NMSR_BASE_URL.startsWith("https://")
+  ? new URL(NMSR_BASE_URL).origin
+  : null;
 
 function envValue(key: string): string {
   return (publicEnv as Record<string, string | undefined>)[key] ?? "";
