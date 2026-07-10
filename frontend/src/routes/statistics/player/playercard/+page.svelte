@@ -191,22 +191,37 @@
             {/each}
           </div>
 
-          {#if honours.badges.length > 0}
+          {#if honours.badges.length > 0 || honours.warHonours.length > 0}
             <div class="card-section">
-              <SectionLabel meta="{honours.badges.length} awarded">
+              <SectionLabel meta="{honours.badges.length + honours.warHonours.length} awarded">
                 {#snippet children()}Honours{/snippet}
               </SectionLabel>
-              <!-- One row per honour category — war honours and future awards slot in as rows. -->
-              <div class="honour-row">
-                <span class="honour-label">Event badges</span>
-                <div class="badges">
-                  {#each honours.badges as badge (badge.type + badge.tier)}
-                    <span class="tag tag-badge" style="--tier-color:{tierColor(badge.tier)}">
-                      {badge.type} · {badge.tier.toLowerCase()}
-                    </span>
-                  {/each}
+              <!-- One row per honour category — future awards slot in as rows. -->
+              {#if honours.warHonours.length > 0}
+                <div class="honour-row">
+                  <span class="honour-label">War honours</span>
+                  <div class="badges">
+                    {#each honours.warHonours as honour (honour.tier)}
+                      <span class="tag tag-badge" style="--tier-color:{tierColor(honour.tier)}">
+                        {honour.tier.toLowerCase()}
+                      </span>
+                    {/each}
+                  </div>
                 </div>
-              </div>
+              {/if}
+              {#if honours.badges.length > 0}
+                <div class="honour-row">
+                  <span class="honour-label">Event badges</span>
+                  <div class="badges">
+                    {#each honours.badges as badge (badge.type + badge.tier)}
+                      <span class="tag tag-badge" style="--tier-color:{tierColor(badge.tier)}">
+                        <img class="badge-icon" src={badge.asset_url} alt="" loading="lazy" />
+                        {badge.type} · {badge.tier.toLowerCase()}
+                      </span>
+                    {/each}
+                  </div>
+                </div>
+              {/if}
             </div>
           {/if}
 
@@ -402,13 +417,26 @@
   }
 
   .tag-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     border-color: color-mix(in srgb, var(--tier-color) 45%, transparent);
     color: var(--tier-color);
+  }
+
+  .badge-icon {
+    width: 16px;
+    height: 16px;
+    image-rendering: pixelated;
   }
 
   .honour-row {
     display: grid;
     gap: 10px;
+  }
+
+  .honour-row + .honour-row {
+    margin-top: 14px;
   }
 
   .honour-label {

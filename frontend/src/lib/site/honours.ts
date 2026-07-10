@@ -6,8 +6,15 @@ export interface PlayerHonours {
   rank: string | null;
   /** The single held insignia grade, or null. */
   insignia: { tier: BadgeEntry["tier"]; assetUrl: string | null } | null;
+  /** War honours held, highest tier first. */
+  warHonours: { tier: BadgeEntry["tier"] }[];
   /** Accumulated event badges (WTP, NOL, …). */
   badges: BadgeEntry[];
 }
 
-export const EMPTY_HONOURS: PlayerHonours = { rank: null, insignia: null, badges: [] };
+export const EMPTY_HONOURS: PlayerHonours = {
+  rank: null,
+  insignia: null,
+  warHonours: [],
+  badges: [],
+};

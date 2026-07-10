@@ -48,6 +48,7 @@ export function honoursForMinecraft(
   return {
     rank: rankLabel(roles, profile.summary.progression_rank),
     insignia: heldInsignia(roles, assets, profile.summary.insignia),
+    warHonours: warHonours(roles, profile.summary.war_honours),
     badges: eventBadges(awards, assets, profile.award_keys, playerUuid),
   };
 }
@@ -73,6 +74,15 @@ function heldInsignia(
   if (!role || !isBadgeTier(tier)) return null;
   const assetUrl = role.asset_key ? (assets.get(role.asset_key)?.url ?? null) : null;
   return { tier, assetUrl };
+}
+
+function warHonours(roles: RoleMap, keys: string[]): PlayerHonours["warHonours"] {
+  const tiers = keys
+    .map((key) => roles.get(key)?.tier?.toUpperCase())
+    .filter(isBadgeTier);
+  return [...new Set(tiers)]
+    .sort((left, right) => tierOrder(right) - tierOrder(left))
+    .map((tier) => ({ tier }));
 }
 
 function eventBadges(

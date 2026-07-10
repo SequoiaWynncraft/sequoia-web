@@ -9,7 +9,7 @@ const RETIRED = "33333333-3333-3333-3333-333333333333";
 function role(
   key: string,
   label: string,
-  category: "progression_rank" | "insignia",
+  category: "progression_rank" | "insignia" | "war_honour",
   extra: Record<string, unknown> = {},
 ): RankProfilesResponse["catalog"]["roles"][number] {
   return {
@@ -55,6 +55,8 @@ const response: RankProfilesResponse = {
         tier: "gold",
         asset_key: "insignia-gold",
       }),
+      role("war_honour.silver", "Silver Honours", "war_honour", { tier: "silver" }),
+      role("war_honour.diamond", "Diamond Honours", "war_honour", { tier: "diamond" }),
     ],
     awards: [
       {
@@ -107,6 +109,8 @@ const response: RankProfilesResponse = {
         progression_rank: "rank.treant",
         insignia: "insignia.gold",
         insignias: ["insignia.gold"],
+        war_honour: "war_honour.diamond",
+        war_honours: ["war_honour.silver", "war_honour.diamond"],
       }),
     },
     {
@@ -127,6 +131,7 @@ describe("honoursForMinecraft", () => {
         tier: "GOLD",
         assetUrl: "https://assets.seqwawa.com/v1/gold/insignia-gold.png",
       },
+      warHonours: [{ tier: "DIAMOND" }, { tier: "SILVER" }],
       badges: [
         {
           player_uuid: MEMBER,
@@ -158,6 +163,7 @@ describe("honoursForMinecraft", () => {
     expect(honoursForMinecraft(response, "22222222-2222-2222-2222-222222222222")).toEqual({
       rank: null,
       insignia: null,
+      warHonours: [],
       badges: [],
     });
   });
