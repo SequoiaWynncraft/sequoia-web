@@ -2,9 +2,24 @@
   import { page } from "$app/state";
   import Icon from "./Icon.svelte";
   import { SECTIONS } from "$lib/site/nav";
+  import { SEQUOIA_API_BASE_URL } from "$lib/config/public";
+  import { nmsrFace } from "$lib/site/nmsr";
+  import type { Viewer } from "$lib/site/viewer";
 
   const DISCORD = "https://discord.gg/seq";
   const MAP = "https://map.seqwawa.com";
+  // Empty base means same-origin mode - the auth links stay relative.
+  const AUTH_BASE = `${SEQUOIA_API_BASE_URL}/auth/web`;
+
+  let { viewer = null }: { viewer?: Viewer | null } = $props();
+
+  const signInUrl = $derived(`${AUTH_BASE}/start?return_to=${encodeURIComponent(page.url.href)}`);
+  const signOutUrl = $derived(`${AUTH_BASE}/logout?return_to=${encodeURIComponent(page.url.href)}`);
+  const viewerCardUrl = $derived(
+    viewer?.minecraftUsername
+      ? `/statistics/player/playercard?player=${encodeURIComponent(viewer.minecraftUsername)}`
+      : null,
+  );
 
   let open = $state<string | null>(null);
   let mobileOpen = $state(false);
@@ -89,6 +104,17 @@
 
       <a href={MAP} target="_blank" rel="noreferrer" class="seq-nav-link seq-nav-accent">Map</a>
       <a href={DISCORD} target="_blank" rel="noreferrer" class="seq-nav-link seq-nav-accent">Discord</a>
+      {#if viewer}
+        {#if viewerCardUrl}
+          <a href={viewerCardUrl} class="seq-nav-link seq-nav-viewer">
+            <img class="seq-nav-face" src={nmsrFace(viewer.minecraftUuid, 18)} alt="" />
+            {viewer.minecraftUsername}
+          </a>
+        {/if}
+        <a href={signOutUrl} class="seq-nav-link seq-nav-session">Sign out</a>
+      {:else}
+        <a href={signInUrl} class="seq-nav-link seq-nav-session">Sign in</a>
+      {/if}
     </div>
 
     <button
@@ -130,7 +156,33 @@
         {/each}
         <a href={MAP} target="_blank" rel="noreferrer" onclick={() => mobileOpen = false} class="seq-mobile-link seq-nav-accent">Map</a>
         <a href={DISCORD} target="_blank" rel="noreferrer" onclick={() => mobileOpen = false} class="seq-mobile-link seq-nav-accent">Discord</a>
+        {#if viewer}
+          {#if viewerCardUrl}
+            <a href={viewerCardUrl} onclick={() => mobileOpen = false} class="seq-mobile-link">{viewer.minecraftUsername}</a>
+          {/if}
+          <a href={signOutUrl} class="seq-mobile-link">Sign out</a>
+        {:else}
+          <a href={signInUrl} class="seq-mobile-link">Sign in</a>
+        {/if}
       </div>
     </div>
   {/if}
 </nav>
+
+<style>
+  .seq-nav-viewer {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .seq-nav-face {
+    width: 18px;
+    height: 18px;
+    image-rendering: pixelated;
+  }
+
+  .seq-nav-session {
+    color: var(--text-muted);
+  }
+</style>

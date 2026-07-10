@@ -6,8 +6,9 @@
   import Navbar from "$lib/components/Navbar.svelte";
   import Footer from "$lib/components/Footer.svelte";
   import type { Snippet } from "svelte";
+  import type { Viewer } from "$lib/site/viewer";
 
-  let { children }: { children: Snippet } = $props();
+  let { children, data }: { children: Snippet; data: { viewer: Viewer | null } } = $props();
   const isHome = $derived(page.url.pathname === "/");
 </script>
 
@@ -24,7 +25,7 @@
     <div class="seq-page-backdrop-glow seq-page-backdrop-glow-low"></div>
     <div class="seq-page-backdrop-vignette"></div>
   </div>
-  <Navbar />
+  <Navbar viewer={data.viewer} />
   <main class="seq-main-shell" class:seq-main-home={isHome}>
     {@render children()}
   </main>
