@@ -43,6 +43,10 @@
     return member.last_join ? Date.parse(member.last_join) : 0;
   }
 
+  function standingOf(member: GuildMemberStats) {
+    return member.uuid ? (data.ranks[member.uuid.toLowerCase()] ?? null) : null;
+  }
+
   const columns: LedgerColumn<GuildMemberStats>[] = [
     {
       key: "member",
@@ -52,6 +56,25 @@
       sortValue: (member) => member.username.toLowerCase(),
       avatar: (member) => nmsrFace(member.uuid ?? member.username, 22),
       href: (member) => `/statistics/player/playercard?player=${encodeURIComponent(member.username)}`,
+    },
+    {
+      key: "rank",
+      label: "Rank",
+      value: (member) => standingOf(member)?.rank ?? "—",
+      sortValue: (member) => standingOf(member)?.rankOrder ?? null,
+      secondary: (member) => {
+        const tier = standingOf(member)?.insignia;
+        return tier ? `◆ ${tier.toLowerCase()}` : null;
+      },
+    },
+    {
+      key: "honours",
+      label: "Honours",
+      numeric: true,
+      // Linked members show a real count (including 0); unlinked rows show a dash
+      // and sort as null so LedgerTable sinks them in either direction.
+      value: (member) => standingOf(member)?.honours.toLocaleString() ?? "—",
+      sortValue: (member) => standingOf(member)?.honours ?? null,
     },
     {
       key: "playtime",

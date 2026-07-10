@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { RankProfilesResponse } from "$lib/api/client";
-import { honoursForMinecraft } from "$lib/server/rankProfiles";
+import { honoursForMinecraft, memberRanksByUuid } from "$lib/server/rankProfiles";
 
 const MEMBER = "11111111-1111-1111-1111-111111111111";
 const RETIRED = "33333333-3333-3333-3333-333333333333";
@@ -47,8 +47,8 @@ const response: RankProfilesResponse = {
   source: { stale: false, guilds: [] },
   catalog: {
     roles: [
-      role("rank.treant", "Treant", "progression_rank"),
-      role("rank.spriggan", "Spriggan", "progression_rank", { legacy: true }),
+      role("rank.treant", "Treant", "progression_rank", { position: 105 }),
+      role("rank.spriggan", "Spriggan", "progression_rank", { legacy: true, position: 104 }),
       role("rank.verdant", "Verdant", "progression_rank", { legacy: true }),
       role("insignia.gold", "Gold Insignia", "insignia", {
         source_guild: "branchmasters",
@@ -157,6 +157,13 @@ describe("honoursForMinecraft", () => {
     const verdant = structuredClone(response);
     verdant.profiles[1].summary.progression_rank = "rank.verdant";
     expect(honoursForMinecraft(verdant, RETIRED).rank).toBe("Verdant");
+  });
+
+  it("indexes rank standing by lowercased UUID for the whole roster", () => {
+    expect(memberRanksByUuid(response)).toEqual({
+      [MEMBER]: { rank: "Treant", rankOrder: 105, insignia: "GOLD", honours: 4 },
+      [RETIRED]: { rank: "Treant", rankOrder: 105, insignia: null, honours: 0 },
+    });
   });
 
   it("returns empty honours for an unlinked UUID", () => {

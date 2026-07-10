@@ -53,15 +53,52 @@ export function honoursForMinecraft(
   };
 }
 
+/** Rank standing per member, keyed by lowercased Minecraft UUID — one entry per linked profile. */
+export interface MemberRankEntry {
+  rank: string | null;
+  /** Ladder position from the role catalog — higher is more senior. */
+  rankOrder: number | null;
+  insignia: BadgeEntry["tier"] | null;
+  /** War honours plus event badges held. */
+  honours: number;
+}
+
+export function memberRanksByUuid(
+  response: RankProfilesResponse,
+): Record<string, MemberRankEntry> {
+  const roles = new Map(response.catalog.roles.map((role) => [role.key, role]));
+  const assets = new Map(response.catalog.assets.map((asset) => [asset.key, asset]));
+  const awards = new Map(response.catalog.awards.map((award) => [award.key, award]));
+
+  const entries: Record<string, MemberRankEntry> = {};
+  for (const profile of response.profiles) {
+    const uuid = profile.minecraft?.uuid;
+    if (!uuid) continue;
+    const rankRole = resolveRankRole(roles, profile.summary.progression_rank);
+    entries[uuid.toLowerCase()] = {
+      rank: rankRole?.label ?? null,
+      rankOrder: rankRole?.position ?? null,
+      insignia: heldInsignia(roles, assets, profile.summary.insignia)?.tier ?? null,
+      honours:
+        warHonours(roles, profile.summary.war_honours).length +
+        eventBadges(awards, assets, profile.award_keys, uuid).length,
+    };
+  }
+  return entries;
+}
+
 type Catalog = RankProfilesResponse["catalog"];
 type RoleMap = Map<string, Catalog["roles"][number]>;
 type AssetMap = Map<string, Catalog["assets"][number]>;
 type AwardMap = Map<string, Catalog["awards"][number]>;
 
+function resolveRankRole(roles: RoleMap, key: string | null) {
+  if (!key) return undefined;
+  return roles.get(LEGACY_RANK_EQUIVALENTS[key] ?? key) ?? roles.get(key);
+}
+
 function rankLabel(roles: RoleMap, key: string | null): string | null {
-  if (!key) return null;
-  const role = roles.get(LEGACY_RANK_EQUIVALENTS[key] ?? key) ?? roles.get(key);
-  return role?.label ?? null;
+  return resolveRankRole(roles, key)?.label ?? null;
 }
 
 function heldInsignia(
