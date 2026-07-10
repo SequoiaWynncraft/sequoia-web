@@ -424,15 +424,10 @@
 
   .honour-row {
     display: grid;
-    grid-template-columns: 150px minmax(0, 1fr);
-    align-items: start;
-    gap: 12px;
-    padding: 9px 2px;
-    border-bottom: 1px solid var(--color-border-subtle);
+    gap: 10px;
   }
 
   .honour-label {
-    padding-top: 5px;
     color: var(--text-muted);
     font-family: var(--font-display);
     font-size: var(--text-2xs);
@@ -444,13 +439,6 @@
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
-  }
-
-  @media (max-width: 560px) {
-    .honour-row {
-      grid-template-columns: 1fr;
-      gap: 8px;
-    }
   }
 
   .online-now {
