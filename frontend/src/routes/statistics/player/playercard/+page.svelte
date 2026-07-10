@@ -151,6 +151,7 @@
                     {card.guild_rank.toLowerCase()} {card.guild_rank_stars ?? ""}
                   </span>
                 {/if}
+                {#if honours.leadership}<span class="tag">{honours.leadership.toLowerCase()}</span>{/if}
                 {#if card.support_rank}<span class="tag">{card.support_rank}</span>{/if}
                 {#if card.veteran}<span class="tag">veteran</span>{/if}
               </p>
@@ -173,6 +174,9 @@
               </dd>
             </div>
             <div class="meta-row"><dt>Playtime</dt><dd>{card.playtime === null ? "—" : `${Math.round(card.playtime).toLocaleString()} h`}</dd></div>
+            {#if honours.branches.length > 0}
+              <div class="meta-row"><dt>Branches</dt><dd>{honours.branches.join(" · ")}</dd></div>
+            {/if}
           </dl>
 
           <div class="stat-grid">

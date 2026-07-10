@@ -6,6 +6,10 @@ export interface PlayerHonours {
   rank: string | null;
   /** The single held insignia grade, or null. */
   insignia: { tier: BadgeEntry["tier"]; assetUrl: string | null } | null;
+  /** Org leadership label (The Root, Branchmaster, ...); null when none or same as rank. */
+  leadership: string | null;
+  /** Short branch names, trainee-marked ("Development (trainee)"). */
+  branches: string[];
   /** War honours held, highest tier first. */
   warHonours: { tier: BadgeEntry["tier"] }[];
   /** Accumulated event badges (WTP, NOL, …). */
@@ -15,6 +19,8 @@ export interface PlayerHonours {
 export const EMPTY_HONOURS: PlayerHonours = {
   rank: null,
   insignia: null,
+  leadership: null,
+  branches: [],
   warHonours: [],
   badges: [],
 };
