@@ -7,6 +7,7 @@
   import { raidSeriesFor } from "$lib/site/raids";
   import { nmsrFullBodyIso } from "$lib/site/nmsr";
   import type { PlayerCardResponse } from "$lib/api/playerCard";
+  import type { BadgeEntry } from "$lib/api/client";
 
   let { data } = $props();
 
@@ -39,6 +40,25 @@
     SILVER: "#aeb4c4",
     BRONZE: "#c2894f",
   };
+
+  const TIER_ORDER = ["DIAMOND", "GOLD", "SILVER", "BRONZE"];
+
+  /** A member holds exactly one insignia — their current grade on the rank ladder. */
+  function insigniaOf(badges: BadgeEntry[]): BadgeEntry | null {
+    return (
+      badges
+        .filter((badge) => badge.type === "INSIGNIA")
+        .sort((a, b) => TIER_ORDER.indexOf(a.tier) - TIER_ORDER.indexOf(b.tier))[0] ?? null
+    );
+  }
+
+  function eventBadgesOf(badges: BadgeEntry[]): BadgeEntry[] {
+    return badges.filter((badge) => badge.type !== "INSIGNIA");
+  }
+
+  function tierColor(tier: string): string {
+    return TIER_COLORS[tier] ?? "var(--text-muted)";
+  }
 
   const CLASS_LABELS: Record<string, string> = {
     WARRIOR: "Warrior",
@@ -136,18 +156,16 @@
                 {#if card.guild_rank}
                   <span class="tag tag-gold">{card.guild_rank.toLowerCase()} {card.guild_rank_stars ?? ""}</span>
                 {/if}
+                {#await data.badges then badges}
+                  {@const insignia = insigniaOf(badges)}
+                  {#if insignia}
+                    <span class="insignia" style="--tier-color:{tierColor(insignia.tier)}">
+                      ◆ {insignia.tier.toLowerCase()} insignia
+                    </span>
+                  {/if}
+                {/await}
                 {#if card.support_rank}<span class="tag">{card.support_rank}</span>{/if}
                 {#if card.veteran}<span class="tag">veteran</span>{/if}
-                {#if card.online === true}
-                  <span class="tag tag-online">online{card.server ? ` · ${card.server}` : ""}</span>
-                {/if}
-                {#await data.badges then badges}
-                  {#each badges as badge (badge.type + badge.tier)}
-                    <span class="tag tag-badge" style="--tier-color:{TIER_COLORS[badge.tier] ?? 'var(--text-muted)'}">
-                      {badge.type} · {badge.tier.toLowerCase()}
-                    </span>
-                  {/each}
-                {/await}
               </p>
             </div>
             <button class="copy-button" type="button" onclick={copyLink}>
@@ -157,7 +175,16 @@
 
           <dl class="meta">
             <div class="meta-row"><dt>First joined Wynncraft</dt><dd>{formatDate(card.first_join)}</dd></div>
-            <div class="meta-row"><dt>Last seen</dt><dd>{card.online === true ? "Now" : formatDate(card.last_join)}</dd></div>
+            <div class="meta-row">
+              <dt>Last seen</dt>
+              <dd>
+                {#if card.online === true}
+                  <span class="online-now">Online now{card.server ? ` · ${card.server}` : ""}</span>
+                {:else}
+                  {formatDate(card.last_join)}
+                {/if}
+              </dd>
+            </div>
             <div class="meta-row"><dt>Playtime</dt><dd>{card.playtime === null ? "—" : `${Math.round(card.playtime).toLocaleString()} h`}</dd></div>
           </dl>
 
@@ -176,6 +203,24 @@
               </div>
             {/each}
           </div>
+
+          {#await data.badges then badges}
+            {@const events = eventBadgesOf(badges)}
+            {#if events.length > 0}
+              <div class="card-section">
+                <SectionLabel meta="{events.length} earned">
+                  {#snippet children()}Event badges{/snippet}
+                </SectionLabel>
+                <div class="badges">
+                  {#each events as badge (badge.type + badge.tier)}
+                    <span class="tag tag-badge" style="--tier-color:{tierColor(badge.tier)}">
+                      {badge.type} · {badge.tier.toLowerCase()}
+                    </span>
+                  {/each}
+                </div>
+              </div>
+            {/if}
+          {/await}
 
           {#if Object.keys(card.raids).length > 0}
             <div class="card-section">
@@ -359,14 +404,28 @@
     color: var(--color-gold);
   }
 
-  .tag-online {
-    border-color: rgba(80, 200, 120, 0.4);
-    color: var(--status-online);
+  .insignia {
+    padding: 3px 2px;
+    color: var(--tier-color);
+    font-family: var(--font-display);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
   }
 
   .tag-badge {
     border-color: color-mix(in srgb, var(--tier-color) 45%, transparent);
     color: var(--tier-color);
+  }
+
+  .badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .online-now {
+    color: var(--status-online);
   }
 
   .copy-button {
