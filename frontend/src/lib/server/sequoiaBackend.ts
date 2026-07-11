@@ -16,10 +16,17 @@ export function sequoiaBackendInternalHeaders(): Record<string, string> | null {
  * Absolute server-side origin for sequoia-backend, or null when none is
  * configured. `SEQUOIA_BACKEND_URL` overrides the public base; in same-origin
  * deployments the public base is empty and internal reads need the override,
- * because a relative URL would resolve against the web app itself.
+ * because a relative URL would resolve against the web app itself. Only
+ * absolute http(s) values qualify - anything else degrades to null.
  */
 export function sequoiaBackendOrigin(): string | null {
-  const configured = env.SEQUOIA_BACKEND_URL?.trim().replace(/\/+$/, "");
-  if (configured) return configured;
-  return SEQUOIA_API_BASE_URL || null;
+  return (
+    absoluteHttpOrigin(env.SEQUOIA_BACKEND_URL) ?? absoluteHttpOrigin(SEQUOIA_API_BASE_URL)
+  );
+}
+
+function absoluteHttpOrigin(value: string | undefined): string | null {
+  const trimmed = value?.trim().replace(/\/+$/, "");
+  if (!trimmed || !/^https?:\/\//.test(trimmed)) return null;
+  return trimmed;
 }
