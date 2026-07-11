@@ -51,10 +51,11 @@
     return best;
   });
 
-  const activitySeries = $derived.by(() => {
-    if (!data.activity || data.activity.length === 0) return [];
+  type ActivityDays = NonNullable<Awaited<typeof data.activity>>;
+
+  function activitySeries(activity: ActivityDays) {
     const names = new Set<string>();
-    for (const day of data.activity) {
+    for (const day of activity) {
       for (const count of day.raid_counts) names.add(count.raid_name);
     }
     return raidSeriesFor([...names]).map((raid) => ({
@@ -62,14 +63,14 @@
       label: raid.key,
       color: raid.color,
     }));
-  });
+  }
 
-  const activityColumns = $derived(
-    (data.activity ?? []).map((day) => ({
+  function activityColumns(activity: ActivityDays) {
+    return activity.map((day) => ({
       label: formatDay(day.day),
       values: Object.fromEntries(day.raid_counts.map((count) => [count.raid_name, count.count])),
-    })),
-  );
+    }));
+  }
 
   const eventColumns: LedgerColumn<(typeof data.leaderboard)[number]>[] = [
     {
@@ -143,16 +144,20 @@
   <SectionLabel meta="last 14 days">
     {#snippet children()}Daily activity{/snippet}
   </SectionLabel>
-  {#if data.activity === null}
-    <p class="muted">The daily activity feed is temporarily unavailable.</p>
-  {:else if activityColumns.length === 0}
-    <p class="muted">No raid activity recorded in this window yet - the feed is collecting.</p>
-  {:else}
-    <StackedColumns series={activitySeries} columns={activityColumns} height={190} />
-    {#if activityColumns.length < 3}
-      <p class="muted accumulating">Daily history is accumulating - this feed started recording in July 2026.</p>
+  {#await data.activity}
+    <p class="muted">Loading recent activity…</p>
+  {:then activity}
+    {#if activity === null}
+      <p class="muted">The daily activity feed is temporarily unavailable.</p>
+    {:else if activity.length === 0}
+      <p class="muted">No raid activity recorded in this window yet - the feed is collecting.</p>
+    {:else}
+      <StackedColumns series={activitySeries(activity)} columns={activityColumns(activity)} height={190} />
+      {#if activity.length < 3}
+        <p class="muted accumulating">Daily history is accumulating - this feed started recording in July 2026.</p>
+      {/if}
     {/if}
-  {/if}
+  {/await}
 </section>
 
 <div class="event-grid">
