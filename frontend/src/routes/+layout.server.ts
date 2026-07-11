@@ -25,6 +25,7 @@ async function loadViewer(
     if (typeof me?.discord_id !== "string" || typeof me?.minecraft_uuid !== "string") return null;
     return {
       discordId: me.discord_id,
+      discordUsername: typeof me.discord_username === "string" ? me.discord_username : null,
       minecraftUuid: me.minecraft_uuid,
       minecraftUsername: typeof me.minecraft_username === "string" ? me.minecraft_username : null,
     };
