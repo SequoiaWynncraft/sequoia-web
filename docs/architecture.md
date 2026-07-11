@@ -15,7 +15,7 @@ This repository is the public SvelteKit web app. The backend owns data ingestion
 The public website consumes `../sequoia-backend/src/main/resources/openapi/public.yaml` through:
 
 ```sh
-pnpm api:types
+bun run api:types
 ```
 
 Generated files live under `src/lib/api/generated/` and should not be edited by hand. Handwritten clients should wrap generated types and return explicit result objects instead of throwing into route components.
@@ -42,7 +42,7 @@ Add page metadata to `src/lib/site/nav.ts`, then keep route files small by consu
 ## Adding Public API Features
 
 1. Add or update the backend endpoint and `openapi/public.yaml`.
-2. Run `pnpm api:types` in this repo.
+2. Run `bun run api:types` in this repo.
 3. Add a typed wrapper in `src/lib/api/`.
 4. Pass SvelteKit's provided `fetch` from route/load boundaries instead of relying on `globalThis.fetch`.
 5. Add unit tests around URL building, error handling, and response validation.

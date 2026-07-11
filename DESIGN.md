@@ -11,11 +11,11 @@ This document is the high-level design overview. Deeper references:
 
 ## Repository layout
 
-Monorepo combining a pnpm workspace and a Cargo workspace:
+Monorepo combining a Bun workspace and a Cargo workspace:
 
 | Path        | Contents |
 |-------------|----------|
-| `frontend/` | SvelteKit 2 (Svelte 5, TypeScript) website with a Node SSR server |
+| `frontend/` | SvelteKit 2 (Svelte 5, TypeScript) website with a Bun SSR server |
 | `backend/`  | Rust workspace with one crate: `sequoia-web-backend` (Axum service) |
 | `shared/`   | Reserved for generated API contracts (currently empty) |
 | `infra/`    | Reserved for deploy support (currently empty) |
@@ -29,7 +29,7 @@ Three backends/data sources are involved — keeping them straight matters:
 Browser
   │
   ▼
-SvelteKit SSR (Node, :3000 prod / :5173 dev)
+SvelteKit SSR (Bun, :3000 prod / :5173 dev)
   ├── /api/** server routes ─────────► sequoia-web-backend (Rust, :8080)   [this repo]
   │     cookies forwarded                 └── PostgreSQL
   ├── public stats fetches ──────────► sequoia-backend (:8081 / api.seqwawa.com)  [separate repo]
@@ -54,7 +54,7 @@ backend's HTTP API (rule stated in `docs/architecture.md`).
 
 ## Frontend
 
-**Stack:** SvelteKit 2.67 / Svelte 5 (runes), TypeScript, Vite 8, `@sveltejs/adapter-node`.
+**Stack:** SvelteKit 2.67 / Svelte 5 (runes), TypeScript, Vite 8, `@sveltejs/adapter-node` (run under Bun 1.3).
 No CSS framework and no store library.
 
 **Routing** (`frontend/src/routes/`): file-based, `prerender = true` globally via
@@ -82,7 +82,7 @@ stay thin by calling `pageView(path)`.
   signed-in viewer's guild membership is verified.
 
 **API contract discipline:**
-- `pnpm api:types` generates `src/lib/api/generated/public-api.ts` from the sibling
+- `bun run api:types` generates `src/lib/api/generated/public-api.ts` from the sibling
   `sequoia-backend` repo's OpenAPI spec (requires that repo at `../../sequoia-backend`).
   Generated files are never hand-edited.
 - The handwritten client (`src/lib/api/client.ts`) returns a discriminated
@@ -193,20 +193,20 @@ Target platform is **Coolify** running three services on one network:
 
 | Service                | Image                 | Port | Notes |
 |------------------------|-----------------------|------|-------|
-| `sequoia-web-frontend` | `frontend/Dockerfile` | 3000 | Node 22 multi-stage build; `SEQUOIA_WEB_BACKEND_URL=http://sequoia-web-backend:8080` |
+| `sequoia-web-frontend` | `frontend/Dockerfile` | 3000 | Bun 1.3.14 multi-stage build; `SEQUOIA_WEB_BACKEND_URL=http://sequoia-web-backend:8080` |
 | `sequoia-web-backend`  | `backend/Dockerfile`  | 8080 | Rust multi-stage build; public route `api.seqwawa.com`; holds DB credentials |
 | PostgreSQL             | —                     | 5432 | Reachable from the backend only |
 
 `PUBLIC_SEQUOIA_API_BASE_URL` / `PUBLIC_NMSR_BASE_URL` support either separate origins or
 `same-origin` mode where the reverse proxy routes `/public/**` and `/nmsr/**`. There is no
-CI pipeline; validation is manual (`pnpm check`, `pnpm test`, `pnpm clippy:backend`,
-`pnpm fmt:backend`, `pnpm build`).
+CI pipeline; validation is manual (`bun run check`, `bun run test`, `bun run clippy:backend`,
+`bun run fmt:backend`, `bun run build`).
 
 ## Running locally
 
 ```sh
-pnpm install
-pnpm dev          # frontend only, http://localhost:5173
+bun install
+bun run dev          # frontend only, http://localhost:5173
 ```
 
 The UI boots without any backend: stats fetches fail gracefully, guild-raid proxies return
