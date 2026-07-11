@@ -8,13 +8,15 @@
   }: {
     title: string;
     since?: string;
-    children: Snippet;
+    children?: Snippet;
   } = $props();
 </script>
 
 <div class="deferred slot-bevel">
   <span class="deferred-title">{title}</span>
-  <p class="deferred-copy">{@render children()}</p>
+  {#if children}
+    <p class="deferred-copy">{@render children()}</p>
+  {/if}
   {#if since}
     <span class="deferred-since">Recording since {since}</span>
   {/if}

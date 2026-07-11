@@ -103,12 +103,7 @@
     <SectionLabel>
       {#snippet children()}Best times & personal records{/snippet}
     </SectionLabel>
-    <DeferredPanel title="Awaiting feed" since="July 2026">
-      {#snippet children()}
-        Per-run records - completion times, party compositions, and personal bests - are being
-        collected. This ledger unlocks once enough runs have been recorded.
-      {/snippet}
-    </DeferredPanel>
+    <DeferredPanel title="Work in progress" />
   </section>
 {:else}
   <DeferredPanel title="Data unavailable">
