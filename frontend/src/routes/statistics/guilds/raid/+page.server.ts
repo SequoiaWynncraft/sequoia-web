@@ -32,10 +32,12 @@ export interface ActivityDay {
 }
 
 export const load: PageServerLoad = async ({ fetch, url, parent }) => {
-  const [{ viewer }, events, stats, activity] = await Promise.all([
-    parent(),
+  const { viewer } = await parent();
+  // Signed-in viewers await a roster refresh because membership is authorized
+  // against it; anonymous visitors take the stale-tolerant fast path.
+  const [events, stats, activity] = await Promise.all([
     loadEvents(fetch),
-    getGuildStats(fetch, { allowStale: true }).catch(() => null),
+    getGuildStats(fetch, { allowStale: viewer === null }).catch(() => null),
     loadActivity(fetch),
   ]);
 
@@ -44,6 +46,8 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
 
   // Event contributions are member-only; the tracker trusts this check, so it
   // must not authorize from a stale roster (stale stats are display-only).
+  // With a viewer present the roster was requested fresh, so stale here means
+  // the refresh actually failed.
   const freshRoster = stats !== null && !stats.stale ? stats.members : null;
   const isMember =
     viewer !== null &&
