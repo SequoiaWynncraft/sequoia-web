@@ -68,6 +68,14 @@ export const SECTIONS: NavSection[] = [
     placeholder: "News",
   },
   {
+    label: "Events",
+    to: "/events",
+    icon: "trophy",
+    description: "Guild events - live, upcoming, and past.",
+    kicker: "Sequoia",
+    title: "Events",
+  },
+  {
     label: "Statistics",
     to: "/statistics",
     icon: "chart",

@@ -1,6 +1,7 @@
 <script lang="ts">
   import "$lib/design-system/styles.css";
   import "../app.css";
+  import { onNavigate } from "$app/navigation";
   import { page } from "$app/state";
   import { NMSR_PRECONNECT_ORIGIN } from "$lib/config/public";
   import Navbar from "$lib/components/Navbar.svelte";
@@ -10,6 +11,22 @@
 
   let { children, data }: { children: Snippet; data: { viewer: Viewer | null } } = $props();
   const isHome = $derived(page.url.pathname === "/");
+
+  // Events navigation morphs a hub sky band into the event hero (matching
+  // view-transition-names); everywhere else keeps instant navigation.
+  onNavigate((navigation) => {
+    if (!document.startViewTransition) return;
+    const from = navigation.from?.url.pathname ?? "";
+    const to = navigation.to?.url.pathname ?? "";
+    if (!from.startsWith("/events") || !to.startsWith("/events")) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    return new Promise((resolve) => {
+      document.startViewTransition(async () => {
+        resolve();
+        await navigation.complete;
+      });
+    });
+  });
 </script>
 
 <svelte:head>
