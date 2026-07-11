@@ -87,9 +87,9 @@ export const EVENTS: GuildEvent[] = [
     ],
   },
   {
-    slug: "war-week",
-    name: "War Week",
-    tagline: "Seven days of territory wars.",
+    slug: "lsto-article-5",
+    name: "LSTO Article 5",
+    tagline: "An attack on one is an attack on all.",
     access: "members",
     startsAt: "2026-08-03T00:00:00Z",
     endsAt: "2026-08-10T23:59:59Z",
@@ -99,13 +99,18 @@ export const EVENTS: GuildEvent[] = [
       accentSecondary: "#f0938d",
       star: "#eba8a3",
     },
-    about: ["Every war fought during the week fills the war chest."],
+    about: [
+      "Titans Valor has invoked Article 5 of the Llevigar-Selchar Treaty Organisation. Sequoia answers the call - seven days defending the ocean from our enemies.",
+    ],
     goal: {
       metricLabel: "wars",
       target: 1000,
       unlock: "War chest payout",
     },
-    rules: ["Wars count from the first territory hit to the closing bell."],
+    rules: [
+      "Wars count from the first territory hit to the closing bell.",
+      "Article 5 obligations are non-negotiable.",
+    ],
   },
   {
     slug: "colossus-sprint",

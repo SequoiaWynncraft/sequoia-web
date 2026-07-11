@@ -54,6 +54,6 @@ describe("event registry", () => {
     expect(groups.past.map((event) => event.slug)).toContain("colossus-sprint");
 
     const upcoming = groups.upcoming.map((event) => event.slug);
-    expect(upcoming.indexOf("war-week")).toBeLessThan(upcoming.indexOf("the-nameless-hunt"));
+    expect(upcoming.indexOf("lsto-article-5")).toBeLessThan(upcoming.indexOf("the-nameless-hunt"));
   });
 });
