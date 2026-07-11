@@ -17,33 +17,22 @@ Required production env:
 
 - `DATABASE_URL`
 - `WYNNCRAFT_ACCESS_TOKEN`
-- `WYNN_OAUTH_CLIENT_ID`
-- `WYNN_OAUTH_CLIENT_SECRET`
-- `WYNN_OAUTH_REDIRECT_URL`
-- `SESSION_SECRET`
-- `SESSION_COOKIE_DOMAIN=.seqwawa.com`
-- `SESSION_COOKIE_SECURE=true`
-- `SESSION_COOKIE_NAME=seq_session`
-- `OAUTH_STATE_COOKIE_NAME=seq_oauth_state`
 - `INTERNAL_API_TOKEN`
-- `FRONTEND_AUTH_SUCCESS_URL`
 
 Useful defaults:
 
 - `GUILD_PREFIX=SEQ`
 - `POLL_INTERVAL_SECONDS=130`
 - `WYNN_API_BASE_URL=https://api.wynncraft.com/v3`
-- `WYNN_OAUTH_AUTHORIZE_URL=https://wynncraft.com/authorize`
 
-## OAuth
+## Auth
 
-The existing Wynncraft application is reused for member login:
-
-- Client ID: `HU6a1x1Ts7SW3w6sP4Z-pV_wzyWsrCgZ`
-- Redirect URL: `https://api.seqwawa.com/auth/wynn/callback`
-- Scope: `identify`
-
-OAuth is only used to identify the website visitor and gate member-only leaderboard data. The backend does not store user OAuth access tokens. The polling identity remains the server-only `WYNNCRAFT_ACCESS_TOKEN`.
+The tracker has no user-facing auth. Website sign-in is the sequoia-backend web
+session (`/auth/web/*` on `api.seqwawa.com`, `seq_session` cookie); the SvelteKit
+server verifies the viewer is a current guild member and then reads member-only
+tracker endpoints (`/v1/raid-events/{id}/leaderboard`,
+`/v1/members/{uuid}/guild-raids`) with `INTERNAL_API_TOKEN`. The polling identity
+remains the server-only `WYNNCRAFT_ACCESS_TOKEN`.
 
 ## Coolify
 
@@ -52,7 +41,9 @@ Create three services on the same Coolify network:
 - `sequoia-web-frontend`
   - Dockerfile: `frontend/Dockerfile`
   - Port: `3000`
-  - Env: `SEQUOIA_WEB_BACKEND_URL=http://sequoia-web-backend:8080`
+  - Env: `SEQUOIA_WEB_BACKEND_URL=http://sequoia-web-backend:8080`,
+    `SEQUOIA_WEB_BACKEND_INTERNAL_TOKEN` (same value as the backend's
+    `INTERNAL_API_TOKEN`)
 
 - `sequoia-web-backend`
   - Dockerfile: `backend/Dockerfile`
@@ -85,13 +76,9 @@ Both applications use the Coolify GitHub App and automatically redeploy when `de
 pushed. The exact, unproxied DNS records for the two development hosts override the
 proxied `*.seqwawa.com` catch-all, so requests do not enter its redirect ruleset.
 
-Development auth is isolated with the `.dev.seqwawa.com` cookie domain and the
-`seq_dev_session` and `seq_dev_oauth_state` cookie names. Add this exact redirect URI to
-the existing Wynncraft OAuth application before testing login:
-
-```text
-https://web-api.dev.seqwawa.com/auth/wynn/callback
-```
+Sign-in on `dev.seqwawa.com` uses the production sequoia-backend web session; the
+`seq_session` cookie is issued for `.seqwawa.com`, so it is shared across the dev and
+production sites.
 
 ## Validation
 

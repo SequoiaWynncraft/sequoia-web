@@ -2,16 +2,14 @@ import type { PageServerLoad } from "./$types";
 
 import { createSequoiaApiClient } from "$lib/api/client";
 import { getGuildStats } from "$lib/server/guildStats";
+import {
+  sequoiaWebBackendInternalHeaders,
+  sequoiaWebBackendUrl,
+} from "$lib/server/sequoiaWebBackend";
 
 export const prerender = false;
 
 const ACTIVITY_WINDOW_DAYS = 14;
-
-interface MeResponse {
-  authenticated: boolean;
-  player_uuid?: string;
-  username?: string;
-}
 
 interface RaidEvent {
   id: string;
@@ -33,30 +31,49 @@ export interface ActivityDay {
   raid_counts: { raid_name: string; count: number }[];
 }
 
-export const load: PageServerLoad = async ({ fetch, url }) => {
-  const [me, events, stats, activity] = await Promise.all([
-    fetchJson<MeResponse>(fetch, "/api/guild-raids/me", { authenticated: false }),
-    fetchJson<RaidEvent[]>(fetch, "/api/guild-raids/events", []),
+export const load: PageServerLoad = async ({ fetch, url, parent }) => {
+  const [{ viewer }, events, stats, activity] = await Promise.all([
+    parent(),
+    loadEvents(fetch),
     getGuildStats(fetch, { allowStale: true }).catch(() => null),
     loadActivity(fetch),
   ]);
 
   const selectedEvent =
     events.find((event) => event.id === url.searchParams.get("event")) ?? events[0] ?? null;
+
+  // Event contributions are member-only; the tracker trusts this check.
+  const isMember =
+    viewer !== null &&
+    stats !== null &&
+    stats.members.some((member) => member.uuid !== null && sameUuid(member.uuid, viewer.minecraftUuid));
+
   let leaderboard: RaidLeaderboardEntry[] = [];
   let leaderboardError: string | null = null;
 
-  if (me.authenticated && selectedEvent) {
-    const response = await fetch(`/api/guild-raids/events/${selectedEvent.id}/leaderboard`);
-    if (response.ok) {
-      leaderboard = await readJson<RaidLeaderboardEntry[]>(response, []);
+  if (isMember && selectedEvent) {
+    const headers = sequoiaWebBackendInternalHeaders();
+    if (!headers) {
+      leaderboardError = "Member contributions are temporarily unavailable.";
     } else {
-      leaderboardError = await readError(response);
+      try {
+        const response = await fetch(
+          sequoiaWebBackendUrl(`/v1/raid-events/${encodeURIComponent(selectedEvent.id)}/leaderboard`),
+          { headers, signal: AbortSignal.timeout(6000) },
+        );
+        if (response.ok) {
+          leaderboard = await readJson<RaidLeaderboardEntry[]>(response, []);
+        } else {
+          leaderboardError = await readError(response);
+        }
+      } catch {
+        leaderboardError = "Member contributions are temporarily unavailable.";
+      }
     }
   }
 
   return {
-    me,
+    isMember,
     events,
     selectedEvent,
     leaderboard,
@@ -65,6 +82,22 @@ export const load: PageServerLoad = async ({ fetch, url }) => {
     activity,
   };
 };
+
+function sameUuid(left: string, right: string): boolean {
+  return left.replaceAll("-", "").toLowerCase() === right.replaceAll("-", "").toLowerCase();
+}
+
+async function loadEvents(fetchImpl: typeof fetch): Promise<RaidEvent[]> {
+  try {
+    const response = await fetchImpl(sequoiaWebBackendUrl("/v1/raid-events"), {
+      signal: AbortSignal.timeout(6000),
+    });
+    if (!response.ok) return [];
+    return await readJson<RaidEvent[]>(response, []);
+  } catch {
+    return [];
+  }
+}
 
 async function loadActivity(fetchImpl: typeof fetch): Promise<ActivityDay[] | null> {
   const timedFetch: typeof fetch = (input, init) =>
@@ -83,16 +116,6 @@ async function loadActivity(fetchImpl: typeof fetch): Promise<ActivityDay[] | nu
 
   const entry = result.data.entries.find((candidate) => candidate.guild_name === "Sequoia");
   return entry?.days ?? [];
-}
-
-async function fetchJson<T>(
-  fetchImpl: typeof fetch,
-  path: string,
-  fallback: T,
-): Promise<T> {
-  const response = await fetchImpl(path);
-  if (!response.ok) return fallback;
-  return readJson(response, fallback);
 }
 
 async function readJson<T>(response: Response, fallback: T): Promise<T> {

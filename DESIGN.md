@@ -77,9 +77,9 @@ stay thin by calling `pageView(path)`.
 - `/api/branchmasters` — fetches the guild from Wynncraft, extracts leadership ranks, and
   caches results in libSQL (`@libsql/client`; local file `.data/sequoia-web.db` or Turso).
   2-minute freshness with 3-day stale-on-error fallback.
-- `/api/guild-raids/{events,events/[id]/leaderboard,me}` — cookie-forwarding proxies to the
-  Rust backend's `/v1/**`.
-- `/api/guild-raids/auth/{start,logout}` — relay OAuth redirects and `Set-Cookie` headers.
+- Raid-event data is read server-side in the raid page's `load` from the Rust backend's
+  `/v1/**`; the member-only leaderboard is fetched with the internal API token after the
+  signed-in viewer's guild membership is verified.
 
 **API contract discipline:**
 - `pnpm api:types` generates `src/lib/api/generated/public-api.ts` from the sibling
@@ -174,17 +174,15 @@ Rust 2024 edition, Axum 0.8 on Tokio, sqlx/Postgres, reqwest. Single binary; mod
   than guessed at. The first snapshot is a baseline only.
 - `raid_events` define scoring windows; the leaderboard aggregates deltas within a window.
 
-**HTTP API:** `GET /health`; OAuth flow under `/auth/wynn/*` + `POST /auth/logout`; public
-reads `GET /v1/raid-events{,/{id}}`; member-gated `GET /v1/me`,
-`/v1/raid-events/{id}/leaderboard`, `/v1/members/{uuid}/guild-raids`; and bearer-token-gated
-operations `POST /internal/poll-now`, `POST /internal/raid-events`, `GET /internal/anomalies`.
+**HTTP API:** `GET /health`; public reads `GET /v1/raid-events{,/{id}}`; and
+bearer-token-gated reads/operations `GET /v1/raid-events/{id}/leaderboard`,
+`GET /v1/members/{uuid}/guild-raids`, `POST /internal/poll-now`,
+`POST /internal/raid-events`, `GET /internal/anomalies`.
 Errors are uniform JSON `{"error": string}` via a single `ApiError` type.
 
-**Auth & sessions:** Wynncraft OAuth with the `identify` scope only — no user access tokens
-are stored. Sessions are opaque tokens stored server-side as `SHA256(secret:token)` with a
-30-day expiry, delivered as HttpOnly/SameSite=Lax/Secure cookies. OAuth state is single-use,
-DB-backed, and expires after 5 minutes. Guild membership is re-checked against the latest
-snapshot on every gated request.
+**Auth:** the tracker has no user-facing auth. Website sign-in is the sequoia-backend web
+session; the SvelteKit server checks the signed-in viewer's guild membership before reading
+member-only tracker data with the shared internal token.
 
 **Rigor:** workspace lints forbid `unsafe`, deny `unwrap`/`expect`/`todo`/`dbg!`, and clippy
 runs with `-D warnings` — error handling is explicit (`anyhow::Context` + `?`) throughout.

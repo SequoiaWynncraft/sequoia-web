@@ -74,12 +74,6 @@ pub struct MemberRaidHistoryPoint {
     pub total_guild_raids: Option<i64>,
 }
 
-#[derive(Clone, Debug, Serialize)]
-pub struct SessionUser {
-    pub player_uuid: Uuid,
-    pub username: String,
-}
-
 #[cfg(test)]
 mod tests {
     use serde_json::json;
