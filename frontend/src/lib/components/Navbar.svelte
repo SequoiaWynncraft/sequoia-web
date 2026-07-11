@@ -8,6 +8,8 @@
 
   const DISCORD = "https://discord.gg/seq";
   const MAP = "https://map.seqwawa.com";
+  // Sentinel for `open`; section keys are route paths, so this can't collide.
+  const ACCOUNT = "#account";
 
   let { viewer = null }: { viewer?: Viewer | null } = $props();
 
@@ -103,13 +105,52 @@
       <a href={MAP} target="_blank" rel="noreferrer" class="seq-nav-link seq-nav-accent">Map</a>
       <a href={DISCORD} target="_blank" rel="noreferrer" class="seq-nav-link seq-nav-accent">Discord</a>
       {#if viewer}
-        {#if viewerCardUrl}
-          <a href={viewerCardUrl} class="seq-nav-link seq-nav-viewer">
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <span
+          class="seq-nav-item"
+          onmouseenter={() => open = ACCOUNT}
+          onfocusin={() => open = ACCOUNT}
+          onfocusout={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) open = null;
+          }}
+          style="position:relative"
+        >
+          <a href={viewerCardUrl ?? signOutUrl} class="seq-nav-link seq-nav-viewer">
             <img class="seq-nav-face" src={nmsrFace(viewer.minecraftUuid, 18)} alt="" />
-            {viewer.minecraftUsername}
+            {viewer.minecraftUsername ?? "Account"}
+            <svg class="seq-nav-chevron" class:seq-nav-chevron-open={open === ACCOUNT} width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6" />
+            </svg>
           </a>
-        {/if}
-        <a href={signOutUrl} class="seq-nav-link seq-nav-session">Sign out</a>
+
+          {#if open === ACCOUNT}
+            <div class="seq-dropdown" use:clampToViewport>
+              <div class="seq-dropdown-col seq-account-col">
+                <div class="seq-account-identity">
+                  <img class="seq-account-face" src={nmsrFace(viewer.minecraftUuid, 36)} alt="" />
+                  <span class="seq-account-names">
+                    <span class="seq-account-minecraft">{viewer.minecraftUsername ?? "No linked player"}</span>
+                    {#if viewer.discordUsername}
+                      <span class="seq-account-discord">@{viewer.discordUsername}</span>
+                    {/if}
+                  </span>
+                </div>
+                {#if viewerCardUrl}
+                  <a href={viewerCardUrl} onclick={() => open = null} class="seq-dropdown-item">
+                    <span class="seq-dropdown-item-text">
+                      <span class="seq-dropdown-item-label">Playercard</span>
+                    </span>
+                  </a>
+                {/if}
+                <a href={signOutUrl} class="seq-dropdown-item">
+                  <span class="seq-dropdown-item-text">
+                    <span class="seq-dropdown-item-label">Sign out</span>
+                  </span>
+                </a>
+              </div>
+            </div>
+          {/if}
+        </span>
       {:else}
         <a href={signInUrl} class="seq-nav-link seq-nav-session">Sign in</a>
       {/if}
@@ -156,7 +197,10 @@
         <a href={DISCORD} target="_blank" rel="noreferrer" onclick={() => mobileOpen = false} class="seq-mobile-link seq-nav-accent">Discord</a>
         {#if viewer}
           {#if viewerCardUrl}
-            <a href={viewerCardUrl} onclick={() => mobileOpen = false} class="seq-mobile-link">{viewer.minecraftUsername}</a>
+            <a href={viewerCardUrl} onclick={() => mobileOpen = false} class="seq-mobile-link seq-mobile-viewer">
+              <img class="seq-nav-face" src={nmsrFace(viewer.minecraftUuid, 18)} alt="" />
+              {viewer.minecraftUsername}
+            </a>
           {/if}
           <a href={signOutUrl} class="seq-mobile-link">Sign out</a>
         {:else}
@@ -168,7 +212,8 @@
 </nav>
 
 <style>
-  .seq-nav-viewer {
+  .seq-nav-viewer,
+  .seq-mobile-viewer {
     display: inline-flex;
     align-items: center;
     gap: 7px;
@@ -182,5 +227,46 @@
 
   .seq-nav-session {
     color: var(--text-muted);
+  }
+
+  .seq-account-col {
+    min-width: 190px;
+  }
+
+  .seq-account-identity {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.2rem 0.55rem 0.65rem;
+    margin-bottom: 0.35rem;
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+
+  .seq-account-face {
+    width: 36px;
+    height: 36px;
+    image-rendering: pixelated;
+  }
+
+  .seq-account-names {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    min-width: 0;
+  }
+
+  .seq-account-minecraft {
+    font-family: var(--font-display);
+    font-size: 0.78rem;
+    letter-spacing: 0.04em;
+    color: var(--color-text-primary);
+  }
+
+  .seq-account-discord {
+    font-size: 0.72rem;
+    color: var(--color-text-dim);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 </style>
