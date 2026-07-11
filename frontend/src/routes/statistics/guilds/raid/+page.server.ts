@@ -84,8 +84,12 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
   };
 };
 
+function normalizeUuid(value: string): string {
+  return value.replaceAll("-", "").toLowerCase();
+}
+
 function sameUuid(left: string, right: string): boolean {
-  return left.replaceAll("-", "").toLowerCase() === right.replaceAll("-", "").toLowerCase();
+  return normalizeUuid(left) === normalizeUuid(right);
 }
 
 type LeaderboardResult = { leaderboard: RaidLeaderboardEntry[]; error: string | null };
@@ -129,16 +133,31 @@ async function loadModLeaderboard(
     });
     if (!response.ok) return { leaderboard: [], error: await readError(response) };
     const body = await readJson<ModLeaderboardResponse>(response, { entries: [] });
-    const rankByName = new Map(
-      roster.map((member) => [member.username.toLowerCase(), member.rank] as const),
+    // Mod parties can include outsiders; the guild contribution board only
+    // shows verified roster members, matched by UUID with a username fallback.
+    const membersByUuid = new Map(
+      roster.flatMap((member) =>
+        member.uuid !== null ? [[normalizeUuid(member.uuid), member] as const] : [],
+      ),
+    );
+    const membersByName = new Map(
+      roster.map((member) => [member.username.toLowerCase(), member] as const),
     );
     return {
-      leaderboard: body.entries.map((entry) => ({
-        player_uuid: entry.player_uuid ?? entry.username.toLowerCase(),
-        username: entry.username,
-        raids: entry.raids,
-        rank: rankByName.get(entry.username.toLowerCase()) ?? "",
-      })),
+      leaderboard: body.entries.flatMap((entry) => {
+        const member =
+          (entry.player_uuid !== null ? membersByUuid.get(normalizeUuid(entry.player_uuid)) : undefined) ??
+          membersByName.get(entry.username.toLowerCase());
+        if (!member) return [];
+        return [
+          {
+            player_uuid: entry.player_uuid ?? entry.username.toLowerCase(),
+            username: entry.username,
+            raids: entry.raids,
+            rank: member.rank,
+          },
+        ];
+      }),
       error: null,
     };
   } catch {
