@@ -82,7 +82,7 @@
     text-decoration: none;
   }
 
-  .ev-band-link:hover :global(.ev-sky-band) {
+  .ev-band-link:hover :global(.ev-sky) {
     border-color: color-mix(in srgb, var(--ev-accent) 45%, var(--color-border-subtle));
   }
 

@@ -1,10 +1,10 @@
 <script lang="ts">
   import { page } from "$app/state";
   import { webAuthStartUrl } from "$lib/site/webAuth";
+  import Button from "$lib/design-system/components/Button.svelte";
   import DailyBars from "$lib/design-system/components/charts/DailyBars.svelte";
   import LedgerTable from "$lib/design-system/components/LedgerTable.svelte";
   import type { LedgerColumn } from "$lib/design-system/components/ledgerTable";
-  import EventSky from "$lib/events/components/EventSky.svelte";
   import EventMeta from "$lib/events/components/EventMeta.svelte";
   import GoalMeter from "$lib/events/components/GoalMeter.svelte";
   import { themeVars } from "$lib/events/theme";
@@ -61,38 +61,44 @@
 </svelte:head>
 
 <article class="ev-page" style={themeVars(event.theme)}>
-  <EventSky theme={event.theme} variant="hero">
-    <div class="ev-hero">
-      <a class="ev-hero-back focus-ring" href="/events">
-        <span class="ev-hero-back-diamond" aria-hidden="true">◆</span>Events
-      </a>
-      <span class="ev-hero-spark" aria-hidden="true">✦</span>
-      <h1 class="ev-hero-name">{event.name}</h1>
-      <p class="ev-hero-tagline">{event.tagline}</p>
+  <div class="ev-page-sky" aria-hidden="true"></div>
+
+  <a class="ev-hero-back focus-ring" href="/events">
+    <span class="ev-hero-back-diamond" aria-hidden="true">◆</span>Events
+  </a>
+
+  <header class="ev-hero">
+    <span class="ev-hero-spark ev-enter" style="--enter: 0" aria-hidden="true">✦</span>
+    <h1 class="ev-hero-name ev-enter" style="--enter: 1">{event.name}</h1>
+    <p class="ev-hero-tagline ev-enter" style="--enter: 2">{event.tagline}</p>
+    <div class="ev-enter" style="--enter: 3">
       <EventMeta {event} {status} align="center" />
     </div>
-  </EventSky>
-
-  <div class="ev-body">
     {#if event.about}
-      <div class="ev-about">
+      <div class="ev-hero-about ev-enter" style="--enter: 4">
         {#each event.about as paragraph (paragraph)}
           <p>{paragraph}</p>
         {/each}
       </div>
     {/if}
+  </header>
 
+  <div class="ev-body">
     {#if data.locked}
-      <section class="ev-section" aria-label="Members only">
-        <h2 class="ev-label"><span class="ev-spark" aria-hidden="true">✦</span>Members only</h2>
-        {#if data.lockReason === "signin"}
-          <p class="ev-muted"><a class="ev-link" href={signInUrl}>Sign in</a> to see the event details.</p>
-        {:else if data.lockReason === "unverified"}
-          <p class="ev-muted">Membership can't be verified right now - try again shortly.</p>
+      <div class="ev-gate">
+        <span class="ev-gate-spark" aria-hidden="true">✦</span>
+        <h2 class="ev-gate-title">Members only</h2>
+        {#if data.lockReason === "unverified"}
+          <p class="ev-gate-text">Membership can't be verified right now - try again shortly.</p>
         {:else}
-          <p class="ev-muted">Event details are visible to current Sequoia members.</p>
+          <p class="ev-gate-text">Goal, prizes, comp, and standings are visible to Sequoia members.</p>
         {/if}
-      </section>
+        {#if data.lockReason === "signin"}
+          <Button href={signInUrl}>
+            {#snippet children()}Sign in{/snippet}
+          </Button>
+        {/if}
+      </div>
     {/if}
 
     {#if event.goal}
@@ -215,14 +221,68 @@
 </article>
 
 <style>
+  /* One continuous sky: the hero gradient dissipates into the abyss instead
+     of cutting off, and the star field fades out with it. */
+  .ev-page {
+    position: relative;
+    isolation: isolate;
+    min-height: 60vh;
+  }
+
+  .ev-page-sky {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    /* Whatever the page height, the sky never ends on a hard edge. */
+    mask-image: linear-gradient(to bottom, black calc(100% - 320px), transparent);
+    -webkit-mask-image: linear-gradient(to bottom, black calc(100% - 320px), transparent);
+    background:
+      radial-gradient(56% 400px at 50% 300px, color-mix(in srgb, var(--ev-accent) 11%, transparent), transparent 72%),
+      linear-gradient(
+        180deg,
+        var(--ev-sky-0) 0px,
+        var(--ev-sky-1) 460px,
+        color-mix(in srgb, var(--ev-sky-1) 45%, var(--color-abyss)) 1050px,
+        color-mix(in srgb, var(--ev-sky-1) 16%, transparent) 1700px,
+        transparent 2200px
+      );
+  }
+
+  .ev-page-sky::before {
+    content: "";
+    position: absolute;
+    top: -140px;
+    left: -10%;
+    right: -10%;
+    height: 2000px;
+    background:
+      radial-gradient(circle, var(--ev-star) 1px, transparent 1.5px) 24px 41px / 233px 141px,
+      radial-gradient(circle, var(--ev-star) 0.8px, transparent 1.3px) 131px 87px / 337px 97px,
+      radial-gradient(circle, var(--ev-star) 0.6px, transparent 1.1px) 61px 13px / 149px 113px,
+      radial-gradient(circle, var(--ev-star) 0.6px, transparent 1.1px) 7px 51px / 191px 73px;
+    opacity: 0.75;
+    transform: rotate(-4deg);
+    mask-image: linear-gradient(to bottom, black 0, black 800px, transparent 1600px);
+    -webkit-mask-image: linear-gradient(to bottom, black 0, black 800px, transparent 1600px);
+  }
+
   /* The sky runs under the fixed translucent navbar (the layout drops its
      top padding for event pages), so the hero clears it with its own. */
   .ev-hero {
     display: grid;
     justify-items: center;
-    padding: calc(3.5rem + 72px) 24px 64px;
+    padding: calc(3.5rem + 72px) 24px 56px;
     text-align: center;
-    animation: seq-fade-in-up 0.6s var(--ease-out-soft) both;
+  }
+
+  /* Orchestrated entrance: each hero element arrives a beat after the last.
+     will-change keeps the elements composited after the animation ends -
+     dropping the layer re-rasterizes the pixel-font gradient (a visible pop). */
+  .ev-enter {
+    animation: seq-fade-in-up 0.55s var(--ease-out-soft) both;
+    animation-delay: calc(var(--enter) * 90ms);
+    will-change: transform;
   }
 
   .ev-hero-back {
@@ -276,21 +336,58 @@
     font-size: var(--text-base);
   }
 
+  .ev-hero-about {
+    max-width: 62ch;
+    margin-top: 30px;
+    color: var(--text-body);
+    font-size: var(--text-base);
+    line-height: var(--leading-normal);
+  }
+
+  .ev-hero-about p {
+    margin: 0 0 8px;
+  }
+
   .ev-body {
     width: min(1100px, 100% - 3rem);
     margin: 0 auto;
-    padding: 8px 0 56px;
+    padding: 28px 0 64px;
   }
 
-  .ev-about {
-    max-width: 68ch;
-    margin: 0 0 40px;
+  /* The gate is the page's one bordered moment - it only appears when
+     everything else is stripped. */
+  .ev-gate {
+    display: grid;
+    justify-items: center;
+    gap: 10px;
+    max-width: 460px;
+    margin: 40px auto 24px;
+    padding: 40px 28px 34px;
+    border: 1px solid color-mix(in srgb, var(--ev-accent) 30%, transparent);
+    background: color-mix(in srgb, var(--ev-sky-1) 40%, transparent);
+    text-align: center;
+  }
+
+  .ev-gate-spark {
+    color: var(--ev-accent);
+    font-size: 1.1rem;
+    line-height: 1;
+  }
+
+  .ev-gate-title {
+    margin: 0;
+    color: var(--text-heading);
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-regular);
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+  }
+
+  .ev-gate-text {
+    margin: 0 0 14px;
     color: var(--text-body);
-    font-size: var(--text-base);
-  }
-
-  .ev-about p {
-    margin: 0 0 10px;
+    font-size: var(--text-sm);
   }
 
   .ev-section {
@@ -441,13 +538,14 @@
     }
 
     .ev-hero {
-      padding: calc(3.5rem + 40px) 18px 48px;
+      padding: calc(3.5rem + 40px) 18px 44px;
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .ev-hero {
+    .ev-enter {
       animation: none;
+      will-change: auto;
     }
   }
 </style>

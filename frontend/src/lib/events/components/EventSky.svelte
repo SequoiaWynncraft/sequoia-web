@@ -5,12 +5,10 @@
 
   let {
     theme,
-    variant = "band",
     dim = false,
     children,
   }: {
     theme: EventTheme;
-    variant?: "band" | "hero";
     /** Ended events keep their sky but let it fade. */
     dim?: boolean;
     children: Snippet;
@@ -19,7 +17,7 @@
   const style = $derived(themeVars(theme));
 </script>
 
-<div class="ev-sky ev-sky-{variant}" class:ev-sky-dim={dim} {style}>
+<div class="ev-sky" class:ev-sky-dim={dim} {style}>
   <div class="ev-sky-backdrop" aria-hidden="true"></div>
   <div class="ev-sky-content">
     {@render children()}
@@ -31,9 +29,6 @@
     position: relative;
     overflow: hidden;
     isolation: isolate;
-  }
-
-  .ev-sky-band {
     border: 1px solid var(--color-border-subtle);
     transition: border-color var(--dur-fast) ease;
   }
@@ -56,21 +51,8 @@
       radial-gradient(circle, var(--ev-star) 0.8px, transparent 1.3px) 131px 87px / 337px 97px,
       radial-gradient(circle, var(--ev-star) 0.6px, transparent 1.1px) 61px 13px / 149px 113px,
       radial-gradient(circle, var(--ev-star) 0.6px, transparent 1.1px) 7px 51px / 191px 73px;
-    opacity: 0.75;
-    transform: rotate(-4deg);
-  }
-
-  .ev-sky-band .ev-sky-backdrop::before {
     opacity: 0.55;
-  }
-
-  .ev-sky-hero .ev-sky-backdrop::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background:
-      radial-gradient(60% 90% at 50% 110%, color-mix(in srgb, var(--ev-accent) 14%, transparent), transparent 70%),
-      linear-gradient(to bottom, transparent 55%, var(--bg-page));
+    transform: rotate(-4deg);
   }
 
   .ev-sky-dim .ev-sky-backdrop {
