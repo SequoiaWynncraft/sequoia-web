@@ -323,7 +323,7 @@
                   <div class="badges">
                     {#each honours.badges as badge (badge.type + badge.tier)}
                       <span class="tag tag-badge" style="--tier-color:{tierColor(badge.tier)}">
-                        <img class="badge-icon" src={badge.asset_url} alt="" loading="lazy" />
+                        <img class="badge-icon" src={badge.assetUrl} alt="" loading="lazy" />
                         {badge.type} · {badge.tier.toLowerCase()}
                       </span>
                     {/each}
