@@ -32,13 +32,14 @@ export interface ActivityDay {
 }
 
 export const load: PageServerLoad = async ({ fetch, url, parent }) => {
+  // Streamed: the activity feed must never hold the page back.
+  const activity = loadActivity(fetch).catch(() => null);
   const { viewer } = await parent();
   // Signed-in viewers await a roster refresh because membership is authorized
   // against it; anonymous visitors take the stale-tolerant fast path.
-  const [events, stats, activity] = await Promise.all([
+  const [events, stats] = await Promise.all([
     loadEvents(fetch),
     getGuildStats(fetch, { allowStale: viewer === null }).catch(() => null),
-    loadActivity(fetch),
   ]);
 
   const selectedEvent =
