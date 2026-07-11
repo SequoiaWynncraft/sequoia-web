@@ -431,7 +431,7 @@ async fn member_counters_in_tx(
             JOIN guild_snapshots history_snapshot ON history_snapshot.id = history.snapshot_id
             WHERE history.player_uuid = counters.player_uuid
               AND history.captured_at <= counters.captured_at
-              AND history_snapshot.guild_prefix = snapshot.guild_prefix
+              AND history_snapshot.guild_uuid = snapshot.guild_uuid
         ) highest_prior ON true
         WHERE counters.snapshot_id = $1
         "#,
