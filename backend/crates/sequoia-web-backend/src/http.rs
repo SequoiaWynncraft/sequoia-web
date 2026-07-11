@@ -35,6 +35,12 @@ struct CreateRaidEventRequest {
     starts_at: OffsetDateTime,
     #[serde(with = "time::serde::rfc3339")]
     ends_at: OffsetDateTime,
+    #[serde(default = "default_tracking")]
+    tracking: String,
+}
+
+fn default_tracking() -> String {
+    "api".to_owned()
 }
 
 #[derive(Serialize)]
@@ -122,6 +128,9 @@ async fn create_raid_event(
     if request.ends_at <= request.starts_at {
         return Err(ApiError::bad_request("ends_at must be after starts_at"));
     }
+    if request.tracking != "api" && request.tracking != "mod" {
+        return Err(ApiError::bad_request("tracking must be 'api' or 'mod'"));
+    }
 
     let event = state
         .db
@@ -130,6 +139,7 @@ async fn create_raid_event(
             request.name.trim(),
             request.starts_at,
             request.ends_at,
+            &request.tracking,
         )
         .await?;
     Ok((StatusCode::CREATED, Json(event)).into_response())

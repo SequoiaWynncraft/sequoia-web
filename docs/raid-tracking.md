@@ -61,6 +61,28 @@ curl -X POST https://api.seqwawa.com/internal/poll-now \
   -H "authorization: Bearer $INTERNAL_API_TOKEN"
 ```
 
+## Raid events
+
+Events are created through the tracker's internal API. `tracking` picks the
+contribution source shown on the website:
+
+- `api` (default): diffs of Wynncraft's `currentGuildRaids` counters between
+  polls. Cheap and automatic, but the counter is only as reliable as the API.
+- `mod`: in-game completions scraped by the Sequoia mod and persisted by
+  sequoia-backend (`/internal/mod-raids/leaderboard`). Use for events where
+  accuracy is critical; only parties with at least one mod user are counted.
+
+```bash
+curl -X POST https://web-api.dev.seqwawa.com/internal/raid-events \
+  -H "authorization: Bearer $INTERNAL_API_TOKEN" \
+  -H "content-type: application/json" \
+  -d '{"slug":"summer-raid-week","name":"Summer raid week","tracking":"mod",
+       "starts_at":"2026-07-20T00:00:00Z","ends_at":"2026-07-27T00:00:00Z"}'
+```
+
+The frontend needs `SEQUOIA_BACKEND_INTERNAL_TOKEN` (sequoia-backend's
+`INTERNAL_API_TOKEN`) to read mod-tracked contributions.
+
 ### Development deployment
 
 The isolated website development stack lives in the `development` environment of the
