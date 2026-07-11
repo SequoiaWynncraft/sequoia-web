@@ -1,16 +1,16 @@
-FROM node:22-alpine AS deps
+FROM oven/bun:1.3.14-alpine AS deps
 WORKDIR /app
-RUN corepack enable
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY package.json bun.lock bunfig.toml ./
 COPY frontend/package.json frontend/package.json
-RUN pnpm install --frozen-lockfile
+COPY frontend/bunfig.toml frontend/bunfig.toml
+RUN bun install --frozen-lockfile
 
 FROM deps AS build
 COPY frontend frontend
-RUN pnpm --dir frontend build
+RUN bun run --cwd frontend build
 
-FROM node:22-alpine AS runtime
+FROM oven/bun:1.3.14-alpine AS runtime
 WORKDIR /app/frontend
 ENV NODE_ENV=production
 ENV PORT=3000
@@ -21,4 +21,4 @@ COPY --from=build /app/frontend/build build
 COPY --from=build /app/frontend/package.json package.json
 
 EXPOSE 3000
-CMD ["node", "build"]
+CMD ["bun", "./build/index.js"]
