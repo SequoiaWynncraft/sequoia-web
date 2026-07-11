@@ -42,11 +42,14 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
   const selectedEvent =
     events.find((event) => event.id === url.searchParams.get("event")) ?? events[0] ?? null;
 
-  // Event contributions are member-only; the tracker trusts this check.
+  // Event contributions are member-only; the tracker trusts this check, so it
+  // must not authorize from a stale roster (stale stats are display-only).
+  const freshRoster = stats !== null && !stats.stale ? stats.members : null;
   const isMember =
     viewer !== null &&
-    stats !== null &&
-    stats.members.some((member) => member.uuid !== null && sameUuid(member.uuid, viewer.minecraftUuid));
+    freshRoster !== null &&
+    freshRoster.some((member) => member.uuid !== null && sameUuid(member.uuid, viewer.minecraftUuid));
+  const membershipUnverified = viewer !== null && freshRoster === null;
 
   let leaderboard: RaidLeaderboardEntry[] = [];
   let leaderboardError: string | null = null;
@@ -74,6 +77,7 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
 
   return {
     isMember,
+    membershipUnverified,
     events,
     selectedEvent,
     leaderboard,

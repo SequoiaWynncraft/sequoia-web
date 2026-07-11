@@ -184,6 +184,8 @@
     </SectionLabel>
     {#if !data.viewer}
       <p class="muted"><a class="auth-link" href={signInUrl}>Sign in</a> to see member contributions for this event.</p>
+    {:else if data.membershipUnverified}
+      <p class="muted">Membership can't be verified right now - try again shortly.</p>
     {:else if !data.isMember}
       <p class="muted">Contributions are visible to current Sequoia members.</p>
     {:else if data.leaderboardError}
