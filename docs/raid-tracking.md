@@ -107,9 +107,9 @@ production sites.
 Local checks:
 
 ```bash
-pnpm check
-pnpm test
-pnpm build
-pnpm clippy:backend
-pnpm fmt:backend
+bun run check
+bun run test
+bun run build
+bun run clippy:backend
+bun run fmt:backend
 ```
