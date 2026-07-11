@@ -184,7 +184,7 @@
   </section>
 
   <section class="block" aria-label="Event contribution leaderboard">
-    <SectionLabel meta={data.selectedEvent ? `${formatDate(data.selectedEvent.starts_at)} – ${formatDate(data.selectedEvent.ends_at)}` : undefined}>
+    <SectionLabel meta={data.selectedEvent ? `${formatDate(data.selectedEvent.starts_at)} – ${formatDate(data.selectedEvent.ends_at)}${data.selectedEvent.tracking === "mod" ? " · in-game tracked" : ""}` : undefined}>
       {#snippet children()}{data.selectedEvent?.name ?? "Contribution"}{/snippet}
     </SectionLabel>
     {#if !data.viewer}
