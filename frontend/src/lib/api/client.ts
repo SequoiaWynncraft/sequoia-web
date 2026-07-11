@@ -4,7 +4,6 @@ import { isGuildOverviewResponse, type GuildOverviewResponse } from "$lib/api/gu
 
 export type SeasonRaidActivityResponse = components["schemas"]["SeasonRaidActivityResponse"];
 export type GetSeasonRaidActivityQuery = operations["getSeasonRaidActivity"]["parameters"]["query"];
-export type BadgeEntry = components["schemas"]["BadgeEntry"];
 export type RankProfilesResponse = components["schemas"]["RankProfilesResponse"];
 export type RankProfile = components["schemas"]["RankProfile"];
 export type RankProfileScope = "linked" | "recognized";

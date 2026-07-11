@@ -144,16 +144,16 @@ describe("honoursForMinecraft", () => {
       warHonours: [{ tier: "DIAMOND" }, { tier: "SILVER" }],
       badges: [
         {
-          player_uuid: MEMBER,
+          playerUuid: MEMBER,
           type: "WTP",
           tier: "DIAMOND",
-          asset_url: "https://assets.seqwawa.com/v1/diamond/wtp-diamond.png",
+          assetUrl: "https://assets.seqwawa.com/v1/diamond/wtp-diamond.png",
         },
         {
-          player_uuid: MEMBER,
+          playerUuid: MEMBER,
           type: "NOL",
           tier: "BRONZE",
-          asset_url: "https://assets.seqwawa.com/v1/bronze/nol-bronze.png",
+          assetUrl: "https://assets.seqwawa.com/v1/bronze/nol-bronze.png",
         },
       ],
     });

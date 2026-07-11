@@ -55,23 +55,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/badges": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get public player badges and insignias. */
-        get: operations["getBadges"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/public/season/raid-activity": {
         parameters: {
             query?: never;
@@ -186,22 +169,6 @@ export interface components {
                 /** @enum {string} */
                 level: "member" | "trainee";
             }[];
-        };
-        BadgeListResponse: {
-            badges: components["schemas"]["BadgeEntry"][];
-        };
-        BadgeEntry: {
-            /** Format: uuid */
-            player_uuid: string;
-            /** @enum {string} */
-            type: "WTP" | "NOL" | "INSIGNIA";
-            /** @enum {string} */
-            tier: "DIAMOND" | "GOLD" | "SILVER" | "BRONZE";
-            /**
-             * Format: uri
-             * @description Content-versioned public URL for the badge or insignia image.
-             */
-            asset_url: string;
         };
         SeasonRaidActivityResponse: {
             /** Format: date-time */
@@ -335,26 +302,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-        };
-    };
-    getBadges: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Active public badge and insignia grants. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BadgeListResponse"];
-                };
             };
         };
     };

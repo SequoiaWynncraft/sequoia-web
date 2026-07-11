@@ -1,11 +1,13 @@
-import {
-  createSequoiaApiClient,
-  type BadgeEntry,
-  type RankProfilesResponse,
-} from "$lib/api/client";
+import { createSequoiaApiClient, type RankProfilesResponse } from "$lib/api/client";
 import { SEQUOIA_API_BASE_URL } from "$lib/config/public";
 import { createCachedResource } from "$lib/server/serverCache";
-import { EMPTY_HONOURS, type PlayerHonours } from "$lib/site/honours";
+import {
+  EMPTY_HONOURS,
+  type BadgeTier,
+  type BadgeType,
+  type HonourBadge,
+  type PlayerHonours,
+} from "$lib/site/honours";
 
 const FRESH_MS = 30 * 1000;
 const STALE_MS = 30 * 60 * 1000;
@@ -61,7 +63,7 @@ export interface MemberRankEntry {
   rank: string | null;
   /** Ladder position from the role catalog — higher is more senior. */
   rankOrder: number | null;
-  insignia: BadgeEntry["tier"] | null;
+  insignia: BadgeTier | null;
   insigniaUrl: string | null;
   /** War honours plus event badges held. */
   honours: number;
@@ -154,17 +156,17 @@ function eventBadges(
   assets: AssetMap,
   awardKeys: string[],
   playerUuid: string,
-): BadgeEntry[] {
-  const badges: BadgeEntry[] = [];
+): HonourBadge[] {
+  const badges: HonourBadge[] = [];
   for (const key of awardKeys) {
     const award = awards.get(key);
     const asset = award?.asset_key ? assets.get(award.asset_key) : undefined;
     if (!award || !asset || !isBadgeType(award.series) || !isBadgeTier(award.tier)) continue;
     badges.push({
-      player_uuid: playerUuid,
+      playerUuid,
       type: award.series,
       tier: award.tier,
-      asset_url: asset.url,
+      assetUrl: asset.url,
     });
   }
   return badges.sort((left, right) => tierOrder(right.tier) - tierOrder(left.tier));
@@ -195,15 +197,15 @@ function isRankProfilesResponse(value: unknown): value is RankProfilesResponse {
   );
 }
 
-function isBadgeType(value: string | null | undefined): value is BadgeEntry["type"] {
+function isBadgeType(value: string | null | undefined): value is BadgeType {
   return value === "WTP" || value === "NOL" || value === "INSIGNIA";
 }
 
-function isBadgeTier(value: string | null | undefined): value is BadgeEntry["tier"] {
+function isBadgeTier(value: string | null | undefined): value is BadgeTier {
   return value === "DIAMOND" || value === "GOLD" || value === "SILVER" || value === "BRONZE";
 }
 
-function tierOrder(value: BadgeEntry["tier"]): number {
+function tierOrder(value: BadgeTier): number {
   return { BRONZE: 1, SILVER: 2, GOLD: 3, DIAMOND: 4 }[value];
 }
 
