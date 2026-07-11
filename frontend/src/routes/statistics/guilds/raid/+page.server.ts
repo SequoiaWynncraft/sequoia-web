@@ -134,7 +134,9 @@ async function loadModLeaderboard(
     if (!response.ok) return { leaderboard: [], error: await readError(response) };
     const body = await readJson<ModLeaderboardResponse>(response, { entries: [] });
     // Mod parties can include outsiders; the guild contribution board only
-    // shows verified roster members, matched by UUID with a username fallback.
+    // shows verified roster members. A resolved UUID is authoritative - the
+    // username fallback applies only to entries the backend could not resolve,
+    // so a stale or reused name can never impersonate a member.
     const membersByUuid = new Map(
       roster.flatMap((member) =>
         member.uuid !== null ? [[normalizeUuid(member.uuid), member] as const] : [],
@@ -146,8 +148,9 @@ async function loadModLeaderboard(
     return {
       leaderboard: body.entries.flatMap((entry) => {
         const member =
-          (entry.player_uuid !== null ? membersByUuid.get(normalizeUuid(entry.player_uuid)) : undefined) ??
-          membersByName.get(entry.username.toLowerCase());
+          entry.player_uuid !== null
+            ? membersByUuid.get(normalizeUuid(entry.player_uuid))
+            : membersByName.get(entry.username.toLowerCase());
         if (!member) return [];
         return [
           {
