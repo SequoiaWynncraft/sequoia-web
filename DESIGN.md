@@ -70,7 +70,10 @@ No CSS framework and no store library.
   adding an entry; every content section is optional and the visual theme is per-event
   CSS custom properties (`--ev-*`). Live goal/chart data reads the public raid activity
   feed; member standings reuse the raid tracker's event leaderboards via
-  `lib/server/raidEventBoards.ts` once a `tracker` id is set on the event.
+  `lib/server/raidEventBoards.ts` once a `tracker` id is set on the event. Member-only
+  events keep a public hero but their gated sections (goal, prizes, comp, rules, activity,
+  standings) are stripped server-side unless the signed-in viewer verifies against a fresh
+  roster - the same trust rules as the raid leaderboard.
 - `/statistics` hub → `player/{raids,activity,playercard}` and
   `guilds/{war,raid,rankings}`
 - `/statistics/guilds/raid` — the flagship dynamic page: loads raid events and, for
@@ -153,8 +156,8 @@ SectionHeading, ServiceCard, StatBlock, StatusDot).
 **Events sub-identity:** event pages keep the Sequoia chrome (gold, pixel type, hairlines)
 but each event owns a *sky* — a themed star-speckled gradient backdrop whose accent hue
 tints that page's structure (✦ section sparks, goal-meter fill, chart marks). The events
-hub stacks those skies as full-width bands; navigating hub → event morphs the band into
-the page hero via scoped View Transitions (reduced-motion respected). Events use the
+hub stacks those skies as full-width bands; the event page opens them into a full-bleed
+hero that runs under the translucent navbar like the homepage. Events use the
 four-pointed ✦ spark as their section marker, a deliberate sibling of the site's ◆.
 
 **The map app** (`map.seqwawa.com`, separate codebase, linked as MAP in the nav) is the

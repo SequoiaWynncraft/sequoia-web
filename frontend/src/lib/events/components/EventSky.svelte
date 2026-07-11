@@ -5,21 +5,18 @@
 
   let {
     theme,
-    slug,
     variant = "band",
     dim = false,
     children,
   }: {
     theme: EventTheme;
-    /** Keys the hub-band to event-hero morph; must be unique per view. */
-    slug: string;
     variant?: "band" | "hero";
     /** Ended events keep their sky but let it fade. */
     dim?: boolean;
     children: Snippet;
   } = $props();
 
-  const style = $derived(`${themeVars(theme)};view-transition-name:ev-sky-${slug}`);
+  const style = $derived(themeVars(theme));
 </script>
 
 <div class="ev-sky ev-sky-{variant}" class:ev-sky-dim={dim} {style}>

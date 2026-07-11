@@ -38,7 +38,7 @@
         {#each shelf.events as event (event.slug)}
           {@const status = statusOf(shelf.status, event)}
           <a class="ev-band-link focus-ring" href={`/events/${event.slug}`}>
-            <EventSky theme={event.theme} slug={event.slug} dim={status === "ended"}>
+            <EventSky theme={event.theme} dim={status === "ended"}>
               <div class="ev-band ev-band-{status}">
                 <div class="ev-band-main">
                   <span class="ev-band-name">{event.name}</span>

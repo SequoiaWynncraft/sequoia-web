@@ -61,7 +61,7 @@
 </svelte:head>
 
 <article class="ev-page" style={themeVars(event.theme)}>
-  <EventSky theme={event.theme} slug={event.slug} variant="hero">
+  <EventSky theme={event.theme} variant="hero">
     <div class="ev-hero">
       <a class="ev-hero-back focus-ring" href="/events">
         <span class="ev-hero-back-diamond" aria-hidden="true">◆</span>Events
@@ -80,6 +80,19 @@
           <p>{paragraph}</p>
         {/each}
       </div>
+    {/if}
+
+    {#if data.locked}
+      <section class="ev-section" aria-label="Members only">
+        <h2 class="ev-label"><span class="ev-spark" aria-hidden="true">✦</span>Members only</h2>
+        {#if data.lockReason === "signin"}
+          <p class="ev-muted"><a class="ev-link" href={signInUrl}>Sign in</a> to see the event details.</p>
+        {:else if data.lockReason === "unverified"}
+          <p class="ev-muted">Membership can't be verified right now - try again shortly.</p>
+        {:else}
+          <p class="ev-muted">Event details are visible to current Sequoia members.</p>
+        {/if}
+      </section>
     {/if}
 
     {#if event.goal}
@@ -202,16 +215,19 @@
 </article>
 
 <style>
+  /* The sky runs under the fixed translucent navbar (the layout drops its
+     top padding for event pages), so the hero clears it with its own. */
   .ev-hero {
     display: grid;
     justify-items: center;
-    padding: 72px 24px 64px;
+    padding: calc(3.5rem + 72px) 24px 64px;
     text-align: center;
+    animation: seq-fade-in-up 0.6s var(--ease-out-soft) both;
   }
 
   .ev-hero-back {
     position: absolute;
-    top: 18px;
+    top: calc(3.5rem + 18px);
     left: 22px;
     color: var(--text-muted);
     font-family: var(--font-display);
@@ -425,7 +441,13 @@
     }
 
     .ev-hero {
-      padding: 56px 18px 48px;
+      padding: calc(3.5rem + 40px) 18px 48px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ev-hero {
+      animation: none;
     }
   }
 </style>
