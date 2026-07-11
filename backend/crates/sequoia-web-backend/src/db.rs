@@ -404,8 +404,9 @@ impl Database {
 /// reports a member's `currentGuildRaids` as 0, a stale lower value, or omits it
 /// for a few polls before restoring the real total. Diffing against the dip would
 /// book the restored amount as new raids, so each counter is raised to the highest
-/// value observed up to that snapshot - lifetime counters never legitimately
-/// decrease, which makes that the true baseline.
+/// value observed up to that snapshot within the same guild - `currentGuildRaids`
+/// only counts raids with the current guild, and it never legitimately decreases
+/// there, which makes that the true baseline.
 async fn member_counters_in_tx(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     snapshot_id: i64,
@@ -423,11 +424,14 @@ async fn member_counters_in_tx(
             counters.total_guild_raids,
             counters.captured_at
         FROM member_raid_counters counters
+        JOIN guild_snapshots snapshot ON snapshot.id = counters.snapshot_id
         LEFT JOIN LATERAL (
             SELECT MAX(history.current_guild_raids) AS current_guild_raids
             FROM member_raid_counters history
+            JOIN guild_snapshots history_snapshot ON history_snapshot.id = history.snapshot_id
             WHERE history.player_uuid = counters.player_uuid
               AND history.captured_at <= counters.captured_at
+              AND history_snapshot.guild_prefix = snapshot.guild_prefix
         ) highest_prior ON true
         WHERE counters.snapshot_id = $1
         "#,
