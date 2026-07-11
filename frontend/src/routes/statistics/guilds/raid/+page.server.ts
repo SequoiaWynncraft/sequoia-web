@@ -2,7 +2,7 @@ import type { PageServerLoad } from "./$types";
 
 import { createSequoiaApiClient } from "$lib/api/client";
 import { getGuildStats } from "$lib/server/guildStats";
-import { sequoiaBackendInternalHeaders, sequoiaBackendUrl } from "$lib/server/sequoiaBackend";
+import { sequoiaBackendInternalHeaders, sequoiaBackendOrigin } from "$lib/server/sequoiaBackend";
 import {
   sequoiaWebBackendInternalHeaders,
   sequoiaWebBackendUrl,
@@ -124,10 +124,11 @@ async function loadModLeaderboard(
   roster: GuildMemberStats[],
 ): Promise<LeaderboardResult> {
   const headers = sequoiaBackendInternalHeaders();
-  if (!headers) return { leaderboard: [], error: LEADERBOARD_UNAVAILABLE };
+  const origin = sequoiaBackendOrigin();
+  if (!headers || !origin) return { leaderboard: [], error: LEADERBOARD_UNAVAILABLE };
   const query = new URLSearchParams({ from: event.starts_at, to: event.ends_at });
   try {
-    const response = await fetchImpl(sequoiaBackendUrl(`/internal/mod-raids/leaderboard?${query}`), {
+    const response = await fetchImpl(`${origin}/internal/mod-raids/leaderboard?${query}`, {
       headers,
       signal: AbortSignal.timeout(6000),
     });
