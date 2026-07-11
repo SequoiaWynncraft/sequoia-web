@@ -6,10 +6,23 @@
   import DeferredPanel from "$lib/design-system/components/DeferredPanel.svelte";
   import { nmsrFace } from "$lib/site/nmsr";
   import type { GuildMemberStats } from "$lib/api/guildStats";
+  import type { MemberProgressEntry } from "$lib/api/memberProgress";
 
   let { data } = $props();
 
-  const stats = $derived(data.stats);
+  // "now" is the roster as it stands; every other scope shows gains over that window.
+  const SCOPES = [
+    { key: "now", label: "now" },
+    { key: "1w", label: "1w" },
+    { key: "1m", label: "1m" },
+    { key: "3m", label: "3m" },
+    { key: "6m", label: "6m" },
+    { key: "ytd", label: "ytd" },
+    { key: "all", label: "all" },
+  ];
+
+  const stats = $derived(data.view === "now" ? data.stats : null);
+  const progress = $derived(data.view === "gains" ? data.progress : null);
 
   const totalPlaytime = $derived(
     stats ? stats.members.reduce((sum, member) => sum + (member.playtime ?? 0), 0) : 0,
@@ -26,6 +39,41 @@
         ).length
       : 0,
   );
+
+  const gainTotals = $derived.by(() => {
+    if (!progress) return null;
+    const totals = { playtime: 0, wars: 0, raids: 0, warPoints: 0 };
+    for (const member of progress.members) {
+      totals.playtime += member.playtime_hours;
+      totals.wars += member.wars;
+      totals.raids += member.raids;
+      totals.warPoints += member.war_points;
+    }
+    return totals;
+  });
+
+  const trackingNotes = $derived.by(() => {
+    if (data.view !== "gains" || !progress) return [];
+    const from = data.from;
+    const sources: [string, string][] = [
+      ["Playtime and wars", progress.data_since.activity],
+      ["Raids", progress.data_since.raids],
+      ["War points", progress.data_since.war_points],
+    ];
+    return sources
+      .filter(([, since]) => since > from)
+      .map(([label, since]) => `${label} tracked since ${formatDay(since)}`);
+  });
+
+  function formatDay(day: string): string {
+    return new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(
+      new Date(`${day}T00:00:00Z`),
+    );
+  }
+
+  function points(value: number): string {
+    return value.toLocaleString(undefined, { maximumFractionDigits: 1 });
+  }
 
   function lastSeenLabel(member: GuildMemberStats): string {
     if (member.online === true) return member.server ? `Online · ${member.server}` : "Online";
@@ -44,10 +92,11 @@
   }
 
   function standingOf(member: GuildMemberStats) {
-    return member.uuid ? (data.ranks[member.uuid.toLowerCase()] ?? null) : null;
+    if (data.view !== "now" || !member.uuid) return null;
+    return data.ranks[member.uuid.toLowerCase()] ?? null;
   }
 
-  const columns: LedgerColumn<GuildMemberStats>[] = [
+  const rosterColumns: LedgerColumn<GuildMemberStats>[] = [
     {
       key: "member",
       label: "Member",
@@ -78,15 +127,6 @@
       },
     },
     {
-      key: "honours",
-      label: "Honours",
-      numeric: true,
-      // Linked members show a real count (including 0); unlinked rows show a dash
-      // and sort as null so LedgerTable sinks them in either direction.
-      value: (member) => standingOf(member)?.honours.toLocaleString() ?? "-",
-      sortValue: (member) => standingOf(member)?.honours ?? null,
-    },
-    {
       key: "playtime",
       label: "Playtime",
       numeric: true,
@@ -114,6 +154,46 @@
       sortValue: (member) => (member.joined ? Date.parse(member.joined) : null),
     },
   ];
+
+  const gainColumns: LedgerColumn<MemberProgressEntry>[] = [
+    {
+      key: "member",
+      label: "Member",
+      nameStyle: true,
+      value: (member) => member.player_name,
+      sortValue: (member) => member.player_name.toLowerCase(),
+      avatar: (member) => nmsrFace(member.player_uuid, 22),
+      href: (member) => `/statistics/player/playercard?player=${encodeURIComponent(member.player_name)}`,
+    },
+    {
+      key: "playtime",
+      label: "Playtime",
+      numeric: true,
+      value: (member) => `${member.playtime_hours.toLocaleString()} h`,
+      sortValue: (member) => member.playtime_hours,
+    },
+    {
+      key: "wars",
+      label: "Wars",
+      numeric: true,
+      value: (member) => member.wars.toLocaleString(),
+      sortValue: (member) => member.wars,
+    },
+    {
+      key: "raids",
+      label: "Raids",
+      numeric: true,
+      value: (member) => member.raids.toLocaleString(),
+      sortValue: (member) => member.raids,
+    },
+    {
+      key: "war_points",
+      label: "War points",
+      numeric: true,
+      value: (member) => points(member.war_points),
+      sortValue: (member) => member.war_points,
+    },
+  ];
 </script>
 
 <StatsHeader
@@ -121,7 +201,23 @@
   title="Activity"
 />
 
-{#if stats}
+<nav class="scopes" aria-label="Time scope">
+  {#each SCOPES as scope (scope.key)}
+    <a
+      href="?range={scope.key}"
+      class="scope-chip"
+      class:scope-chip-active={data.range === scope.key}
+      aria-current={data.range === scope.key ? "page" : undefined}
+    >
+      {scope.label}
+    </a>
+  {/each}
+  {#if data.view === "gains"}
+    <span class="scope-window">{formatDay(data.from)} to {formatDay(data.to)}</span>
+  {/if}
+</nav>
+
+{#if data.view === "now" && stats}
   <div class="divider-gold"></div>
   <div class="activity-vitals">
     <div class="activity-vital">
@@ -139,29 +235,54 @@
   </div>
   <div class="divider-gold divider-below"></div>
 
-  <section class="block" aria-label="Playtime leaderboard">
+  <section class="block" aria-label="Roster">
     <SectionLabel meta="{stats.members.length} members">
-      {#snippet children()}Playtime ledger{/snippet}
+      {#snippet children()}Roster ledger{/snippet}
     </SectionLabel>
     <LedgerTable
-      {columns}
+      columns={rosterColumns}
       rows={stats.members}
       rowKey={(member) => member.uuid ?? member.username}
       defaultSort="playtime"
-      maxHeight="600px"
+      maxHeight="640px"
     />
   </section>
+{:else if data.view === "gains" && progress && gainTotals}
+  <div class="divider-gold"></div>
+  <div class="activity-vitals">
+    <div class="activity-vital">
+      <span class="activity-vital-value">{Math.round(gainTotals.playtime).toLocaleString()} h</span>
+      <span class="activity-vital-label">Playtime</span>
+    </div>
+    <div class="activity-vital">
+      <span class="activity-vital-value">{gainTotals.wars.toLocaleString()}</span>
+      <span class="activity-vital-label">Wars</span>
+    </div>
+    <div class="activity-vital">
+      <span class="activity-vital-value">{gainTotals.raids.toLocaleString()}</span>
+      <span class="activity-vital-label">Raids</span>
+    </div>
+    <div class="activity-vital">
+      <span class="activity-vital-value">{points(gainTotals.warPoints)}</span>
+      <span class="activity-vital-label">War points</span>
+    </div>
+  </div>
+  <div class="divider-gold divider-below"></div>
 
-  <section class="block" aria-label="Session history">
-    <SectionLabel>
-      {#snippet children()}Session history{/snippet}
+  <section class="block" aria-label="Member gains">
+    <SectionLabel meta="{progress.members.length} members">
+      {#snippet children()}Gains ledger{/snippet}
     </SectionLabel>
-    <DeferredPanel title="Awaiting feed" since="July 2026">
-      {#snippet children()}
-        Daily playtime and session history per member are being recorded. Time-series charts
-        unlock once enough snapshots have accumulated.
-      {/snippet}
-    </DeferredPanel>
+    <LedgerTable
+      columns={gainColumns}
+      rows={progress.members}
+      rowKey={(member) => member.player_uuid}
+      defaultSort="playtime"
+      maxHeight="640px"
+    />
+    {#if trackingNotes.length > 0}
+      <p class="tracking-note">{trackingNotes.join(" · ")}</p>
+    {/if}
   </section>
 {:else}
   <DeferredPanel title="Data unavailable">
@@ -170,9 +291,46 @@
 {/if}
 
 <style>
+  .scopes {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 28px;
+  }
+
+  .scope-chip {
+    padding: 6px 13px;
+    border: 1px solid var(--color-border-subtle);
+    color: var(--text-body);
+    font-family: var(--font-display);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+    text-decoration: none;
+    transition: color var(--dur-fast) ease, border-color var(--dur-fast) ease;
+  }
+
+  .scope-chip:hover {
+    border-color: rgba(245, 197, 66, 0.4);
+    color: var(--color-gold);
+  }
+
+  .scope-chip-active {
+    border-color: rgba(245, 197, 66, 0.4);
+    background: rgba(245, 197, 66, 0.08);
+    color: var(--color-gold);
+  }
+
+  .scope-window {
+    margin-left: 8px;
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+  }
+
   .activity-vitals {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
     gap: 20px;
     padding: 24px 8px;
   }
@@ -203,5 +361,11 @@
 
   .block {
     margin-bottom: 40px;
+  }
+
+  .tracking-note {
+    margin: 12px 2px 0;
+    color: var(--text-muted);
+    font-size: var(--text-xs);
   }
 </style>
