@@ -2,19 +2,17 @@
   import { page } from "$app/state";
   import Icon from "./Icon.svelte";
   import { SECTIONS } from "$lib/site/nav";
-  import { SEQUOIA_API_BASE_URL } from "$lib/config/public";
   import { nmsrFace } from "$lib/site/nmsr";
+  import { webAuthLogoutUrl, webAuthStartUrl } from "$lib/site/webAuth";
   import type { Viewer } from "$lib/site/viewer";
 
   const DISCORD = "https://discord.gg/seq";
   const MAP = "https://map.seqwawa.com";
-  // Empty base means same-origin mode - the auth links stay relative.
-  const AUTH_BASE = `${SEQUOIA_API_BASE_URL}/auth/web`;
 
   let { viewer = null }: { viewer?: Viewer | null } = $props();
 
-  const signInUrl = $derived(`${AUTH_BASE}/start?return_to=${encodeURIComponent(page.url.href)}`);
-  const signOutUrl = $derived(`${AUTH_BASE}/logout?return_to=${encodeURIComponent(page.url.href)}`);
+  const signInUrl = $derived(webAuthStartUrl(page.url.href));
+  const signOutUrl = $derived(webAuthLogoutUrl(page.url.href));
   const viewerCardUrl = $derived(
     viewer?.minecraftUsername
       ? `/statistics/player/playercard?player=${encodeURIComponent(viewer.minecraftUsername)}`

@@ -1,5 +1,7 @@
 <script lang="ts">
+  import { page } from "$app/state";
   import StatsHeader from "$lib/components/StatsHeader.svelte";
+  import { webAuthStartUrl } from "$lib/site/webAuth";
   import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
   import LedgerTable from "$lib/design-system/components/LedgerTable.svelte";
   import type { LedgerColumn } from "$lib/design-system/components/ledgerTable";
@@ -10,6 +12,7 @@
   let { data } = $props();
 
   const stats = $derived(data.stats);
+  const signInUrl = $derived(webAuthStartUrl(page.url.href));
 
   const rankLabels: Record<string, string> = {
     owner: "Owner",
@@ -106,15 +109,7 @@
 <StatsHeader
   kicker="Guilds"
   title="Raid"
->
-  {#snippet actions()}
-    {#if data.me.authenticated}
-      <span class="auth-note">Signed in as {data.me.username}</span>
-    {:else}
-      <a class="auth-link" href="/api/guild-raids/auth/start">Sign in</a>
-    {/if}
-  {/snippet}
-</StatsHeader>
+/>
 
 {#if stats}
   <div class="divider-gold"></div>
@@ -187,8 +182,12 @@
     <SectionLabel meta={data.selectedEvent ? `${formatDate(data.selectedEvent.starts_at)} – ${formatDate(data.selectedEvent.ends_at)}` : undefined}>
       {#snippet children()}{data.selectedEvent?.name ?? "Contribution"}{/snippet}
     </SectionLabel>
-    {#if !data.me.authenticated}
-      <p class="muted">Sign in with Wynncraft to view member raid contributions for this event.</p>
+    {#if !data.viewer}
+      <p class="muted"><a class="auth-link" href={signInUrl}>Sign in</a> to see member contributions for this event.</p>
+    {:else if data.membershipUnverified}
+      <p class="muted">Membership can't be verified right now - try again shortly.</p>
+    {:else if !data.isMember}
+      <p class="muted">Contributions are visible to current Sequoia members.</p>
     {:else if data.leaderboardError}
       <p class="muted error">{data.leaderboardError}</p>
     {:else if data.leaderboard.length > 0}
@@ -206,20 +205,8 @@
 </div>
 
 <style>
-  .auth-note {
-    color: var(--text-muted);
-    font-family: var(--font-display);
-    font-size: var(--text-2xs);
-    letter-spacing: var(--tracking-wider);
-    text-transform: uppercase;
-  }
-
   .auth-link {
     color: var(--color-gold);
-    font-family: var(--font-display);
-    font-size: var(--text-2xs);
-    letter-spacing: var(--tracking-wider);
-    text-transform: uppercase;
     text-decoration: none;
   }
 
