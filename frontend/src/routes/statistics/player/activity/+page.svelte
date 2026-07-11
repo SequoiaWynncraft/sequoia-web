@@ -4,6 +4,7 @@
   import LedgerTable from "$lib/design-system/components/LedgerTable.svelte";
   import type { LedgerColumn } from "$lib/design-system/components/ledgerTable";
   import DeferredPanel from "$lib/design-system/components/DeferredPanel.svelte";
+  import ScopeChips from "$lib/design-system/components/ScopeChips.svelte";
   import { nmsrFace } from "$lib/site/nmsr";
   import type { GuildMemberStats } from "$lib/api/guildStats";
   import type { MemberProgressEntry } from "$lib/api/memberProgress";
@@ -201,21 +202,15 @@
   title="Activity"
 />
 
-<nav class="scopes" aria-label="Time scope">
-  {#each SCOPES as scope (scope.key)}
-    <a
-      href="?range={scope.key}"
-      class="scope-chip"
-      class:scope-chip-active={data.range === scope.key}
-      aria-current={data.range === scope.key ? "page" : undefined}
-    >
-      {scope.label}
-    </a>
-  {/each}
-  {#if data.view === "gains"}
-    <span class="scope-window">{formatDay(data.from)} to {formatDay(data.to)}</span>
-  {/if}
-</nav>
+<div class="scope-row">
+  <ScopeChips
+    scopes={SCOPES}
+    active={data.range}
+    href={(key) => `?range=${key}`}
+    note={data.view === "gains" ? `${formatDay(data.from)} to ${formatDay(data.to)}` : null}
+    label="Time scope"
+  />
+</div>
 
 {#if data.view === "now" && stats}
   <div class="divider-gold"></div>
@@ -291,41 +286,8 @@
 {/if}
 
 <style>
-  .scopes {
-    display: flex;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: 8px;
+  .scope-row {
     margin-bottom: 28px;
-  }
-
-  .scope-chip {
-    padding: 6px 13px;
-    border: 1px solid var(--color-border-subtle);
-    color: var(--text-body);
-    font-family: var(--font-display);
-    font-size: var(--text-2xs);
-    letter-spacing: var(--tracking-wider);
-    text-transform: uppercase;
-    text-decoration: none;
-    transition: color var(--dur-fast) ease, border-color var(--dur-fast) ease;
-  }
-
-  .scope-chip:hover {
-    border-color: rgba(245, 197, 66, 0.4);
-    color: var(--color-gold);
-  }
-
-  .scope-chip-active {
-    border-color: rgba(245, 197, 66, 0.4);
-    background: rgba(245, 197, 66, 0.08);
-    color: var(--color-gold);
-  }
-
-  .scope-window {
-    margin-left: 8px;
-    color: var(--text-muted);
-    font-size: var(--text-xs);
   }
 
   .activity-vitals {

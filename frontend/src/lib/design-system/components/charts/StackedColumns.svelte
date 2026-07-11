@@ -1,4 +1,6 @@
 <script lang="ts">
+  import ChartTip from "./ChartTip.svelte";
+
   export interface StackedSeries {
     key: string;
     label: string;
@@ -122,22 +124,19 @@
         {/each}
       </svg>
       {#if hovered}
-        <div
-          class="tip"
-          style="left:{Math.min(Math.max(hovered.x + hovered.width / 2, 80), Math.max(width - 80, 80))}px"
-          role="status"
-        >
-          <span class="tip-title">{hovered.label}</span>
-          {#each series as entry (entry.key)}
-            {#if (hovered.values[entry.key] ?? 0) > 0}
-              <span class="tip-row">
-                <span><span class="legend-mark" style="background:{entry.color}" aria-hidden="true"></span>{entry.label}</span>
-                <span>{(hovered.values[entry.key] ?? 0).toLocaleString()}</span>
-              </span>
-            {/if}
-          {/each}
-          <span class="tip-row tip-total"><span>Total</span><span>{hovered.total.toLocaleString()}</span></span>
-        </div>
+        <ChartTip
+          x={hovered.x + hovered.width / 2}
+          plotWidth={width}
+          title={hovered.label}
+          rows={series
+            .filter((entry) => (hovered?.values[entry.key] ?? 0) > 0)
+            .map((entry) => ({
+              label: entry.label,
+              value: (hovered?.values[entry.key] ?? 0).toLocaleString(),
+              mark: entry.color,
+            }))}
+          total={{ label: "Total", value: hovered.total.toLocaleString() + unit }}
+        />
       {/if}
     {/if}
   </div>
@@ -218,53 +217,6 @@
     font-family: var(--font-display);
     font-size: 0.625rem;
     letter-spacing: 0.04em;
-  }
-
-  .tip {
-    position: absolute;
-    bottom: calc(100% - 4px);
-    transform: translateX(-50%);
-    display: grid;
-    gap: 3px;
-    min-width: 160px;
-    padding: 8px 10px;
-    border: 1px solid var(--color-border-accent);
-    background: var(--color-deep);
-    box-shadow: var(--shadow-md);
-    pointer-events: none;
-    z-index: var(--z-base);
-  }
-
-  .tip-title {
-    color: var(--color-gold);
-    font-family: var(--font-display);
-    font-size: var(--text-2xs);
-    letter-spacing: var(--tracking-wider);
-    text-transform: uppercase;
-  }
-
-  .tip-row {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    color: var(--text-body);
-    font-size: var(--text-2xs);
-  }
-
-  .tip-row > span:first-child {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .tip-row > span:last-child {
-    color: var(--text-heading);
-    font-family: var(--font-data);
-  }
-
-  .tip-total {
-    padding-top: 3px;
-    border-top: 1px solid var(--color-border-subtle);
   }
 
   .table-view {
