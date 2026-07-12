@@ -43,10 +43,13 @@
     const normalized = normalizeTime(event.currentTarget.value);
     if (normalized) event.currentTarget.value = normalized;
     if (!datePart) return;
-    // An unparseable time flows into the value so the live validator names
-    // the problem instead of the field silently keeping the old time.
-    value = `${datePart}T${normalized ?? event.currentTarget.value.trim() ?? "00:00"}`;
+    // An invalid time must fail validation loudly. Never store the raw text:
+    // Date.parse accepts "T24:00Z" as next-day midnight, silently shifting
+    // the date - the placeholder below parses to NaN everywhere.
+    value = `${datePart}T${normalized ?? "--:--"}`;
   }
+
+  const timeInvalid = $derived(datePart !== "" && timePart !== "" && normalizeTime(timePart) === null);
 </script>
 
 <div class="mg-instant">
@@ -70,6 +73,7 @@
     disabled={!datePart}
     list="mg-times-{uid}"
     aria-label="{name} time (UTC)"
+    aria-invalid={timeInvalid || undefined}
   />
   <datalist id="mg-times-{uid}">
     {#each QUICK_TIMES as time (time)}
@@ -83,6 +87,28 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr) 92px;
     gap: 8px;
+  }
+
+  /* Mirrors the manage form's .mg-input - that rule is Svelte-scoped to the
+     parent component and cannot reach these inputs. */
+  .mg-input {
+    width: 100%;
+    padding: 9px 11px;
+    border: 1px solid var(--color-border-subtle);
+    background: color-mix(in srgb, var(--color-abyss) 65%, transparent);
+    color: var(--text-body);
+    font-family: var(--font-data);
+    font-size: var(--text-sm);
+    transition: border-color var(--dur-fast) ease;
+  }
+
+  .mg-input:focus-visible {
+    outline: none;
+    border-color: color-mix(in srgb, var(--color-gold) 55%, var(--color-border-subtle));
+  }
+
+  .mg-instant-time[aria-invalid="true"] {
+    border-color: var(--status-error);
   }
 
   .mg-instant-time {
