@@ -1,6 +1,7 @@
 import { fail, redirect } from "@sveltejs/kit";
 import type { Actions, PageServerLoad } from "./$types";
 
+import { eventFormContext } from "$lib/server/eventFormContext";
 import { checkEventManager, requireEventManager } from "$lib/server/eventManagers";
 import { parseEventPayload } from "$lib/server/eventPayload";
 import { eventStore } from "$lib/server/eventStore";
@@ -9,7 +10,9 @@ export const prerender = false;
 
 export const load: PageServerLoad = async ({ fetch, parent }) => {
   const { viewer } = await parent();
-  return { access: await checkEventManager(fetch, viewer) };
+  const access = await checkEventManager(fetch, viewer);
+  if (access !== "manager") return { access, context: null };
+  return { access, context: await eventFormContext(fetch) };
 };
 
 export const actions: Actions = {

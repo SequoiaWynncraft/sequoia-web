@@ -7,7 +7,7 @@ const DAY_FORMAT = new Intl.DateTimeFormat("en", {
 });
 
 /** "Jul 5 - Jul 19", or null when the event has no dates yet. */
-export function formatWindow(event: GuildEvent): string | null {
+export function formatWindow(event: Pick<GuildEvent, "startsAt" | "endsAt">): string | null {
   if (!event.startsAt || !event.endsAt) return null;
   return `${DAY_FORMAT.format(new Date(event.startsAt))} - ${DAY_FORMAT.format(new Date(event.endsAt))}`;
 }

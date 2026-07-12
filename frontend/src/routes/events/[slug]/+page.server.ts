@@ -9,8 +9,10 @@ import { eventStore } from "$lib/server/eventStore";
 import { loadEventRaidCounts, sumCounts, type EventDayCount } from "$lib/server/eventActivity";
 import {
   loadModLeaderboard,
+  loadRaidEvents,
   loadTrackerLeaderboard,
   sameUuid,
+  type LeaderboardResult,
   type RaidLeaderboardEntry,
 } from "$lib/server/raidEventBoards";
 import type { GuildMemberStats } from "$lib/api/guildStats";
@@ -95,11 +97,7 @@ export const load: PageServerLoad = async ({ fetch, params, parent }) => {
     if (membership === "member") {
       const result =
         event.tracker.tracking === "mod"
-          ? await loadModLeaderboard(
-              fetch,
-              { starts_at: event.startsAt, ends_at: event.endsAt },
-              roster,
-            )
+          ? await loadModStandings(fetch, event.tracker.eventId, roster)
           : await loadTrackerLeaderboard(fetch, event.tracker.eventId);
       standings = { state: "board", leaderboard: result.leaderboard, error: result.error };
     } else {
@@ -119,6 +117,26 @@ export const load: PageServerLoad = async ({ fetch, params, parent }) => {
     standings,
   };
 };
+
+/**
+ * Mod-tracked standings count inside the tracker event's own window, which
+ * may differ from the guild event's dates - never silently substitute them.
+ */
+async function loadModStandings(
+  fetchImpl: typeof fetch,
+  eventId: string,
+  roster: GuildMemberStats[],
+): Promise<LeaderboardResult> {
+  const tracked = (await loadRaidEvents(fetchImpl)).find((entry) => entry.id === eventId);
+  if (!tracked) {
+    return { leaderboard: [], error: "Member contributions are temporarily unavailable." };
+  }
+  return loadModLeaderboard(
+    fetchImpl,
+    { starts_at: tracked.starts_at, ends_at: tracked.ends_at },
+    roster,
+  );
+}
 
 function publicView(event: GuildEvent): GuildEvent {
   return {

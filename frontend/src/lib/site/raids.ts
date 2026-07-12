@@ -5,7 +5,7 @@ export interface RaidSeries {
 }
 
 /** Fixed identity colors for known raids — assignment never cycles. */
-const KNOWN_RAIDS: RaidSeries[] = [
+export const KNOWN_RAIDS: RaidSeries[] = [
   { key: "The Canyon Colossus", short: "TCC", color: "var(--chart-amber)" },
   { key: "Nest of the Grootslangs", short: "NOTG", color: "var(--chart-emerald)" },
   { key: "Orphion's Nexus of Light", short: "NOL", color: "var(--chart-teal)" },

@@ -31,7 +31,7 @@
     role="meter"
     aria-valuemin={0}
     aria-valuemax={goal.target}
-    aria-valuenow={shown ?? 0}
+    aria-valuenow={Math.min(shown ?? 0, goal.target)}
     aria-label="{goal.metricLabel} toward {goal.unlock}"
   >
     <div class="goal-fill" style="width:{fraction * 100}%"></div>

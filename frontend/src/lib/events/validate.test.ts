@@ -61,6 +61,20 @@ describe("parseGuildEvent", () => {
     });
   });
 
+  it("keeps the donor player link when present", () => {
+    const result = parseGuildEvent({
+      ...VALID,
+      prizes: [
+        { donor: "kd", prize: "5 stx LE", donorPlayer: " KDGamer " },
+        { donor: "hmar", prize: "5 stx LE" },
+      ],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.event.prizes?.[0].donorPlayer).toBe("KDGamer");
+    expect(result.event.prizes?.[1].donorPlayer).toBeUndefined();
+  });
+
   it("rejects malformed input with a field-specific error", () => {
     expectError({ ...VALID, slug: "Bad Slug!" }, "slug");
     expectError({ ...VALID, slug: "manage" }, "reserved");

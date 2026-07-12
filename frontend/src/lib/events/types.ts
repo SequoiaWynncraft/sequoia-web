@@ -36,8 +36,11 @@ export interface EventGoal {
 }
 
 export interface PrizeEntry {
+  /** Display name for the donor - free text, often a nickname. */
   donor: string;
   prize: string;
+  /** Minecraft username; when set, the donor links to that playercard. */
+  donorPlayer?: string;
 }
 
 export interface CompRole {

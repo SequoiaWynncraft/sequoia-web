@@ -180,7 +180,14 @@
             <ul class="ev-prizes">
               {#each event.prizes as entry (entry.donor + entry.prize)}
                 <li class="ev-prize">
-                  <span class="ev-prize-donor">{entry.donor}</span>
+                  {#if entry.donorPlayer}
+                    <a
+                      class="ev-prize-donor ev-prize-donor-link focus-ring"
+                      href={`/statistics/player/playercard?player=${encodeURIComponent(entry.donorPlayer)}`}
+                    >{entry.donor}</a>
+                  {:else}
+                    <span class="ev-prize-donor">{entry.donor}</span>
+                  {/if}
                   <span class="ev-prize-what">{entry.prize}</span>
                 </li>
               {/each}
@@ -512,6 +519,17 @@
     font-size: var(--text-xs);
     letter-spacing: var(--tracking-wide);
     text-transform: uppercase;
+  }
+
+  .ev-prize-donor-link {
+    text-decoration: none;
+    transition: color var(--dur-fast) ease;
+  }
+
+  .ev-prize-donor-link:hover {
+    color: var(--ev-accent);
+    text-decoration: underline;
+    text-underline-offset: 3px;
   }
 
   .ev-prize-what {
