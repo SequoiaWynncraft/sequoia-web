@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { EVENTS, eventBySlug, eventStatus, hubGroups } from "$lib/events/registry";
+import { EVENTS, eventBySlug, eventHubView, eventStatus, hubGroups } from "$lib/events/registry";
 import type { GuildEvent } from "$lib/events/types";
 
 const THEME = {
@@ -55,5 +55,25 @@ describe("event registry", () => {
 
     const upcoming = groups.upcoming.map((event) => event.slug);
     expect(upcoming.indexOf("lsto-article-5")).toBeLessThan(upcoming.indexOf("the-nameless-hunt"));
+  });
+
+  it("does not expose gated member details in hub entries", () => {
+    const event = makeEvent({
+      access: "members",
+      about: ["Public hero copy"],
+      goal: { metricLabel: "raids", target: 10, unlock: "Prize" },
+      prizes: [{ donor: "member", prize: "Secret prize" }],
+      rules: ["Secret rule"],
+    });
+
+    expect(eventHubView(event)).toEqual({
+      slug: event.slug,
+      name: event.name,
+      tagline: event.tagline,
+      access: event.access,
+      theme: event.theme,
+      startsAt: undefined,
+      endsAt: undefined,
+    });
   });
 });

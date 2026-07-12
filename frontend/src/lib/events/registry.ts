@@ -1,4 +1,4 @@
-import type { EventStatus, GuildEvent } from "./types";
+import type { EventGoal, EventStatus, GuildEvent } from "./types";
 
 /**
  * All guild events, newest intent first. Adding an event is adding an entry
@@ -150,20 +150,26 @@ export function eventStatus(event: GuildEvent, now: Date): EventStatus {
   return "live";
 }
 
+export type HubEvent = Pick<
+  GuildEvent,
+  "slug" | "name" | "tagline" | "access" | "theme" | "startsAt" | "endsAt"
+> & { goal?: EventGoal };
+
 export interface HubGroups {
-  live: GuildEvent[];
+  live: HubEvent[];
   /** Dated events first by start date, then undated (TBA) entries. */
-  upcoming: GuildEvent[];
-  past: GuildEvent[];
+  upcoming: HubEvent[];
+  past: HubEvent[];
 }
 
 export function hubGroups(now: Date): HubGroups {
   const groups: HubGroups = { live: [], upcoming: [], past: [] };
   for (const event of EVENTS) {
     const status = eventStatus(event, now);
-    if (status === "live") groups.live.push(event);
-    else if (status === "ended") groups.past.push(event);
-    else groups.upcoming.push(event);
+    const hubEvent = eventHubView(event);
+    if (status === "live") groups.live.push(hubEvent);
+    else if (status === "ended") groups.past.push(hubEvent);
+    else groups.upcoming.push(hubEvent);
   }
   groups.live.sort(byStart);
   groups.upcoming.sort((a, b) => {
@@ -175,6 +181,20 @@ export function hubGroups(now: Date): HubGroups {
   return groups;
 }
 
-function byStart(a: GuildEvent, b: GuildEvent): number {
+/** Only fields rendered by the hub cross its server-load boundary. */
+export function eventHubView(event: GuildEvent): HubEvent {
+  const view: HubEvent = {
+    slug: event.slug,
+    name: event.name,
+    tagline: event.tagline,
+    access: event.access,
+    theme: event.theme,
+    startsAt: event.startsAt,
+    endsAt: event.endsAt,
+  };
+  return event.access === "public" && event.goal ? { ...view, goal: event.goal } : view;
+}
+
+function byStart(a: HubEvent, b: HubEvent): number {
   return Date.parse(a.startsAt ?? "") - Date.parse(b.startsAt ?? "");
 }

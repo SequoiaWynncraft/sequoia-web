@@ -4,11 +4,12 @@
   import EventSky from "$lib/events/components/EventSky.svelte";
   import EventMeta from "$lib/events/components/EventMeta.svelte";
   import GoalMeter from "$lib/events/components/GoalMeter.svelte";
-  import type { EventStatus, GuildEvent } from "$lib/events/types";
+  import type { HubEvent } from "$lib/events/registry";
+  import type { EventStatus } from "$lib/events/types";
 
   let { data } = $props();
 
-  const shelves: { status: EventStatus; label: string; events: GuildEvent[] }[] = $derived(
+  const shelves: { status: EventStatus; label: string; events: HubEvent[] }[] = $derived(
     [
       { status: "live" as const, label: "Live now", events: data.groups.live },
       { status: "upcoming" as const, label: "Upcoming", events: data.groups.upcoming },
@@ -16,7 +17,7 @@
     ].filter((shelf) => shelf.events.length > 0),
   );
 
-  function statusOf(shelf: EventStatus, event: GuildEvent): EventStatus {
+  function statusOf(shelf: EventStatus, event: HubEvent): EventStatus {
     return shelf === "upcoming" && !event.startsAt ? "tba" : shelf;
   }
 </script>
@@ -48,7 +49,11 @@
                   <EventMeta {event} {status} align="end" showStatus={false} />
                   {#if status === "live" && event.goal}
                     <div class="ev-band-goal">
-                      <GoalMeter goal={event.goal} current={data.progress[event.slug] ?? null} size="band" />
+                      {#await data.progress}
+                        <GoalMeter goal={event.goal} current={null} size="band" />
+                      {:then progress}
+                        <GoalMeter goal={event.goal} current={progress[event.slug] ?? null} size="band" />
+                      {/await}
                     </div>
                   {/if}
                 </div>
