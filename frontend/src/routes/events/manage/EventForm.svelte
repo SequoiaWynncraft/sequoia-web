@@ -220,7 +220,9 @@
     const event: Record<string, unknown> = { slug: slug.trim(), name, tagline, access, theme };
     if (startsAt) event.startsAt = keepInstant(startsAt, seedStartsAt);
     if (endsAt) event.endsAt = keepInstant(endsAt, seedEndsAt);
-    if (iconFile) {
+    // An icon shown nowhere is no icon - unchecking every placement clears
+    // it instead of leaving an unsubmittable draft.
+    if (iconFile && iconPlacements.length > 0) {
       event.icon = {
         file: iconFile,
         placements: ICON_PLACEMENT_ORDER.filter((placement) => iconPlacements.includes(placement)),
