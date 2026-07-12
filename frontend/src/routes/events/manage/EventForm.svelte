@@ -6,7 +6,8 @@
   import InstantField from "./InstantField.svelte";
   import EventSky from "$lib/events/components/EventSky.svelte";
   import GoalMeter from "$lib/events/components/GoalMeter.svelte";
-  import type { CompRole, EventTheme, GuildEvent, PrizeEntry } from "$lib/events/types";
+  import { RAID_ICONS, raidIconUrl } from "$lib/events/raidIcons";
+  import type { CompRole, EventIconPlacement, EventTheme, GuildEvent, PrizeEntry } from "$lib/events/types";
   import { parseGuildEvent } from "$lib/events/validate";
   import type { EventFormContext, TrackerOption } from "$lib/server/eventFormContext";
   import { KNOWN_RAIDS } from "$lib/site/raids";
@@ -70,6 +71,12 @@
   let accent = $state(seed?.theme.accent ?? "#a78bfa");
   let accentSecondary = $state(seed?.theme.accentSecondary ?? "#8fb2f0");
   let star = $state(seed?.theme.star ?? "#c4b5fd");
+
+  // Placements serialize in this fixed order, so click order never churns
+  // the payload (and with it the undo history).
+  const ICON_PLACEMENT_ORDER: EventIconPlacement[] = ["hero", "band", "meta"];
+  let iconFile = $state(seed?.icon?.file ?? "");
+  let iconPlacements = $state<EventIconPlacement[]>(seed?.icon?.placements ?? ["hero"]);
 
   let about = $state(seed?.about?.join("\n\n") ?? "");
   // Repeater rows carry a locally generated id so the each blocks are keyed -
@@ -213,6 +220,12 @@
     const event: Record<string, unknown> = { slug: slug.trim(), name, tagline, access, theme };
     if (startsAt) event.startsAt = keepInstant(startsAt, seedStartsAt);
     if (endsAt) event.endsAt = keepInstant(endsAt, seedEndsAt);
+    if (iconFile) {
+      event.icon = {
+        file: iconFile,
+        placements: ICON_PLACEMENT_ORDER.filter((placement) => iconPlacements.includes(placement)),
+      };
+    }
     const paragraphs = splitParagraphs(about);
     if (paragraphs.length > 0) event.about = paragraphs;
     if (goalEnabled && goals.length > 0) {
@@ -522,6 +535,13 @@
     accent = text(themeDraft.accent) || "#a78bfa";
     accentSecondary = text(themeDraft.accentSecondary) || "#8fb2f0";
     star = text(themeDraft.star) || "#c4b5fd";
+    const iconDraft = (draft.icon ?? null) as Record<string, unknown> | null;
+    iconFile = iconDraft ? text(iconDraft.file) : "";
+    const placementsDraft = iconDraft && Array.isArray(iconDraft.placements) ? iconDraft.placements : null;
+    // No icon resets the placements, so the next pick defaults to hero.
+    iconPlacements = placementsDraft
+      ? ICON_PLACEMENT_ORDER.filter((placement) => placementsDraft.includes(placement))
+      : ["hero"];
     seedStartsAt = text(draft.startsAt);
     seedEndsAt = text(draft.endsAt);
     startsAt = seedStartsAt.slice(0, 16);
@@ -852,6 +872,62 @@
             </span>
           </label>
         </div>
+      </section>
+
+      <section class="mg-section">
+        <SectionLabel>{#snippet children()}Icon{/snippet}</SectionLabel>
+        <div class="mg-icon-grid" role="group" aria-label="Event icon">
+          <button
+            type="button"
+            class="mg-icon-option focus-ring"
+            class:mg-icon-option-selected={iconFile === ""}
+            aria-pressed={iconFile === ""}
+            onclick={() => (iconFile = "")}
+          >
+            <span class="mg-icon-none" aria-hidden="true">✕</span>
+            <span class="mg-icon-label">None</span>
+          </button>
+          {#each RAID_ICONS as icon (icon.file)}
+            <button
+              type="button"
+              class="mg-icon-option focus-ring"
+              class:mg-icon-option-selected={iconFile === icon.file}
+              aria-pressed={iconFile === icon.file}
+              onclick={() => (iconFile = icon.file)}
+            >
+              <img src={raidIconUrl(icon.file)} alt="" loading="lazy" />
+              <span class="mg-icon-label">{icon.label}</span>
+            </button>
+          {/each}
+        </div>
+        {#if iconFile}
+          <div class="mg-field">
+            <span class="mg-label">Shown on</span>
+            <div class="mg-icon-placements">
+              <label class="mg-check">
+                <input type="checkbox" value="hero" bind:group={iconPlacements} />
+                <span>
+                  Hero
+                  <small>Event page, above the name.</small>
+                </span>
+              </label>
+              <label class="mg-check">
+                <input type="checkbox" value="band" bind:group={iconPlacements} />
+                <span>
+                  Band
+                  <small>Marks the event's row on the hub.</small>
+                </span>
+              </label>
+              <label class="mg-check">
+                <input type="checkbox" value="meta" bind:group={iconPlacements} />
+                <span>
+                  Meta
+                  <small>Next to the status line.</small>
+                </span>
+              </label>
+            </div>
+          </div>
+        {/if}
       </section>
 
       <section class="mg-section">
@@ -1287,7 +1363,11 @@
     <SectionLabel>{#snippet children()}Preview{/snippet}</SectionLabel>
     <EventSky {theme}>
       <div class="mg-preview">
-        <span class="mg-preview-spark" style="color: {accent}" aria-hidden="true">✦</span>
+        {#if iconFile && iconPlacements.includes("hero")}
+          <img class="mg-preview-icon" src={raidIconUrl(iconFile)} alt="" />
+        {:else}
+          <span class="mg-preview-spark" style="color: {accent}" aria-hidden="true">✦</span>
+        {/if}
         <span
           class="mg-preview-name"
           style="background-image: linear-gradient(90deg, {accent}, {accentSecondary})"
@@ -1561,6 +1641,65 @@
     accent-color: var(--ev-accent, var(--color-gold));
   }
 
+  .mg-icon-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(86px, 1fr));
+    gap: 10px;
+  }
+
+  .mg-icon-option {
+    display: grid;
+    justify-items: center;
+    gap: 8px;
+    padding: 12px 6px 10px;
+    border: 1px solid var(--color-border-subtle);
+    background: none;
+    cursor: pointer;
+    transition: border-color var(--dur-fast) ease;
+  }
+
+  .mg-icon-option:hover {
+    border-color: var(--color-border-accent);
+  }
+
+  .mg-icon-option-selected,
+  .mg-icon-option-selected:hover {
+    border-color: color-mix(in srgb, var(--color-gold) 55%, var(--color-border-subtle));
+  }
+
+  .mg-icon-option img {
+    width: 36px;
+    height: 36px;
+    image-rendering: pixelated;
+  }
+
+  .mg-icon-none {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+  }
+
+  .mg-icon-label {
+    color: var(--text-muted);
+    font-family: var(--font-display);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+  }
+
+  .mg-icon-option-selected .mg-icon-label {
+    color: var(--color-gold);
+  }
+
+  .mg-icon-placements {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 28px;
+  }
+
   .mg-choices {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1737,6 +1876,12 @@
 
   .mg-preview-spark {
     font-size: var(--text-sm);
+  }
+
+  .mg-preview-icon {
+    width: 32px;
+    height: 32px;
+    image-rendering: pixelated;
   }
 
   .mg-preview-name {

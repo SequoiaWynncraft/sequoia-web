@@ -51,7 +51,7 @@ export function eventChart(event: GuildEvent): EventChart | null {
 
 export type HubEvent = Pick<
   GuildEvent,
-  "slug" | "name" | "tagline" | "access" | "theme" | "startsAt" | "endsAt"
+  "slug" | "name" | "tagline" | "access" | "theme" | "icon" | "startsAt" | "endsAt"
 > & {
   /** The event's primary (first) goal - the hub band shows one meter. */
   goal?: EventGoal;
@@ -94,6 +94,7 @@ export function eventHubView(event: GuildEvent): HubEvent {
     startsAt: event.startsAt,
     endsAt: event.endsAt,
   };
+  if (event.icon?.placements.includes("band")) view.icon = event.icon;
   const primary = event.goals?.[0];
   return event.access === "public" && primary ? { ...view, goal: primary } : view;
 }

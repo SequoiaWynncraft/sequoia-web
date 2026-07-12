@@ -9,6 +9,7 @@
   import { themeVars } from "$lib/events/theme";
   import { isoDay } from "$lib/events/format";
   import { nmsrFace } from "$lib/site/nmsr";
+  import { raidIconUrl } from "$lib/events/raidIcons";
   import type { RaidLeaderboardEntry } from "$lib/server/raidEventBoards";
 
   let { data } = $props();
@@ -16,6 +17,10 @@
   const event = $derived(data.event);
   const status = $derived(data.status);
   const signInUrl = $derived(webAuthStartUrl());
+  const iconAt = $derived(
+    (placement: "hero" | "meta"): string | null =>
+      event.icon?.placements.includes(placement) ? raidIconUrl(event.icon.file) : null,
+  );
 
   /** Live reads the feed, ended freezes on finalTotal, before start shows zero. */
   const goalCurrent = $derived((index: number): number | null => {
@@ -66,10 +71,17 @@
   </a>
 
   <header class="ev-hero">
-    <span class="ev-hero-spark ev-enter" style="--enter: 0" aria-hidden="true">✦</span>
+    {#if iconAt("hero")}
+      <img class="ev-hero-icon ev-enter" style="--enter: 0" src={iconAt("hero")} alt="" />
+    {:else}
+      <span class="ev-hero-spark ev-enter" style="--enter: 0" aria-hidden="true">✦</span>
+    {/if}
     <h1 class="ev-hero-name ev-enter" style="--enter: 1">{event.name}</h1>
     <p class="ev-hero-tagline ev-enter" style="--enter: 2">{event.tagline}</p>
-    <div class="ev-enter" style="--enter: 3">
+    <div class="ev-hero-meta ev-enter" style="--enter: 3">
+      {#if iconAt("meta")}
+        <img class="ev-meta-icon" src={iconAt("meta")} alt="" />
+      {/if}
       <EventMeta {event} {status} align="center" />
     </div>
     {#if data.draft}
@@ -333,6 +345,28 @@
     font-size: 1.5rem;
     line-height: 1;
     text-shadow: 0 0 18px color-mix(in srgb, var(--ev-accent) 60%, transparent);
+  }
+
+  /* The icon takes the spark's slot - both stacked would crowd the name. */
+  .ev-hero-icon {
+    width: 40px;
+    height: 40px;
+    margin-bottom: 16px;
+    image-rendering: pixelated;
+  }
+
+  .ev-hero-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .ev-meta-icon {
+    width: 28px;
+    height: 28px;
+    image-rendering: pixelated;
   }
 
   .ev-hero-name {

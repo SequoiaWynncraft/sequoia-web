@@ -1,4 +1,13 @@
-import type { CompRole, EventGoal, EventTheme, GuildEvent, PrizeEntry } from "./types";
+import { RAID_ICONS } from "./raidIcons";
+import type {
+  CompRole,
+  EventGoal,
+  EventIcon,
+  EventIconPlacement,
+  EventTheme,
+  GuildEvent,
+  PrizeEntry,
+} from "./types";
 
 export type ParseResult = { ok: true; event: GuildEvent } | { ok: false; error: string };
 
@@ -48,6 +57,7 @@ function parseEvent(value: unknown): GuildEvent {
     event.endsAt = endsAt;
   }
 
+  if (present(raw.icon)) event.icon = parseIcon(raw.icon);
   const about = parseLines(raw.about, "about", 2000);
   if (about) event.about = about;
   const goals = parseGoals(raw);
@@ -92,6 +102,27 @@ function parseColor(value: unknown, label: string): string {
     fail(`${label} must be a hex color like #a78bfa`);
   }
   return value.trim().toLowerCase();
+}
+
+const ICON_PLACEMENTS: EventIconPlacement[] = ["hero", "band", "meta"];
+
+/** Placements are normalized to catalog order with duplicates dropped. */
+function parseIcon(value: unknown): EventIcon {
+  const raw = asRecord(value, "icon");
+  const file = requiredText(raw.file, "icon file", 80);
+  if (!RAID_ICONS.some((icon) => icon.file === file)) {
+    fail(`"${file}" is not in the raid-icon catalog`);
+  }
+  const entries = raw.placements;
+  if (!Array.isArray(entries)) fail("icon placements must be a list");
+  for (const entry of entries) {
+    if (entry !== "hero" && entry !== "band" && entry !== "meta") {
+      fail("icon placements must be hero, band, or meta");
+    }
+  }
+  const placements = ICON_PLACEMENTS.filter((placement) => entries.includes(placement));
+  if (placements.length === 0) fail("the icon needs at least one placement");
+  return { file, placements };
 }
 
 function parseInstant(value: unknown, label: string): string {

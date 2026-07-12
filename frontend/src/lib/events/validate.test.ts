@@ -109,6 +109,36 @@ describe("parseGuildEvent", () => {
     }
   });
 
+  it("accepts a catalog icon and normalizes its placements", () => {
+    const result = parseGuildEvent({
+      ...VALID,
+      icon: { file: "raid_icon_tna_transparent.png", placements: ["meta", "hero", "hero"] },
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // Duplicates drop and the order becomes canonical.
+    expect(result.event.icon).toEqual({
+      file: "raid_icon_tna_transparent.png",
+      placements: ["hero", "meta"],
+    });
+  });
+
+  it("rejects icons outside the catalog or with unknown placements", () => {
+    expectError(
+      { ...VALID, icon: { file: "raid_icon_fake.png", placements: ["hero"] } },
+      "raid-icon catalog",
+    );
+    expectError(
+      { ...VALID, icon: { file: "raid_icon_tcc_transparent.png", placements: ["footer"] } },
+      "hero, band, or meta",
+    );
+    expectError(
+      { ...VALID, icon: { file: "raid_icon_tcc_transparent.png", placements: [] } },
+      "at least one placement",
+    );
+    expectError({ ...VALID, icon: { placements: ["hero"] } }, "icon file");
+  });
+
   it("normalizes the legacy single goal into a one-milestone goals list", () => {
     const result = parseGuildEvent({
       ...VALID,
