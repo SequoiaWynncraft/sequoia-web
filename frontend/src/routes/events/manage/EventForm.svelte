@@ -177,7 +177,9 @@
       };
       if (goalSource !== "manual") {
         goal.feed = goalSource;
-        if (goalSource === "raids" && goalRaid) goal.countRaid = goalRaid;
+        if ((goalSource === "raids" || goalSource === "raidRuns") && goalRaid) {
+          goal.countRaid = goalRaid;
+        }
       }
       if (hasCount(goalFinalTotal)) goal.finalTotal = toCount(goalFinalTotal);
       event.goal = goal;
