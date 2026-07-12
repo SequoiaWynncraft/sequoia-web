@@ -170,5 +170,7 @@ function publicView(event: GuildEvent): GuildEvent {
     startsAt: event.startsAt,
     endsAt: event.endsAt,
     about: event.about,
+    // Part of the public hero, like the theme - not gated content.
+    icon: event.icon,
   };
 }

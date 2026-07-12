@@ -5,6 +5,7 @@
   import EventMeta from "$lib/events/components/EventMeta.svelte";
   import GoalMeter from "$lib/events/components/GoalMeter.svelte";
   import type { HubEvent } from "$lib/events/helpers";
+  import { raidIconUrl } from "$lib/events/raidIcons";
   import type { EventStatus } from "$lib/events/types";
 
   let { data } = $props();
@@ -44,6 +45,9 @@
           <a class="ev-band-link focus-ring" href={`/events/${event.slug}`}>
             <EventSky theme={event.theme} dim={status === "ended"}>
               <div class="ev-band ev-band-{status}">
+                {#if event.icon}
+                  <img class="ev-band-icon" src={raidIconUrl(event.icon.file)} alt="" />
+                {/if}
                 <div class="ev-band-main">
                   <span class="ev-band-name">{event.name}</span>
                   <span class="ev-band-tagline">{event.tagline}</span>
@@ -124,10 +128,24 @@
     padding: 16px 28px;
   }
 
+  .ev-band-icon {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    image-rendering: pixelated;
+  }
+
+  .ev-band-ended .ev-band-icon {
+    width: 28px;
+    height: 28px;
+  }
+
   .ev-band-main {
     display: grid;
     gap: 6px;
     min-width: 0;
+    /* The icon marks the row; the name keeps the remaining width. */
+    flex-grow: 1;
   }
 
   .ev-band-name {

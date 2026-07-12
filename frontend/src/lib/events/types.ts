@@ -14,6 +14,16 @@ export interface EventTheme {
   star: string;
 }
 
+/** Where an event's icon appears; the editor picks any subset. */
+export type EventIconPlacement = "hero" | "band" | "meta";
+
+export interface EventIcon {
+  /** File name from the raid-icon catalog. */
+  file: string;
+  /** At least one placement; hero is the editor default. */
+  placements: EventIconPlacement[];
+}
+
 export interface GoalMilestone {
   /** Metric value at which this unlock triggers. */
   at: number;
@@ -63,6 +73,8 @@ export interface GuildEvent {
   tagline: string;
   access: EventAccess;
   theme: EventTheme;
+  /** Raid icon shown at the chosen placements; absent shows none. */
+  icon?: EventIcon;
   /** RFC3339 instants; both absent means dates are TBA. */
   startsAt?: string;
   endsAt?: string;
