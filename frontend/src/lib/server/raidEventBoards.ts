@@ -13,6 +13,8 @@ export interface RaidEvent {
   ends_at: string;
   /** Contribution source: API counter diffs, or in-game mod scraping. */
   tracking?: "api" | "mod";
+  /** Mod-tracked events may count a single raid; null counts all of them. */
+  raid?: string | null;
 }
 
 export interface RaidLeaderboardEntry {
@@ -70,13 +72,14 @@ interface ModLeaderboardResponse {
 
 export async function loadModLeaderboard(
   fetchImpl: typeof fetch,
-  window: { starts_at: string; ends_at: string },
+  window: { starts_at: string; ends_at: string; raid?: string | null },
   roster: GuildMemberStats[],
 ): Promise<LeaderboardResult> {
   const headers = sequoiaBackendInternalHeaders();
   const origin = sequoiaBackendOrigin();
   if (!headers || !origin) return { leaderboard: [], error: LEADERBOARD_UNAVAILABLE };
   const query = new URLSearchParams({ from: window.starts_at, to: window.ends_at });
+  if (window.raid) query.set("raid", window.raid);
   try {
     const response = await fetchImpl(`${origin}/internal/mod-raids/leaderboard?${query}`, {
       headers,
