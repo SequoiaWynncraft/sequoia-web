@@ -118,10 +118,11 @@ function parseGoal(value: unknown): EventGoal {
 
 function parsePrize(value: unknown): PrizeEntry {
   const raw = asRecord(value, "prize");
-  return {
-    donor: requiredText(raw.donor, "prize donor", 80),
-    prize: requiredText(raw.prize, "prize", 300),
-  };
+  const donor = optionalText(raw.donor, "prize donor", 80);
+  if (!donor) fail("each prize needs a donor");
+  const prize = optionalText(raw.prize, "prize", 300);
+  if (!prize) fail(`the prize from "${donor}" needs a description`);
+  return { donor, prize };
 }
 
 function parseComp(value: unknown): NonNullable<GuildEvent["comp"]> {
@@ -136,10 +137,11 @@ function parseComp(value: unknown): NonNullable<GuildEvent["comp"]> {
 
 function parseRole(value: unknown): CompRole {
   const raw = asRecord(value, "comp role");
-  const role: CompRole = {
-    role: requiredText(raw.role, "role name", 60),
-    builds: requiredText(raw.builds, "role builds", 200),
-  };
+  const name = optionalText(raw.role, "role name", 60);
+  if (!name) fail("each comp role needs a name");
+  const builds = optionalText(raw.builds, "role builds", 200);
+  if (!builds) fail(`the comp role "${name}" needs builds listed`);
+  const role: CompRole = { role: name, builds };
   const note = optionalText(raw.note, "role note", 200);
   if (note) role.note = note;
   return role;
