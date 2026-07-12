@@ -1653,6 +1653,7 @@
     display: grid;
     justify-items: center;
     gap: 8px;
+    min-width: 0;
     padding: 12px 6px 10px;
     border: 1px solid var(--color-border-subtle);
     background: none;
@@ -1685,10 +1686,13 @@
   }
 
   .mg-icon-label {
+    max-width: 100%;
+    overflow-wrap: anywhere;
     color: var(--text-muted);
     font-family: var(--font-display);
     font-size: var(--text-2xs);
     letter-spacing: var(--tracking-wider);
+    text-align: center;
     text-transform: uppercase;
   }
 

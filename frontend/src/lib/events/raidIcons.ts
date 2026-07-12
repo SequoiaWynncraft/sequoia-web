@@ -27,7 +27,7 @@ export const RAID_ICONS: RaidIcon[] = [
   { file: "raid_icon_wtp_bg.png", label: "TWP tile" },
   { file: "raid_icon_nol-notg-tna-tcc.png", label: "Four raids" },
   { file: "raid_icon_nol-notg-tna-tcc-wtp.png", label: "Five raids" },
-  { file: "raid_icon_annihilation_bg.png", label: "Annihilation" },
+  { file: "raid_icon_annihilation_bg.png", label: "Anni" },
 ];
 
 export function raidIconUrl(file: string): string {
