@@ -124,9 +124,14 @@ async function loadSearch(fetchImpl: typeof fetch, query: string): Promise<Guild
   if (response.status === 404) return [];
   if (!response.ok) throw new Error(`Wynncraft search failed with status ${response.status}.`);
   const payload = (await response.json()) as Record<string, unknown>;
-  const guilds = payload.guilds;
-  if (typeof guilds !== "object" || guilds === null) return [];
-  const hits = Object.values(guilds).flatMap((entry): GuildSearchHit[] => {
+  // Name matches and prefix/tag matches arrive in separate maps, both keyed
+  // by guild uuid - merge them so searching by tag works.
+  const byUuid = new Map<string, unknown>();
+  for (const source of [payload.guilds, payload.guildsPrefix]) {
+    if (typeof source !== "object" || source === null) continue;
+    for (const [uuid, entry] of Object.entries(source)) byUuid.set(uuid, entry);
+  }
+  const hits = [...byUuid.values()].flatMap((entry): GuildSearchHit[] => {
     if (typeof entry !== "object" || entry === null) return [];
     const record = entry as Record<string, unknown>;
     if (typeof record.name !== "string") return [];

@@ -17,8 +17,10 @@
 
   const currentSeason = $derived(stats.season_ranks.at(-1) ?? null);
   const bestFinish = $derived.by(() => {
+    // The live season is a standing, not a finish - keep it out.
+    const liveSeasonSlug = `guildSeason${currentSeason?.season ?? -1}`;
     const finishes = Object.entries(stats.rankings)
-      .filter(([slug]) => /^guildSeason\d+$/.test(slug))
+      .filter(([slug]) => /^guildSeason\d+$/.test(slug) && slug !== liveSeasonSlug)
       .map(([, position]) => position);
     return finishes.length > 0 ? Math.min(...finishes) : null;
   });
