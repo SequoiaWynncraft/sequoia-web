@@ -6,6 +6,7 @@ import { eventFormContext } from "$lib/server/eventFormContext";
 import { checkEventManager, requireEventManager } from "$lib/server/eventManagers";
 import { createTrackerAction, updateTrackerAction } from "$lib/server/trackerAdmin";
 import { parseEventPayload } from "$lib/server/eventPayload";
+import { deletePresetAction, savePresetAction } from "$lib/server/eventPresets";
 import { eventStore } from "$lib/server/eventStore";
 
 export const prerender = false;
@@ -49,4 +50,6 @@ export const actions: Actions = {
 
   createTracker: createTrackerAction,
   updateTracker: updateTrackerAction,
+  savePreset: savePresetAction,
+  deletePreset: deletePresetAction,
 };

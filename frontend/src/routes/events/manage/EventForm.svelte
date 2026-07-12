@@ -21,6 +21,7 @@
     trackerCreated = null,
     trackerUpdated = null,
     trackerError = null,
+    presetError = null,
   }: {
     mode: "create" | "edit";
     initial?: GuildEvent | null;
@@ -35,6 +36,7 @@
     /** Result of the last ?/updateTracker submission. */
     trackerUpdated?: TrackerOption | null;
     trackerError?: string | null;
+    presetError?: string | null;
   } = $props();
 
   // The form deliberately seeds from the props once - the parent remounts it
@@ -56,8 +58,10 @@
   let published = $state(seedPublished);
   // Original instants survive untouched edits - datetime-local inputs carry
   // minute precision, and rewriting an unchanged value would shift seconds.
-  const seedStartsAt = seed?.startsAt ?? "";
-  const seedEndsAt = seed?.endsAt ?? "";
+  // Reassigned by applyDraft so replayed snapshots keep THEIR exact seconds,
+  // not the originally loaded event's.
+  let seedStartsAt = $state(seed?.startsAt ?? "");
+  let seedEndsAt = $state(seed?.endsAt ?? "");
   let startsAt = $state(toInput(seed?.startsAt));
   let endsAt = $state(toInput(seed?.endsAt));
 
@@ -428,10 +432,321 @@
     const text = (value ?? "").trim();
     return text === "" ? Number.NaN : Number(text);
   }
+
+  // ── Undo / redo ─────────────────────────────────────────────────────
+  // Snapshots are the same draft JSON the form submits, captured after a
+  // short quiet period; undo replays one through applyDraft. No keyboard
+  // shortcuts - Ctrl+Z inside a text field must stay the native text undo.
+  const HISTORY_LIMIT = 60;
+  const CAPTURE_QUIET_MS = 600;
+  let undoStack = $state<string[]>([]);
+  let redoStack = $state<string[]>([]);
+  // svelte-ignore state_referenced_locally
+  let lastCaptured = $state(payload);
+  let captureTimer: ReturnType<typeof setTimeout> | undefined;
+
+  // Replayed snapshots need no suppression flag: applySnapshot re-points
+  // lastCaptured at the applied state, so the debounced capture no-ops on
+  // equality, while a real edit in the quiet window still differs and lands.
+  $effect(() => {
+    const current = payload;
+    clearTimeout(captureTimer);
+    captureTimer = setTimeout(() => capture(current), CAPTURE_QUIET_MS);
+    return () => clearTimeout(captureTimer);
+  });
+
+  function capture(current: string) {
+    if (current === lastCaptured) return;
+    undoStack.push(lastCaptured);
+    if (undoStack.length > HISTORY_LIMIT) undoStack.shift();
+    if (redoStack.length > 0) redoStack.length = 0;
+    lastCaptured = current;
+  }
+
+  const hasPendingEdit = $derived(payload !== lastCaptured);
+
+  function undo() {
+    clearTimeout(captureTimer);
+    if (hasPendingEdit) {
+      // An in-progress edit undoes to the last settled draft and stays
+      // redoable - and, like any new edit, it abandons the old redo branch.
+      redoStack.length = 0;
+      redoStack.push(payload);
+      applySnapshot(lastCaptured);
+      return;
+    }
+    const previous = undoStack.pop();
+    if (previous === undefined) return;
+    redoStack.push(lastCaptured);
+    applySnapshot(previous);
+  }
+
+  function redo() {
+    clearTimeout(captureTimer);
+    if (hasPendingEdit) {
+      // Typing after an undo invalidates the redo branch, like any editor.
+      capture(payload);
+      return;
+    }
+    const next = redoStack.pop();
+    if (next === undefined) return;
+    undoStack.push(lastCaptured);
+    applySnapshot(next);
+  }
+
+  function applySnapshot(snapshot: string) {
+    const parsed = JSON.parse(snapshot) as { event?: Record<string, unknown>; published?: boolean };
+    applyDraft(parsed.event ?? {}, mode === "edit");
+    published = parsed.published === true;
+    lastCaptured = payload;
+  }
+
+  /** Rehydrates every field from a draft event object; the inverse of draftEvent. */
+  function applyDraft(draft: Record<string, unknown>, keepSlug: boolean) {
+    const text = (value: unknown) => (typeof value === "string" ? value : "");
+    const count = (value: unknown): string | number =>
+      typeof value === "number" && Number.isFinite(value) ? value : "";
+    if (!keepSlug) {
+      slug = text(draft.slug);
+      // A slug that still matches its name was never hand-edited - keep
+      // auto-slug mode alive across replays.
+      slugEdited = slug !== "" && slug !== slugify(text(draft.name));
+    }
+    name = text(draft.name);
+    tagline = text(draft.tagline);
+    access = draft.access === "public" ? "public" : "members";
+    const themeDraft = (draft.theme ?? {}) as Record<string, unknown>;
+    const sky = Array.isArray(themeDraft.sky) ? themeDraft.sky : [];
+    skyTop = text(sky[0]) || "#171120";
+    skyBottom = text(sky[1]) || "#251b38";
+    accent = text(themeDraft.accent) || "#a78bfa";
+    accentSecondary = text(themeDraft.accentSecondary) || "#8fb2f0";
+    star = text(themeDraft.star) || "#c4b5fd";
+    seedStartsAt = text(draft.startsAt);
+    seedEndsAt = text(draft.endsAt);
+    startsAt = seedStartsAt.slice(0, 16);
+    endsAt = seedEndsAt.slice(0, 16);
+    about = Array.isArray(draft.about)
+      ? draft.about.filter((entry): entry is string => typeof entry === "string").join("\n\n")
+      : "";
+    const goalsDraft = Array.isArray(draft.goals) ? draft.goals : [];
+    goalEnabled = goalsDraft.length > 0;
+    goals = goalsDraft.map((entry) => {
+      const record = (entry ?? {}) as Record<string, unknown>;
+      const milestonesDraft = Array.isArray(record.milestones) && record.milestones.length > 0
+        ? record.milestones
+        : [{}];
+      return {
+        id: nextRowId++,
+        metric: text(record.metricLabel),
+        source: (record.feed === "raids" ||
+        record.feed === "raidRuns" ||
+        record.feed === "wars" ||
+        record.feed === "playtime"
+          ? record.feed
+          : "manual") as GoalSource,
+        raid: text(record.countRaid),
+        finalTotal: count(record.finalTotal),
+        milestones: milestonesDraft.map((milestone) => {
+          const milestoneRecord = (milestone ?? {}) as Record<string, unknown>;
+          return { id: nextRowId++, at: count(milestoneRecord.at), unlock: text(milestoneRecord.unlock) };
+        }),
+        previewPercent: 60,
+      };
+    });
+    const activityDraft = (draft.activity ?? null) as Record<string, unknown> | null;
+    chartSource = activityDraft
+      ? activityDraft.source === "none"
+        ? "off"
+        : activityDraft.source === "raids" || activityDraft.source === "raidRuns"
+          ? activityDraft.source
+          : "goal"
+      : "goal";
+    chartRaid = activityDraft ? text(activityDraft.countRaid) : "";
+    prizes = (Array.isArray(draft.prizes) ? draft.prizes : []).map((entry) => {
+      const record = (entry ?? {}) as Record<string, unknown>;
+      return {
+        donor: text(record.donor),
+        prize: text(record.prize),
+        donorPlayer: text(record.donorPlayer),
+        id: nextRowId++,
+      };
+    });
+    prizesNote = text(draft.prizesNote);
+    const compDraft = (draft.comp ?? null) as Record<string, unknown> | null;
+    compRoles = (compDraft && Array.isArray(compDraft.roles) ? compDraft.roles : []).map((entry) => {
+      const record = (entry ?? {}) as Record<string, unknown>;
+      return { role: text(record.role), builds: text(record.builds), note: text(record.note), id: nextRowId++ };
+    });
+    compNote = compDraft ? text(compDraft.note) : "";
+    rules = Array.isArray(draft.rules)
+      ? draft.rules.filter((entry): entry is string => typeof entry === "string").join("\n")
+      : "";
+    const trackerDraft = (draft.tracker ?? null) as Record<string, unknown> | null;
+    trackerEnabled = trackerDraft !== null;
+    trackerEventId = trackerDraft ? text(trackerDraft.eventId) : "";
+    trackerTracking = trackerDraft && trackerDraft.tracking === "mod" ? "mod" : "api";
+    trackerManual =
+      trackerChoices.length === 0 ||
+      (trackerEnabled && !trackerChoices.some((option) => option.id === trackerEventId));
+  }
+
+  // ── Presets ─────────────────────────────────────────────────────────
+  // svelte-ignore state_referenced_locally
+  let presetChoices = $state(context?.presets ?? []);
+  let selectedPreset = $state("");
+  let newPresetName = $state("");
+  let confirmingPresetDelete = $state(false);
+  const presetPayload = $derived(JSON.stringify(draftEvent));
+
+  function loadPreset() {
+    const preset = presetChoices.find((entry) => entry.name === selectedPreset);
+    if (!preset) return;
+    let draft: Record<string, unknown>;
+    try {
+      draft = JSON.parse(preset.payload) as Record<string, unknown>;
+    } catch {
+      return;
+    }
+    // Loading is an edit like any other - one undo step returns here.
+    clearTimeout(captureTimer);
+    capture(payload);
+    undoStack.push(lastCaptured);
+    if (undoStack.length > HISTORY_LIMIT) undoStack.shift();
+    redoStack.length = 0;
+    applySnapshot(JSON.stringify({ event: draft, published }));
+  }
+
+  /**
+   * Adoption happens once, in the submission's own result callback - a
+   * lingering form prop would replay it on every later toolbar interaction.
+   */
+  const presetSubmit: SubmitFunction = () => {
+    const payloadAtSubmit = presetPayload;
+    return async ({ result, update }) => {
+      if (result.type === "success") {
+        const saved = (result.data as { presetSaved?: unknown } | undefined)?.presetSaved;
+        if (typeof saved === "string") {
+          // Selection is about to move - an armed delete must not carry over.
+          confirmingPresetDelete = false;
+          const entry = { name: saved, payload: payloadAtSubmit, updatedAt: Date.now() };
+          const index = presetChoices.findIndex((candidate) => candidate.name === saved);
+          if (index >= 0) presetChoices[index] = entry;
+          else {
+            presetChoices.push(entry);
+            presetChoices.sort((a, b) => a.name.localeCompare(b.name));
+          }
+          selectedPreset = saved;
+          newPresetName = "";
+        }
+      }
+      await update();
+    };
+  };
+
+  const presetDelete: SubmitFunction = () => {
+    return async ({ result, update }) => {
+      confirmingPresetDelete = false;
+      if (result.type === "success") {
+        const deleted = (result.data as { presetDeleted?: unknown } | undefined)?.presetDeleted;
+        if (typeof deleted === "string") {
+          presetChoices = presetChoices.filter((candidate) => candidate.name !== deleted);
+          if (selectedPreset === deleted) selectedPreset = "";
+        }
+      }
+      await update();
+    };
+  };
 </script>
 
 <div class="mg-editor">
   <div class="mg-main">
+    <div class="mg-toolbar">
+      <div class="mg-history" role="group" aria-label="Edit history">
+        <button
+          type="button"
+          class="seq-button seq-button-ghost seq-button-sm"
+          onclick={undo}
+          disabled={undoStack.length === 0 && !hasPendingEdit}
+        >
+          Undo
+        </button>
+        <button
+          type="button"
+          class="seq-button seq-button-ghost seq-button-sm"
+          onclick={redo}
+          disabled={redoStack.length === 0}
+        >
+          Redo
+        </button>
+      </div>
+      <div class="mg-presets">
+        <select
+          class="mg-input mg-preset-select"
+          bind:value={selectedPreset}
+          onchange={() => (confirmingPresetDelete = false)}
+          aria-label="Saved presets"
+        >
+          <option value="">Presets…</option>
+          {#each presetChoices as preset (preset.name)}
+            <option value={preset.name}>{preset.name}</option>
+          {/each}
+        </select>
+        <button
+          type="button"
+          class="seq-button seq-button-secondary seq-button-sm"
+          onclick={loadPreset}
+          disabled={!selectedPreset}
+        >
+          Load
+        </button>
+        <form method="POST" action="?/deletePreset" use:enhance={presetDelete}>
+          <input type="hidden" name="presetName" value={selectedPreset} />
+          {#if confirmingPresetDelete}
+            <button type="submit" class="seq-button seq-button-ghost seq-button-sm mg-preset-confirm">
+              Confirm delete
+            </button>
+            <button
+              type="button"
+              class="seq-button seq-button-ghost seq-button-sm"
+              onclick={() => (confirmingPresetDelete = false)}
+            >
+              Keep
+            </button>
+          {:else}
+            <button
+              type="button"
+              class="seq-button seq-button-ghost seq-button-sm"
+              onclick={() => (confirmingPresetDelete = true)}
+              disabled={!selectedPreset}
+            >
+              Delete
+            </button>
+          {/if}
+        </form>
+        <form class="mg-preset-save" method="POST" action="?/savePreset" use:enhance={presetSubmit}>
+          <input type="hidden" name="presetPayload" value={presetPayload} />
+          <input
+            class="mg-input"
+            name="presetName"
+            bind:value={newPresetName}
+            placeholder="Preset name"
+            maxlength="60"
+          />
+          <button
+            type="submit"
+            class="seq-button seq-button-secondary seq-button-sm"
+            disabled={!newPresetName.trim()}
+          >
+            Save preset
+          </button>
+        </form>
+      </div>
+    </div>
+    {#if presetError}
+      <p class="mg-toolbar-error"><span class="mg-error" role="alert">{presetError}</span></p>
+    {/if}
+
     <form method="POST" action="?/save" use:enhance={submit}>
       <input type="hidden" name="payload" value={payload} />
       <input type="hidden" name="trackerPayload" value={trackerPayload} />
@@ -1022,6 +1337,49 @@
   .mg-side {
     position: sticky;
     top: calc(3.5rem + 20px);
+  }
+
+  .mg-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+
+  .mg-history {
+    display: flex;
+    gap: 6px;
+  }
+
+  .mg-presets {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .mg-presets form {
+    display: flex;
+    gap: 8px;
+  }
+
+  .mg-preset-select {
+    width: 170px;
+  }
+
+  .mg-preset-save .mg-input {
+    width: 160px;
+  }
+
+  .mg-preset-confirm {
+    color: var(--status-error);
+  }
+
+  .mg-toolbar-error {
+    margin: 10px 0 0;
   }
 
   .mg-section {
