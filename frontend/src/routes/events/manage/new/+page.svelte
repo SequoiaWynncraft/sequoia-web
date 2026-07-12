@@ -17,7 +17,13 @@
   {#if data.access !== "manager"}
     <ManageGate access={data.access} returnTo="/events/manage/new" />
   {:else}
-    <EventForm mode="create" context={data.context} error={form?.error ?? null} />
+    <EventForm
+      mode="create"
+      context={data.context}
+      error={form?.error ?? null}
+      trackerCreated={form?.trackerCreated ?? null}
+      trackerError={form?.trackerError ?? null}
+    />
   {/if}
 </div>
 
