@@ -18,6 +18,10 @@ export interface GlobalRaidRankingEntry {
   prefix: string;
   raids_gained: number;
   raids_total: number;
+  gambits_gained: number;
+  gambits_total: number;
+  sr_gained: number;
+  sr_total: number;
   leaderboard_rank: number;
 }
 
@@ -26,6 +30,8 @@ export interface GlobalRaidRankings {
   baseline_sampled_at: string | null;
   current_sampled_at: string | null;
   warming_up: boolean;
+  /** Lifetime and warm-up boards rank by current totals; the deltas are meaningless. */
+  totals_only: boolean;
   entries: GlobalRaidRankingEntry[];
 }
 
@@ -40,6 +46,7 @@ export function isGlobalRaidRankings(value: unknown): value is GlobalRaidRanking
   if (value.baseline_sampled_at !== null && typeof value.baseline_sampled_at !== "string") return false;
   if (value.current_sampled_at !== null && typeof value.current_sampled_at !== "string") return false;
   if (typeof value.warming_up !== "boolean") return false;
+  if (typeof value.totals_only !== "boolean") return false;
   return (
     Array.isArray(value.entries) &&
     value.entries.every(
@@ -50,6 +57,10 @@ export function isGlobalRaidRankings(value: unknown): value is GlobalRaidRanking
         typeof entry.prefix === "string" &&
         typeof entry.raids_gained === "number" &&
         typeof entry.raids_total === "number" &&
+        typeof entry.gambits_gained === "number" &&
+        typeof entry.gambits_total === "number" &&
+        typeof entry.sr_gained === "number" &&
+        typeof entry.sr_total === "number" &&
         typeof entry.leaderboard_rank === "number",
     )
   );

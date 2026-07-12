@@ -33,7 +33,7 @@
   );
 
   const raceWindowNote = $derived.by(() => {
-    if (!raidRace?.baseline_sampled_at || !raidRace.current_sampled_at || raidRace.warming_up) {
+    if (!raidRace?.baseline_sampled_at || !raidRace.current_sampled_at || raidRace.totals_only) {
       return null;
     }
     return `${raceDay(raidRace.baseline_sampled_at)} → ${raceDay(raidRace.current_sampled_at)}`;
@@ -57,6 +57,15 @@
     return `?${query}`;
   }
 
+  function compact(value: number): string {
+    return Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(value);
+  }
+
+  /** Gambits per completion, the efficiency measure raiders compare. */
+  function ratio(gambits: number, raids: number): string {
+    return raids > 0 ? (gambits / raids).toFixed(1) : "-";
+  }
+
   const raceColumns: LedgerColumn<GlobalRaidRankingEntry>[] = $derived.by(() => {
     const columns: LedgerColumn<GlobalRaidRankingEntry>[] = [
       {
@@ -76,31 +85,85 @@
         href: (entry) => guildHref(entry.guild_name),
       },
     ];
-    if (!raidRace?.warming_up) {
-      columns.push({
-        key: "gained",
-        label: "Raids gained",
-        numeric: true,
-        value: (entry) => `+${entry.raids_gained.toLocaleString()}`,
-        sortValue: (entry) => entry.raids_gained,
-      });
+    if (raidRace?.totals_only) {
+      // Lifetime and warm-up boards rank by current totals.
+      columns.push(
+        {
+          key: "total",
+          label: "Total raids",
+          numeric: true,
+          value: (entry) => entry.raids_total.toLocaleString(),
+          sortValue: (entry) => entry.raids_total,
+        },
+        {
+          key: "gambits",
+          label: "Gambits",
+          numeric: true,
+          value: (entry) => compact(entry.gambits_total),
+          sortValue: (entry) => entry.gambits_total,
+        },
+        {
+          key: "sr",
+          label: "SR",
+          numeric: true,
+          value: (entry) => compact(entry.sr_total),
+          sortValue: (entry) => entry.sr_total,
+        },
+        {
+          key: "ratio",
+          label: "Gambits / raid",
+          numeric: true,
+          value: (entry) => ratio(entry.gambits_total, entry.raids_total),
+          sortValue: (entry) => (entry.raids_total > 0 ? entry.gambits_total / entry.raids_total : -1),
+        },
+      );
+    } else {
+      columns.push(
+        {
+          key: "gained",
+          label: "Raids gained",
+          numeric: true,
+          value: (entry) => `+${entry.raids_gained.toLocaleString()}`,
+          sortValue: (entry) => entry.raids_gained,
+        },
+        {
+          key: "gambits",
+          label: "Gambits gained",
+          numeric: true,
+          value: (entry) => `+${entry.gambits_gained.toLocaleString()}`,
+          sortValue: (entry) => entry.gambits_gained,
+        },
+        {
+          key: "sr",
+          label: "SR gained",
+          numeric: true,
+          value: (entry) => `+${compact(entry.sr_gained)}`,
+          sortValue: (entry) => entry.sr_gained,
+        },
+        {
+          key: "ratio",
+          label: "Gambits / raid",
+          numeric: true,
+          value: (entry) => ratio(entry.gambits_gained, entry.raids_gained),
+          sortValue: (entry) =>
+            entry.raids_gained > 0 ? entry.gambits_gained / entry.raids_gained : -1,
+        },
+        {
+          key: "total",
+          label: "Total raids",
+          numeric: true,
+          value: (entry) => entry.raids_total.toLocaleString(),
+          sortValue: (entry) => entry.raids_total,
+        },
+      );
     }
-    columns.push(
-      {
-        key: "total",
-        label: "Total raids",
-        numeric: true,
-        value: (entry) => entry.raids_total.toLocaleString(),
-        sortValue: (entry) => entry.raids_total,
-      },
-      {
-        key: "rank",
-        label: "Overall #",
-        numeric: true,
-        value: (entry) => String(entry.leaderboard_rank),
-        sortValue: (entry) => entry.leaderboard_rank,
-      },
-    );
+    columns.push({
+      key: "rank",
+      label: "Overall #",
+      numeric: true,
+      value: (entry) => String(entry.leaderboard_rank),
+      sortValue: (entry) => entry.leaderboard_rank,
+    });
     return columns;
   });
 
