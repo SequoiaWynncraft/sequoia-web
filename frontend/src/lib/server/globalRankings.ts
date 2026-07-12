@@ -19,7 +19,7 @@ export async function getGlobalRaidRankings(
   let resource = resources.get(window);
   if (!resource) {
     resource = createCachedResource<GlobalRaidRankings>({
-      key: `global-raid-rankings:${window}:v1`,
+      key: `global-raid-rankings:${window}:v2`,
       freshMs: FRESH_MS,
       staleMs: STALE_MS,
       load: (impl) => loadRankings(impl, window),
@@ -40,11 +40,14 @@ async function loadRankings(fetchImpl: typeof fetch, window: RankingWindow): Pro
   const response = await fetchImpl(url, { signal: AbortSignal.timeout(8000) });
   if (!response.ok) throw new Error(`Global raid rankings request failed (${response.status}).`);
   const data = (await response.json()) as Record<string, unknown>;
+  // The extra columns default to zero so a backend that predates them still
+  // renders the board instead of failing validation.
   const normalized = {
     range: data.range,
     baseline_sampled_at: data.baseline_sampled_at ?? null,
     current_sampled_at: data.current_sampled_at ?? null,
     warming_up: data.warming_up,
+    totals_only: typeof data.totals_only === "boolean" ? data.totals_only : data.warming_up === true,
     entries: Array.isArray(data.entries)
       ? data.entries.map((entry: Record<string, unknown>) => ({
           position: entry.position,
@@ -52,6 +55,10 @@ async function loadRankings(fetchImpl: typeof fetch, window: RankingWindow): Pro
           prefix: typeof entry.prefix === "string" ? entry.prefix : "",
           raids_gained: entry.raids_gained,
           raids_total: entry.raids_total,
+          gambits_gained: typeof entry.gambits_gained === "number" ? entry.gambits_gained : 0,
+          gambits_total: typeof entry.gambits_total === "number" ? entry.gambits_total : 0,
+          sr_gained: typeof entry.sr_gained === "number" ? entry.sr_gained : 0,
+          sr_total: typeof entry.sr_total === "number" ? entry.sr_total : 0,
           leaderboard_rank: entry.leaderboard_rank,
         }))
       : [],
