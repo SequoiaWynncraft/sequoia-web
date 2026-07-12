@@ -123,6 +123,14 @@ function cacheDb(): Promise<Client> {
   return cacheDbPromise;
 }
 
+/**
+ * Persisted rows outlive every staleMs (max 3 days today), and per-guild,
+ * per-player, and per-query keys mint new rows forever - without a sweep the
+ * table only ever grows (and version-bumped keys orphan their old rows).
+ */
+const SWEEP_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const SWEEP_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
 async function initCacheDb(): Promise<Client> {
   const db = await database();
   await db.execute(`
@@ -132,5 +140,16 @@ async function initCacheDb(): Promise<Client> {
       updated_at INTEGER NOT NULL
     )
   `);
+  const sweep = () =>
+    db
+      .execute({
+        sql: "DELETE FROM api_cache WHERE updated_at < ?",
+        args: [Date.now() - SWEEP_MAX_AGE_MS],
+      })
+      .catch(() => undefined);
+  void sweep();
+  const timer = setInterval(sweep, SWEEP_INTERVAL_MS);
+  // A held timer must not keep a short-lived process (tests, prerender) alive.
+  if (typeof timer === "object" && "unref" in timer) timer.unref();
   return db;
 }
