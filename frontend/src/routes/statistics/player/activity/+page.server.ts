@@ -16,7 +16,7 @@ const RANKS_GRACE_MS = 1500;
 const EMPTY_RANKS: Record<string, MemberRankEntry> = {};
 
 /** Preset windows in days; ytd and all are resolved specially. */
-const PRESET_DAYS: Record<string, number> = { "1w": 7, "1m": 30, "3m": 91, "6m": 182 };
+const PRESET_DAYS: Record<string, number> = { "1d": 1, "3d": 3, "1w": 7, "1m": 30, "3m": 91, "6m": 182 };
 /** Matches the backend's 400-day span clamp. */
 const ALL_DAYS = 399;
 
