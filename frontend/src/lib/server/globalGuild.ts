@@ -161,11 +161,17 @@ function evictOldest(pool: Map<string, unknown>, cap: number): void {
   if (oldest !== undefined) pool.delete(oldest as string);
 }
 
+/**
+ * Checks every field parseGuildStats requires, so a malformed payload can
+ * never be cached and then throw on each render.
+ */
 function isGuildPayload(value: unknown): value is GuildPayload {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    typeof (value as Record<string, unknown>).members === "object" &&
-    (value as Record<string, unknown>).members !== null
+  if (typeof value !== "object" || value === null) return false;
+  const record = value as Record<string, unknown>;
+  const members = record.members;
+  if (typeof members !== "object" || members === null) return false;
+  if (typeof (members as Record<string, unknown>).total !== "number") return false;
+  return ["level", "xpPercent", "territories", "wars", "raids", "online"].every(
+    (field) => typeof record[field] === "number",
   );
 }
