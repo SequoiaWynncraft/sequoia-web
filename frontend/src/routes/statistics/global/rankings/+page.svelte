@@ -4,8 +4,10 @@
   import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
   import LedgerTable from "$lib/design-system/components/LedgerTable.svelte";
   import type { LedgerColumn } from "$lib/design-system/components/ledgerTable";
+  import ScopeChips from "$lib/design-system/components/ScopeChips.svelte";
   import SeasonLedger from "$lib/design-system/components/charts/SeasonLedger.svelte";
   import DeferredPanel from "$lib/design-system/components/DeferredPanel.svelte";
+  import { RANKING_WINDOWS, type GlobalRaidRankingEntry } from "$lib/api/globalRankings";
   import type { SeasonRankingEntry } from "$lib/api/seasonRankings";
 
   let { data } = $props();
@@ -13,6 +15,8 @@
   const stats = $derived(data.stats);
   const rankings = $derived(data.rankings);
   const season = $derived(data.season);
+  const raidRace = $derived(data.raidRace);
+  const activeWindow = $derived(data.window);
   const guildName = $derived(stats?.guild.name ?? "Sequoia");
 
   const seasonOptions = $derived(
@@ -23,6 +27,77 @@
       // Outside the fetched top slice, the guild's own rankings map still knows the placement.
       (season !== null ? (stats?.rankings[`guildSeason${season}`] ?? null) : null),
   );
+
+  const sequoiaRaidEntry = $derived(
+    raidRace?.entries.find((entry) => entry.guild_name === guildName) ?? null,
+  );
+
+  const raceWindowNote = $derived.by(() => {
+    if (!raidRace?.baseline_sampled_at || !raidRace.current_sampled_at || raidRace.warming_up) {
+      return null;
+    }
+    return `${raceDay(raidRace.baseline_sampled_at)} → ${raceDay(raidRace.current_sampled_at)}`;
+  });
+
+  function raceDay(instant: string): string {
+    return new Date(instant).toLocaleDateString("en-GB", {
+      month: "short",
+      day: "numeric",
+      timeZone: "UTC",
+    });
+  }
+
+  function raceHref(key: string): string {
+    const query = new URLSearchParams({ window: key });
+    if (season !== null) query.set("season", String(season));
+    return `?${query}`;
+  }
+
+  const raceColumns: LedgerColumn<GlobalRaidRankingEntry>[] = $derived.by(() => {
+    const columns: LedgerColumn<GlobalRaidRankingEntry>[] = [
+      {
+        key: "position",
+        label: "#",
+        numeric: true,
+        value: (entry) => String(entry.position),
+        sortValue: (entry) => entry.position,
+      },
+      {
+        key: "guild",
+        label: "Guild",
+        nameStyle: true,
+        value: (entry) => entry.guild_name,
+        sortValue: (entry) => entry.guild_name.toLowerCase(),
+        secondary: (entry) => (entry.prefix ? `[${entry.prefix}]` : null),
+      },
+    ];
+    if (!raidRace?.warming_up) {
+      columns.push({
+        key: "gained",
+        label: "Raids gained",
+        numeric: true,
+        value: (entry) => `+${entry.raids_gained.toLocaleString()}`,
+        sortValue: (entry) => entry.raids_gained,
+      });
+    }
+    columns.push(
+      {
+        key: "total",
+        label: "Total raids",
+        numeric: true,
+        value: (entry) => entry.raids_total.toLocaleString(),
+        sortValue: (entry) => entry.raids_total,
+      },
+      {
+        key: "rank",
+        label: "Overall #",
+        numeric: true,
+        value: (entry) => String(entry.leaderboard_rank),
+        sortValue: (entry) => entry.leaderboard_rank,
+      },
+    );
+    return columns;
+  });
 
   const standingsColumns: LedgerColumn<SeasonRankingEntry>[] = [
     {
@@ -90,12 +165,14 @@
 
   function selectSeason(event: Event) {
     const value = (event.currentTarget as HTMLSelectElement).value;
-    void goto(`?season=${value}`, { noScroll: true, keepFocus: true });
+    const query = new URLSearchParams({ season: value });
+    if (activeWindow !== "7d") query.set("window", activeWindow);
+    void goto(`?${query}`, { noScroll: true, keepFocus: true });
   }
 </script>
 
 <StatsHeader
-  kicker="Guilds"
+  kicker="Global"
   title="Rankings"
 >
   {#snippet actions()}
@@ -112,12 +189,54 @@
   {/snippet}
 </StatsHeader>
 
-{#if ownPosition}
+{#if ownPosition || sequoiaRaidEntry}
   <p class="standing-callout">
-    Season {season}: <strong>{guildName}</strong> holds
-    <span class="standing-position" class:standing-first={ownPosition === 1}>#{ownPosition}</span>.
+    {#if ownPosition}
+      Season {season}: <strong>{guildName}</strong> holds
+      <span class="standing-position" class:standing-first={ownPosition === 1}>#{ownPosition}</span>.
+    {/if}
+    {#if sequoiaRaidEntry}
+      Guild raid leaderboard:
+      <span
+        class="standing-position"
+        class:standing-first={sequoiaRaidEntry.leaderboard_rank === 1}
+        >#{sequoiaRaidEntry.leaderboard_rank}</span
+      >.
+    {/if}
   </p>
 {/if}
+
+<section class="block" aria-label="Guild raid race">
+  <SectionLabel meta={raidRace ? `top ${raidRace.entries.length} · every 10 min` : undefined}>
+    {#snippet children()}Guild raid race{/snippet}
+    {#snippet actions()}
+      <ScopeChips
+        scopes={[...RANKING_WINDOWS]}
+        active={activeWindow}
+        href={raceHref}
+        note={raceWindowNote}
+        label="Race window"
+      />
+    {/snippet}
+  </SectionLabel>
+  {#if raidRace && raidRace.entries.length > 0}
+    {#if raidRace.warming_up}
+      <p class="muted">Delta tracking is warming up - showing current totals.</p>
+    {/if}
+    <LedgerTable
+      columns={raceColumns}
+      rows={raidRace.entries}
+      rowKey={(entry) => `${entry.position}:${entry.guild_name}`}
+      defaultSort="position"
+      defaultDescending={false}
+      showRank={false}
+      highlight={(entry) => entry.guild_name === guildName}
+      maxHeight="480px"
+    />
+  {:else}
+    <p class="muted">Raid rankings are temporarily unavailable.</p>
+  {/if}
+</section>
 
 <section class="block" aria-label="Season standings">
   <SectionLabel meta={rankings ? `top ${rankings.entries.length}` : undefined}>
@@ -141,7 +260,7 @@
 
 {#if stats}
   <section class="block" aria-label="Season history">
-    <SectionLabel meta="seasons {stats.season_ranks[0]?.season ?? 0}–{stats.season_ranks.at(-1)?.season ?? 0}">
+    <SectionLabel meta="{guildName} · seasons {stats.season_ranks[0]?.season ?? 0}–{stats.season_ranks.at(-1)?.season ?? 0}">
       {#snippet children()}Season history{/snippet}
     </SectionLabel>
     <SeasonLedger
@@ -152,7 +271,7 @@
   </section>
 
   <section class="block" aria-label="Leaderboard positions">
-    <SectionLabel>
+    <SectionLabel meta={guildName}>
       {#snippet children()}Trophy wall{/snippet}
     </SectionLabel>
     <div class="trophies">

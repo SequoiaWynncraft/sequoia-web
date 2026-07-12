@@ -29,7 +29,9 @@ describe("site navigation registry", () => {
     expect(pageView("/statistics/guilds").tabs.map((tab) => tab.to)).toEqual([
       "/statistics/guilds/war",
       "/statistics/guilds/raid",
-      "/statistics/guilds/rankings",
+    ]);
+    expect(pageView("/statistics/global").tabs.map((tab) => tab.to)).toEqual([
+      "/statistics/global/rankings",
     ]);
   });
 
