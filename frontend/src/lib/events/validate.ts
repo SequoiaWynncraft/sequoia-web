@@ -50,7 +50,8 @@ function parseEvent(value: unknown): GuildEvent {
 
   const about = parseLines(raw.about, "about", 2000);
   if (about) event.about = about;
-  if (present(raw.goal)) event.goal = parseGoal(raw.goal);
+  const goals = parseGoals(raw);
+  if (goals) event.goals = goals;
   if (present(raw.activity)) event.activity = parseActivity(raw.activity);
   const prizes = parseList(raw.prizes, "prizes", parsePrize);
   if (prizes) event.prizes = prizes;
@@ -100,28 +101,82 @@ function parseInstant(value: unknown, label: string): string {
   return new Date(Date.parse(value)).toISOString();
 }
 
-function parseGoal(value: unknown): EventGoal {
-  const raw = asRecord(value, "goal");
+const MAX_GOALS = 5;
+const MAX_MILESTONES = 8;
+
+/**
+ * Reads the goals list; a legacy single `goal` with `target`/`unlock` is
+ * accepted and normalized to one goal with one milestone, so stored rows
+ * written before milestones keep validating.
+ */
+function parseGoals(raw: Record<string, unknown>): EventGoal[] | undefined {
+  if (present(raw.goals)) {
+    const entries = raw.goals;
+    if (!Array.isArray(entries)) fail("goals must be a list");
+    if (entries.length > MAX_GOALS) fail(`at most ${MAX_GOALS} goals are supported`);
+    const goals = entries.map((entry, index) =>
+      parseGoal(entry, entries.length === 1 ? "goal" : `goal ${index + 1}`),
+    );
+    return goals.length > 0 ? goals : undefined;
+  }
+  if (present(raw.goal)) return [parseGoal(raw.goal, "goal")];
+  return undefined;
+}
+
+function parseGoal(value: unknown, label: string): EventGoal {
+  const raw = asRecord(value, label);
   const goal: EventGoal = {
-    metricLabel: requiredText(raw.metricLabel, "goal metric", 80),
-    target: parseCount(raw.target, "goal target", 1),
-    unlock: requiredText(raw.unlock, "goal unlock", 120),
+    metricLabel: requiredText(raw.metricLabel, `${label} metric`, 80),
+    milestones: parseMilestones(raw, label),
   };
   if (present(raw.feed)) {
     if (raw.feed !== "raids" && raw.feed !== "raidRuns" && raw.feed !== "wars" && raw.feed !== "playtime") {
-      fail("goal feed must be raids, raidRuns, wars, playtime, or empty");
+      fail(`${label} feed must be raids, raidRuns, wars, playtime, or empty`);
     }
     goal.feed = raw.feed;
   }
-  const countRaid = optionalText(raw.countRaid, "goal raid filter", 80);
+  const countRaid = optionalText(raw.countRaid, `${label} raid filter`, 80);
   if (countRaid) {
     if (goal.feed !== "raids" && goal.feed !== "raidRuns") {
-      fail("a goal raid filter needs a raid-based feed");
+      fail(`a ${label} raid filter needs a raid-based feed`);
     }
     goal.countRaid = countRaid;
   }
-  if (present(raw.finalTotal)) goal.finalTotal = parseCount(raw.finalTotal, "goal final total", 0);
+  if (present(raw.finalTotal)) goal.finalTotal = parseCount(raw.finalTotal, `${label} final total`, 0);
   return goal;
+}
+
+function parseMilestones(raw: Record<string, unknown>, label: string): EventGoal["milestones"] {
+  // Legacy shape: one target, one unlock.
+  if (!present(raw.milestones)) {
+    return [
+      {
+        at: parseCount(raw.target, `${label} target`, 1),
+        unlock: requiredText(raw.unlock, `${label} unlock`, 120),
+      },
+    ];
+  }
+  const entries = raw.milestones;
+  if (!Array.isArray(entries) || entries.length === 0) {
+    fail(`${label} needs at least one milestone`);
+  }
+  if (entries.length > MAX_MILESTONES) {
+    fail(`${label} has too many milestones (max ${MAX_MILESTONES})`);
+  }
+  const milestones = entries.map((entry, index) => {
+    const name = entries.length === 1 ? `${label} milestone` : `${label} milestone ${index + 1}`;
+    const milestone = asRecord(entry, name);
+    return {
+      at: parseCount(milestone.at, `${name} target`, 1),
+      unlock: requiredText(milestone.unlock, `${name} unlock`, 120),
+    };
+  });
+  for (let index = 1; index < milestones.length; index++) {
+    if (milestones[index].at <= milestones[index - 1].at) {
+      fail(`${label} milestones must have ascending targets`);
+    }
+  }
+  return milestones;
 }
 
 function parseActivity(value: unknown): NonNullable<GuildEvent["activity"]> {

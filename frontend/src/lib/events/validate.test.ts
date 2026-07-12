@@ -78,12 +78,12 @@ describe("parseGuildEvent", () => {
   it("accepts multi-source goals and chart configs", () => {
     const wars = parseGuildEvent({
       ...VALID,
-      goal: { metricLabel: "wars", target: 500, unlock: "War chest", feed: "wars" },
+      goals: [{ metricLabel: "wars", milestones: [{ at: 500, unlock: "War chest" }], feed: "wars" }],
       activity: { source: "raids", countRaid: "The Nameless Anomaly" },
     });
     expect(wars.ok).toBe(true);
     if (!wars.ok) return;
-    expect(wars.event.goal?.feed).toBe("wars");
+    expect(wars.event.goals?.[0].feed).toBe("wars");
     expect(wars.event.activity).toEqual({ source: "raids", countRaid: "The Nameless Anomaly" });
 
     const hidden = parseGuildEvent({ ...VALID, activity: { source: "none" } });
@@ -92,20 +92,96 @@ describe("parseGuildEvent", () => {
 
     const runs = parseGuildEvent({
       ...VALID,
-      goal: {
-        metricLabel: "TNA runs",
-        target: 900,
-        unlock: "Raffle",
-        feed: "raidRuns",
-        countRaid: "The Nameless Anomaly",
-      },
+      goals: [
+        {
+          metricLabel: "TNA runs",
+          milestones: [{ at: 900, unlock: "Raffle" }],
+          feed: "raidRuns",
+          countRaid: "The Nameless Anomaly",
+        },
+      ],
       activity: { source: "raidRuns", countRaid: "The Nameless Anomaly" },
     });
     expect(runs.ok).toBe(true);
     if (runs.ok) {
-      expect(runs.event.goal?.feed).toBe("raidRuns");
+      expect(runs.event.goals?.[0].feed).toBe("raidRuns");
       expect(runs.event.activity?.source).toBe("raidRuns");
     }
+  });
+
+  it("normalizes the legacy single goal into a one-milestone goals list", () => {
+    const result = parseGuildEvent({
+      ...VALID,
+      goal: { metricLabel: "guild raids", target: 2500, unlock: "Rank Up Raffle", feed: "raids" },
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.event.goals).toEqual([
+      {
+        metricLabel: "guild raids",
+        milestones: [{ at: 2500, unlock: "Rank Up Raffle" }],
+        feed: "raids",
+      },
+    ]);
+  });
+
+  it("accepts several goals with ascending milestone tiers", () => {
+    const result = parseGuildEvent({
+      ...VALID,
+      goals: [
+        {
+          metricLabel: "guild raids",
+          milestones: [
+            { at: 1000, unlock: "Giveaway" },
+            { at: 2500, unlock: "Rank Up Raffle" },
+          ],
+          feed: "raids",
+        },
+        { metricLabel: "wars", milestones: [{ at: 300, unlock: "War chest" }], feed: "wars" },
+      ],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.event.goals?.length).toBe(2);
+    expect(result.event.goals?.[0].milestones.length).toBe(2);
+  });
+
+  it("rejects out-of-order or duplicate milestone targets", () => {
+    expectError(
+      {
+        ...VALID,
+        goals: [
+          {
+            metricLabel: "raids",
+            milestones: [
+              { at: 2500, unlock: "A" },
+              { at: 1000, unlock: "B" },
+            ],
+          },
+        ],
+      },
+      "ascending",
+    );
+    expectError(
+      {
+        ...VALID,
+        goals: [
+          {
+            metricLabel: "raids",
+            milestones: [
+              { at: 1000, unlock: "A" },
+              { at: 1000, unlock: "B" },
+            ],
+          },
+        ],
+      },
+      "ascending",
+    );
+    expectError({ ...VALID, goals: [{ metricLabel: "raids", milestones: [] }] }, "milestone");
+    expectError(
+      { ...VALID, goals: [{ metricLabel: "raids", milestones: [{ at: 5, unlock: " " }] }] },
+      "unlock",
+    );
   });
 
   it("rejects malformed input with a field-specific error", () => {

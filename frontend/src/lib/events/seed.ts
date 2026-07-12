@@ -21,12 +21,13 @@ export const SEED_EVENTS: GuildEvent[] = [
     about: [
       "A guild-wide raid push. Every guild raid completed inside the event window counts toward the pool, and the pool unlocks the prizes.",
     ],
-    goal: {
-      metricLabel: "guild raids",
-      target: 2500,
-      unlock: "Rank Up Raffle",
-      feed: "raids",
-    },
+    goals: [
+      {
+        metricLabel: "guild raids",
+        milestones: [{ at: 2500, unlock: "Rank Up Raffle" }],
+        feed: "raids",
+      },
+    ],
     prizes: [
       { donor: "kd", prize: "5 stx LE" },
       { donor: "hmar", prize: "5 stx LE" },
@@ -72,13 +73,14 @@ export const SEED_EVENTS: GuildEvent[] = [
     about: [
       "Two weeks of Nest of the Grootslangs. Party up in guild chat - allies and guests welcome.",
     ],
-    goal: {
-      metricLabel: "Nest of the Grootslangs clears",
-      target: 750,
-      unlock: "Giveaway drawing",
-      feed: "raids",
-      countRaid: "Nest of the Grootslangs",
-    },
+    goals: [
+      {
+        metricLabel: "Nest of the Grootslangs clears",
+        milestones: [{ at: 750, unlock: "Giveaway drawing" }],
+        feed: "raids",
+        countRaid: "Nest of the Grootslangs",
+      },
+    ],
     rules: [
       "Open to everyone - guild membership not required.",
       "Clears count while at least one Sequoia member is in the party.",
@@ -100,11 +102,12 @@ export const SEED_EVENTS: GuildEvent[] = [
     about: [
       "Titans Valor has invoked Article 5 of the Llevigar-Selchar Treaty Organisation. Sequoia answers the call - seven days defending the ocean from our enemies.",
     ],
-    goal: {
-      metricLabel: "wars",
-      target: 1000,
-      unlock: "War chest payout",
-    },
+    goals: [
+      {
+        metricLabel: "wars",
+        milestones: [{ at: 1000, unlock: "War chest payout" }],
+      },
+    ],
     rules: [
       "Wars count from the first territory hit to the closing bell.",
       "Article 5 obligations are non-negotiable.",
@@ -124,13 +127,14 @@ export const SEED_EVENTS: GuildEvent[] = [
       star: "#e6c99a",
     },
     about: ["A one-week sprint through The Canyon Colossus. Goal met on day six."],
-    goal: {
-      metricLabel: "The Canyon Colossus clears",
-      target: 600,
-      unlock: "Reward night",
-      feed: "raids",
-      countRaid: "The Canyon Colossus",
-      finalTotal: 683,
-    },
+    goals: [
+      {
+        metricLabel: "The Canyon Colossus clears",
+        milestones: [{ at: 600, unlock: "Reward night" }],
+        feed: "raids",
+        countRaid: "The Canyon Colossus",
+        finalTotal: 683,
+      },
+    ],
   },
 ];

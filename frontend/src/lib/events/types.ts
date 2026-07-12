@@ -14,12 +14,18 @@ export interface EventTheme {
   star: string;
 }
 
+export interface GoalMilestone {
+  /** Metric value at which this unlock triggers. */
+  at: number;
+  /** What reaching it unlocks, e.g. "Rank Up Raffle". */
+  unlock: string;
+}
+
 export interface EventGoal {
   /** What is being counted, e.g. "guild raids". */
   metricLabel: string;
-  target: number;
-  /** What reaching the target unlocks, e.g. "Rank Up Raffle". */
-  unlock: string;
+  /** Unlock tiers in strictly ascending order; the last one is the headline target. */
+  milestones: GoalMilestone[];
   /**
    * Live data source for the meter. "raids" reads the public guild-raid
    * activity feed (member participation credits - party size inflates them),
@@ -62,9 +68,10 @@ export interface GuildEvent {
   endsAt?: string;
   /** Short paragraphs shown under the hero. */
   about?: string[];
-  goal?: EventGoal;
+  /** Tracked goals, each with its own data source and milestone unlocks. */
+  goals?: EventGoal[];
   /**
-   * Activity chart configuration. Absent follows the goal when it reads a
+   * Activity chart configuration. Absent follows the first goal reading a
    * raid-based feed; "none" hides the chart; countRaid narrows to one raid.
    * "raids" charts participation credits, "raidRuns" charts unique mod-logged
    * runs; wars and playtime have no daily feed.

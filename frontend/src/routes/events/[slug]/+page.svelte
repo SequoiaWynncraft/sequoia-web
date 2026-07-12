@@ -18,9 +18,10 @@
   const signInUrl = $derived(webAuthStartUrl(page.url.href));
 
   /** Live reads the feed, ended freezes on finalTotal, before start shows zero. */
-  const goalCurrent = $derived(
-    status === "live" ? data.progress : status === "ended" ? null : 0,
-  );
+  const goalCurrent = $derived((index: number): number | null => {
+    if (status === "live") return data.progress?.[index] ?? null;
+    return status === "ended" ? null : 0;
+  });
 
   const rankLabels: Record<string, string> = {
     owner: "Owner",
@@ -103,10 +104,18 @@
       </div>
     {/if}
 
-    {#if event.goal}
-      <section class="ev-section" aria-label="Event goal">
-        <h2 class="ev-label"><span class="ev-spark" aria-hidden="true">✦</span>Goal</h2>
-        <GoalMeter goal={event.goal} current={goalCurrent} />
+    {#if event.goals && event.goals.length > 0}
+      <section class="ev-section" aria-label="Event goals">
+        <h2 class="ev-label">
+          <span class="ev-spark" aria-hidden="true">✦</span>{event.goals.length === 1
+            ? "Goal"
+            : "Goals"}
+        </h2>
+        <div class="ev-goals">
+          {#each event.goals as goal, index (goal.metricLabel + index)}
+            <GoalMeter {goal} current={goalCurrent(index)} />
+          {/each}
+        </div>
       </section>
     {/if}
 
@@ -138,7 +147,7 @@
       </section>
     {/if}
 
-    {#if data.standings !== null || (event.access === "members" && event.goal && status !== "ended")}
+    {#if data.standings !== null || (event.access === "members" && event.goals && status !== "ended")}
       <section class="ev-section" aria-label="Member standings">
         <h2 class="ev-label"><span class="ev-spark" aria-hidden="true">✦</span>Standings</h2>
         {#if data.standings === null}
@@ -417,6 +426,11 @@
 
   .ev-section {
     margin-bottom: 44px;
+  }
+
+  .ev-goals {
+    display: grid;
+    gap: 24px;
   }
 
   .ev-label {
