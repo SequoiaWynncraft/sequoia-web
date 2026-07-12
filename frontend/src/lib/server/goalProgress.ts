@@ -3,6 +3,7 @@ import type { EventGoal } from "$lib/events/types";
 
 import { loadEventRaidCounts, sumCounts } from "./eventActivity";
 import { getMemberProgress } from "./memberProgress";
+import { loadModRunCounts } from "./modActivity";
 
 /**
  * Live total for a goal's feed over the event window so far. Null when the
@@ -19,6 +20,14 @@ export async function loadGoalProgress(
       to: window.to,
       countRaid: goal.countRaid,
     }).catch(() => null);
+    return days === null ? null : sumCounts(days);
+  }
+  if (goal.feed === "raidRuns") {
+    const days = await loadModRunCounts(fetchImpl, {
+      from: window.from,
+      to: window.to,
+      raid: goal.countRaid,
+    });
     return days === null ? null : sumCounts(days);
   }
   if (goal.feed === "wars" || goal.feed === "playtime") {

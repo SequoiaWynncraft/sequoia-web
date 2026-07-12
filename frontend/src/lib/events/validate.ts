@@ -108,14 +108,16 @@ function parseGoal(value: unknown): EventGoal {
     unlock: requiredText(raw.unlock, "goal unlock", 120),
   };
   if (present(raw.feed)) {
-    if (raw.feed !== "raids" && raw.feed !== "wars" && raw.feed !== "playtime") {
-      fail("goal feed must be raids, wars, playtime, or empty");
+    if (raw.feed !== "raids" && raw.feed !== "raidRuns" && raw.feed !== "wars" && raw.feed !== "playtime") {
+      fail("goal feed must be raids, raidRuns, wars, playtime, or empty");
     }
     goal.feed = raw.feed;
   }
   const countRaid = optionalText(raw.countRaid, "goal raid filter", 80);
   if (countRaid) {
-    if (goal.feed !== "raids") fail("a goal raid filter needs the raids feed");
+    if (goal.feed !== "raids" && goal.feed !== "raidRuns") {
+      fail("a goal raid filter needs a raid-based feed");
+    }
     goal.countRaid = countRaid;
   }
   if (present(raw.finalTotal)) goal.finalTotal = parseCount(raw.finalTotal, "goal final total", 0);
@@ -124,13 +126,13 @@ function parseGoal(value: unknown): EventGoal {
 
 function parseActivity(value: unknown): NonNullable<GuildEvent["activity"]> {
   const raw = asRecord(value, "activity chart");
-  if (raw.source !== "raids" && raw.source !== "none") {
-    fail("activity chart source must be raids or none");
+  if (raw.source !== "raids" && raw.source !== "raidRuns" && raw.source !== "none") {
+    fail("activity chart source must be raids, raidRuns, or none");
   }
   const activity: NonNullable<GuildEvent["activity"]> = { source: raw.source };
   const countRaid = optionalText(raw.countRaid, "activity chart raid", 80);
   if (countRaid) {
-    if (raw.source !== "raids") fail("an activity chart raid needs the raids source");
+    if (raw.source === "none") fail("an activity chart raid needs a raid-based source");
     activity.countRaid = countRaid;
   }
   return activity;

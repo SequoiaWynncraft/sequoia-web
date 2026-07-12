@@ -89,6 +89,23 @@ describe("parseGuildEvent", () => {
     const hidden = parseGuildEvent({ ...VALID, activity: { source: "none" } });
     expect(hidden.ok).toBe(true);
     if (hidden.ok) expect(hidden.event.activity).toEqual({ source: "none" });
+
+    const runs = parseGuildEvent({
+      ...VALID,
+      goal: {
+        metricLabel: "TNA runs",
+        target: 900,
+        unlock: "Raffle",
+        feed: "raidRuns",
+        countRaid: "The Nameless Anomaly",
+      },
+      activity: { source: "raidRuns", countRaid: "The Nameless Anomaly" },
+    });
+    expect(runs.ok).toBe(true);
+    if (runs.ok) {
+      expect(runs.event.goal?.feed).toBe("raidRuns");
+      expect(runs.event.activity?.source).toBe("raidRuns");
+    }
   });
 
   it("rejects malformed input with a field-specific error", () => {
@@ -106,10 +123,10 @@ describe("parseGuildEvent", () => {
     expectError({ ...VALID, goal: { metricLabel: "raids", target: 10, unlock: "Prize", feed: "xp" } }, "feed");
     expectError(
       { ...VALID, goal: { metricLabel: "wars", target: 10, unlock: "Prize", feed: "wars", countRaid: "TNA" } },
-      "raids feed",
+      "raid-based feed",
     );
     expectError({ ...VALID, activity: { source: "wars" } }, "activity chart source");
-    expectError({ ...VALID, activity: { source: "none", countRaid: "TNA" } }, "raids source");
+    expectError({ ...VALID, activity: { source: "none", countRaid: "TNA" } }, "raid-based source");
     expectError({ ...VALID, prizes: [{ donor: "kd" }] }, "prize");
     expectError({ ...VALID, comp: { roles: [] } }, "role");
     expectError({ ...VALID, tracker: { eventId: "abc", tracking: "webhook" } }, "tracking");

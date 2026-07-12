@@ -10,6 +10,8 @@ export function eventStatus(event: GuildEvent, now: Date): EventStatus {
 }
 
 export interface EventChart {
+  /** Participation credits from the activity feed, or unique mod-logged runs. */
+  source: "raids" | "raidRuns";
   /** Chart only this raid; undefined charts all guild raids. */
   countRaid?: string;
   /** Series label for the bars and tooltip. */
@@ -18,20 +20,25 @@ export interface EventChart {
 
 /**
  * Resolves what the activity chart shows: an explicit activity config wins;
- * otherwise the chart follows a raids-feed goal; anything else has no chart
- * (raids are the only source with a daily feed).
+ * otherwise the chart follows a raid-based goal; anything else has no chart
+ * (wars and playtime have no daily feed).
  */
 export function eventChart(event: GuildEvent): EventChart | null {
   if (event.activity) {
-    if (event.activity.source !== "raids") return null;
+    if (event.activity.source === "none") return null;
     return {
+      source: event.activity.source,
       countRaid: event.activity.countRaid,
-      label: event.activity.countRaid ?? "Guild raids",
+      label:
+        event.activity.source === "raidRuns"
+          ? `${event.activity.countRaid ?? "Raid"} runs`
+          : (event.activity.countRaid ?? "Guild raids"),
     };
   }
-  if (event.goal?.feed === "raids") {
+  if (event.goal?.feed === "raids" || event.goal?.feed === "raidRuns") {
     const label = event.goal.metricLabel;
     return {
+      source: event.goal.feed,
       countRaid: event.goal.countRaid,
       label: label.charAt(0).toUpperCase() + label.slice(1),
     };
