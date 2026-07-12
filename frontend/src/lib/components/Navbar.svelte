@@ -13,8 +13,8 @@
 
   let { viewer = null }: { viewer?: Viewer | null } = $props();
 
-  const signInUrl = $derived(webAuthStartUrl(page.url.href));
-  const signOutUrl = $derived(webAuthLogoutUrl(page.url.href));
+  const signInUrl = $derived(webAuthStartUrl());
+  const signOutUrl = $derived(webAuthLogoutUrl());
   const viewerCardUrl = $derived(
     viewer?.minecraftUsername
       ? `/statistics/player/playercard?player=${encodeURIComponent(viewer.minecraftUsername)}`
