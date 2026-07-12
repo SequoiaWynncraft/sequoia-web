@@ -130,7 +130,7 @@ describe("parseGuildEvent", () => {
     );
     expectError(
       { ...VALID, icon: { file: "raid_icon_tcc_transparent.png", placements: ["footer"] } },
-      "hero, band, or meta",
+      "hero, band, meta, or manage",
     );
     expectError(
       { ...VALID, icon: { file: "raid_icon_tcc_transparent.png", placements: [] } },
