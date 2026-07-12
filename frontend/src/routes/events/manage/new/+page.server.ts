@@ -5,6 +5,7 @@ import { recordAudit } from "$lib/server/auditLog";
 import { eventFormContext } from "$lib/server/eventFormContext";
 import { checkEventManager, requireEventManager } from "$lib/server/eventManagers";
 import { parseEventPayload } from "$lib/server/eventPayload";
+import { deletePresetAction, savePresetAction } from "$lib/server/eventPresets";
 import { eventStore } from "$lib/server/eventStore";
 import { createTrackerAction, updateTrackerAction } from "$lib/server/trackerAdmin";
 
@@ -36,4 +37,6 @@ export const actions: Actions = {
 
   createTracker: createTrackerAction,
   updateTracker: updateTrackerAction,
+  savePreset: savePresetAction,
+  deletePreset: deletePresetAction,
 };

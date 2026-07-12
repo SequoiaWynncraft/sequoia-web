@@ -1,5 +1,6 @@
 import { formatWindow } from "$lib/events/format";
 
+import { listPresets, type EventPreset } from "./eventPresets";
 import { getGuildStats } from "./guildStats";
 import { loadRaidEvents } from "./raidEventBoards";
 
@@ -20,19 +21,23 @@ export interface EventFormContext {
   members: string[];
   /** Backend tracker events for the standings picker. */
   trackerEvents: TrackerOption[];
+  /** Saved editor presets, alphabetical. */
+  presets: EventPreset[];
 }
 
 /** Picker data for the event editor - lookup helpers, not authorization. */
 export async function eventFormContext(fetchImpl: typeof fetch): Promise<EventFormContext> {
-  const [stats, raidEvents] = await Promise.all([
+  const [stats, raidEvents, presets] = await Promise.all([
     getGuildStats(fetchImpl, { allowStale: true }).catch(() => null),
     loadRaidEvents(fetchImpl),
+    listPresets().catch(() => [] as EventPreset[]),
   ]);
   return {
     members: (stats?.members ?? [])
       .map((member) => member.username)
       .sort((a, b) => a.localeCompare(b)),
     trackerEvents: raidEvents.map(trackerOption),
+    presets,
   };
 }
 
