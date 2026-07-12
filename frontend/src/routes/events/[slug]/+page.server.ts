@@ -112,10 +112,7 @@ export const load: PageServerLoad = async ({ fetch, params, parent }) => {
   let standings: Standings | null = null;
   if (event.tracker && event.startsAt && event.endsAt && status !== "upcoming") {
     if (membership === "member") {
-      const result =
-        event.tracker.tracking === "mod"
-          ? await loadModStandings(fetch, event.tracker.eventId, roster)
-          : await loadTrackerLeaderboard(fetch, event.tracker.eventId);
+      const result = await loadTrackerStandings(fetch, event.tracker, roster);
       standings = { state: "board", leaderboard: result.leaderboard, error: result.error };
     } else {
       standings = { state: membership ?? "signin" };
@@ -137,15 +134,19 @@ export const load: PageServerLoad = async ({ fetch, params, parent }) => {
 };
 
 /**
- * Mod-tracked standings count inside the tracker event's own window, which
- * may differ from the guild event's dates - never silently substitute them.
+ * The tracker record is authoritative for how it is tracked and over which
+ * window/raid - the copy stored on the event can go stale when a manager
+ * edits the tracker without re-saving the event. Mod-tracked standings count
+ * inside the tracker's own window, never the guild event's dates.
  */
-async function loadModStandings(
+async function loadTrackerStandings(
   fetchImpl: typeof fetch,
-  eventId: string,
+  tracker: NonNullable<GuildEvent["tracker"]>,
   roster: GuildMemberStats[],
 ): Promise<LeaderboardResult> {
-  const tracked = (await loadRaidEvents(fetchImpl)).find((entry) => entry.id === eventId);
+  const tracked = (await loadRaidEvents(fetchImpl)).find((entry) => entry.id === tracker.eventId);
+  const tracking = tracked?.tracking ?? tracker.tracking;
+  if (tracking !== "mod") return loadTrackerLeaderboard(fetchImpl, tracker.eventId);
   if (!tracked) {
     return { leaderboard: [], error: "Member contributions are temporarily unavailable." };
   }
