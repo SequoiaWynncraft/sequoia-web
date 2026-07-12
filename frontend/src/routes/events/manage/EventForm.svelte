@@ -3,6 +3,7 @@
   import type { SubmitFunction } from "@sveltejs/kit";
 
   import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
+  import InstantField from "./InstantField.svelte";
   import EventSky from "$lib/events/components/EventSky.svelte";
   import GoalMeter from "$lib/events/components/GoalMeter.svelte";
   import type { CompRole, EventTheme, GuildEvent, PrizeEntry } from "$lib/events/types";
@@ -484,11 +485,11 @@
         <div class="mg-grid-2">
           <label class="mg-field">
             <span class="mg-label">Starts (UTC)</span>
-            <input class="mg-input" type="datetime-local" bind:value={startsAt} />
+            <InstantField bind:value={startsAt} name="Start" />
           </label>
           <label class="mg-field">
             <span class="mg-label">Ends (UTC)</span>
-            <input class="mg-input" type="datetime-local" bind:value={endsAt} />
+            <InstantField bind:value={endsAt} name="End" />
           </label>
         </div>
         <p class="mg-hint">Leave both empty while dates are TBA.</p>
@@ -857,11 +858,11 @@
                 </label>
                 <label class="mg-field">
                   <span class="mg-label">Starts (UTC)</span>
-                  <input class="mg-input" type="datetime-local" bind:value={newTrackerStarts} />
+                  <InstantField bind:value={newTrackerStarts} name="Tracker start" />
                 </label>
                 <label class="mg-field">
                   <span class="mg-label">Ends (UTC)</span>
-                  <input class="mg-input" type="datetime-local" bind:value={newTrackerEnds} />
+                  <InstantField bind:value={newTrackerEnds} name="Tracker end" />
                 </label>
                 {#if newTrackerTracking === "mod"}
                   <label class="mg-field">
