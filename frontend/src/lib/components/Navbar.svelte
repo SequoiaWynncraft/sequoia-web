@@ -142,6 +142,11 @@
                     </span>
                   </a>
                 {/if}
+                <a href="/account/settings" onclick={() => open = null} class="seq-dropdown-item">
+                  <span class="seq-dropdown-item-text">
+                    <span class="seq-dropdown-item-label">Settings</span>
+                  </span>
+                </a>
                 <a href={signOutUrl} class="seq-dropdown-item">
                   <span class="seq-dropdown-item-text">
                     <span class="seq-dropdown-item-label">Sign out</span>
@@ -202,6 +207,7 @@
               {viewer.minecraftUsername}
             </a>
           {/if}
+          <a href="/account/settings" onclick={() => mobileOpen = false} class="seq-mobile-link">Settings</a>
           <a href={signOutUrl} class="seq-mobile-link">Sign out</a>
         {:else}
           <a href={signInUrl} class="seq-mobile-link">Sign in</a>
