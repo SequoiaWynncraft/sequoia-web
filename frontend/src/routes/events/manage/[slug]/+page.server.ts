@@ -13,9 +13,9 @@ export const load: PageServerLoad = async ({ fetch, params, parent }) => {
   const access = await checkEventManager(fetch, viewer);
   if (access !== "manager") return { access, stored: null, context: null };
 
-  const stored = await eventStore.get(params.slug);
+  const [stored, context] = await Promise.all([eventStore.get(params.slug), eventFormContext(fetch)]);
   if (!stored) error(404, "No such event");
-  return { access, stored, context: await eventFormContext(fetch) };
+  return { access, stored, context };
 };
 
 export const actions: Actions = {

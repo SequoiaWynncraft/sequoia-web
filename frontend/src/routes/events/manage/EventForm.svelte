@@ -57,13 +57,12 @@
   let about = $state(seed?.about?.join("\n\n") ?? "");
   let goalEnabled = $state(seed?.goal !== undefined);
   let goalMetric = $state(seed?.goal?.metricLabel ?? "");
-  let goalTarget = $state(seed?.goal ? String(seed.goal.target) : "");
+  // Number inputs bind numbers (or null when cleared), not strings.
+  let goalTarget = $state<string | number | null>(seed?.goal ? seed.goal.target : "");
   let goalUnlock = $state(seed?.goal?.unlock ?? "");
   let goalSource = $state<"manual" | "raids">(seed?.goal?.feed === "raids" ? "raids" : "manual");
   let goalRaid = $state(seed?.goal?.countRaid ?? "");
-  let goalFinalTotal = $state(
-    seed?.goal?.finalTotal !== undefined ? String(seed.goal.finalTotal) : "",
-  );
+  let goalFinalTotal = $state<string | number | null>(seed?.goal?.finalTotal ?? "");
   // Repeater rows carry a locally generated id so the each blocks are keyed -
   // unkeyed lists with two-way bindings corrupt state when middle rows are
   // removed.
@@ -120,7 +119,7 @@
         goal.feed = "raids";
         if (goalRaid) goal.countRaid = goalRaid;
       }
-      if (goalFinalTotal.trim()) goal.finalTotal = toCount(goalFinalTotal);
+      if (hasCount(goalFinalTotal)) goal.finalTotal = toCount(goalFinalTotal);
       event.goal = goal;
     }
     // Rows added but left fully empty are noise, not intent - drop them,
@@ -225,8 +224,15 @@
       .filter(Boolean);
   }
 
-  function toCount(value: string): number {
-    return Number(value.trim());
+  function hasCount(value: string | number | null): boolean {
+    if (value === null) return false;
+    return typeof value === "number" ? Number.isFinite(value) : value.trim() !== "";
+  }
+
+  function toCount(value: string | number | null): number {
+    if (typeof value === "number") return value;
+    const text = (value ?? "").trim();
+    return text === "" ? Number.NaN : Number(text);
   }
 </script>
 
@@ -372,12 +378,12 @@
             <span class="mg-label">Data source</span>
             <div class="mg-choices" role="radiogroup" aria-label="Goal data source">
               <label class="mg-choice" class:mg-choice-selected={goalSource === "raids"}>
-                <input class="mg-choice-input" type="radio" value="raids" bind:group={goalSource} />
+                <input class="mg-choice-input" type="radio" name="goal-source" value="raids" bind:group={goalSource} />
                 <span class="mg-choice-title">Guild raid feed</span>
                 <span class="mg-choice-desc">Counts raids live from the public guild activity feed.</span>
               </label>
               <label class="mg-choice" class:mg-choice-selected={goalSource === "manual"}>
-                <input class="mg-choice-input" type="radio" value="manual" bind:group={goalSource} />
+                <input class="mg-choice-input" type="radio" name="goal-source" value="manual" bind:group={goalSource} />
                 <span class="mg-choice-title">Manual</span>
                 <span class="mg-choice-desc">No live wiring - the meter shows the total entered below.</span>
               </label>
