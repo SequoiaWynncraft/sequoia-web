@@ -86,31 +86,30 @@ export const load: PageServerLoad = async ({ fetch, params, parent }) => {
     };
   }
 
-  // The chart and the goal meter read independently configured sources; when
-  // both happen to count the same raids, one feed fetch serves both.
+  // The chart and the goal meters read independently configured sources; a
+  // goal counting the same raids as the chart shares its feed fetch.
   const chart = eventChart(event);
   let days: EventDayCount[] | null = null;
-  let progress: number | null = null;
+  let progress: (number | null)[] = (event.goals ?? []).map(() => null);
   if (status === "live" && event.startsAt) {
-    const goal = event.goal;
     const window = { from: event.startsAt, to: now.toISOString() };
     const daysPromise = chart
       ? chart.source === "raidRuns"
         ? loadModRunCounts(fetch, { from: window.from, to: window.to, raid: chart.countRaid })
         : loadEventRaidCounts(fetch, { ...window, countRaid: chart.countRaid }).catch(() => null)
       : Promise.resolve(null);
-    const sameAsChart =
-      chart !== null &&
-      goal?.feed === chart.source &&
-      (chart.countRaid ?? null) === (goal.countRaid ?? null);
-    const progressPromise = goal?.feed
-      ? sameAsChart
-        ? // A failed shared fetch stays null - retrying the identical request
-          // would fail the same way.
-          daysPromise.then((shared) => (shared === null ? null : sumCounts(shared)))
-        : loadGoalProgress(fetch, goal, window)
-      : Promise.resolve(null);
-    [days, progress] = await Promise.all([daysPromise, progressPromise]);
+    const progressPromises = (event.goals ?? []).map((goal) => {
+      if (!goal.feed) return Promise.resolve(null);
+      const sameAsChart =
+        chart !== null &&
+        goal.feed === chart.source &&
+        (chart.countRaid ?? null) === (goal.countRaid ?? null);
+      // A failed shared fetch stays null - retrying the identical request
+      // would fail the same way.
+      if (sameAsChart) return daysPromise.then((shared) => (shared === null ? null : sumCounts(shared)));
+      return loadGoalProgress(fetch, goal, window);
+    });
+    [days, ...progress] = await Promise.all([daysPromise, ...progressPromises]);
   }
 
   let standings: Standings | null = null;

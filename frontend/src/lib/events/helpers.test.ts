@@ -57,7 +57,7 @@ describe("event helpers", () => {
     const event = makeEvent({
       access: "members",
       about: ["Public hero copy"],
-      goal: { metricLabel: "raids", target: 10, unlock: "Prize" },
+      goals: [{ metricLabel: "raids", milestones: [{ at: 10, unlock: "Prize" }] }],
       prizes: [{ donor: "member", prize: "Secret prize" }],
       rules: ["Secret rule"],
     });

@@ -20,8 +20,8 @@ export interface EventChart {
 
 /**
  * Resolves what the activity chart shows: an explicit activity config wins;
- * otherwise the chart follows a raid-based goal; anything else has no chart
- * (wars and playtime have no daily feed).
+ * otherwise the chart follows the first raid-based goal; anything else has no
+ * chart (wars and playtime have no daily feed).
  */
 export function eventChart(event: GuildEvent): EventChart | null {
   if (event.activity) {
@@ -35,11 +35,14 @@ export function eventChart(event: GuildEvent): EventChart | null {
           : (event.activity.countRaid ?? "Guild raids"),
     };
   }
-  if (event.goal?.feed === "raids" || event.goal?.feed === "raidRuns") {
-    const label = event.goal.metricLabel;
+  const goal = event.goals?.find(
+    (candidate) => candidate.feed === "raids" || candidate.feed === "raidRuns",
+  );
+  if (goal && (goal.feed === "raids" || goal.feed === "raidRuns")) {
+    const label = goal.metricLabel;
     return {
-      source: event.goal.feed,
-      countRaid: event.goal.countRaid,
+      source: goal.feed,
+      countRaid: goal.countRaid,
       label: label.charAt(0).toUpperCase() + label.slice(1),
     };
   }
@@ -49,7 +52,10 @@ export function eventChart(event: GuildEvent): EventChart | null {
 export type HubEvent = Pick<
   GuildEvent,
   "slug" | "name" | "tagline" | "access" | "theme" | "startsAt" | "endsAt"
-> & { goal?: EventGoal };
+> & {
+  /** The event's primary (first) goal - the hub band shows one meter. */
+  goal?: EventGoal;
+};
 
 export interface HubGroups {
   live: HubEvent[];
@@ -88,7 +94,8 @@ export function eventHubView(event: GuildEvent): HubEvent {
     startsAt: event.startsAt,
     endsAt: event.endsAt,
   };
-  return event.access === "public" && event.goal ? { ...view, goal: event.goal } : view;
+  const primary = event.goals?.[0];
+  return event.access === "public" && primary ? { ...view, goal: primary } : view;
 }
 
 function byStart(a: HubEvent, b: HubEvent): number {

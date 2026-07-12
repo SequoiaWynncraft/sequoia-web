@@ -67,26 +67,67 @@
   let star = $state(seed?.theme.star ?? "#c4b5fd");
 
   let about = $state(seed?.about?.join("\n\n") ?? "");
-  let goalEnabled = $state(seed?.goal !== undefined);
-  let goalMetric = $state(seed?.goal?.metricLabel ?? "");
-  // Number inputs bind numbers (or null when cleared), not strings.
-  let goalTarget = $state<string | number | null | undefined>(seed?.goal ? seed.goal.target : "");
-  let goalUnlock = $state(seed?.goal?.unlock ?? "");
-  let goalSource = $state<"manual" | "raids" | "raidRuns" | "wars" | "playtime">(
-    seed?.goal?.feed ?? "manual",
-  );
-  let goalRaid = $state(seed?.goal?.countRaid ?? "");
-  // Chart source: "goal" follows the goal, "raids"/"raidRuns" chart raids
-  // explicitly, "off" hides the chart; chartRaid narrows to one raid.
-  let chartSource = $state<"goal" | "raids" | "raidRuns" | "off">(
-    seed?.activity ? (seed.activity.source === "none" ? "off" : seed.activity.source) : "goal",
-  );
-  let chartRaid = $state(seed?.activity?.countRaid ?? "");
-  let goalFinalTotal = $state<string | number | null | undefined>(seed?.goal?.finalTotal ?? "");
   // Repeater rows carry a locally generated id so the each blocks are keyed -
   // unkeyed lists with two-way bindings corrupt state when middle rows are
   // removed.
   let nextRowId = 0;
+
+  type GoalSource = "manual" | "raids" | "raidRuns" | "wars" | "playtime";
+  interface MilestoneRow {
+    id: number;
+    // Number inputs bind numbers (or null when cleared), not strings.
+    at: string | number | null | undefined;
+    unlock: string;
+  }
+  interface GoalRow {
+    id: number;
+    metric: string;
+    source: GoalSource;
+    raid: string;
+    finalTotal: string | number | null | undefined;
+    milestones: MilestoneRow[];
+    /** Preview slider position as a percentage of the last milestone. */
+    previewPercent: number;
+  }
+
+  function newMilestoneRow(): MilestoneRow {
+    return { id: nextRowId++, at: "", unlock: "" };
+  }
+
+  function newGoalRow(): GoalRow {
+    return {
+      id: nextRowId++,
+      metric: "",
+      source: "manual",
+      raid: "",
+      finalTotal: "",
+      milestones: [newMilestoneRow()],
+      previewPercent: 60,
+    };
+  }
+
+  let goalEnabled = $state((seed?.goals?.length ?? 0) > 0);
+  let goals = $state<GoalRow[]>(
+    seed?.goals?.map((goal) => ({
+      id: nextRowId++,
+      metric: goal.metricLabel,
+      source: goal.feed ?? "manual",
+      raid: goal.countRaid ?? "",
+      finalTotal: goal.finalTotal ?? "",
+      milestones: goal.milestones.map((milestone) => ({
+        id: nextRowId++,
+        at: milestone.at,
+        unlock: milestone.unlock,
+      })),
+      previewPercent: 60,
+    })) ?? [],
+  );
+  // Chart source: "goal" follows the first raid-based goal, "raids"/"raidRuns"
+  // chart raids explicitly, "off" hides the chart; chartRaid narrows to one raid.
+  let chartSource = $state<"goal" | "raids" | "raidRuns" | "off">(
+    seed?.activity ? (seed.activity.source === "none" ? "off" : seed.activity.source) : "goal",
+  );
+  let chartRaid = $state(seed?.activity?.countRaid ?? "");
   let prizes = $state<(Required<PrizeEntry> & { id: number })[]>(
     seed?.prizes?.map((entry) => ({
       ...entry,
@@ -169,20 +210,24 @@
     if (endsAt) event.endsAt = keepInstant(endsAt, seedEndsAt);
     const paragraphs = splitParagraphs(about);
     if (paragraphs.length > 0) event.about = paragraphs;
-    if (goalEnabled) {
-      const goal: Record<string, unknown> = {
-        metricLabel: goalMetric,
-        target: toCount(goalTarget),
-        unlock: goalUnlock,
-      };
-      if (goalSource !== "manual") {
-        goal.feed = goalSource;
-        if ((goalSource === "raids" || goalSource === "raidRuns") && goalRaid) {
-          goal.countRaid = goalRaid;
+    if (goalEnabled && goals.length > 0) {
+      event.goals = goals.map((row) => {
+        const goal: Record<string, unknown> = {
+          metricLabel: row.metric,
+          // Rows added but left fully empty are noise, not intent.
+          milestones: row.milestones
+            .filter((milestone) => hasCount(milestone.at) || milestone.unlock.trim())
+            .map((milestone) => ({ at: toCount(milestone.at), unlock: milestone.unlock })),
+        };
+        if (row.source !== "manual") {
+          goal.feed = row.source;
+          if ((row.source === "raids" || row.source === "raidRuns") && row.raid) {
+            goal.countRaid = row.raid;
+          }
         }
-      }
-      if (hasCount(goalFinalTotal)) goal.finalTotal = toCount(goalFinalTotal);
-      event.goal = goal;
+        if (hasCount(row.finalTotal)) goal.finalTotal = toCount(row.finalTotal);
+        return goal;
+      });
     }
     if (chartSource === "off") event.activity = { source: "none" };
     else if (chartSource !== "goal") {
@@ -214,10 +259,10 @@
     return event;
   });
 
-  const raidOptions = $derived.by(() => {
+  function raidOptionsFor(selected: string): string[] {
     const names = KNOWN_RAIDS.map((raid) => raid.key);
-    return goalRaid && !names.includes(goalRaid) ? [...names, goalRaid] : names;
-  });
+    return selected && !names.includes(selected) ? [...names, selected] : names;
+  }
 
   const chartRaidOptions = $derived.by(() => {
     const names = KNOWN_RAIDS.map((raid) => raid.key);
@@ -227,7 +272,7 @@
   const parsed = $derived(parseGuildEvent(draftEvent));
   const liveError = $derived(parsed.ok ? null : parsed.error);
   const payload = $derived(JSON.stringify({ event: draftEvent, published }));
-  const previewGoal = $derived(parsed.ok ? parsed.event.goal : undefined);
+  const previewGoals = $derived(parsed.ok ? (parsed.event.goals ?? []) : []);
 
   const selectedTracker = $derived(
     trackerChoices.find((option) => option.id === trackerEventId) ?? null,
@@ -500,78 +545,125 @@
       </section>
 
       <section class="mg-section">
-        <SectionLabel>{#snippet children()}Goal{/snippet}</SectionLabel>
+        <SectionLabel>{#snippet children()}Goals{/snippet}</SectionLabel>
         <label class="mg-check">
-          <input type="checkbox" bind:checked={goalEnabled} />
-          <span>Track a goal</span>
+          <input
+            type="checkbox"
+            bind:checked={goalEnabled}
+            onchange={(event) => {
+              // The explicit handler can run before bind:checked applies -
+              // read the DOM state, not the bound one.
+              if (event.currentTarget.checked && goals.length === 0) goals.push(newGoalRow());
+            }}
+          />
+          <span>Track goals</span>
         </label>
         {#if goalEnabled}
-          <div class="mg-grid-2">
-            <label class="mg-field">
-              <span class="mg-label">Metric</span>
-              <input class="mg-input" bind:value={goalMetric} placeholder="guild raids" maxlength="80" />
-            </label>
-            <label class="mg-field">
-              <span class="mg-label">Target</span>
-              <input class="mg-input" type="number" min="1" bind:value={goalTarget} />
-            </label>
-          </div>
-          <label class="mg-field">
-            <span class="mg-label">Unlocks</span>
-            <input class="mg-input" bind:value={goalUnlock} placeholder="Rank Up Raffle" maxlength="120" />
-          </label>
-          <div class="mg-field">
-            <span class="mg-label">Data source</span>
-            <div class="mg-choices" role="radiogroup" aria-label="Goal data source">
-              <label class="mg-choice" class:mg-choice-selected={goalSource === "raids"}>
-                <input class="mg-choice-input" type="radio" name="goal-source" value="raids" bind:group={goalSource} />
-                <span class="mg-choice-title">Guild raid feed</span>
-                <span class="mg-choice-desc">Member participation credits from the activity feed - party size inflates them.</span>
-              </label>
-              <label class="mg-choice" class:mg-choice-selected={goalSource === "raidRuns"}>
-                <input class="mg-choice-input" type="radio" name="goal-source" value="raidRuns" bind:group={goalSource} />
-                <span class="mg-choice-title">Mod completions</span>
-                <span class="mg-choice-desc">Counts unique runs from the guild mod - one per party, misses runs without a mod user.</span>
-              </label>
-              <label class="mg-choice" class:mg-choice-selected={goalSource === "wars"}>
-                <input class="mg-choice-input" type="radio" name="goal-source" value="wars" bind:group={goalSource} />
-                <span class="mg-choice-title">War feed</span>
-                <span class="mg-choice-desc">Sums wars from the daily stat rollups - whole UTC days.</span>
-              </label>
-              <label class="mg-choice" class:mg-choice-selected={goalSource === "playtime"}>
-                <input class="mg-choice-input" type="radio" name="goal-source" value="playtime" bind:group={goalSource} />
-                <span class="mg-choice-title">Playtime feed</span>
-                <span class="mg-choice-desc">Sums hours played from the daily stat rollups - whole UTC days.</span>
-              </label>
-              <label class="mg-choice" class:mg-choice-selected={goalSource === "manual"}>
-                <input class="mg-choice-input" type="radio" name="goal-source" value="manual" bind:group={goalSource} />
-                <span class="mg-choice-title">Manual</span>
-                <span class="mg-choice-desc">No live wiring - the meter shows the total entered below.</span>
-              </label>
-            </div>
-          </div>
-          <div class="mg-grid-2">
-            {#if goalSource === "raids" || goalSource === "raidRuns"}
+          {#each goals as goal, goalIndex (goal.id)}
+            <div class="mg-goal">
+              <div class="mg-goal-head">
+                <span class="mg-label">Goal {goalIndex + 1}</span>
+                <button
+                  type="button"
+                  class="mg-remove focus-ring"
+                  onclick={() => (goals = goals.filter((entry) => entry.id !== goal.id))}
+                  aria-label="Remove goal {goalIndex + 1}"
+                >✕</button>
+              </div>
               <label class="mg-field">
-                <span class="mg-label">Which raids count</span>
-                <select class="mg-input" bind:value={goalRaid}>
-                  <option value="">All guild raids</option>
-                  {#each raidOptions as raid (raid)}
-                    <option value={raid}>{raid}</option>
-                  {/each}
-                </select>
+                <span class="mg-label">Metric</span>
+                <input class="mg-input" bind:value={goal.metric} placeholder="guild raids" maxlength="80" />
               </label>
-            {/if}
-            <label class="mg-field">
-              <span class="mg-label">{goalSource === "manual" ? "Total so far" : "Final total"}</span>
-              <input class="mg-input" type="number" min="0" bind:value={goalFinalTotal} />
-            </label>
-          </div>
-          <p class="mg-hint">
-            {goalSource === "manual"
-              ? "Update the total by hand as the event progresses."
-              : "Final total is optional - set it once the event has ended to freeze the meter."}
-          </p>
+              <div class="mg-field">
+                <span class="mg-label">Milestones</span>
+                {#each goal.milestones as milestone (milestone.id)}
+                  <div class="mg-repeat-row mg-repeat-milestone">
+                    <input
+                      class="mg-input"
+                      type="number"
+                      min="1"
+                      placeholder="Target"
+                      bind:value={milestone.at}
+                      aria-label="Milestone target"
+                    />
+                    <input
+                      class="mg-input"
+                      placeholder="Unlocks, e.g. Rank Up Raffle"
+                      bind:value={milestone.unlock}
+                      maxlength="120"
+                      aria-label="Milestone unlock"
+                    />
+                    <button
+                      type="button"
+                      class="mg-remove focus-ring"
+                      onclick={() =>
+                        (goal.milestones = goal.milestones.filter((entry) => entry.id !== milestone.id))}
+                      aria-label="Remove milestone"
+                    >✕</button>
+                  </div>
+                {/each}
+                <button type="button" class="mg-add focus-ring" onclick={() => goal.milestones.push(newMilestoneRow())}>
+                  + Add milestone
+                </button>
+                <p class="mg-hint">Targets must ascend - the last one is the headline target.</p>
+              </div>
+              <div class="mg-field">
+                <span class="mg-label">Data source</span>
+                <div class="mg-choices" role="radiogroup" aria-label="Goal {goalIndex + 1} data source">
+                  <label class="mg-choice" class:mg-choice-selected={goal.source === "raids"}>
+                    <input class="mg-choice-input" type="radio" name="goal-source-{goal.id}" value="raids" bind:group={goal.source} />
+                    <span class="mg-choice-title">Guild raid feed</span>
+                    <span class="mg-choice-desc">Member participation credits from the activity feed - party size inflates them.</span>
+                  </label>
+                  <label class="mg-choice" class:mg-choice-selected={goal.source === "raidRuns"}>
+                    <input class="mg-choice-input" type="radio" name="goal-source-{goal.id}" value="raidRuns" bind:group={goal.source} />
+                    <span class="mg-choice-title">Mod completions</span>
+                    <span class="mg-choice-desc">Counts unique runs from the guild mod - one per party, misses runs without a mod user.</span>
+                  </label>
+                  <label class="mg-choice" class:mg-choice-selected={goal.source === "wars"}>
+                    <input class="mg-choice-input" type="radio" name="goal-source-{goal.id}" value="wars" bind:group={goal.source} />
+                    <span class="mg-choice-title">War feed</span>
+                    <span class="mg-choice-desc">Sums wars from the daily stat rollups - whole UTC days.</span>
+                  </label>
+                  <label class="mg-choice" class:mg-choice-selected={goal.source === "playtime"}>
+                    <input class="mg-choice-input" type="radio" name="goal-source-{goal.id}" value="playtime" bind:group={goal.source} />
+                    <span class="mg-choice-title">Playtime feed</span>
+                    <span class="mg-choice-desc">Sums hours played from the daily stat rollups - whole UTC days.</span>
+                  </label>
+                  <label class="mg-choice" class:mg-choice-selected={goal.source === "manual"}>
+                    <input class="mg-choice-input" type="radio" name="goal-source-{goal.id}" value="manual" bind:group={goal.source} />
+                    <span class="mg-choice-title">Manual</span>
+                    <span class="mg-choice-desc">No live wiring - the meter shows the total entered below.</span>
+                  </label>
+                </div>
+              </div>
+              <div class="mg-grid-2">
+                {#if goal.source === "raids" || goal.source === "raidRuns"}
+                  <label class="mg-field">
+                    <span class="mg-label">Which raids count</span>
+                    <select class="mg-input" bind:value={goal.raid}>
+                      <option value="">All guild raids</option>
+                      {#each raidOptionsFor(goal.raid) as raid (raid)}
+                        <option value={raid}>{raid}</option>
+                      {/each}
+                    </select>
+                  </label>
+                {/if}
+                <label class="mg-field">
+                  <span class="mg-label">{goal.source === "manual" ? "Total so far" : "Final total"}</span>
+                  <input class="mg-input" type="number" min="0" bind:value={goal.finalTotal} />
+                </label>
+              </div>
+              <p class="mg-hint">
+                {goal.source === "manual"
+                  ? "Update the total by hand as the event progresses."
+                  : "Final total is optional - set it once the event has ended to freeze the meter."}
+              </p>
+            </div>
+          {/each}
+          <button type="button" class="mg-add focus-ring" onclick={() => goals.push(newGoalRow())}>
+            + Add goal
+          </button>
         {/if}
       </section>
 
@@ -884,14 +976,34 @@
           {name || "Event name"}
         </span>
         <span class="mg-preview-tagline">{tagline || "Tagline."}</span>
-        {#if previewGoal}
+        {#if previewGoals[0]}
           <div class="mg-preview-goal">
-            <GoalMeter goal={previewGoal} current={null} size="band" />
+            <GoalMeter goal={previewGoals[0]} current={null} size="band" />
           </div>
         {/if}
       </div>
     </EventSky>
     <p class="mg-hint">How the hub band and page hero pick up the sky.</p>
+
+    {#if previewGoals.length > 0}
+      <div class="mg-goal-preview" style="--ev-accent: {accent}; --ev-accent-2: {accentSecondary}">
+        <SectionLabel>{#snippet children()}Goal preview{/snippet}</SectionLabel>
+        {#each previewGoals as goal, index (index)}
+          {@const finalAt = goal.milestones.at(-1)?.at ?? 1}
+          {@const percent = goals[index]?.previewPercent ?? 60}
+          <div class="mg-goal-preview-item">
+            <GoalMeter {goal} current={Math.round((finalAt * percent) / 100)} />
+            {#if goals[index]}
+              <label class="mg-goal-preview-slider">
+                <span class="mg-label">Preview progress</span>
+                <input type="range" min="0" max="120" step="1" bind:value={goals[index].previewPercent} />
+              </label>
+            {/if}
+          </div>
+        {/each}
+        <p class="mg-hint">Drag to see the meter at any point of the event.</p>
+      </div>
+    {/if}
   </aside>
 </div>
 
@@ -1043,6 +1155,48 @@
 
   .mg-repeat-prize {
     grid-template-columns: minmax(0, 2fr) minmax(0, 2fr) minmax(0, 3fr) auto;
+  }
+
+  .mg-repeat-milestone {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 3fr) auto;
+    margin-bottom: 8px;
+  }
+
+  .mg-goal {
+    display: grid;
+    gap: 14px;
+    padding: 16px;
+    border: 1px solid var(--color-border-subtle);
+  }
+
+  .mg-goal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .mg-goal-preview {
+    display: grid;
+    gap: 18px;
+    margin-top: 24px;
+    padding: 18px;
+    border: 1px solid var(--color-border-subtle);
+    background: rgba(19, 22, 31, 0.5);
+  }
+
+  .mg-goal-preview-item {
+    display: grid;
+    gap: 12px;
+  }
+
+  .mg-goal-preview-slider {
+    display: grid;
+    gap: 6px;
+  }
+
+  .mg-goal-preview-slider input[type="range"] {
+    width: 100%;
+    accent-color: var(--ev-accent, var(--color-gold));
   }
 
   .mg-choices {
