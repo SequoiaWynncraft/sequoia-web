@@ -174,9 +174,13 @@
     if (mode === "create" && !slugEdited) slug = slugify(name);
   }
 
-  /** Picking a tracker event also decides how it is tracked. */
-  function syncTracking() {
-    const option = trackerChoices.find((entry) => entry.id === trackerEventId);
+  /**
+   * Picking a tracker event also decides how it is tracked. Reads the id off
+   * the select itself - the change handler can run before bind:value has
+   * written the new selection back to state.
+   */
+  function syncTracking(id: string) {
+    const option = trackerChoices.find((entry) => entry.id === id);
     if (option) trackerTracking = option.tracking;
   }
 
@@ -486,7 +490,11 @@
           {#if !trackerManual}
             <label class="mg-field">
               <span class="mg-label">Tracker event</span>
-              <select class="mg-input" bind:value={trackerEventId} onchange={syncTracking}>
+              <select
+                class="mg-input"
+                bind:value={trackerEventId}
+                onchange={(event) => syncTracking(event.currentTarget.value)}
+              >
                 <option value="" disabled>Pick a tracker event</option>
                 {#each trackerChoices as option (option.id)}
                   <option value={option.id}>{option.name} ({option.window})</option>
