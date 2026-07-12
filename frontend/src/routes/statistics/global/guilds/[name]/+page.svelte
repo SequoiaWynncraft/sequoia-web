@@ -59,6 +59,7 @@
       value: (member) => member.username,
       sortValue: (member) => member.username.toLowerCase(),
       secondary: (member) => member.rank,
+      href: (member) => `/statistics/global/players/${encodeURIComponent(member.username)}`,
     },
     {
       key: "contributed",

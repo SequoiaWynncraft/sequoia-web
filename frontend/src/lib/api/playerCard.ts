@@ -19,6 +19,8 @@ export interface PlayerCardResponse {
   first_join: string | null;
   last_join: string | null;
   playtime: number | null;
+  guild_name: string | null;
+  guild_prefix: string | null;
   guild_rank: string | null;
   guild_rank_stars: string | null;
   wars: number | null;
@@ -51,6 +53,8 @@ export function isPlayerCardResponse(value: unknown): value is PlayerCardRespons
     isNullableString(value.first_join) &&
     isNullableString(value.last_join) &&
     isNullableNonNegativeNumber(value.playtime) &&
+    isNullableString(value.guild_name) &&
+    isNullableString(value.guild_prefix) &&
     isNullableString(value.guild_rank) &&
     isNullableString(value.guild_rank_stars) &&
     isNullableNonNegativeInteger(value.wars) &&
