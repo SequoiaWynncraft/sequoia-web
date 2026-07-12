@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { EVENTS, eventBySlug, eventHubView, eventStatus, hubGroups } from "$lib/events/registry";
+import { eventHubView, eventStatus, hubGroups } from "$lib/events/helpers";
+import { SEED_EVENTS } from "$lib/events/seed";
 import type { GuildEvent } from "$lib/events/types";
 
 const THEME = {
@@ -21,15 +22,10 @@ function makeEvent(overrides: Partial<GuildEvent>): GuildEvent {
   };
 }
 
-describe("event registry", () => {
-  it("has unique slugs", () => {
-    const slugs = EVENTS.map((event) => event.slug);
+describe("event helpers", () => {
+  it("seeds unique slugs", () => {
+    const slugs = SEED_EVENTS.map((event) => event.slug);
     expect(new Set(slugs).size).toBe(slugs.length);
-  });
-
-  it("looks up events by slug", () => {
-    expect(eventBySlug("the-nameless-hunt")?.name).toBe("The Nameless Hunt");
-    expect(eventBySlug("no-such-event")).toBeUndefined();
   });
 
   it("derives status from the event window", () => {
@@ -49,7 +45,7 @@ describe("event registry", () => {
 
   it("groups the hub with dated upcoming events before TBA entries", () => {
     const now = new Date("2026-07-11T12:00:00Z");
-    const groups = hubGroups(now);
+    const groups = hubGroups(SEED_EVENTS, now);
     expect(groups.live.map((event) => event.slug)).toContain("grootslang-gauntlet");
     expect(groups.past.map((event) => event.slug)).toContain("colossus-sprint");
 

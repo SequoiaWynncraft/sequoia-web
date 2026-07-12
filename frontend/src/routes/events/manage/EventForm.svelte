@@ -1,0 +1,772 @@
+<script lang="ts">
+  import { enhance } from "$app/forms";
+  import type { SubmitFunction } from "@sveltejs/kit";
+
+  import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
+  import EventSky from "$lib/events/components/EventSky.svelte";
+  import GoalMeter from "$lib/events/components/GoalMeter.svelte";
+  import type { CompRole, EventTheme, GuildEvent, PrizeEntry } from "$lib/events/types";
+  import { parseGuildEvent } from "$lib/events/validate";
+
+  let {
+    mode,
+    initial = null,
+    initialPublished = false,
+    error = null,
+    saved = false,
+  }: {
+    mode: "create" | "edit";
+    initial?: GuildEvent | null;
+    initialPublished?: boolean;
+    /** Rejection from the last server submission. */
+    error?: string | null;
+    saved?: boolean;
+  } = $props();
+
+  // The form deliberately seeds from the props once - the parent remounts it
+  // via {#key} when the event changes.
+  // svelte-ignore state_referenced_locally
+  const seed = initial;
+  // svelte-ignore state_referenced_locally
+  const seedPublished = initialPublished;
+
+  let name = $state(seed?.name ?? "");
+  let slug = $state(seed?.slug ?? "");
+  let slugEdited = $state(false);
+  let tagline = $state(seed?.tagline ?? "");
+  let access = $state<"public" | "members">(seed?.access ?? "members");
+  let published = $state(seedPublished);
+  let startsAt = $state(toInput(seed?.startsAt));
+  let endsAt = $state(toInput(seed?.endsAt));
+
+  let skyTop = $state(seed?.theme.sky[0] ?? "#171120");
+  let skyBottom = $state(seed?.theme.sky[1] ?? "#251b38");
+  let accent = $state(seed?.theme.accent ?? "#a78bfa");
+  let accentSecondary = $state(seed?.theme.accentSecondary ?? "#8fb2f0");
+  let star = $state(seed?.theme.star ?? "#c4b5fd");
+
+  let about = $state(seed?.about?.join("\n\n") ?? "");
+  let goalEnabled = $state(seed?.goal !== undefined);
+  let goalMetric = $state(seed?.goal?.metricLabel ?? "");
+  let goalTarget = $state(seed?.goal ? String(seed.goal.target) : "");
+  let goalUnlock = $state(seed?.goal?.unlock ?? "");
+  let goalFeed = $state<"none" | "raids">(seed?.goal?.feed ?? "none");
+  let goalCountRaid = $state(seed?.goal?.countRaid ?? "");
+  let goalFinalTotal = $state(
+    seed?.goal?.finalTotal !== undefined ? String(seed.goal.finalTotal) : "",
+  );
+  let prizes = $state<PrizeEntry[]>(seed?.prizes?.map((entry) => ({ ...entry })) ?? []);
+  let prizesNote = $state(seed?.prizesNote ?? "");
+  let compRoles = $state<CompRole[]>(
+    seed?.comp?.roles.map((role) => ({ ...role, note: role.note ?? "" })) ?? [],
+  );
+  let compNote = $state(seed?.comp?.note ?? "");
+  let rules = $state(seed?.rules?.join("\n") ?? "");
+  let trackerEnabled = $state(seed?.tracker !== undefined);
+  let trackerEventId = $state(seed?.tracker?.eventId ?? "");
+  let trackerTracking = $state<"api" | "mod">(seed?.tracker?.tracking ?? "api");
+
+  let showValidation = $state(false);
+  let saving = $state(false);
+  let confirmingDelete = $state(false);
+
+  const theme = $derived<EventTheme>({
+    sky: [skyTop, skyBottom],
+    accent,
+    accentSecondary,
+    star,
+  });
+
+  // The same validator the server runs, so problems surface before submitting.
+  const draftEvent = $derived.by(() => {
+    const event: Record<string, unknown> = { slug: slug.trim(), name, tagline, access, theme };
+    if (startsAt) event.startsAt = toInstant(startsAt);
+    if (endsAt) event.endsAt = toInstant(endsAt);
+    const paragraphs = splitParagraphs(about);
+    if (paragraphs.length > 0) event.about = paragraphs;
+    if (goalEnabled) {
+      const goal: Record<string, unknown> = {
+        metricLabel: goalMetric,
+        target: toCount(goalTarget),
+        unlock: goalUnlock,
+      };
+      if (goalFeed === "raids") goal.feed = "raids";
+      if (goalCountRaid.trim()) goal.countRaid = goalCountRaid;
+      if (goalFinalTotal.trim()) goal.finalTotal = toCount(goalFinalTotal);
+      event.goal = goal;
+    }
+    if (prizes.length > 0) event.prizes = prizes;
+    if (prizesNote.trim()) event.prizesNote = prizesNote;
+    if (compRoles.length > 0) {
+      event.comp = compNote.trim() ? { roles: compRoles, note: compNote } : { roles: compRoles };
+    }
+    const ruleLines = splitLines(rules);
+    if (ruleLines.length > 0) event.rules = ruleLines;
+    if (trackerEnabled) event.tracker = { eventId: trackerEventId, tracking: trackerTracking };
+    return event;
+  });
+
+  const parsed = $derived(parseGuildEvent(draftEvent));
+  const liveError = $derived(parsed.ok ? null : parsed.error);
+  const payload = $derived(JSON.stringify({ event: draftEvent, published }));
+  const previewGoal = $derived(parsed.ok ? parsed.event.goal : undefined);
+
+  const submit: SubmitFunction = ({ cancel }) => {
+    showValidation = true;
+    if (liveError) {
+      cancel();
+      return;
+    }
+    saving = true;
+    return async ({ update }) => {
+      saving = false;
+      await update({ reset: false });
+    };
+  };
+
+  function syncSlug() {
+    if (mode === "create" && !slugEdited) slug = slugify(name);
+  }
+
+  function toInput(instant?: string): string {
+    return instant ? instant.slice(0, 16) : "";
+  }
+
+  /** datetime-local values are read as UTC wall time. */
+  function toInstant(value: string): string {
+    return value.length === 16 ? `${value}:00Z` : `${value}Z`;
+  }
+
+  function slugify(value: string): string {
+    return value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 64);
+  }
+
+  function splitParagraphs(value: string): string[] {
+    return value
+      .split(/\n\s*\n/)
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+  }
+
+  function splitLines(value: string): string[] {
+    return value
+      .split("\n")
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+  }
+
+  function toCount(value: string): number {
+    return Number(value.trim());
+  }
+</script>
+
+<div class="mg-editor">
+  <div class="mg-main">
+    <form method="POST" action="?/save" use:enhance={submit}>
+      <input type="hidden" name="payload" value={payload} />
+
+      <section class="mg-section">
+        <SectionLabel>{#snippet children()}Identity{/snippet}</SectionLabel>
+        <div class="mg-grid-2">
+          <label class="mg-field">
+            <span class="mg-label">Name</span>
+            <input class="mg-input" bind:value={name} oninput={syncSlug} maxlength="80" />
+          </label>
+          {#if mode === "create"}
+            <label class="mg-field">
+              <span class="mg-label">Slug</span>
+              <input
+                class="mg-input mg-mono"
+                bind:value={slug}
+                oninput={() => (slugEdited = true)}
+                maxlength="64"
+                spellcheck="false"
+              />
+            </label>
+          {:else}
+            <div class="mg-field">
+              <span class="mg-label">Slug</span>
+              <span class="mg-static">/events/{slug}</span>
+            </div>
+          {/if}
+        </div>
+        <label class="mg-field">
+          <span class="mg-label">Tagline</span>
+          <input class="mg-input" bind:value={tagline} maxlength="200" />
+        </label>
+        <div class="mg-grid-2">
+          <label class="mg-field">
+            <span class="mg-label">Access</span>
+            <select class="mg-input" bind:value={access}>
+              <option value="members">Members</option>
+              <option value="public">Public</option>
+            </select>
+          </label>
+          <label class="mg-check">
+            <input type="checkbox" bind:checked={published} />
+            <span>
+              Listed on the events hub
+              <small>Unlisted drafts stay visible to managers.</small>
+            </span>
+          </label>
+        </div>
+      </section>
+
+      <section class="mg-section">
+        <SectionLabel>{#snippet children()}Schedule{/snippet}</SectionLabel>
+        <div class="mg-grid-2">
+          <label class="mg-field">
+            <span class="mg-label">Starts (UTC)</span>
+            <input class="mg-input" type="datetime-local" bind:value={startsAt} />
+          </label>
+          <label class="mg-field">
+            <span class="mg-label">Ends (UTC)</span>
+            <input class="mg-input" type="datetime-local" bind:value={endsAt} />
+          </label>
+        </div>
+        <p class="mg-hint">Leave both empty while dates are TBA.</p>
+      </section>
+
+      <section class="mg-section">
+        <SectionLabel>{#snippet children()}Sky{/snippet}</SectionLabel>
+        <div class="mg-grid-colors">
+          <label class="mg-field">
+            <span class="mg-label">Sky top</span>
+            <span class="mg-color-pair">
+              <input type="color" bind:value={skyTop} />
+              <input class="mg-input mg-mono" bind:value={skyTop} maxlength="7" spellcheck="false" />
+            </span>
+          </label>
+          <label class="mg-field">
+            <span class="mg-label">Sky bottom</span>
+            <span class="mg-color-pair">
+              <input type="color" bind:value={skyBottom} />
+              <input class="mg-input mg-mono" bind:value={skyBottom} maxlength="7" spellcheck="false" />
+            </span>
+          </label>
+          <label class="mg-field">
+            <span class="mg-label">Accent</span>
+            <span class="mg-color-pair">
+              <input type="color" bind:value={accent} />
+              <input class="mg-input mg-mono" bind:value={accent} maxlength="7" spellcheck="false" />
+            </span>
+          </label>
+          <label class="mg-field">
+            <span class="mg-label">Accent 2</span>
+            <span class="mg-color-pair">
+              <input type="color" bind:value={accentSecondary} />
+              <input class="mg-input mg-mono" bind:value={accentSecondary} maxlength="7" spellcheck="false" />
+            </span>
+          </label>
+          <label class="mg-field">
+            <span class="mg-label">Stars</span>
+            <span class="mg-color-pair">
+              <input type="color" bind:value={star} />
+              <input class="mg-input mg-mono" bind:value={star} maxlength="7" spellcheck="false" />
+            </span>
+          </label>
+        </div>
+      </section>
+
+      <section class="mg-section">
+        <SectionLabel>{#snippet children()}About{/snippet}</SectionLabel>
+        <label class="mg-field">
+          <span class="mg-label">Hero lead</span>
+          <textarea class="mg-input mg-textarea" rows="4" bind:value={about}></textarea>
+        </label>
+        <p class="mg-hint">Blank line between paragraphs.</p>
+      </section>
+
+      <section class="mg-section">
+        <SectionLabel>{#snippet children()}Goal{/snippet}</SectionLabel>
+        <label class="mg-check">
+          <input type="checkbox" bind:checked={goalEnabled} />
+          <span>Track a goal</span>
+        </label>
+        {#if goalEnabled}
+          <div class="mg-grid-2">
+            <label class="mg-field">
+              <span class="mg-label">Metric</span>
+              <input class="mg-input" bind:value={goalMetric} placeholder="guild raids" maxlength="80" />
+            </label>
+            <label class="mg-field">
+              <span class="mg-label">Target</span>
+              <input class="mg-input" type="number" min="1" bind:value={goalTarget} />
+            </label>
+          </div>
+          <label class="mg-field">
+            <span class="mg-label">Unlocks</span>
+            <input class="mg-input" bind:value={goalUnlock} placeholder="Rank Up Raffle" maxlength="120" />
+          </label>
+          <div class="mg-grid-2">
+            <label class="mg-field">
+              <span class="mg-label">Live feed</span>
+              <select class="mg-input" bind:value={goalFeed}>
+                <option value="none">None</option>
+                <option value="raids">Guild raid activity</option>
+              </select>
+            </label>
+            {#if goalFeed === "raids"}
+              <label class="mg-field">
+                <span class="mg-label">Count only this raid</span>
+                <input
+                  class="mg-input"
+                  bind:value={goalCountRaid}
+                  placeholder="Nest of the Grootslangs"
+                  maxlength="80"
+                />
+              </label>
+            {/if}
+          </div>
+          <label class="mg-field">
+            <span class="mg-label">Final total</span>
+            <input class="mg-input" type="number" min="0" bind:value={goalFinalTotal} />
+          </label>
+          <p class="mg-hint">Set the final total once the event ends - leave empty while live.</p>
+        {/if}
+      </section>
+
+      <section class="mg-section">
+        <SectionLabel>{#snippet children()}Prizes{/snippet}</SectionLabel>
+        {#each prizes as prize, index}
+          <div class="mg-repeat-row">
+            <input class="mg-input" placeholder="Donor" bind:value={prize.donor} maxlength="80" />
+            <input class="mg-input" placeholder="Prize" bind:value={prize.prize} maxlength="300" />
+            <button
+              type="button"
+              class="mg-remove focus-ring"
+              onclick={() => prizes.splice(index, 1)}
+              aria-label="Remove prize"
+            >✕</button>
+          </div>
+        {/each}
+        <button type="button" class="mg-add focus-ring" onclick={() => prizes.push({ donor: "", prize: "" })}>
+          + Add prize
+        </button>
+        {#if prizes.length > 0}
+          <label class="mg-field">
+            <span class="mg-label">Note</span>
+            <input class="mg-input" bind:value={prizesNote} maxlength="500" />
+          </label>
+        {/if}
+      </section>
+
+      <section class="mg-section">
+        <SectionLabel>{#snippet children()}Suggested comp{/snippet}</SectionLabel>
+        {#each compRoles as role, index}
+          <div class="mg-repeat-row mg-repeat-comp">
+            <input class="mg-input" placeholder="Role" bind:value={role.role} maxlength="60" />
+            <input class="mg-input" placeholder="Builds" bind:value={role.builds} maxlength="200" />
+            <input class="mg-input" placeholder="Note" bind:value={role.note} maxlength="200" />
+            <button
+              type="button"
+              class="mg-remove focus-ring"
+              onclick={() => compRoles.splice(index, 1)}
+              aria-label="Remove role"
+            >✕</button>
+          </div>
+        {/each}
+        <button
+          type="button"
+          class="mg-add focus-ring"
+          onclick={() => compRoles.push({ role: "", builds: "", note: "" })}
+        >
+          + Add role
+        </button>
+        {#if compRoles.length > 0}
+          <label class="mg-field">
+            <span class="mg-label">Comp note</span>
+            <input class="mg-input" bind:value={compNote} maxlength="300" />
+          </label>
+        {/if}
+      </section>
+
+      <section class="mg-section">
+        <SectionLabel>{#snippet children()}Rules{/snippet}</SectionLabel>
+        <label class="mg-field">
+          <span class="mg-label">One rule per line</span>
+          <textarea class="mg-input mg-textarea" rows="4" bind:value={rules}></textarea>
+        </label>
+      </section>
+
+      <section class="mg-section">
+        <SectionLabel>{#snippet children()}Standings{/snippet}</SectionLabel>
+        <label class="mg-check">
+          <input type="checkbox" bind:checked={trackerEnabled} />
+          <span>
+            Show a standings board
+            <small>Needs a raid tracker event id from the backend.</small>
+          </span>
+        </label>
+        {#if trackerEnabled}
+          <div class="mg-grid-2">
+            <label class="mg-field">
+              <span class="mg-label">Tracker event id</span>
+              <input class="mg-input mg-mono" bind:value={trackerEventId} maxlength="64" spellcheck="false" />
+            </label>
+            <label class="mg-field">
+              <span class="mg-label">Tracking source</span>
+              <select class="mg-input" bind:value={trackerTracking}>
+                <option value="api">Wynncraft API</option>
+                <option value="mod">Guild mod</option>
+              </select>
+            </label>
+          </div>
+        {/if}
+      </section>
+
+      <div class="mg-footer">
+        <button type="submit" class="seq-button seq-button-primary seq-button-md" disabled={saving}>
+          {mode === "create" ? "Create event" : "Save changes"}
+        </button>
+        {#if mode === "edit"}
+          <a class="mg-view focus-ring" href={`/events/${slug}`}>View page</a>
+        {/if}
+        {#if showValidation && liveError}
+          <span class="mg-error" role="alert">{liveError}</span>
+        {:else if error}
+          <span class="mg-error" role="alert">{error}</span>
+        {:else if saved}
+          <span class="mg-saved">Saved</span>
+        {/if}
+      </div>
+    </form>
+
+    {#if mode === "edit"}
+      <form class="mg-danger" method="POST" action="?/delete" use:enhance>
+        {#if confirmingDelete}
+          <span class="mg-error">This permanently removes the event.</span>
+          <button type="submit" class="mg-delete focus-ring">Confirm delete</button>
+          <button
+            type="button"
+            class="seq-button seq-button-ghost seq-button-sm"
+            onclick={() => (confirmingDelete = false)}
+          >
+            Keep
+          </button>
+        {:else}
+          <button
+            type="button"
+            class="seq-button seq-button-ghost seq-button-sm"
+            onclick={() => (confirmingDelete = true)}
+          >
+            Delete event
+          </button>
+        {/if}
+      </form>
+    {/if}
+  </div>
+
+  <aside class="mg-side" aria-label="Live preview">
+    <SectionLabel>{#snippet children()}Preview{/snippet}</SectionLabel>
+    <EventSky {theme}>
+      <div class="mg-preview">
+        <span class="mg-preview-spark" style="color: {accent}" aria-hidden="true">✦</span>
+        <span
+          class="mg-preview-name"
+          style="background-image: linear-gradient(90deg, {accent}, {accentSecondary})"
+        >
+          {name || "Event name"}
+        </span>
+        <span class="mg-preview-tagline">{tagline || "Tagline."}</span>
+        {#if previewGoal}
+          <div class="mg-preview-goal">
+            <GoalMeter goal={previewGoal} current={null} size="band" />
+          </div>
+        {/if}
+      </div>
+    </EventSky>
+    <p class="mg-hint">How the hub band and page hero pick up the sky.</p>
+  </aside>
+</div>
+
+<style>
+  .mg-editor {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: 40px;
+    align-items: start;
+  }
+
+  .mg-side {
+    position: sticky;
+    top: calc(3.5rem + 20px);
+  }
+
+  .mg-section {
+    display: grid;
+    gap: 14px;
+    padding: 22px 0 26px;
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+
+  .mg-section:first-child {
+    padding-top: 0;
+  }
+
+  .mg-grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .mg-grid-colors {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 14px;
+  }
+
+  .mg-field {
+    display: grid;
+    gap: 6px;
+    align-content: start;
+  }
+
+  .mg-label {
+    color: var(--text-muted);
+    font-family: var(--font-display);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+  }
+
+  .mg-input {
+    width: 100%;
+    padding: 9px 11px;
+    border: 1px solid var(--color-border-subtle);
+    background: color-mix(in srgb, var(--color-abyss) 65%, transparent);
+    color: var(--text-body);
+    font-family: var(--font-data);
+    font-size: var(--text-sm);
+    transition: border-color var(--dur-fast) ease;
+  }
+
+  .mg-input:focus-visible {
+    outline: none;
+    border-color: color-mix(in srgb, var(--color-gold) 55%, var(--color-border-subtle));
+  }
+
+  .mg-input::placeholder {
+    color: var(--text-muted);
+    opacity: 0.6;
+  }
+
+  select.mg-input {
+    appearance: none;
+    cursor: pointer;
+  }
+
+  .mg-textarea {
+    resize: vertical;
+    line-height: var(--leading-normal);
+  }
+
+  .mg-mono {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mg-static {
+    padding: 9px 0;
+    color: var(--text-muted);
+    font-family: var(--font-data);
+    font-size: var(--text-sm);
+  }
+
+  .mg-check {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    color: var(--text-body);
+    font-size: var(--text-sm);
+    cursor: pointer;
+  }
+
+  .mg-check input {
+    accent-color: var(--color-gold);
+    translate: 0 1px;
+  }
+
+  .mg-check small {
+    display: block;
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+  }
+
+  .mg-hint {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+  }
+
+  .mg-color-pair {
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr);
+    gap: 8px;
+    align-items: stretch;
+  }
+
+  .mg-color-pair input[type="color"] {
+    width: 38px;
+    height: 100%;
+    min-height: 38px;
+    padding: 3px;
+    border: 1px solid var(--color-border-subtle);
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .mg-repeat-row {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) auto;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .mg-repeat-comp {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) minmax(0, 2fr) auto;
+  }
+
+  .mg-remove {
+    padding: 8px 10px;
+    border: 1px solid var(--color-border-subtle);
+    background: none;
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+    cursor: pointer;
+    transition: color var(--dur-fast) ease, border-color var(--dur-fast) ease;
+  }
+
+  .mg-remove:hover {
+    border-color: var(--color-border-accent);
+    color: var(--text-body);
+  }
+
+  .mg-add {
+    justify-self: start;
+    padding: 6px 2px;
+    border: none;
+    background: none;
+    color: var(--color-gold);
+    font-family: var(--font-display);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  .mg-footer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: center;
+    padding-top: 26px;
+  }
+
+  .mg-view {
+    color: var(--text-muted);
+    font-family: var(--font-display);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-wider);
+    text-decoration: none;
+    text-transform: uppercase;
+    transition: color var(--dur-fast) ease;
+  }
+
+  .mg-view:hover {
+    color: var(--color-gold);
+  }
+
+  .mg-error {
+    color: #e05252;
+    font-size: var(--text-sm);
+  }
+
+  .mg-saved {
+    color: var(--color-gold);
+    font-size: var(--text-sm);
+  }
+
+  .mg-danger {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    margin-top: 44px;
+    padding-top: 18px;
+    border-top: 1px solid var(--color-border-subtle);
+  }
+
+  .mg-delete {
+    padding: 8px 16px;
+    border: 1px solid color-mix(in srgb, #e05252 55%, transparent);
+    background: none;
+    color: #e05252;
+    font-family: var(--font-display);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  .mg-preview {
+    display: grid;
+    justify-items: center;
+    gap: 8px;
+    padding: 34px 22px;
+    text-align: center;
+  }
+
+  .mg-preview-spark {
+    font-size: var(--text-sm);
+  }
+
+  .mg-preview-name {
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+    font-family: var(--font-display);
+    font-size: var(--text-lg);
+    letter-spacing: var(--tracking-wide);
+    line-height: var(--leading-tight);
+    text-transform: uppercase;
+    overflow-wrap: anywhere;
+  }
+
+  .mg-preview-tagline {
+    color: var(--text-body);
+    font-size: var(--text-sm);
+  }
+
+  .mg-preview-goal {
+    width: min(280px, 100%);
+    margin-top: 10px;
+  }
+
+  @media (max-width: 1000px) {
+    .mg-editor {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .mg-side {
+      position: static;
+      order: -1;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .mg-grid-2,
+    .mg-repeat-row,
+    .mg-repeat-comp {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .mg-remove {
+      justify-self: start;
+    }
+  }
+</style>

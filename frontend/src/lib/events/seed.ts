@@ -1,14 +1,12 @@
-import type { EventGoal, EventStatus, GuildEvent } from "./types";
+import type { GuildEvent } from "./types";
 
 /**
- * All guild events, newest intent first. Adding an event is adding an entry
- * here; every content section is optional, the theme is mandatory.
- *
- * The Nameless Hunt is the first event that will run live. The other three
- * entries are placeholder demos exercising the remaining access/status
- * combinations - replace them as real events are scheduled.
+ * One-time seed for the event store: imported into the database the first
+ * time it initializes, then never consulted again - events are managed
+ * through /events/manage from that point on. Deleting a seeded event does
+ * not resurrect it.
  */
-export const EVENTS: GuildEvent[] = [
+export const SEED_EVENTS: GuildEvent[] = [
   {
     slug: "the-nameless-hunt",
     name: "The Nameless Hunt",
@@ -136,65 +134,3 @@ export const EVENTS: GuildEvent[] = [
     },
   },
 ];
-
-export function eventBySlug(slug: string): GuildEvent | undefined {
-  return EVENTS.find((event) => event.slug === slug);
-}
-
-export function eventStatus(event: GuildEvent, now: Date): EventStatus {
-  if (!event.startsAt || !event.endsAt) return "tba";
-  const start = Date.parse(event.startsAt);
-  const end = Date.parse(event.endsAt);
-  if (now.getTime() < start) return "upcoming";
-  if (now.getTime() > end) return "ended";
-  return "live";
-}
-
-export type HubEvent = Pick<
-  GuildEvent,
-  "slug" | "name" | "tagline" | "access" | "theme" | "startsAt" | "endsAt"
-> & { goal?: EventGoal };
-
-export interface HubGroups {
-  live: HubEvent[];
-  /** Dated events first by start date, then undated (TBA) entries. */
-  upcoming: HubEvent[];
-  past: HubEvent[];
-}
-
-export function hubGroups(now: Date): HubGroups {
-  const groups: HubGroups = { live: [], upcoming: [], past: [] };
-  for (const event of EVENTS) {
-    const status = eventStatus(event, now);
-    const hubEvent = eventHubView(event);
-    if (status === "live") groups.live.push(hubEvent);
-    else if (status === "ended") groups.past.push(hubEvent);
-    else groups.upcoming.push(hubEvent);
-  }
-  groups.live.sort(byStart);
-  groups.upcoming.sort((a, b) => {
-    if (!a.startsAt) return b.startsAt ? 1 : 0;
-    if (!b.startsAt) return -1;
-    return byStart(a, b);
-  });
-  groups.past.sort((a, b) => Date.parse(b.endsAt ?? "") - Date.parse(a.endsAt ?? ""));
-  return groups;
-}
-
-/** Only fields rendered by the hub cross its server-load boundary. */
-export function eventHubView(event: GuildEvent): HubEvent {
-  const view: HubEvent = {
-    slug: event.slug,
-    name: event.name,
-    tagline: event.tagline,
-    access: event.access,
-    theme: event.theme,
-    startsAt: event.startsAt,
-    endsAt: event.endsAt,
-  };
-  return event.access === "public" && event.goal ? { ...view, goal: event.goal } : view;
-}
-
-function byStart(a: HubEvent, b: HubEvent): number {
-  return Date.parse(a.startsAt ?? "") - Date.parse(b.startsAt ?? "");
-}

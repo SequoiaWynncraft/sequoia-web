@@ -1,9 +1,11 @@
 import { error } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
 
-import { eventBySlug, eventStatus } from "$lib/events/registry";
+import { eventStatus } from "$lib/events/helpers";
 import type { GuildEvent } from "$lib/events/types";
 import { getGuildStats } from "$lib/server/guildStats";
+import { checkEventManager } from "$lib/server/eventManagers";
+import { eventStore } from "$lib/server/eventStore";
 import { loadEventRaidCounts, sumCounts, type EventDayCount } from "$lib/server/eventActivity";
 import {
   loadModLeaderboard,
@@ -25,8 +27,15 @@ export type Standings =
   | { state: "board"; leaderboard: RaidLeaderboardEntry[]; error: string | null };
 
 export const load: PageServerLoad = async ({ fetch, params, parent }) => {
-  const event = eventBySlug(params.slug);
-  if (!event) error(404, "No such event");
+  const stored = await eventStore.get(params.slug);
+  if (!stored) error(404, "No such event");
+  const event = stored.event;
+
+  // Unpublished events stay invisible except as a manager preview.
+  if (!stored.published) {
+    const { viewer } = await parent();
+    if ((await checkEventManager(fetch, viewer)) !== "manager") error(404, "No such event");
+  }
 
   const now = new Date();
   const status = eventStatus(event, now);
@@ -62,6 +71,7 @@ export const load: PageServerLoad = async ({ fetch, params, parent }) => {
     return {
       event: publicView(event),
       status,
+      draft: false,
       locked: true as const,
       lockReason: membership ?? ("signin" as const),
       days: null,
@@ -100,6 +110,7 @@ export const load: PageServerLoad = async ({ fetch, params, parent }) => {
   return {
     event,
     status,
+    draft: !stored.published,
     locked: false as const,
     lockReason: null,
     days,

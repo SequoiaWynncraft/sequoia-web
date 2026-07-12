@@ -74,6 +74,12 @@
     <div class="ev-enter" style="--enter: 3">
       <EventMeta {event} {status} align="center" />
     </div>
+    {#if data.draft}
+      <p class="ev-draft-note ev-enter" style="--enter: 3">
+        Draft preview - hidden from the hub until it is listed.
+        <a class="focus-ring" href={`/events/manage/${event.slug}`}>Edit</a>
+      </p>
+    {/if}
     {#if event.about}
       <div class="ev-hero-about ev-enter" style="--enter: 4">
         {#each event.about as paragraph (paragraph)}
@@ -334,6 +340,22 @@
     margin: 0 0 20px;
     color: var(--text-body);
     font-size: var(--text-base);
+  }
+
+  .ev-draft-note {
+    margin: 14px 0 0;
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+  }
+
+  .ev-draft-note a {
+    margin-left: 6px;
+    color: var(--ev-accent);
+    text-decoration: none;
+    text-transform: uppercase;
+    font-family: var(--font-display);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-wider);
   }
 
   .ev-hero-about {

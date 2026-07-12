@@ -4,7 +4,7 @@
   import EventSky from "$lib/events/components/EventSky.svelte";
   import EventMeta from "$lib/events/components/EventMeta.svelte";
   import GoalMeter from "$lib/events/components/GoalMeter.svelte";
-  import type { HubEvent } from "$lib/events/registry";
+  import type { HubEvent } from "$lib/events/helpers";
   import type { EventStatus } from "$lib/events/types";
 
   let { data } = $props();
@@ -29,6 +29,9 @@
 
 <div class="ev-hub">
   <PageHeader kicker="Sequoia" title="Events" />
+  {#if data.manager}
+    <a class="ev-manage-link focus-ring" href="/events/manage">◆ Manage</a>
+  {/if}
 
   {#each shelves as shelf (shelf.status)}
     <section class="ev-shelf" aria-label="{shelf.label} events">
@@ -68,9 +71,27 @@
 
 <style>
   .ev-hub {
+    position: relative;
     width: min(1200px, 100% - 3rem);
     margin: 0 auto;
     padding-bottom: 40px;
+  }
+
+  .ev-manage-link {
+    position: absolute;
+    top: 14px;
+    right: 0;
+    color: var(--text-muted);
+    font-family: var(--font-display);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-wider);
+    text-decoration: none;
+    text-transform: uppercase;
+    transition: color var(--dur-fast) ease;
+  }
+
+  .ev-manage-link:hover {
+    color: var(--color-gold);
   }
 
   .ev-shelf {

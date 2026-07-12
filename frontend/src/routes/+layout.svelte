@@ -11,8 +11,8 @@
   let { children, data }: { children: Snippet; data: { viewer: Viewer | null } } = $props();
   const isHome = $derived(page.url.pathname === "/");
   // Event pages open with a full-bleed sky that tucks under the translucent
-  // navbar, exactly like the homepage hero.
-  const isFullBleed = $derived(isHome || /^\/events\/./.test(page.url.pathname));
+  // navbar, exactly like the homepage hero. The manage pages are plain chrome.
+  const isFullBleed = $derived(isHome || /^\/events\/(?!manage(?:\/|$))./.test(page.url.pathname));
 </script>
 
 <svelte:head>

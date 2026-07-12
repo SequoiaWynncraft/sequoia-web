@@ -65,10 +65,15 @@ No CSS framework and no store library.
 - `/news`, `/legal`, `/services{,/bagshop,/announcements,/requests,/contact}`
 - `/events` — the events hub: full-width "sky bands" grouped by status (live/upcoming/past),
   each rendered in its event's own theme; `/events/{slug}` is the per-event page (themed
-  hero, goal meter, activity chart, member standings, prize pool, comp, rules). Events are
-  defined in a typed registry (`frontend/src/lib/events/registry.ts`) — adding an event is
-  adding an entry; every content section is optional and the visual theme is per-event
-  CSS custom properties (`--ev-*`). Live goal/chart data reads the public raid activity
+  hero, goal meter, activity chart, member standings, prize pool, comp, rules). Events
+  live as validated JSON rows in the site database (`lib/server/eventStore.ts`, seeded
+  once from `lib/events/seed.ts`) and are managed at `/events/manage` — a dashboard with
+  a live sky preview, gated to strategist+ against a fresh roster
+  (`lib/server/eventManagers.ts`); unpublished drafts stay invisible outside manage
+  except as a manager preview. `parseGuildEvent` (`lib/events/validate.ts`) guards both
+  the form submissions and the stored rows, so the `GuildEvent` type can grow without
+  migrations; every content section is optional and the visual theme is per-event CSS
+  custom properties (`--ev-*`). Live goal/chart data reads the public raid activity
   feed; member standings reuse the raid tracker's event leaderboards via
   `lib/server/raidEventBoards.ts` once a `tracker` id is set on the event. Member-only
   events keep a public hero but their gated sections (goal, prizes, comp, rules, activity,
@@ -87,7 +92,9 @@ stay thin by calling `pageView(path)`.
 **Server API routes** (`+server.ts`) act as a backend-for-frontend:
 - `/api/branchmasters` — fetches the guild from Wynncraft, extracts leadership ranks, and
   caches results in libSQL (`@libsql/client`; local file `.data/sequoia-web.db` or Turso).
-  2-minute freshness with 3-day stale-on-error fallback.
+  2-minute freshness with 3-day stale-on-error fallback. The libSQL client is shared via
+  `lib/server/db.ts`; besides the `api_cache` table it holds `guild_events` — the events
+  are durable data, so the `.data` volume (or Turso) must persist across deploys.
 - Raid-event data is read server-side in the raid page's `load` from the Rust backend's
   `/v1/**`; the member-only leaderboard is fetched with the internal API token after the
   signed-in viewer's guild membership is verified.

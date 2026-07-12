@@ -14,6 +14,10 @@ FROM oven/bun:1.3.14-alpine AS runtime
 WORKDIR /app/frontend
 ENV NODE_ENV=production
 ENV PORT=3000
+# The container only ever sits behind the reverse proxy, so derive the site
+# origin from its forwarded headers - form actions 403 on a wrong origin.
+ENV PROTOCOL_HEADER=x-forwarded-proto
+ENV HOST_HEADER=x-forwarded-host
 
 COPY --from=deps /app/node_modules /app/node_modules
 COPY --from=deps /app/frontend/node_modules /app/frontend/node_modules
