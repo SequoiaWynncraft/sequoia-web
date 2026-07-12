@@ -1,7 +1,7 @@
 import { error } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
 
-import { getAnyPlayerCard } from "$lib/server/globalPlayer";
+import { AmbiguousPlayerError, getAnyPlayerCard } from "$lib/server/globalPlayer";
 import { getPlayerSeries } from "$lib/server/playerSeries";
 
 export const prerender = false;
@@ -13,7 +13,10 @@ export const load: PageServerLoad = async ({ fetch, params }) => {
   let card;
   try {
     card = await getAnyPlayerCard(fetch, params.ident);
-  } catch {
+  } catch (cause) {
+    if (cause instanceof AmbiguousPlayerError) {
+      error(404, "Several players share that name - open the profile from search instead.");
+    }
     error(503, "Player profiles are temporarily unavailable.");
   }
   if (card === null) error(404, "No such player.");

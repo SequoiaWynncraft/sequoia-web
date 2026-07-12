@@ -30,6 +30,9 @@ const searchCache = new Map<string, { expires: number; hits: PlayerSearchHit[] }
 
 class PlayerNotFoundError extends Error {}
 
+/** A reused username matching several players - resolvable only by UUID. */
+export class AmbiguousPlayerError extends Error {}
+
 /**
  * Profile for any Wynncraft player by username or UUID. Null when no such
  * player exists; throws when the API is unavailable.
@@ -90,6 +93,10 @@ async function loadPlayer(fetchImpl: typeof fetch, ident: string, key: string): 
     missesUntil.set(key, Date.now() + NOT_FOUND_TTL_MS);
     throw new PlayerNotFoundError(ident);
   }
+  // Reused usernames answer with a 300 selector. In-product links navigate
+  // by UUID, so this only reaches hand-typed names - surface it as its own
+  // condition instead of a generic failure.
+  if (response.status === 300) throw new AmbiguousPlayerError(ident);
   if (!response.ok) throw new Error(`Wynncraft player request failed with status ${response.status}.`);
   const payload = (await response.json()) as Record<string, unknown>;
   if (!isPlayerPayload(payload)) {
@@ -109,7 +116,10 @@ async function loadSearch(fetchImpl: typeof fetch, query: string): Promise<Playe
   const payload = (await response.json()) as Record<string, unknown>;
   const players = payload.players;
   if (typeof players !== "object" || players === null) return [];
+  // Entries arrive either as uuid -> username strings or uuid -> objects
+  // with a username field, depending on the search backend.
   const hits = Object.entries(players).flatMap(([uuid, entry]): PlayerSearchHit[] => {
+    if (typeof entry === "string") return [{ username: entry, uuid }];
     if (typeof entry !== "object" || entry === null) return [];
     const username = (entry as Record<string, unknown>).username;
     if (typeof username !== "string") return [];

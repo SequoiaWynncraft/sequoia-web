@@ -17,7 +17,8 @@
       nameStyle: true,
       value: (hit) => hit.username,
       sortValue: (hit) => hit.username.toLowerCase(),
-      href: (hit) => `/statistics/global/players/${encodeURIComponent(hit.username)}`,
+      // UUIDs dodge the 300 selector that reused usernames answer with.
+      href: (hit) => `/statistics/global/players/${encodeURIComponent(hit.uuid)}`,
     },
   ];
 </script>
