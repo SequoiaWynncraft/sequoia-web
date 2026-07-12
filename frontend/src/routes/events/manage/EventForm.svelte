@@ -532,12 +532,12 @@
               <label class="mg-choice" class:mg-choice-selected={goalSource === "wars"}>
                 <input class="mg-choice-input" type="radio" name="goal-source" value="wars" bind:group={goalSource} />
                 <span class="mg-choice-title">War feed</span>
-                <span class="mg-choice-desc">Sums wars from the daily stat rollups.</span>
+                <span class="mg-choice-desc">Sums wars from the daily stat rollups - whole UTC days.</span>
               </label>
               <label class="mg-choice" class:mg-choice-selected={goalSource === "playtime"}>
                 <input class="mg-choice-input" type="radio" name="goal-source" value="playtime" bind:group={goalSource} />
                 <span class="mg-choice-title">Playtime feed</span>
-                <span class="mg-choice-desc">Sums hours played from the daily stat rollups.</span>
+                <span class="mg-choice-desc">Sums hours played from the daily stat rollups - whole UTC days.</span>
               </label>
               <label class="mg-choice" class:mg-choice-selected={goalSource === "manual"}>
                 <input class="mg-choice-input" type="radio" name="goal-source" value="manual" bind:group={goalSource} />

@@ -22,9 +22,19 @@ export async function loadGoalProgress(
     return days === null ? null : sumCounts(days);
   }
   if (goal.feed === "wars" || goal.feed === "playtime") {
-    const progress = await getMemberProgress(fetchImpl, isoDay(window.from), isoDay(window.to)).catch(
-      () => null,
-    );
+    // The rollups are day-granular and cannot split a partial first day, so
+    // counting starts at the first full UTC day unless the event begins at
+    // midnight. The live end side is exact by nature - rollups only contain
+    // what has already happened.
+    const start = new Date(window.from);
+    const startsAtMidnight =
+      start.getUTCHours() === 0 && start.getUTCMinutes() === 0 && start.getUTCSeconds() === 0;
+    const fromDay = startsAtMidnight
+      ? isoDay(window.from)
+      : isoDay(new Date(start.getTime() + 86_400_000).toISOString());
+    const toDay = isoDay(window.to);
+    if (fromDay > toDay) return 0;
+    const progress = await getMemberProgress(fetchImpl, fromDay, toDay).catch(() => null);
     if (progress === null) return null;
     const total = progress.members.reduce(
       (sum, member) => sum + (goal.feed === "wars" ? member.wars : member.playtime_hours),
