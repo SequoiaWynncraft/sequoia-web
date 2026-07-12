@@ -3,7 +3,7 @@ import type { CompRole, EventGoal, EventTheme, GuildEvent, PrizeEntry } from "./
 export type ParseResult = { ok: true; event: GuildEvent } | { ok: false; error: string };
 
 /** Route segments under /events that an event slug must never shadow. */
-const RESERVED_SLUGS = new Set(["manage", "new"]);
+const RESERVED_SLUGS = new Set(["manage", "new", "audit"]);
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
 const ZONED_PATTERN = /(?:z|[+-]\d\d:\d\d)$/i;

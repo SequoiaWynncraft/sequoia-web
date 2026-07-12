@@ -30,6 +30,7 @@
     <SectionLabel meta={String(data.entries.length)}>
       {#snippet children()}All events{/snippet}
       {#snippet actions()}
+        <Button size="sm" variant="ghost" href="/events/manage/audit">Audit log</Button>
         <Button size="sm" href="/events/manage/new">New event</Button>
       {/snippet}
     </SectionLabel>

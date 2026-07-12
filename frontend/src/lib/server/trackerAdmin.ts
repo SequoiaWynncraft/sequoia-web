@@ -1,6 +1,9 @@
 import { fail } from "@sveltejs/kit";
 import type { Cookies } from "@sveltejs/kit";
 
+import type { Viewer } from "$lib/site/viewer";
+
+import { recordAudit } from "./auditLog";
 import { trackerOption, type TrackerOption } from "./eventFormContext";
 import { requireEventManager } from "./eventManagers";
 import type { RaidEvent } from "./raidEventBoards";
@@ -24,8 +27,9 @@ type ManageRequest = { request: Request; cookies: Cookies; fetch: typeof fetch }
  * tracker event in the backend and returns it as a picker option.
  */
 export async function createTrackerAction(event: ManageRequest) {
-  const parsed = await authorizeAndParse(event);
-  if (typeof parsed === "string") return fail(400, { trackerError: parsed });
+  const authorized = await authorizeAndParse(event);
+  if (typeof authorized.parsed === "string") return fail(400, { trackerError: authorized.parsed });
+  const parsed = authorized.parsed;
   const result = await submitTracker(event.fetch, "POST", "/internal/raid-events", {
     slug: trackerSlug(parsed.name),
     name: parsed.name,
@@ -34,13 +38,16 @@ export async function createTrackerAction(event: ManageRequest) {
     tracking: parsed.tracking,
     raid: parsed.raid,
   });
-  return typeof result === "string" ? fail(400, { trackerError: result }) : { trackerCreated: result };
+  if (typeof result === "string") return fail(400, { trackerError: result });
+  await recordAudit(authorized.manager, "tracker.create", result.id, parsed.name);
+  return { trackerCreated: result };
 }
 
 /** Shared ?/updateTracker form action: full update of an existing tracker. */
 export async function updateTrackerAction(event: ManageRequest) {
-  const parsed = await authorizeAndParse(event);
-  if (typeof parsed === "string") return fail(400, { trackerError: parsed });
+  const authorized = await authorizeAndParse(event);
+  if (typeof authorized.parsed === "string") return fail(400, { trackerError: authorized.parsed });
+  const parsed = authorized.parsed;
   if (!parsed.id) return fail(400, { trackerError: "Malformed submission." });
   const result = await submitTracker(
     event.fetch,
@@ -54,12 +61,16 @@ export async function updateTrackerAction(event: ManageRequest) {
       raid: parsed.raid,
     },
   );
-  return typeof result === "string" ? fail(400, { trackerError: result }) : { trackerUpdated: result };
+  if (typeof result === "string") return fail(400, { trackerError: result });
+  await recordAudit(authorized.manager, "tracker.update", parsed.id, parsed.name);
+  return { trackerUpdated: result };
 }
 
-async function authorizeAndParse(event: ManageRequest): Promise<TrackerRequest | string> {
-  await requireEventManager(event);
-  return parseTrackerRequest((await event.request.formData()).get("trackerPayload"));
+async function authorizeAndParse(
+  event: ManageRequest,
+): Promise<{ manager: Viewer; parsed: TrackerRequest | string }> {
+  const manager = await requireEventManager(event);
+  return { manager, parsed: parseTrackerRequest((await event.request.formData()).get("trackerPayload")) };
 }
 
 async function submitTracker(
