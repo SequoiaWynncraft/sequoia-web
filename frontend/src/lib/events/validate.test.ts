@@ -123,6 +123,20 @@ describe("parseGuildEvent", () => {
     });
   });
 
+  it("accepts every known icon placement", () => {
+    const result = parseGuildEvent({
+      ...VALID,
+      icon: {
+        file: "raid_icon_tna_transparent.png",
+        placements: ["manage", "meta", "band", "hero"],
+      },
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.event.icon?.placements).toEqual(["hero", "band", "meta", "manage"]);
+    }
+  });
+
   it("rejects icons outside the catalog or with unknown placements", () => {
     expectError(
       { ...VALID, icon: { file: "raid_icon_fake.png", placements: ["hero"] } },
