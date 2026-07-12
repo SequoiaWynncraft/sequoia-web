@@ -33,9 +33,9 @@ describe("event store", () => {
     );
   });
 
-  it("round-trips saves and hides drafts from the published list", async () => {
+  it("round-trips writes and hides drafts from the published list", async () => {
     const { store } = memoryStore();
-    await store.save(DRAFT, { published: false });
+    expect(await store.insert(DRAFT, { published: false })).toBe(true);
 
     const stored = await store.get("draft-event");
     expect(stored?.event.name).toBe("Draft Event");
@@ -45,10 +45,21 @@ describe("event store", () => {
     expect(published.map((event) => event.slug)).not.toContain("draft-event");
     expect((await store.list()).map((entry) => entry.event.slug)).toContain("draft-event");
 
-    await store.save({ ...DRAFT, name: "Ready Event" }, { published: true });
+    expect(await store.update({ ...DRAFT, name: "Ready Event" }, { published: true })).toBe(true);
     const updated = await store.get("draft-event");
     expect(updated?.event.name).toBe("Ready Event");
     expect(updated?.published).toBe(true);
+  });
+
+  it("refuses conflicting inserts and updates of missing events", async () => {
+    const { store } = memoryStore();
+    expect(await store.insert(DRAFT, { published: false })).toBe(true);
+
+    // A losing concurrent create must not overwrite the stored event.
+    expect(await store.insert({ ...DRAFT, name: "Impostor" }, { published: true })).toBe(false);
+    expect((await store.get("draft-event"))?.event.name).toBe("Draft Event");
+
+    expect(await store.update({ ...DRAFT, slug: "never-created" }, { published: true })).toBe(false);
   });
 
   it("never resurrects deleted seed events", async () => {

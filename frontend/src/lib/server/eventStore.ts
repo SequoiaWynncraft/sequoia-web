@@ -18,7 +18,10 @@ export interface EventStore {
   list(): Promise<StoredEvent[]>;
   listPublished(): Promise<GuildEvent[]>;
   get(slug: string): Promise<StoredEvent | null>;
-  save(event: GuildEvent, options: { published: boolean }): Promise<void>;
+  /** Atomic create - returns false when the slug is already taken. */
+  insert(event: GuildEvent, options: { published: boolean }): Promise<boolean>;
+  /** Atomic update - returns false when no event has that slug. */
+  update(event: GuildEvent, options: { published: boolean }): Promise<boolean>;
   /** Returns false when no event had that slug. */
   remove(slug: string): Promise<boolean>;
 }
@@ -102,20 +105,27 @@ export function createEventStore(getClient: () => Promise<Client>): EventStore {
       return row ? rowToStored(row) : null;
     },
 
-    async save(event, options) {
+    async insert(event, options) {
       const db = await ready();
       const now = Date.now();
-      await db.execute({
+      const result = await db.execute({
         sql: `
           INSERT INTO guild_events (slug, data, published, created_at, updated_at)
           VALUES (?, ?, ?, ?, ?)
-          ON CONFLICT (slug) DO UPDATE SET
-            data = excluded.data,
-            published = excluded.published,
-            updated_at = excluded.updated_at
+          ON CONFLICT (slug) DO NOTHING
         `,
         args: [event.slug, JSON.stringify(event), options.published ? 1 : 0, now, now],
       });
+      return result.rowsAffected > 0;
+    },
+
+    async update(event, options) {
+      const db = await ready();
+      const result = await db.execute({
+        sql: "UPDATE guild_events SET data = ?, published = ?, updated_at = ? WHERE slug = ?",
+        args: [JSON.stringify(event), options.published ? 1 : 0, Date.now(), event.slug],
+      });
+      return result.rowsAffected > 0;
     },
 
     async remove(slug) {

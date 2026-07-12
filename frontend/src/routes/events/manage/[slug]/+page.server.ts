@@ -23,8 +23,9 @@ export const actions: Actions = {
     const payload = parseEventPayload(await request.formData());
     if ("error" in payload) return fail(400, { error: payload.error });
     if (payload.event.slug !== params.slug) return fail(400, { error: "the slug cannot be changed" });
-    if (!(await eventStore.get(params.slug))) error(404, "No such event");
-    await eventStore.save(payload.event, { published: payload.published });
+    if (!(await eventStore.update(payload.event, { published: payload.published }))) {
+      error(404, "No such event");
+    }
     return { saved: true };
   },
 

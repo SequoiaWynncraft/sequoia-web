@@ -17,10 +17,9 @@ export const actions: Actions = {
     await requireEventManager({ cookies, fetch });
     const payload = parseEventPayload(await request.formData());
     if ("error" in payload) return fail(400, { error: payload.error });
-    if (await eventStore.get(payload.event.slug)) {
+    if (!(await eventStore.insert(payload.event, { published: payload.published }))) {
       return fail(400, { error: `an event already uses the slug "${payload.event.slug}"` });
     }
-    await eventStore.save(payload.event, { published: payload.published });
     redirect(303, `/events/manage/${payload.event.slug}`);
   },
 };
