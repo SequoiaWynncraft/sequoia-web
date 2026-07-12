@@ -33,13 +33,15 @@ export async function checkEventManager(
 /**
  * Guard for form actions, which cannot reuse the layout's viewer: resolves
  * the session cookie itself and throws 403 unless the caller is a manager.
+ * Returns the acting manager so actions can attribute their audit entries.
  */
 export async function requireEventManager(request: {
   cookies: Cookies;
   fetch: typeof fetch;
-}): Promise<void> {
+}): Promise<Viewer> {
   const viewer = await loadViewer(request.cookies.get("seq_session"), request.fetch);
-  if ((await checkEventManager(request.fetch, viewer)) !== "manager") {
+  if (!viewer || (await checkEventManager(request.fetch, viewer)) !== "manager") {
     error(403, "Event management is restricted to guild leadership");
   }
+  return viewer;
 }
