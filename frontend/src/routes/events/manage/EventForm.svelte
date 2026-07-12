@@ -550,8 +550,10 @@
           <input
             type="checkbox"
             bind:checked={goalEnabled}
-            onchange={() => {
-              if (goalEnabled && goals.length === 0) goals.push(newGoalRow());
+            onchange={(event) => {
+              // The explicit handler can run before bind:checked applies -
+              // read the DOM state, not the bound one.
+              if (event.currentTarget.checked && goals.length === 0) goals.push(newGoalRow());
             }}
           />
           <span>Track goals</span>
