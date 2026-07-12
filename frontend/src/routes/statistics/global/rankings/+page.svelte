@@ -9,6 +9,7 @@
   import DeferredPanel from "$lib/design-system/components/DeferredPanel.svelte";
   import { RANKING_WINDOWS, type GlobalRaidRankingEntry } from "$lib/api/globalRankings";
   import type { SeasonRankingEntry } from "$lib/api/seasonRankings";
+  import { KNOWN_RAIDS } from "$lib/site/raids";
 
   let { data } = $props();
 
@@ -17,6 +18,12 @@
   const season = $derived(data.season);
   const raidRace = $derived(data.raidRace);
   const activeWindow = $derived(data.window);
+  const activeRaid = $derived(data.raid ?? "");
+
+  const RAID_SCOPES = [
+    { key: "", label: "All raids" },
+    ...KNOWN_RAIDS.map((raid) => ({ key: raid.key, label: raid.short })),
+  ];
   const guildName = $derived(stats?.guild.name ?? "Sequoia");
 
   const seasonOptions = $derived(
@@ -53,6 +60,14 @@
 
   function raceHref(key: string): string {
     const query = new URLSearchParams({ window: key });
+    if (activeRaid) query.set("raid", activeRaid);
+    if (season !== null) query.set("season", String(season));
+    return `?${query}`;
+  }
+
+  function raidScopeHref(key: string): string {
+    const query = new URLSearchParams({ window: activeWindow });
+    if (key) query.set("raid", key);
     if (season !== null) query.set("season", String(season));
     return `?${query}`;
   }
@@ -236,6 +251,7 @@
     const value = (event.currentTarget as HTMLSelectElement).value;
     const query = new URLSearchParams({ season: value });
     if (activeWindow !== "7d") query.set("window", activeWindow);
+    if (activeRaid) query.set("raid", activeRaid);
     void goto(`?${query}`, { noScroll: true, keepFocus: true });
   }
 </script>
@@ -276,16 +292,23 @@
 {/if}
 
 <section class="block" aria-label="Guild raid race">
-  <SectionLabel meta={raidRace ? `top ${raidRace.entries.length} · every 10 min` : undefined}>
+  <SectionLabel
+    meta={raidRace
+      ? `${activeRaid ? `${activeRaid} · ` : ""}top ${raidRace.entries.length} · every 10 min`
+      : undefined}
+  >
     {#snippet children()}Guild raid race{/snippet}
     {#snippet actions()}
-      <ScopeChips
-        scopes={[...RANKING_WINDOWS]}
-        active={activeWindow}
-        href={raceHref}
-        note={raceWindowNote}
-        label="Race window"
-      />
+      <div class="race-scopes">
+        <ScopeChips scopes={RAID_SCOPES} active={activeRaid} href={raidScopeHref} label="Raid scope" />
+        <ScopeChips
+          scopes={[...RANKING_WINDOWS]}
+          active={activeWindow}
+          href={raceHref}
+          note={raceWindowNote}
+          label="Race window"
+        />
+      </div>
     {/snippet}
   </SectionLabel>
   {#if raidRace && raidRace.entries.length > 0}
@@ -382,6 +405,12 @@
   .season-select select:focus-visible {
     outline: 2px solid rgba(245, 197, 66, 0.5);
     outline-offset: 2px;
+  }
+
+  .race-scopes {
+    display: grid;
+    gap: 8px;
+    justify-items: end;
   }
 
   .standing-callout {

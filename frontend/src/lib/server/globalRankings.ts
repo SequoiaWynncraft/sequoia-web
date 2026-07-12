@@ -10,22 +10,25 @@ import { createCachedResource, type CachedResource } from "$lib/server/serverCac
 const FRESH_MS = 2 * 60 * 1000;
 const STALE_MS = 60 * 60 * 1000;
 
-const resources = new Map<RankingWindow, CachedResource<GlobalRaidRankings>>();
+// One resource per (window, raid) pair - a small fixed set (4 windows x 6 scopes).
+const resources = new Map<string, CachedResource<GlobalRaidRankings>>();
 
 export async function getGlobalRaidRankings(
   fetchImpl: typeof fetch,
   window: RankingWindow,
+  raid?: string,
 ): Promise<GlobalRaidRankingsResponse> {
-  let resource = resources.get(window);
+  const key = `${window}:${raid ?? "all-raids"}`;
+  let resource = resources.get(key);
   if (!resource) {
     resource = createCachedResource<GlobalRaidRankings>({
-      key: `global-raid-rankings:${window}:v2`,
+      key: `global-raid-rankings:${key}:v2`,
       freshMs: FRESH_MS,
       staleMs: STALE_MS,
-      load: (impl) => loadRankings(impl, window),
+      load: (impl) => loadRankings(impl, window, raid),
       validate: isGlobalRaidRankings,
     });
-    resources.set(window, resource);
+    resources.set(key, resource);
   }
   const value = await resource.get(fetchImpl, { allowStale: true });
   return {
@@ -35,8 +38,14 @@ export async function getGlobalRaidRankings(
   };
 }
 
-async function loadRankings(fetchImpl: typeof fetch, window: RankingWindow): Promise<GlobalRaidRankings> {
-  const url = `${SEQUOIA_API_BASE_URL}/public/global/guild-raid-rankings?range=${window}`;
+async function loadRankings(
+  fetchImpl: typeof fetch,
+  window: RankingWindow,
+  raid?: string,
+): Promise<GlobalRaidRankings> {
+  const query = new URLSearchParams({ range: window });
+  if (raid) query.set("raid", raid);
+  const url = `${SEQUOIA_API_BASE_URL}/public/global/guild-raid-rankings?${query}`;
   const response = await fetchImpl(url, { signal: AbortSignal.timeout(8000) });
   if (!response.ok) throw new Error(`Global raid rankings request failed (${response.status}).`);
   const data = (await response.json()) as Record<string, unknown>;
