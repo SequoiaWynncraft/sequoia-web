@@ -668,6 +668,7 @@
                 <button
                   type="submit"
                   formaction="?/createTracker"
+                  formnovalidate
                   class="seq-button seq-button-secondary seq-button-sm"
                   disabled={creatingTrackerBusy}
                 >
