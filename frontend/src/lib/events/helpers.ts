@@ -9,6 +9,36 @@ export function eventStatus(event: GuildEvent, now: Date): EventStatus {
   return "live";
 }
 
+export interface EventChart {
+  /** Chart only this raid; undefined charts all guild raids. */
+  countRaid?: string;
+  /** Series label for the bars and tooltip. */
+  label: string;
+}
+
+/**
+ * Resolves what the activity chart shows: an explicit activity config wins;
+ * otherwise the chart follows a raids-feed goal; anything else has no chart
+ * (raids are the only source with a daily feed).
+ */
+export function eventChart(event: GuildEvent): EventChart | null {
+  if (event.activity) {
+    if (event.activity.source !== "raids") return null;
+    return {
+      countRaid: event.activity.countRaid,
+      label: event.activity.countRaid ?? "Guild raids",
+    };
+  }
+  if (event.goal?.feed === "raids") {
+    const label = event.goal.metricLabel;
+    return {
+      countRaid: event.goal.countRaid,
+      label: label.charAt(0).toUpperCase() + label.slice(1),
+    };
+  }
+  return null;
+}
+
 export type HubEvent = Pick<
   GuildEvent,
   "slug" | "name" | "tagline" | "access" | "theme" | "startsAt" | "endsAt"

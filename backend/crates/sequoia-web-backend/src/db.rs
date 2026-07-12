@@ -291,6 +291,38 @@ impl Database {
         row_to_raid_event(row)
     }
 
+    /// Full update of an event's fields; the slug is its identity and stays.
+    /// Returns None when no event has that id.
+    pub async fn update_raid_event(
+        &self,
+        event_id: Uuid,
+        name: &str,
+        starts_at: OffsetDateTime,
+        ends_at: OffsetDateTime,
+        tracking: &str,
+        raid: Option<&str>,
+    ) -> anyhow::Result<Option<RaidEvent>> {
+        let row = sqlx::query(
+            r#"
+            UPDATE raid_events
+            SET name = $2, starts_at = $3, ends_at = $4, tracking = $5, raid = $6
+            WHERE id = $1
+            RETURNING id, slug, name, starts_at, ends_at, tracking, raid
+            "#,
+        )
+        .bind(event_id)
+        .bind(name)
+        .bind(starts_at)
+        .bind(ends_at)
+        .bind(tracking)
+        .bind(raid)
+        .fetch_optional(&self.pool)
+        .await
+        .context("failed to update raid event")?;
+
+        row.map(row_to_raid_event).transpose()
+    }
+
     pub async fn raid_event_leaderboard(
         &self,
         event_id: Uuid,

@@ -73,11 +73,17 @@ No CSS framework and no store library.
   except as a manager preview. `parseGuildEvent` (`lib/events/validate.ts`) guards both
   the form submissions and the stored rows, so the `GuildEvent` type can grow without
   migrations; every content section is optional and the visual theme is per-event CSS
-  custom properties (`--ev-*`). Live goal/chart data reads the public raid activity
-  feed; member standings reuse the raid tracker's event leaderboards via
-  `lib/server/raidEventBoards.ts` once a `tracker` id is set on the event - the editor
-  can pick an existing tracker event or create one inline (`?/createTracker` →
-  `POST /internal/raid-events`), and mod-tracked trackers may scope to a single raid. Member-only
+  custom properties (`--ev-*`). Goals read a configurable live feed
+  (`lib/server/goalProgress.ts`): the raid activity feed (all raids or one), or wars /
+  playtime summed from the daily stat rollups. The activity chart is independently
+  configurable (`GuildEvent.activity`; `eventChart` in `lib/events/helpers.ts`) - it
+  follows a raids-feed goal by default, can chart any single raid, or hide; raids are
+  the only source with a per-day activity feed (wars and playtime expose only window
+  totals from the rollups). Member standings reuse the raid tracker's event
+  leaderboards via `lib/server/raidEventBoards.ts` once a `tracker` id is set on the
+  event - the editor can pick an existing tracker event, create one inline, or edit one
+  (`?/createTracker`, `?/updateTracker` → `POST`/`PUT /internal/raid-events`), and
+  mod-tracked trackers may scope to a single raid. Member-only
   events keep a public hero but their gated sections (goal, prizes, comp, rules, activity,
   standings) are stripped server-side unless the signed-in viewer verifies against a fresh
   roster - the same trust rules as the raid leaderboard.

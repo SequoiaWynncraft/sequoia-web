@@ -7,6 +7,9 @@ export interface TrackerOption {
   id: string;
   name: string;
   window: string;
+  /** RFC3339 instants backing the window - the editor prefills from these. */
+  startsAt: string;
+  endsAt: string;
   tracking: "api" | "mod";
   /** Raid the tracker counts; null means all guild raids. */
   raid: string | null;
@@ -29,12 +32,25 @@ export async function eventFormContext(fetchImpl: typeof fetch): Promise<EventFo
     members: (stats?.members ?? [])
       .map((member) => member.username)
       .sort((a, b) => a.localeCompare(b)),
-    trackerEvents: raidEvents.map((event) => ({
-      id: event.id,
-      name: event.name,
-      window: formatWindow({ startsAt: event.starts_at, endsAt: event.ends_at }) ?? "no window",
-      tracking: event.tracking ?? "api",
-      raid: event.raid ?? null,
-    })),
+    trackerEvents: raidEvents.map(trackerOption),
+  };
+}
+
+export function trackerOption(event: {
+  id: string;
+  name: string;
+  starts_at: string;
+  ends_at: string;
+  tracking?: "api" | "mod";
+  raid?: string | null;
+}): TrackerOption {
+  return {
+    id: event.id,
+    name: event.name,
+    window: formatWindow({ startsAt: event.starts_at, endsAt: event.ends_at }) ?? "no window",
+    startsAt: event.starts_at,
+    endsAt: event.ends_at,
+    tracking: event.tracking ?? "api",
+    raid: event.raid ?? null,
   };
 }

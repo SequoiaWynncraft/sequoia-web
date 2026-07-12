@@ -21,14 +21,14 @@ export interface EventGoal {
   /** What reaching the target unlocks, e.g. "Rank Up Raffle". */
   unlock: string;
   /**
-   * Data source for live progress and the activity chart. "raids" reads the
-   * public guild-raid activity feed; absent means no live wiring exists yet
-   * (the meter shows finalTotal or a dash).
+   * Live data source for the meter. "raids" reads the public guild-raid
+   * activity feed, "wars" and "playtime" sum the daily stat rollups over the
+   * event window; absent means manual (the meter shows finalTotal or a dash).
    */
-  feed?: "raids";
+  feed?: "raids" | "wars" | "playtime";
   /**
-   * Count only this raid's clears; absent counts all guild raids.
-   * Must match a Wynncraft raid name from the activity feed.
+   * Count only this raid's clears (feed "raids" only); absent counts all
+   * guild raids. Must match a Wynncraft raid name from the activity feed.
    */
   countRaid?: string;
   /** Frozen total for ended events - live events read the activity feed. */
@@ -61,6 +61,12 @@ export interface GuildEvent {
   /** Short paragraphs shown under the hero. */
   about?: string[];
   goal?: EventGoal;
+  /**
+   * Activity chart configuration. Absent follows the goal when it reads the
+   * raid feed; "none" hides the chart; countRaid narrows to one raid. Raids
+   * are the only source with a daily feed today.
+   */
+  activity?: { source: "raids" | "none"; countRaid?: string };
   prizes?: PrizeEntry[];
   prizesNote?: string;
   comp?: { roles: CompRole[]; note?: string };

@@ -49,10 +49,6 @@
       sortValue: (entry) => entry.raids,
     },
   ];
-
-  function capitalize(value: string): string {
-    return value.charAt(0).toUpperCase() + value.slice(1);
-  }
 </script>
 
 <svelte:head>
@@ -114,7 +110,7 @@
       </section>
     {/if}
 
-    {#if event.goal?.feed === "raids" && status !== "ended"}
+    {#if data.chart && status !== "ended"}
       <section class="ev-section" aria-label="Event activity">
         <h2 class="ev-label">
           <span class="ev-spark" aria-hidden="true">✦</span>Activity
@@ -134,7 +130,7 @@
               points={data.days}
               from={isoDay(event.startsAt)}
               to={data.today}
-              metricLabel={capitalize(event.goal.metricLabel)}
+              metricLabel={data.chart.label}
               height={190}
             />
           </div>

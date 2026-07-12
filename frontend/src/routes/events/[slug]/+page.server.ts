@@ -1,12 +1,13 @@
 import { error } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
 
-import { eventStatus } from "$lib/events/helpers";
+import { eventChart, eventStatus } from "$lib/events/helpers";
 import type { GuildEvent } from "$lib/events/types";
 import { getGuildStats } from "$lib/server/guildStats";
 import { checkEventManager } from "$lib/server/eventManagers";
 import { eventStore } from "$lib/server/eventStore";
 import { loadEventRaidCounts, sumCounts, type EventDayCount } from "$lib/server/eventActivity";
+import { loadGoalProgress } from "$lib/server/goalProgress";
 import {
   loadModLeaderboard,
   loadRaidEvents,
@@ -76,6 +77,7 @@ export const load: PageServerLoad = async ({ fetch, params, parent }) => {
       draft: false,
       locked: true as const,
       lockReason: membership ?? ("signin" as const),
+      chart: null,
       days: null,
       progress: null,
       today,
@@ -83,22 +85,35 @@ export const load: PageServerLoad = async ({ fetch, params, parent }) => {
     };
   }
 
+  // The chart and the goal meter read independently configured sources; when
+  // both happen to count the same raids, one feed fetch serves both.
+  const chart = eventChart(event);
   let days: EventDayCount[] | null = null;
-  if (status === "live" && event.goal?.feed === "raids" && event.startsAt) {
-    days = await loadEventRaidCounts(fetch, {
-      from: event.startsAt,
-      to: now.toISOString(),
-      countRaid: event.goal.countRaid,
-    }).catch(() => null);
+  let progress: number | null = null;
+  if (status === "live" && event.startsAt) {
+    const goal = event.goal;
+    const window = { from: event.startsAt, to: now.toISOString() };
+    const daysPromise = chart
+      ? loadEventRaidCounts(fetch, { ...window, countRaid: chart.countRaid }).catch(() => null)
+      : Promise.resolve(null);
+    const sameAsChart =
+      goal?.feed === "raids" &&
+      chart !== null &&
+      (chart.countRaid ?? null) === (goal.countRaid ?? null);
+    const progressPromise = goal?.feed
+      ? sameAsChart
+        ? // A failed shared fetch stays null - retrying the identical request
+          // would fail the same way.
+          daysPromise.then((shared) => (shared === null ? null : sumCounts(shared)))
+        : loadGoalProgress(fetch, goal, window)
+      : Promise.resolve(null);
+    [days, progress] = await Promise.all([daysPromise, progressPromise]);
   }
 
   let standings: Standings | null = null;
   if (event.tracker && event.startsAt && event.endsAt && status !== "upcoming") {
     if (membership === "member") {
-      const result =
-        event.tracker.tracking === "mod"
-          ? await loadModStandings(fetch, event.tracker.eventId, roster)
-          : await loadTrackerLeaderboard(fetch, event.tracker.eventId);
+      const result = await loadTrackerStandings(fetch, event.tracker, roster);
       standings = { state: "board", leaderboard: result.leaderboard, error: result.error };
     } else {
       standings = { state: membership ?? "signin" };
@@ -111,23 +126,28 @@ export const load: PageServerLoad = async ({ fetch, params, parent }) => {
     draft: !stored.published,
     locked: false as const,
     lockReason: null,
+    chart,
     days,
-    progress: days === null ? null : sumCounts(days),
+    progress,
     today,
     standings,
   };
 };
 
 /**
- * Mod-tracked standings count inside the tracker event's own window, which
- * may differ from the guild event's dates - never silently substitute them.
+ * The tracker record is authoritative for how it is tracked and over which
+ * window/raid - the copy stored on the event can go stale when a manager
+ * edits the tracker without re-saving the event. Mod-tracked standings count
+ * inside the tracker's own window, never the guild event's dates.
  */
-async function loadModStandings(
+async function loadTrackerStandings(
   fetchImpl: typeof fetch,
-  eventId: string,
+  tracker: NonNullable<GuildEvent["tracker"]>,
   roster: GuildMemberStats[],
 ): Promise<LeaderboardResult> {
-  const tracked = (await loadRaidEvents(fetchImpl)).find((entry) => entry.id === eventId);
+  const tracked = (await loadRaidEvents(fetchImpl)).find((entry) => entry.id === tracker.eventId);
+  const tracking = tracked?.tracking ?? tracker.tracking;
+  if (tracking !== "mod") return loadTrackerLeaderboard(fetchImpl, tracker.eventId);
   if (!tracked) {
     return { leaderboard: [], error: "Member contributions are temporarily unavailable." };
   }

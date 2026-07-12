@@ -18,6 +18,7 @@
     error = null,
     saved = false,
     trackerCreated = null,
+    trackerUpdated = null,
     trackerError = null,
   }: {
     mode: "create" | "edit";
@@ -30,6 +31,8 @@
     saved?: boolean;
     /** Result of the last ?/createTracker submission. */
     trackerCreated?: TrackerOption | null;
+    /** Result of the last ?/updateTracker submission. */
+    trackerUpdated?: TrackerOption | null;
     trackerError?: string | null;
   } = $props();
 
@@ -50,6 +53,10 @@
   let tagline = $state(seed?.tagline ?? "");
   let access = $state<"public" | "members">(seed?.access ?? "members");
   let published = $state(seedPublished);
+  // Original instants survive untouched edits - datetime-local inputs carry
+  // minute precision, and rewriting an unchanged value would shift seconds.
+  const seedStartsAt = seed?.startsAt ?? "";
+  const seedEndsAt = seed?.endsAt ?? "";
   let startsAt = $state(toInput(seed?.startsAt));
   let endsAt = $state(toInput(seed?.endsAt));
 
@@ -65,8 +72,19 @@
   // Number inputs bind numbers (or null when cleared), not strings.
   let goalTarget = $state<string | number | null | undefined>(seed?.goal ? seed.goal.target : "");
   let goalUnlock = $state(seed?.goal?.unlock ?? "");
-  let goalSource = $state<"manual" | "raids">(seed?.goal?.feed === "raids" ? "raids" : "manual");
+  let goalSource = $state<"manual" | "raids" | "wars" | "playtime">(seed?.goal?.feed ?? "manual");
   let goalRaid = $state(seed?.goal?.countRaid ?? "");
+  // Chart choice: "goal" follows the goal, "all"/"raid:<name>" chart raids
+  // explicitly, "off" hides the chart.
+  let chartChoice = $state(
+    seed?.activity
+      ? seed.activity.source === "none"
+        ? "off"
+        : seed.activity.countRaid
+          ? `raid:${seed.activity.countRaid}`
+          : "all"
+      : "goal",
+  );
   let goalFinalTotal = $state<string | number | null | undefined>(seed?.goal?.finalTotal ?? "");
   // Repeater rows carry a locally generated id so the each blocks are keyed -
   // unkeyed lists with two-way bindings corrupt state when middle rows are
@@ -100,9 +118,13 @@
   let saving = $state(false);
   let confirmingDelete = $state(false);
 
-  // Inline "new tracker event" creator inside the standings section.
-  let creatingTracker = $state(false);
-  let creatingTrackerBusy = $state(false);
+  // Inline tracker editor inside the standings section - creates new
+  // tracker events or edits the selected one.
+  let trackerEditor = $state<"closed" | "create" | "edit">("closed");
+  let trackerEditId = $state("");
+  let trackerEditStartsAt = $state("");
+  let trackerEditEndsAt = $state("");
+  let trackerBusy = $state(false);
   let trackerAttempted = $state(false);
   let newTrackerName = $state("");
   let newTrackerStarts = $state("");
@@ -118,7 +140,21 @@
       trackerEventId = created.id;
       trackerTracking = created.tracking;
       trackerManual = false;
-      creatingTracker = false;
+      trackerEditor = "closed";
+    }
+  });
+
+  // Reflect a server-side tracker update into the picker list. The editor
+  // closes on any update response - a no-op save is still a successful save.
+  // Only the list mutation is guarded by equality, so the effect settles.
+  $effect(() => {
+    const updated = trackerUpdated;
+    if (!updated) return;
+    trackerEditor = "closed";
+    const index = trackerChoices.findIndex((option) => option.id === updated.id);
+    if (index >= 0 && JSON.stringify(trackerChoices[index]) !== JSON.stringify(updated)) {
+      trackerChoices[index] = updated;
+      if (trackerEventId === updated.id) trackerTracking = updated.tracking;
     }
   });
 
@@ -132,8 +168,8 @@
   // The same validator the server runs, so problems surface before submitting.
   const draftEvent = $derived.by(() => {
     const event: Record<string, unknown> = { slug: slug.trim(), name, tagline, access, theme };
-    if (startsAt) event.startsAt = toInstant(startsAt);
-    if (endsAt) event.endsAt = toInstant(endsAt);
+    if (startsAt) event.startsAt = keepInstant(startsAt, seedStartsAt);
+    if (endsAt) event.endsAt = keepInstant(endsAt, seedEndsAt);
     const paragraphs = splitParagraphs(about);
     if (paragraphs.length > 0) event.about = paragraphs;
     if (goalEnabled) {
@@ -142,12 +178,17 @@
         target: toCount(goalTarget),
         unlock: goalUnlock,
       };
-      if (goalSource === "raids") {
-        goal.feed = "raids";
-        if (goalRaid) goal.countRaid = goalRaid;
+      if (goalSource !== "manual") {
+        goal.feed = goalSource;
+        if (goalSource === "raids" && goalRaid) goal.countRaid = goalRaid;
       }
       if (hasCount(goalFinalTotal)) goal.finalTotal = toCount(goalFinalTotal);
       event.goal = goal;
+    }
+    if (chartChoice === "all") event.activity = { source: "raids" };
+    else if (chartChoice === "off") event.activity = { source: "none" };
+    else if (chartChoice.startsWith("raid:")) {
+      event.activity = { source: "raids", countRaid: chartChoice.slice(5) };
     }
     // Rows added but left fully empty are noise, not intent - drop them,
     // along with the local row ids. A picked player stands in for a missing
@@ -178,6 +219,12 @@
     return goalRaid && !names.includes(goalRaid) ? [...names, goalRaid] : names;
   });
 
+  const chartRaidOptions = $derived.by(() => {
+    const names = KNOWN_RAIDS.map((raid) => raid.key);
+    const stored = chartChoice.startsWith("raid:") ? chartChoice.slice(5) : "";
+    return stored && !names.includes(stored) ? [...names, stored] : names;
+  });
+
   const parsed = $derived(parseGuildEvent(draftEvent));
   const liveError = $derived(parsed.ok ? null : parsed.error);
   const payload = $derived(JSON.stringify({ event: draftEvent, published }));
@@ -198,24 +245,25 @@
 
   const trackerPayload = $derived(
     JSON.stringify({
+      id: trackerEditor === "edit" ? trackerEditId : undefined,
       name: newTrackerName,
-      startsAt: newTrackerStarts ? toInstant(newTrackerStarts) : "",
-      endsAt: newTrackerEnds ? toInstant(newTrackerEnds) : "",
+      startsAt: newTrackerStarts ? keepInstant(newTrackerStarts, trackerEditStartsAt) : "",
+      endsAt: newTrackerEnds ? keepInstant(newTrackerEnds, trackerEditEndsAt) : "",
       tracking: newTrackerTracking,
       raid: newTrackerTracking === "mod" ? newTrackerRaid : "",
     }),
   );
 
   const submit: SubmitFunction = ({ action, cancel }) => {
-    if (action.search.includes("createTracker")) {
+    if (action.search.includes("createTracker") || action.search.includes("updateTracker")) {
       trackerAttempted = true;
       if (trackerDraftError) {
         cancel();
         return;
       }
-      creatingTrackerBusy = true;
+      trackerBusy = true;
       return async ({ update }) => {
-        creatingTrackerBusy = false;
+        trackerBusy = false;
         await update({ reset: false });
       };
     }
@@ -236,8 +284,28 @@
     newTrackerName = newTrackerName || name || "";
     newTrackerStarts = newTrackerStarts || startsAt;
     newTrackerEnds = newTrackerEnds || endsAt;
+    newTrackerTracking = "mod";
+    trackerEditId = "";
+    trackerEditStartsAt = "";
+    trackerEditEndsAt = "";
     trackerAttempted = false;
-    creatingTracker = true;
+    trackerEditor = "create";
+  }
+
+  /** Prefills the editor with the selected tracker for editing. */
+  function openTrackerEdit() {
+    const option = selectedTracker;
+    if (!option) return;
+    trackerEditId = option.id;
+    trackerEditStartsAt = option.startsAt;
+    trackerEditEndsAt = option.endsAt;
+    newTrackerName = option.name;
+    newTrackerStarts = option.startsAt.slice(0, 16);
+    newTrackerEnds = option.endsAt.slice(0, 16);
+    newTrackerTracking = option.tracking;
+    newTrackerRaid = option.raid ?? "";
+    trackerAttempted = false;
+    trackerEditor = "edit";
   }
 
   function syncSlug() {
@@ -271,6 +339,11 @@
   /** datetime-local values are read as UTC wall time. */
   function toInstant(value: string): string {
     return value.length === 16 ? `${value}:00Z` : `${value}Z`;
+  }
+
+  /** An untouched input keeps its original instant, seconds and all. */
+  function keepInstant(value: string, original: string): string {
+    return original && value === toInput(original) ? original : toInstant(value);
   }
 
   function slugify(value: string): string {
@@ -456,6 +529,16 @@
                 <span class="mg-choice-title">Guild raid feed</span>
                 <span class="mg-choice-desc">Counts raids live from the public guild activity feed.</span>
               </label>
+              <label class="mg-choice" class:mg-choice-selected={goalSource === "wars"}>
+                <input class="mg-choice-input" type="radio" name="goal-source" value="wars" bind:group={goalSource} />
+                <span class="mg-choice-title">War feed</span>
+                <span class="mg-choice-desc">Sums wars from the daily stat rollups - whole UTC days.</span>
+              </label>
+              <label class="mg-choice" class:mg-choice-selected={goalSource === "playtime"}>
+                <input class="mg-choice-input" type="radio" name="goal-source" value="playtime" bind:group={goalSource} />
+                <span class="mg-choice-title">Playtime feed</span>
+                <span class="mg-choice-desc">Sums hours played from the daily stat rollups - whole UTC days.</span>
+              </label>
               <label class="mg-choice" class:mg-choice-selected={goalSource === "manual"}>
                 <input class="mg-choice-input" type="radio" name="goal-source" value="manual" bind:group={goalSource} />
                 <span class="mg-choice-title">Manual</span>
@@ -476,16 +559,37 @@
               </label>
             {/if}
             <label class="mg-field">
-              <span class="mg-label">{goalSource === "raids" ? "Final total" : "Total so far"}</span>
+              <span class="mg-label">{goalSource === "manual" ? "Total so far" : "Final total"}</span>
               <input class="mg-input" type="number" min="0" bind:value={goalFinalTotal} />
             </label>
           </div>
           <p class="mg-hint">
-            {goalSource === "raids"
-              ? "Final total is optional - set it once the event has ended to freeze the meter."
-              : "Update the total by hand as the event progresses."}
+            {goalSource === "manual"
+              ? "Update the total by hand as the event progresses."
+              : "Final total is optional - set it once the event has ended to freeze the meter."}
           </p>
         {/if}
+      </section>
+
+      <section class="mg-section">
+        <SectionLabel>{#snippet children()}Activity chart{/snippet}</SectionLabel>
+        <div class="mg-grid-2">
+          <label class="mg-field">
+            <span class="mg-label">Daily bars show</span>
+            <select class="mg-input" bind:value={chartChoice}>
+              <option value="goal">Match the goal</option>
+              <option value="all">All guild raids</option>
+              {#each chartRaidOptions as raid (raid)}
+                <option value={`raid:${raid}`}>{raid}</option>
+              {/each}
+              <option value="off">Hidden</option>
+            </select>
+          </label>
+        </div>
+        <p class="mg-hint">
+          Raids are the only source with a daily feed - a wars or playtime goal shows no chart
+          unless one is chosen here.
+        </p>
       </section>
 
       <section class="mg-section">
@@ -597,6 +701,11 @@
               {trackerEventId
                 ? `Counts ${selectedTracker?.raid ?? "all guild raids"} via ${trackerTracking === "mod" ? "the guild mod" : "the Wynncraft API"}.`
                 : "Standings show each member's contribution inside the tracker window."}
+              {#if selectedTracker}
+                <button type="button" class="mg-inline-link focus-ring" onclick={openTrackerEdit}>
+                  Edit tracker
+                </button>
+              {/if}
               <button type="button" class="mg-inline-link focus-ring" onclick={() => (trackerManual = true)}>
                 Enter an id manually
               </button>
@@ -624,9 +733,11 @@
             {/if}
           {/if}
 
-          {#if creatingTracker}
+          {#if trackerEditor !== "closed"}
             <div class="mg-tracker-new">
-              <span class="mg-label">New tracker event</span>
+              <span class="mg-label">
+                {trackerEditor === "edit" ? `Edit tracker: ${newTrackerName}` : "New tracker event"}
+              </span>
               <div class="mg-grid-2">
                 <label class="mg-field">
                   <span class="mg-label">Name</span>
@@ -667,17 +778,17 @@
               <div class="mg-tracker-new-actions">
                 <button
                   type="submit"
-                  formaction="?/createTracker"
+                  formaction={trackerEditor === "edit" ? "?/updateTracker" : "?/createTracker"}
                   formnovalidate
                   class="seq-button seq-button-secondary seq-button-sm"
-                  disabled={creatingTrackerBusy}
+                  disabled={trackerBusy}
                 >
-                  Create tracker
+                  {trackerEditor === "edit" ? "Save tracker" : "Create tracker"}
                 </button>
                 <button
                   type="button"
                   class="seq-button seq-button-ghost seq-button-sm"
-                  onclick={() => (creatingTracker = false)}
+                  onclick={() => (trackerEditor = "closed")}
                 >
                   Cancel
                 </button>

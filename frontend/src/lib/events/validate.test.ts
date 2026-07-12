@@ -75,6 +75,22 @@ describe("parseGuildEvent", () => {
     expect(result.event.prizes?.[1].donorPlayer).toBeUndefined();
   });
 
+  it("accepts multi-source goals and chart configs", () => {
+    const wars = parseGuildEvent({
+      ...VALID,
+      goal: { metricLabel: "wars", target: 500, unlock: "War chest", feed: "wars" },
+      activity: { source: "raids", countRaid: "The Nameless Anomaly" },
+    });
+    expect(wars.ok).toBe(true);
+    if (!wars.ok) return;
+    expect(wars.event.goal?.feed).toBe("wars");
+    expect(wars.event.activity).toEqual({ source: "raids", countRaid: "The Nameless Anomaly" });
+
+    const hidden = parseGuildEvent({ ...VALID, activity: { source: "none" } });
+    expect(hidden.ok).toBe(true);
+    if (hidden.ok) expect(hidden.event.activity).toEqual({ source: "none" });
+  });
+
   it("rejects malformed input with a field-specific error", () => {
     expectError({ ...VALID, slug: "Bad Slug!" }, "slug");
     expectError({ ...VALID, slug: "manage" }, "reserved");
@@ -87,7 +103,13 @@ describe("parseGuildEvent", () => {
       "end after it starts",
     );
     expectError({ ...VALID, goal: { metricLabel: "raids", target: 0, unlock: "Prize" } }, "target");
-    expectError({ ...VALID, goal: { metricLabel: "raids", target: 10, unlock: "Prize", feed: "wars" } }, "feed");
+    expectError({ ...VALID, goal: { metricLabel: "raids", target: 10, unlock: "Prize", feed: "xp" } }, "feed");
+    expectError(
+      { ...VALID, goal: { metricLabel: "wars", target: 10, unlock: "Prize", feed: "wars", countRaid: "TNA" } },
+      "raids feed",
+    );
+    expectError({ ...VALID, activity: { source: "wars" } }, "activity chart source");
+    expectError({ ...VALID, activity: { source: "none", countRaid: "TNA" } }, "raids source");
     expectError({ ...VALID, prizes: [{ donor: "kd" }] }, "prize");
     expectError({ ...VALID, comp: { roles: [] } }, "role");
     expectError({ ...VALID, tracker: { eventId: "abc", tracking: "webhook" } }, "tracking");

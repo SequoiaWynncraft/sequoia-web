@@ -5,7 +5,7 @@ use axum::{
     extract::{Path, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::{get, post, put},
 };
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
@@ -46,6 +46,19 @@ fn default_tracking() -> String {
     "api".to_owned()
 }
 
+#[derive(Deserialize)]
+struct UpdateRaidEventRequest {
+    name: String,
+    #[serde(with = "time::serde::rfc3339")]
+    starts_at: OffsetDateTime,
+    #[serde(with = "time::serde::rfc3339")]
+    ends_at: OffsetDateTime,
+    #[serde(default = "default_tracking")]
+    tracking: String,
+    #[serde(default)]
+    raid: Option<String>,
+}
+
 #[derive(Serialize)]
 struct ErrorResponse {
     error: String,
@@ -66,6 +79,7 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/internal/poll-now", post(poll_now))
         .route("/internal/raid-events", post(create_raid_event))
+        .route("/internal/raid-events/{event_id}", put(update_raid_event))
         .route("/internal/anomalies", get(list_anomalies))
         .with_state(state)
         .layer(TraceLayer::new_for_http())
@@ -125,25 +139,16 @@ async fn create_raid_event(
     Json(request): Json<CreateRaidEventRequest>,
 ) -> Result<Response, ApiError> {
     require_internal_token(&state, &headers)?;
-    if request.slug.trim().is_empty() || request.name.trim().is_empty() {
-        return Err(ApiError::bad_request("slug and name are required"));
+    if request.slug.trim().is_empty() {
+        return Err(ApiError::bad_request("slug is required"));
     }
-    if request.ends_at <= request.starts_at {
-        return Err(ApiError::bad_request("ends_at must be after starts_at"));
-    }
-    if request.tracking != "api" && request.tracking != "mod" {
-        return Err(ApiError::bad_request("tracking must be 'api' or 'mod'"));
-    }
-    let raid = request
-        .raid
-        .as_deref()
-        .map(str::trim)
-        .filter(|raid| !raid.is_empty());
-    if raid.is_some() && request.tracking != "mod" {
-        return Err(ApiError::bad_request(
-            "raid scoping requires 'mod' tracking - API counter diffs cannot attribute per raid",
-        ));
-    }
+    let raid = validate_event_fields(
+        &request.name,
+        request.starts_at,
+        request.ends_at,
+        &request.tracking,
+        request.raid.as_deref(),
+    )?;
 
     let event = state
         .db
@@ -157,6 +162,64 @@ async fn create_raid_event(
         )
         .await?;
     Ok((StatusCode::CREATED, Json(event)).into_response())
+}
+
+async fn update_raid_event(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(event_id): Path<Uuid>,
+    Json(request): Json<UpdateRaidEventRequest>,
+) -> Result<Response, ApiError> {
+    require_internal_token(&state, &headers)?;
+    let raid = validate_event_fields(
+        &request.name,
+        request.starts_at,
+        request.ends_at,
+        &request.tracking,
+        request.raid.as_deref(),
+    )?;
+
+    let event = state
+        .db
+        .update_raid_event(
+            event_id,
+            request.name.trim(),
+            request.starts_at,
+            request.ends_at,
+            &request.tracking,
+            raid,
+        )
+        .await?;
+    match event {
+        Some(event) => Ok(Json(event).into_response()),
+        None => Err(ApiError::new(StatusCode::NOT_FOUND, "raid event not found")),
+    }
+}
+
+/// Shared create/update validation; returns the normalized raid scope.
+fn validate_event_fields<'a>(
+    name: &str,
+    starts_at: OffsetDateTime,
+    ends_at: OffsetDateTime,
+    tracking: &str,
+    raid: Option<&'a str>,
+) -> Result<Option<&'a str>, ApiError> {
+    if name.trim().is_empty() {
+        return Err(ApiError::bad_request("name is required"));
+    }
+    if ends_at <= starts_at {
+        return Err(ApiError::bad_request("ends_at must be after starts_at"));
+    }
+    if tracking != "api" && tracking != "mod" {
+        return Err(ApiError::bad_request("tracking must be 'api' or 'mod'"));
+    }
+    let raid = raid.map(str::trim).filter(|raid| !raid.is_empty());
+    if raid.is_some() && tracking != "mod" {
+        return Err(ApiError::bad_request(
+            "raid scoping requires 'mod' tracking - API counter diffs cannot attribute per raid",
+        ));
+    }
+    Ok(raid)
 }
 
 async fn list_anomalies(
