@@ -129,7 +129,7 @@
     let raf = 0;
     let lastTime = 0;
     let observer: IntersectionObserver | undefined;
-    let measureTimer: number | undefined;
+    let resizeObserver: ResizeObserver | undefined;
     const velocity = direction === "ltr" ? speedPxPerMs : -speedPxPerMs;
 
     const tick = (time: number) => {
@@ -157,7 +157,14 @@
 
     measureUnitWidth();
     requestAnimationFrame(measureUnitWidth);
-    measureTimer = window.setInterval(measureUnitWidth, 900);
+    // Re-measure when the strip actually changes size - a polling interval
+    // forced a layout flush every 0.9s forever, including mid-drag.
+    if ("ResizeObserver" in window) {
+      resizeObserver = new ResizeObserver(() => measureUnitWidth());
+      resizeObserver.observe(container);
+      const firstItem = track?.querySelector<HTMLElement>(".seq-branchmasters-item");
+      if (firstItem) resizeObserver.observe(firstItem);
+    }
 
     if ("IntersectionObserver" in window) {
       observer = new IntersectionObserver(([entry]) => {
@@ -174,7 +181,7 @@
     return () => {
       clearDragActiveItems();
       if (raf) cancelAnimationFrame(raf);
-      if (measureTimer) window.clearInterval(measureTimer);
+      resizeObserver?.disconnect();
       observer?.disconnect();
       window.removeEventListener("resize", onResize);
       document.removeEventListener("visibilitychange", onVisibilityChange);
@@ -213,7 +220,7 @@
             rank={officer.rank}
             online={officer.online}
             avatarUrl={officer.avatarUrl}
-            avatarLoading={copy === priorityCopy ? "eager" : "lazy"}
+            avatarLoading="eager"
             stats={officer.stats}
           />
         </div>
