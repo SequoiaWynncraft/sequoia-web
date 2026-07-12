@@ -111,12 +111,22 @@
     <StatBlock value={compact(guild.raids)} label="Guild Raids">
       {#snippet icon()}<Icon name="raid" />{/snippet}
     </StatBlock>
-    <StatBlock value={guild.online_now.toLocaleString()} label="Online Now">
+    <StatBlock value={stats.stale ? "-" : guild.online_now.toLocaleString()} label="Online Now">
       {#snippet icon()}<Icon name="online" />{/snippet}
     </StatBlock>
   </div>
   <div class="divider-gold"></div>
 </div>
+
+{#if stats.stale}
+  <p class="muted stale-note">
+    Cached snapshot from {new Date(stats.generated_at).toLocaleTimeString("en-GB", {
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: "UTC",
+    })} UTC - live presence unavailable.
+  </p>
+{/if}
 
 {#if isSequoia}
   <p class="muted home-note">
@@ -205,6 +215,10 @@
   }
 
   .home-note {
+    margin: -24px 0 40px;
+  }
+
+  .stale-note {
     margin: -24px 0 40px;
   }
 
