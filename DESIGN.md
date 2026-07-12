@@ -75,7 +75,9 @@ No CSS framework and no store library.
   migrations; every content section is optional and the visual theme is per-event CSS
   custom properties (`--ev-*`). Live goal/chart data reads the public raid activity
   feed; member standings reuse the raid tracker's event leaderboards via
-  `lib/server/raidEventBoards.ts` once a `tracker` id is set on the event. Member-only
+  `lib/server/raidEventBoards.ts` once a `tracker` id is set on the event - the editor
+  can pick an existing tracker event or create one inline (`?/createTracker` →
+  `POST /internal/raid-events`), and mod-tracked trackers may scope to a single raid. Member-only
   events keep a public hero but their gated sections (goal, prizes, comp, rules, activity,
   standings) are stripped server-side unless the signed-in viewer verifies against a fresh
   roster - the same trust rules as the raid leaderboard.
@@ -198,6 +200,8 @@ Rust 2024 edition, Axum 0.8 on Tokio, sqlx/Postgres, reqwest. Single binary; mod
   positive changes become deltas, decreases/disappearances are recorded as anomalies rather
   than guessed at. The first snapshot is a baseline only.
 - `raid_events` define scoring windows; the leaderboard aggregates deltas within a window.
+  Events carry a `tracking` source (`api` counter diffs or `mod` completions) and, for mod
+  tracking only, an optional `raid` scope - API diffs cannot attribute completions per raid.
 
 **HTTP API:** `GET /health`; public reads `GET /v1/raid-events{,/{id}}`; and
 bearer-token-gated reads/operations `GET /v1/raid-events/{id}/leaderboard`,
