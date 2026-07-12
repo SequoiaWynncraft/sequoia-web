@@ -104,7 +104,7 @@ function parseColor(value: unknown, label: string): string {
   return value.trim().toLowerCase();
 }
 
-const ICON_PLACEMENTS: EventIconPlacement[] = ["hero", "band", "meta", "manage"];
+export const ICON_PLACEMENTS: EventIconPlacement[] = ["hero", "band", "meta", "manage"];
 
 /** Placements are normalized to catalog order with duplicates dropped. */
 function parseIcon(value: unknown): EventIcon {
