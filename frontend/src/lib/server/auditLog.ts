@@ -55,7 +55,7 @@ export async function listAudit(limit = LIST_LIMIT): Promise<AuditEntry[]> {
   const db = await auditDb();
   const result = await db.execute({
     sql: "SELECT id, at, actor, actor_discord_id, actor_minecraft_uuid, action, subject, detail FROM audit_log ORDER BY id DESC LIMIT ?",
-    args: [Math.min(limit, 1000)],
+    args: [Math.max(0, Math.min(Math.trunc(limit), 1000))],
   });
   return result.rows.flatMap((row): AuditEntry[] => {
     if (
