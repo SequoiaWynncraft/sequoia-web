@@ -63,11 +63,11 @@
   let goalEnabled = $state(seed?.goal !== undefined);
   let goalMetric = $state(seed?.goal?.metricLabel ?? "");
   // Number inputs bind numbers (or null when cleared), not strings.
-  let goalTarget = $state<string | number | null>(seed?.goal ? seed.goal.target : "");
+  let goalTarget = $state<string | number | null | undefined>(seed?.goal ? seed.goal.target : "");
   let goalUnlock = $state(seed?.goal?.unlock ?? "");
   let goalSource = $state<"manual" | "raids">(seed?.goal?.feed === "raids" ? "raids" : "manual");
   let goalRaid = $state(seed?.goal?.countRaid ?? "");
-  let goalFinalTotal = $state<string | number | null>(seed?.goal?.finalTotal ?? "");
+  let goalFinalTotal = $state<string | number | null | undefined>(seed?.goal?.finalTotal ?? "");
   // Repeater rows carry a locally generated id so the each blocks are keyed -
   // unkeyed lists with two-way bindings corrupt state when middle rows are
   // removed.
@@ -295,12 +295,14 @@
       .filter(Boolean);
   }
 
-  function hasCount(value: string | number | null): boolean {
-    if (value === null) return false;
+  // Cleared or invalid number inputs bind null or undefined depending on the
+  // browser path - treat both as empty.
+  function hasCount(value: string | number | null | undefined): boolean {
+    if (value === null || value === undefined) return false;
     return typeof value === "number" ? Number.isFinite(value) : value.trim() !== "";
   }
 
-  function toCount(value: string | number | null): number {
+  function toCount(value: string | number | null | undefined): number {
     if (typeof value === "number") return value;
     const text = (value ?? "").trim();
     return text === "" ? Number.NaN : Number(text);
