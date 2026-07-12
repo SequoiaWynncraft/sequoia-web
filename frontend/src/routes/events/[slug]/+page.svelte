@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { page } from "$app/state";
   import { webAuthStartUrl } from "$lib/site/webAuth";
   import Button from "$lib/design-system/components/Button.svelte";
   import DailyBars from "$lib/design-system/components/charts/DailyBars.svelte";
@@ -15,7 +14,7 @@
 
   const event = $derived(data.event);
   const status = $derived(data.status);
-  const signInUrl = $derived(webAuthStartUrl(page.url.href));
+  const signInUrl = $derived(webAuthStartUrl());
 
   /** Live reads the feed, ended freezes on finalTotal, before start shows zero. */
   const goalCurrent = $derived(

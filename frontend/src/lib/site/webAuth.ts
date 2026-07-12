@@ -1,14 +1,24 @@
+import { page } from "$app/state";
 import { SEQUOIA_API_BASE_URL } from "$lib/config/public";
 
 // Empty base means same-origin mode - the auth links stay relative.
 const AUTH_BASE = `${SEQUOIA_API_BASE_URL}/auth/web`;
 
-/** Starts the website sign-in flow and returns to the given page afterwards. */
-export function webAuthStartUrl(returnTo: string): string {
-  return `${AUTH_BASE}/start?return_to=${encodeURIComponent(returnTo)}`;
+/**
+ * The backend only accepts absolute URLs on its allowlisted hosts, so every
+ * destination is resolved against the current page here - a relative path
+ * from a call site can never leak into return_to.
+ */
+function absoluteReturnTo(returnTo?: string): string {
+  return new URL(returnTo ?? page.url.href, page.url.href).href;
 }
 
-/** Clears the website session and returns to the given page afterwards. */
-export function webAuthLogoutUrl(returnTo: string): string {
-  return `${AUTH_BASE}/logout?return_to=${encodeURIComponent(returnTo)}`;
+/** Starts the website sign-in flow and returns to the given page (default: the current one). */
+export function webAuthStartUrl(returnTo?: string): string {
+  return `${AUTH_BASE}/start?return_to=${encodeURIComponent(absoluteReturnTo(returnTo))}`;
+}
+
+/** Clears the website session and returns to the given page (default: the current one). */
+export function webAuthLogoutUrl(returnTo?: string): string {
+  return `${AUTH_BASE}/logout?return_to=${encodeURIComponent(absoluteReturnTo(returnTo))}`;
 }

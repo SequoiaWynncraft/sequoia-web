@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { page } from "$app/state";
   import StatsHeader from "$lib/components/StatsHeader.svelte";
   import { webAuthStartUrl } from "$lib/site/webAuth";
   import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
@@ -12,7 +11,7 @@
   let { data } = $props();
 
   const stats = $derived(data.stats);
-  const signInUrl = $derived(webAuthStartUrl(page.url.href));
+  const signInUrl = $derived(webAuthStartUrl());
 
   const rankLabels: Record<string, string> = {
     owner: "Owner",
