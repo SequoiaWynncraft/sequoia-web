@@ -77,8 +77,9 @@ export async function deletePresetAction(event: ManageRequest) {
   const name = presetName((await event.request.formData()).get("presetName"));
   if (!name) return fail(400, { presetError: "Malformed submission." });
   const db = await presetDb();
-  await db.execute({ sql: "DELETE FROM guild_event_presets WHERE name = ?", args: [name] });
-  await recordAudit(manager, "preset.delete", name);
+  const result = await db.execute({ sql: "DELETE FROM guild_event_presets WHERE name = ?", args: [name] });
+  // A stale double-delete removes nothing and must not mint an audit row.
+  if (result.rowsAffected > 0) await recordAudit(manager, "preset.delete", name);
   return { presetDeleted: name };
 }
 

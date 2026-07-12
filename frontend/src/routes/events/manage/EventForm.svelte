@@ -21,8 +21,6 @@
     trackerCreated = null,
     trackerUpdated = null,
     trackerError = null,
-    presetSaved = null,
-    presetDeleted = null,
     presetError = null,
   }: {
     mode: "create" | "edit";
@@ -38,9 +36,6 @@
     /** Result of the last ?/updateTracker submission. */
     trackerUpdated?: TrackerOption | null;
     trackerError?: string | null;
-    /** Name confirmed by the last ?/savePreset / ?/deletePreset submission. */
-    presetSaved?: string | null;
-    presetDeleted?: string | null;
     presetError?: string | null;
   } = $props();
 
@@ -581,7 +576,6 @@
   let presetChoices = $state(context?.presets ?? []);
   let selectedPreset = $state("");
   let newPresetName = $state("");
-  let lastSavedPresetPayload = "";
   const presetPayload = $derived(JSON.stringify(draftEvent));
 
   function loadPreset() {
@@ -600,38 +594,43 @@
     applySnapshot(JSON.stringify({ event: draft, published }));
   }
 
-  /** Captures the payload at submit time so the local list stays truthful. */
+  /**
+   * Adoption happens once, in the submission's own result callback - a
+   * lingering form prop would replay it on every later toolbar interaction.
+   */
   const presetSubmit: SubmitFunction = () => {
-    lastSavedPresetPayload = presetPayload;
-    return async ({ update }) => {
+    const payloadAtSubmit = presetPayload;
+    return async ({ result, update }) => {
+      if (result.type === "success") {
+        const saved = (result.data as { presetSaved?: unknown } | undefined)?.presetSaved;
+        if (typeof saved === "string") {
+          const entry = { name: saved, payload: payloadAtSubmit, updatedAt: Date.now() };
+          const index = presetChoices.findIndex((candidate) => candidate.name === saved);
+          if (index >= 0) presetChoices[index] = entry;
+          else {
+            presetChoices.push(entry);
+            presetChoices.sort((a, b) => a.name.localeCompare(b.name));
+          }
+          selectedPreset = saved;
+          newPresetName = "";
+        }
+      }
       await update();
     };
   };
 
-  // Adopt a preset the server just saved: list it and select it.
-  $effect(() => {
-    const saved = presetSaved;
-    if (!saved) return;
-    const entry = { name: saved, payload: lastSavedPresetPayload, updatedAt: Date.now() };
-    const index = presetChoices.findIndex((candidate) => candidate.name === saved);
-    if (index >= 0) {
-      if (presetChoices[index].payload !== entry.payload) presetChoices[index] = entry;
-    } else {
-      presetChoices.push(entry);
-      presetChoices.sort((a, b) => a.name.localeCompare(b.name));
-    }
-    if (selectedPreset !== saved) selectedPreset = saved;
-    if (newPresetName !== "") newPresetName = "";
-  });
-
-  $effect(() => {
-    const deleted = presetDeleted;
-    if (!deleted) return;
-    if (presetChoices.some((candidate) => candidate.name === deleted)) {
-      presetChoices = presetChoices.filter((candidate) => candidate.name !== deleted);
-    }
-    if (selectedPreset === deleted) selectedPreset = "";
-  });
+  const presetDelete: SubmitFunction = () => {
+    return async ({ result, update }) => {
+      if (result.type === "success") {
+        const deleted = (result.data as { presetDeleted?: unknown } | undefined)?.presetDeleted;
+        if (typeof deleted === "string") {
+          presetChoices = presetChoices.filter((candidate) => candidate.name !== deleted);
+          if (selectedPreset === deleted) selectedPreset = "";
+        }
+      }
+      await update();
+    };
+  };
 </script>
 
 <div class="mg-editor">
@@ -670,7 +669,7 @@
         >
           Load
         </button>
-        <form method="POST" action="?/deletePreset" use:enhance>
+        <form method="POST" action="?/deletePreset" use:enhance={presetDelete}>
           <input type="hidden" name="presetName" value={selectedPreset} />
           <button
             type="submit"
