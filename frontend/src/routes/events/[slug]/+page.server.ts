@@ -91,22 +91,23 @@ export const load: PageServerLoad = async ({ fetch, params, parent }) => {
   let days: EventDayCount[] | null = null;
   let progress: number | null = null;
   if (status === "live" && event.startsAt) {
+    const goal = event.goal;
     const window = { from: event.startsAt, to: now.toISOString() };
-    if (chart) {
-      days = await loadEventRaidCounts(fetch, { ...window, countRaid: chart.countRaid }).catch(
-        () => null,
-      );
-    }
-    if (event.goal?.feed) {
-      const sameAsChart =
-        event.goal.feed === "raids" &&
-        chart !== null &&
-        (chart.countRaid ?? null) === (event.goal.countRaid ?? null);
-      progress =
-        sameAsChart && days !== null
-          ? sumCounts(days)
-          : await loadGoalProgress(fetch, event.goal, window);
-    }
+    const daysPromise = chart
+      ? loadEventRaidCounts(fetch, { ...window, countRaid: chart.countRaid }).catch(() => null)
+      : Promise.resolve(null);
+    const sameAsChart =
+      goal?.feed === "raids" &&
+      chart !== null &&
+      (chart.countRaid ?? null) === (goal.countRaid ?? null);
+    const progressPromise = goal?.feed
+      ? sameAsChart
+        ? // A failed shared fetch stays null - retrying the identical request
+          // would fail the same way.
+          daysPromise.then((shared) => (shared === null ? null : sumCounts(shared)))
+        : loadGoalProgress(fetch, goal, window)
+      : Promise.resolve(null);
+    [days, progress] = await Promise.all([daysPromise, progressPromise]);
   }
 
   let standings: Standings | null = null;

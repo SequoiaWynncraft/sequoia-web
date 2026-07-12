@@ -53,6 +53,10 @@
   let tagline = $state(seed?.tagline ?? "");
   let access = $state<"public" | "members">(seed?.access ?? "members");
   let published = $state(seedPublished);
+  // Original instants survive untouched edits - datetime-local inputs carry
+  // minute precision, and rewriting an unchanged value would shift seconds.
+  const seedStartsAt = seed?.startsAt ?? "";
+  const seedEndsAt = seed?.endsAt ?? "";
   let startsAt = $state(toInput(seed?.startsAt));
   let endsAt = $state(toInput(seed?.endsAt));
 
@@ -118,6 +122,8 @@
   // tracker events or edits the selected one.
   let trackerEditor = $state<"closed" | "create" | "edit">("closed");
   let trackerEditId = $state("");
+  let trackerEditStartsAt = $state("");
+  let trackerEditEndsAt = $state("");
   let trackerBusy = $state(false);
   let trackerAttempted = $state(false);
   let newTrackerName = $state("");
@@ -138,15 +144,17 @@
     }
   });
 
-  // Reflect a server-side tracker update into the picker list.
+  // Reflect a server-side tracker update into the picker list. The editor
+  // closes on any update response - a no-op save is still a successful save.
+  // Only the list mutation is guarded by equality, so the effect settles.
   $effect(() => {
     const updated = trackerUpdated;
     if (!updated) return;
+    trackerEditor = "closed";
     const index = trackerChoices.findIndex((option) => option.id === updated.id);
     if (index >= 0 && JSON.stringify(trackerChoices[index]) !== JSON.stringify(updated)) {
       trackerChoices[index] = updated;
       if (trackerEventId === updated.id) trackerTracking = updated.tracking;
-      trackerEditor = "closed";
     }
   });
 
@@ -160,8 +168,8 @@
   // The same validator the server runs, so problems surface before submitting.
   const draftEvent = $derived.by(() => {
     const event: Record<string, unknown> = { slug: slug.trim(), name, tagline, access, theme };
-    if (startsAt) event.startsAt = toInstant(startsAt);
-    if (endsAt) event.endsAt = toInstant(endsAt);
+    if (startsAt) event.startsAt = keepInstant(startsAt, seedStartsAt);
+    if (endsAt) event.endsAt = keepInstant(endsAt, seedEndsAt);
     const paragraphs = splitParagraphs(about);
     if (paragraphs.length > 0) event.about = paragraphs;
     if (goalEnabled) {
@@ -239,8 +247,8 @@
     JSON.stringify({
       id: trackerEditor === "edit" ? trackerEditId : undefined,
       name: newTrackerName,
-      startsAt: newTrackerStarts ? toInstant(newTrackerStarts) : "",
-      endsAt: newTrackerEnds ? toInstant(newTrackerEnds) : "",
+      startsAt: newTrackerStarts ? keepInstant(newTrackerStarts, trackerEditStartsAt) : "",
+      endsAt: newTrackerEnds ? keepInstant(newTrackerEnds, trackerEditEndsAt) : "",
       tracking: newTrackerTracking,
       raid: newTrackerTracking === "mod" ? newTrackerRaid : "",
     }),
@@ -278,6 +286,8 @@
     newTrackerEnds = newTrackerEnds || endsAt;
     newTrackerTracking = "mod";
     trackerEditId = "";
+    trackerEditStartsAt = "";
+    trackerEditEndsAt = "";
     trackerAttempted = false;
     trackerEditor = "create";
   }
@@ -287,6 +297,8 @@
     const option = selectedTracker;
     if (!option) return;
     trackerEditId = option.id;
+    trackerEditStartsAt = option.startsAt;
+    trackerEditEndsAt = option.endsAt;
     newTrackerName = option.name;
     newTrackerStarts = option.startsAt.slice(0, 16);
     newTrackerEnds = option.endsAt.slice(0, 16);
@@ -327,6 +339,11 @@
   /** datetime-local values are read as UTC wall time. */
   function toInstant(value: string): string {
     return value.length === 16 ? `${value}:00Z` : `${value}Z`;
+  }
+
+  /** An untouched input keeps its original instant, seconds and all. */
+  function keepInstant(value: string, original: string): string {
+    return original && value === toInput(original) ? original : toInstant(value);
   }
 
   function slugify(value: string): string {

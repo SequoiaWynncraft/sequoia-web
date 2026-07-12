@@ -78,7 +78,8 @@ No CSS framework and no store library.
   playtime summed from the daily stat rollups. The activity chart is independently
   configurable (`GuildEvent.activity`; `eventChart` in `lib/events/helpers.ts`) - it
   follows a raids-feed goal by default, can chart any single raid, or hide; raids are
-  the only source with a daily feed. Member standings reuse the raid tracker's event
+  the only source with a per-day activity feed (wars and playtime expose only window
+  totals from the rollups). Member standings reuse the raid tracker's event
   leaderboards via `lib/server/raidEventBoards.ts` once a `tracker` id is set on the
   event - the editor can pick an existing tracker event, create one inline, or edit one
   (`?/createTracker`, `?/updateTracker` → `POST`/`PUT /internal/raid-events`), and

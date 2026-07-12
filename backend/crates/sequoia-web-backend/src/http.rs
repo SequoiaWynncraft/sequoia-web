@@ -140,7 +140,7 @@ async fn create_raid_event(
 ) -> Result<Response, ApiError> {
     require_internal_token(&state, &headers)?;
     if request.slug.trim().is_empty() {
-        return Err(ApiError::bad_request("slug and name are required"));
+        return Err(ApiError::bad_request("slug is required"));
     }
     let raid = validate_event_fields(
         &request.name,
@@ -205,7 +205,7 @@ fn validate_event_fields<'a>(
     raid: Option<&'a str>,
 ) -> Result<Option<&'a str>, ApiError> {
     if name.trim().is_empty() {
-        return Err(ApiError::bad_request("slug and name are required"));
+        return Err(ApiError::bad_request("name is required"));
     }
     if ends_at <= starts_at {
         return Err(ApiError::bad_request("ends_at must be after starts_at"));
