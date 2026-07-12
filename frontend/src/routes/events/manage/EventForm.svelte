@@ -440,23 +440,37 @@
   let undoStack = $state<string[]>([]);
   let redoStack = $state<string[]>([]);
   // svelte-ignore state_referenced_locally
-  let lastCaptured = payload;
-  let applyingSnapshot = false;
+  let lastCaptured = $state(payload);
+  let captureTimer: ReturnType<typeof setTimeout> | undefined;
 
+  // Replayed snapshots need no suppression flag: applySnapshot re-points
+  // lastCaptured at the applied state, so the debounced capture no-ops on
+  // equality, while a real edit in the quiet window still differs and lands.
   $effect(() => {
     const current = payload;
-    if (applyingSnapshot) return;
-    const timer = setTimeout(() => {
-      if (current === lastCaptured) return;
-      undoStack.push(lastCaptured);
-      if (undoStack.length > HISTORY_LIMIT) undoStack.shift();
-      if (redoStack.length > 0) redoStack.length = 0;
-      lastCaptured = current;
-    }, CAPTURE_QUIET_MS);
-    return () => clearTimeout(timer);
+    clearTimeout(captureTimer);
+    captureTimer = setTimeout(() => capture(current), CAPTURE_QUIET_MS);
+    return () => clearTimeout(captureTimer);
   });
 
+  function capture(current: string) {
+    if (current === lastCaptured) return;
+    undoStack.push(lastCaptured);
+    if (undoStack.length > HISTORY_LIMIT) undoStack.shift();
+    if (redoStack.length > 0) redoStack.length = 0;
+    lastCaptured = current;
+  }
+
+  const hasPendingEdit = $derived(payload !== lastCaptured);
+
   function undo() {
+    clearTimeout(captureTimer);
+    if (hasPendingEdit) {
+      // An in-progress edit undoes to the last settled draft and stays redoable.
+      redoStack.push(payload);
+      applySnapshot(lastCaptured);
+      return;
+    }
     const previous = undoStack.pop();
     if (previous === undefined) return;
     redoStack.push(lastCaptured);
@@ -464,6 +478,12 @@
   }
 
   function redo() {
+    clearTimeout(captureTimer);
+    if (hasPendingEdit) {
+      // Typing after an undo invalidates the redo branch, like any editor.
+      capture(payload);
+      return;
+    }
     const next = redoStack.pop();
     if (next === undefined) return;
     undoStack.push(lastCaptured);
@@ -471,18 +491,10 @@
   }
 
   function applySnapshot(snapshot: string) {
-    applyingSnapshot = true;
-    try {
-      const parsed = JSON.parse(snapshot) as { event?: Record<string, unknown>; published?: boolean };
-      applyDraft(parsed.event ?? {}, mode === "edit");
-      published = parsed.published === true;
-      lastCaptured = payload;
-    } finally {
-      // Give the capture effect one quiet period to see the applied state.
-      setTimeout(() => {
-        applyingSnapshot = false;
-      }, CAPTURE_QUIET_MS + 100);
-    }
+    const parsed = JSON.parse(snapshot) as { event?: Record<string, unknown>; published?: boolean };
+    applyDraft(parsed.event ?? {}, mode === "edit");
+    published = parsed.published === true;
+    lastCaptured = payload;
   }
 
   /** Rehydrates every field from a draft event object; the inverse of draftEvent. */
@@ -588,6 +600,8 @@
       return;
     }
     // Loading is an edit like any other - one undo step returns here.
+    clearTimeout(captureTimer);
+    capture(payload);
     undoStack.push(lastCaptured);
     if (undoStack.length > HISTORY_LIMIT) undoStack.shift();
     redoStack.length = 0;
@@ -641,7 +655,7 @@
           type="button"
           class="seq-button seq-button-ghost seq-button-sm"
           onclick={undo}
-          disabled={undoStack.length === 0}
+          disabled={undoStack.length === 0 && !hasPendingEdit}
         >
           Undo
         </button>
