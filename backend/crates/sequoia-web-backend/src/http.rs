@@ -37,6 +37,9 @@ struct CreateRaidEventRequest {
     ends_at: OffsetDateTime,
     #[serde(default = "default_tracking")]
     tracking: String,
+    /// Restrict a mod-tracked event to one raid; omitted means all raids.
+    #[serde(default)]
+    raid: Option<String>,
 }
 
 fn default_tracking() -> String {
@@ -131,6 +134,16 @@ async fn create_raid_event(
     if request.tracking != "api" && request.tracking != "mod" {
         return Err(ApiError::bad_request("tracking must be 'api' or 'mod'"));
     }
+    let raid = request
+        .raid
+        .as_deref()
+        .map(str::trim)
+        .filter(|raid| !raid.is_empty());
+    if raid.is_some() && request.tracking != "mod" {
+        return Err(ApiError::bad_request(
+            "raid scoping requires 'mod' tracking - API counter diffs cannot attribute per raid",
+        ));
+    }
 
     let event = state
         .db
@@ -140,6 +153,7 @@ async fn create_raid_event(
             request.starts_at,
             request.ends_at,
             &request.tracking,
+            raid,
         )
         .await?;
     Ok((StatusCode::CREATED, Json(event)).into_response())

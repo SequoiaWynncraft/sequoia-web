@@ -232,7 +232,7 @@ impl Database {
     pub async fn list_raid_events(&self) -> anyhow::Result<Vec<RaidEvent>> {
         let rows = sqlx::query(
             r#"
-            SELECT id, slug, name, starts_at, ends_at, tracking
+            SELECT id, slug, name, starts_at, ends_at, tracking, raid
             FROM raid_events
             ORDER BY starts_at DESC
             "#,
@@ -247,7 +247,7 @@ impl Database {
     pub async fn raid_event(&self, event_id: Uuid) -> anyhow::Result<Option<RaidEvent>> {
         let row = sqlx::query(
             r#"
-            SELECT id, slug, name, starts_at, ends_at, tracking
+            SELECT id, slug, name, starts_at, ends_at, tracking, raid
             FROM raid_events
             WHERE id = $1
             "#,
@@ -267,13 +267,14 @@ impl Database {
         starts_at: OffsetDateTime,
         ends_at: OffsetDateTime,
         tracking: &str,
+        raid: Option<&str>,
     ) -> anyhow::Result<RaidEvent> {
         let id = Uuid::new_v4();
         let row = sqlx::query(
             r#"
-            INSERT INTO raid_events (id, slug, name, starts_at, ends_at, tracking)
-            VALUES ($1, $2, $3, $4, $5, $6)
-            RETURNING id, slug, name, starts_at, ends_at, tracking
+            INSERT INTO raid_events (id, slug, name, starts_at, ends_at, tracking, raid)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            RETURNING id, slug, name, starts_at, ends_at, tracking, raid
             "#,
         )
         .bind(id)
@@ -282,6 +283,7 @@ impl Database {
         .bind(starts_at)
         .bind(ends_at)
         .bind(tracking)
+        .bind(raid)
         .fetch_one(&self.pool)
         .await
         .context("failed to create raid event")?;
@@ -467,5 +469,6 @@ fn row_to_raid_event(row: sqlx::postgres::PgRow) -> anyhow::Result<RaidEvent> {
         starts_at: row.try_get("starts_at")?,
         ends_at: row.try_get("ends_at")?,
         tracking: row.try_get("tracking")?,
+        raid: row.try_get("raid")?,
     })
 }

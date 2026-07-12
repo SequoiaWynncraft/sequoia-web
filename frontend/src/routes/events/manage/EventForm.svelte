@@ -7,7 +7,7 @@
   import GoalMeter from "$lib/events/components/GoalMeter.svelte";
   import type { CompRole, EventTheme, GuildEvent, PrizeEntry } from "$lib/events/types";
   import { parseGuildEvent } from "$lib/events/validate";
-  import type { EventFormContext } from "$lib/server/eventFormContext";
+  import type { EventFormContext, TrackerOption } from "$lib/server/eventFormContext";
   import { KNOWN_RAIDS } from "$lib/site/raids";
 
   let {
@@ -17,6 +17,8 @@
     context = null,
     error = null,
     saved = false,
+    trackerCreated = null,
+    trackerError = null,
   }: {
     mode: "create" | "edit";
     initial?: GuildEvent | null;
@@ -26,6 +28,9 @@
     /** Rejection from the last server submission. */
     error?: string | null;
     saved?: boolean;
+    /** Result of the last ?/createTracker submission. */
+    trackerCreated?: TrackerOption | null;
+    trackerError?: string | null;
   } = $props();
 
   // The form deliberately seeds from the props once - the parent remounts it
@@ -37,7 +42,7 @@
   // svelte-ignore state_referenced_locally
   const memberChoices = context?.members ?? [];
   // svelte-ignore state_referenced_locally
-  const trackerChoices = context?.trackerEvents ?? [];
+  let trackerChoices = $state(context?.trackerEvents ?? []);
 
   let name = $state(seed?.name ?? "");
   let slug = $state(seed?.slug ?? "");
@@ -58,11 +63,11 @@
   let goalEnabled = $state(seed?.goal !== undefined);
   let goalMetric = $state(seed?.goal?.metricLabel ?? "");
   // Number inputs bind numbers (or null when cleared), not strings.
-  let goalTarget = $state<string | number | null>(seed?.goal ? seed.goal.target : "");
+  let goalTarget = $state<string | number | null | undefined>(seed?.goal ? seed.goal.target : "");
   let goalUnlock = $state(seed?.goal?.unlock ?? "");
   let goalSource = $state<"manual" | "raids">(seed?.goal?.feed === "raids" ? "raids" : "manual");
   let goalRaid = $state(seed?.goal?.countRaid ?? "");
-  let goalFinalTotal = $state<string | number | null>(seed?.goal?.finalTotal ?? "");
+  let goalFinalTotal = $state<string | number | null | undefined>(seed?.goal?.finalTotal ?? "");
   // Repeater rows carry a locally generated id so the each blocks are keyed -
   // unkeyed lists with two-way bindings corrupt state when middle rows are
   // removed.
@@ -94,6 +99,28 @@
   let showValidation = $state(false);
   let saving = $state(false);
   let confirmingDelete = $state(false);
+
+  // Inline "new tracker event" creator inside the standings section.
+  let creatingTracker = $state(false);
+  let creatingTrackerBusy = $state(false);
+  let trackerAttempted = $state(false);
+  let newTrackerName = $state("");
+  let newTrackerStarts = $state("");
+  let newTrackerEnds = $state("");
+  let newTrackerTracking = $state<"api" | "mod">("mod");
+  let newTrackerRaid = $state("");
+
+  // Adopt a tracker the server just created: list it and select it.
+  $effect(() => {
+    const created = trackerCreated;
+    if (created && !trackerChoices.some((option) => option.id === created.id)) {
+      trackerChoices.push(created);
+      trackerEventId = created.id;
+      trackerTracking = created.tracking;
+      trackerManual = false;
+      creatingTracker = false;
+    }
+  });
 
   const theme = $derived<EventTheme>({
     sky: [skyTop, skyBottom],
@@ -156,7 +183,42 @@
   const payload = $derived(JSON.stringify({ event: draftEvent, published }));
   const previewGoal = $derived(parsed.ok ? parsed.event.goal : undefined);
 
-  const submit: SubmitFunction = ({ cancel }) => {
+  const selectedTracker = $derived(
+    trackerChoices.find((option) => option.id === trackerEventId) ?? null,
+  );
+
+  const trackerDraftError = $derived.by(() => {
+    if (!newTrackerName.trim()) return "the tracker needs a name";
+    if (!newTrackerStarts || !newTrackerEnds) return "the tracker needs a start and an end";
+    if (Date.parse(toInstant(newTrackerStarts)) >= Date.parse(toInstant(newTrackerEnds))) {
+      return "the tracker must end after it starts";
+    }
+    return null;
+  });
+
+  const trackerPayload = $derived(
+    JSON.stringify({
+      name: newTrackerName,
+      startsAt: newTrackerStarts ? toInstant(newTrackerStarts) : "",
+      endsAt: newTrackerEnds ? toInstant(newTrackerEnds) : "",
+      tracking: newTrackerTracking,
+      raid: newTrackerTracking === "mod" ? newTrackerRaid : "",
+    }),
+  );
+
+  const submit: SubmitFunction = ({ action, cancel }) => {
+    if (action.search.includes("createTracker")) {
+      trackerAttempted = true;
+      if (trackerDraftError) {
+        cancel();
+        return;
+      }
+      creatingTrackerBusy = true;
+      return async ({ update }) => {
+        creatingTrackerBusy = false;
+        await update({ reset: false });
+      };
+    }
     showValidation = true;
     if (liveError) {
       cancel();
@@ -168,6 +230,15 @@
       await update({ reset: false });
     };
   };
+
+  /** Seeds the tracker creator from what the event already knows. */
+  function openTrackerCreator() {
+    newTrackerName = newTrackerName || name || "";
+    newTrackerStarts = newTrackerStarts || startsAt;
+    newTrackerEnds = newTrackerEnds || endsAt;
+    trackerAttempted = false;
+    creatingTracker = true;
+  }
 
   function syncSlug() {
     if (mode === "create" && !slugEdited) slug = slugify(name);
@@ -224,12 +295,14 @@
       .filter(Boolean);
   }
 
-  function hasCount(value: string | number | null): boolean {
-    if (value === null) return false;
+  // Cleared or invalid number inputs bind null or undefined depending on the
+  // browser path - treat both as empty.
+  function hasCount(value: string | number | null | undefined): boolean {
+    if (value === null || value === undefined) return false;
     return typeof value === "number" ? Number.isFinite(value) : value.trim() !== "";
   }
 
-  function toCount(value: string | number | null): number {
+  function toCount(value: string | number | null | undefined): number {
     if (typeof value === "number") return value;
     const text = (value ?? "").trim();
     return text === "" ? Number.NaN : Number(text);
@@ -240,6 +313,7 @@
   <div class="mg-main">
     <form method="POST" action="?/save" use:enhance={submit}>
       <input type="hidden" name="payload" value={payload} />
+      <input type="hidden" name="trackerPayload" value={trackerPayload} />
 
       <section class="mg-section">
         <SectionLabel>{#snippet children()}Identity{/snippet}</SectionLabel>
@@ -513,13 +587,15 @@
               >
                 <option value="" disabled>Pick a tracker event</option>
                 {#each trackerChoices as option (option.id)}
-                  <option value={option.id}>{option.name} ({option.window})</option>
+                  <option value={option.id}>
+                    {option.name} ({option.window}{option.raid ? ` - ${option.raid}` : ""})
+                  </option>
                 {/each}
               </select>
             </label>
             <p class="mg-hint">
               {trackerEventId
-                ? `Contributions come from ${trackerTracking === "mod" ? "the guild mod" : "the Wynncraft API"}.`
+                ? `Counts ${selectedTracker?.raid ?? "all guild raids"} via ${trackerTracking === "mod" ? "the guild mod" : "the Wynncraft API"}.`
                 : "Standings show each member's contribution inside the tracker window."}
               <button type="button" class="mg-inline-link focus-ring" onclick={() => (trackerManual = true)}>
                 Enter an id manually
@@ -546,6 +622,78 @@
                 </button>
               </p>
             {/if}
+          {/if}
+
+          {#if creatingTracker}
+            <div class="mg-tracker-new">
+              <span class="mg-label">New tracker event</span>
+              <div class="mg-grid-2">
+                <label class="mg-field">
+                  <span class="mg-label">Name</span>
+                  <input class="mg-input" bind:value={newTrackerName} maxlength="80" />
+                </label>
+                <label class="mg-field">
+                  <span class="mg-label">Tracking source</span>
+                  <select class="mg-input" bind:value={newTrackerTracking}>
+                    <option value="mod">Guild mod</option>
+                    <option value="api">Wynncraft API</option>
+                  </select>
+                </label>
+                <label class="mg-field">
+                  <span class="mg-label">Starts (UTC)</span>
+                  <input class="mg-input" type="datetime-local" bind:value={newTrackerStarts} />
+                </label>
+                <label class="mg-field">
+                  <span class="mg-label">Ends (UTC)</span>
+                  <input class="mg-input" type="datetime-local" bind:value={newTrackerEnds} />
+                </label>
+                {#if newTrackerTracking === "mod"}
+                  <label class="mg-field">
+                    <span class="mg-label">Which raids count</span>
+                    <select class="mg-input" bind:value={newTrackerRaid}>
+                      <option value="">All guild raids</option>
+                      {#each KNOWN_RAIDS as raid (raid.key)}
+                        <option value={raid.key}>{raid.key}</option>
+                      {/each}
+                    </select>
+                  </label>
+                {/if}
+              </div>
+              <p class="mg-hint">
+                {newTrackerTracking === "mod"
+                  ? "The guild mod attributes completions per raid, so mod trackers can scope to one raid."
+                  : "API counter diffs count all guild raids together - no per-raid scoping."}
+              </p>
+              <div class="mg-tracker-new-actions">
+                <button
+                  type="submit"
+                  formaction="?/createTracker"
+                  formnovalidate
+                  class="seq-button seq-button-secondary seq-button-sm"
+                  disabled={creatingTrackerBusy}
+                >
+                  Create tracker
+                </button>
+                <button
+                  type="button"
+                  class="seq-button seq-button-ghost seq-button-sm"
+                  onclick={() => (creatingTracker = false)}
+                >
+                  Cancel
+                </button>
+                {#if trackerAttempted && trackerDraftError}
+                  <span class="mg-error" role="alert">{trackerDraftError}</span>
+                {:else if trackerError}
+                  <span class="mg-error" role="alert">{trackerError}</span>
+                {/if}
+              </div>
+            </div>
+          {:else}
+            <p class="mg-hint">
+              <button type="button" class="mg-inline-link mg-inline-link-solo focus-ring" onclick={openTrackerCreator}>
+                + New tracker event
+              </button>
+            </p>
           {/if}
         {/if}
       </section>
@@ -824,6 +972,24 @@
   .mg-choice-desc {
     color: var(--text-muted);
     font-size: var(--text-xs);
+  }
+
+  .mg-tracker-new {
+    display: grid;
+    gap: 12px;
+    padding: 16px;
+    border: 1px solid var(--color-border-subtle);
+  }
+
+  .mg-tracker-new-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .mg-inline-link-solo {
+    margin-left: 0;
   }
 
   .mg-inline-link {

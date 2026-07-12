@@ -133,7 +133,7 @@ async function loadModStandings(
   }
   return loadModLeaderboard(
     fetchImpl,
-    { starts_at: tracked.starts_at, ends_at: tracked.ends_at },
+    { starts_at: tracked.starts_at, ends_at: tracked.ends_at, raid: tracked.raid },
     roster,
   );
 }

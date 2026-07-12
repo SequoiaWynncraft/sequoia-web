@@ -5,6 +5,7 @@ import { eventFormContext } from "$lib/server/eventFormContext";
 import { checkEventManager, requireEventManager } from "$lib/server/eventManagers";
 import { parseEventPayload } from "$lib/server/eventPayload";
 import { eventStore } from "$lib/server/eventStore";
+import { createTrackerAction } from "$lib/server/trackerAdmin";
 
 export const prerender = false;
 
@@ -25,4 +26,6 @@ export const actions: Actions = {
     }
     redirect(303, `/events/manage/${payload.event.slug}`);
   },
+
+  createTracker: createTrackerAction,
 };

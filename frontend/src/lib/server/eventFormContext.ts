@@ -8,6 +8,8 @@ export interface TrackerOption {
   name: string;
   window: string;
   tracking: "api" | "mod";
+  /** Raid the tracker counts; null means all guild raids. */
+  raid: string | null;
 }
 
 export interface EventFormContext {
@@ -32,6 +34,7 @@ export async function eventFormContext(fetchImpl: typeof fetch): Promise<EventFo
       name: event.name,
       window: formatWindow({ startsAt: event.starts_at, endsAt: event.ends_at }) ?? "no window",
       tracking: event.tracking ?? "api",
+      raid: event.raid ?? null,
     })),
   };
 }
