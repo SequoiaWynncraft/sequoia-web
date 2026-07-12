@@ -7,17 +7,22 @@
   import GoalMeter from "$lib/events/components/GoalMeter.svelte";
   import type { CompRole, EventTheme, GuildEvent, PrizeEntry } from "$lib/events/types";
   import { parseGuildEvent } from "$lib/events/validate";
+  import type { EventFormContext } from "$lib/server/eventFormContext";
+  import { KNOWN_RAIDS } from "$lib/site/raids";
 
   let {
     mode,
     initial = null,
     initialPublished = false,
+    context = null,
     error = null,
     saved = false,
   }: {
     mode: "create" | "edit";
     initial?: GuildEvent | null;
     initialPublished?: boolean;
+    /** Picker data (roster, tracker events); the form degrades without it. */
+    context?: EventFormContext | null;
     /** Rejection from the last server submission. */
     error?: string | null;
     saved?: boolean;
@@ -29,6 +34,10 @@
   const seed = initial;
   // svelte-ignore state_referenced_locally
   const seedPublished = initialPublished;
+  // svelte-ignore state_referenced_locally
+  const memberChoices = context?.members ?? [];
+  // svelte-ignore state_referenced_locally
+  const trackerChoices = context?.trackerEvents ?? [];
 
   let name = $state(seed?.name ?? "");
   let slug = $state(seed?.slug ?? "");
@@ -50,8 +59,8 @@
   let goalMetric = $state(seed?.goal?.metricLabel ?? "");
   let goalTarget = $state(seed?.goal ? String(seed.goal.target) : "");
   let goalUnlock = $state(seed?.goal?.unlock ?? "");
-  let goalFeed = $state<"none" | "raids">(seed?.goal?.feed ?? "none");
-  let goalCountRaid = $state(seed?.goal?.countRaid ?? "");
+  let goalSource = $state<"manual" | "raids">(seed?.goal?.feed === "raids" ? "raids" : "manual");
+  let goalRaid = $state(seed?.goal?.countRaid ?? "");
   let goalFinalTotal = $state(
     seed?.goal?.finalTotal !== undefined ? String(seed.goal.finalTotal) : "",
   );
@@ -59,8 +68,12 @@
   // unkeyed lists with two-way bindings corrupt state when middle rows are
   // removed.
   let nextRowId = 0;
-  let prizes = $state<(PrizeEntry & { id: number })[]>(
-    seed?.prizes?.map((entry) => ({ ...entry, id: nextRowId++ })) ?? [],
+  let prizes = $state<(Required<PrizeEntry> & { id: number })[]>(
+    seed?.prizes?.map((entry) => ({
+      ...entry,
+      donorPlayer: entry.donorPlayer ?? "",
+      id: nextRowId++,
+    })) ?? [],
   );
   let prizesNote = $state(seed?.prizesNote ?? "");
   let compRoles = $state<(CompRole & { id: number })[]>(
@@ -71,6 +84,13 @@
   let trackerEnabled = $state(seed?.tracker !== undefined);
   let trackerEventId = $state(seed?.tracker?.eventId ?? "");
   let trackerTracking = $state<"api" | "mod">(seed?.tracker?.tracking ?? "api");
+  // Manual id entry is the fallback when the backend list is unavailable or
+  // the stored id is not in it.
+  let trackerManual = $state(
+    trackerChoices.length === 0 ||
+      (seed?.tracker !== undefined &&
+        !trackerChoices.some((option) => option.id === seed.tracker?.eventId)),
+  );
 
   let showValidation = $state(false);
   let saving = $state(false);
@@ -96,16 +116,23 @@
         target: toCount(goalTarget),
         unlock: goalUnlock,
       };
-      if (goalFeed === "raids") goal.feed = "raids";
-      if (goalCountRaid.trim()) goal.countRaid = goalCountRaid;
+      if (goalSource === "raids") {
+        goal.feed = "raids";
+        if (goalRaid) goal.countRaid = goalRaid;
+      }
       if (goalFinalTotal.trim()) goal.finalTotal = toCount(goalFinalTotal);
       event.goal = goal;
     }
     // Rows added but left fully empty are noise, not intent - drop them,
-    // along with the local row ids.
+    // along with the local row ids. A picked player stands in for a missing
+    // display name.
     const filledPrizes = prizes
-      .filter((entry) => entry.donor.trim() || entry.prize.trim())
-      .map(({ donor, prize }) => ({ donor, prize }));
+      .filter((entry) => entry.donor.trim() || entry.prize.trim() || entry.donorPlayer.trim())
+      .map(({ donor, prize, donorPlayer }) => ({
+        donor: donor.trim() || donorPlayer.trim(),
+        prize,
+        donorPlayer: donorPlayer.trim() || undefined,
+      }));
     if (filledPrizes.length > 0) event.prizes = filledPrizes;
     if (prizesNote.trim()) event.prizesNote = prizesNote;
     const filledRoles = compRoles
@@ -118,6 +145,11 @@
     if (ruleLines.length > 0) event.rules = ruleLines;
     if (trackerEnabled) event.tracker = { eventId: trackerEventId, tracking: trackerTracking };
     return event;
+  });
+
+  const raidOptions = $derived.by(() => {
+    const names = KNOWN_RAIDS.map((raid) => raid.key);
+    return goalRaid && !names.includes(goalRaid) ? [...names, goalRaid] : names;
   });
 
   const parsed = $derived(parseGuildEvent(draftEvent));
@@ -140,6 +172,12 @@
 
   function syncSlug() {
     if (mode === "create" && !slugEdited) slug = slugify(name);
+  }
+
+  /** Picking a tracker event also decides how it is tracked. */
+  function syncTracking() {
+    const option = trackerChoices.find((entry) => entry.id === trackerEventId);
+    if (option) trackerTracking = option.tracking;
   }
 
   function toInput(instant?: string): string {
@@ -316,39 +354,60 @@
             <span class="mg-label">Unlocks</span>
             <input class="mg-input" bind:value={goalUnlock} placeholder="Rank Up Raffle" maxlength="120" />
           </label>
+          <div class="mg-field">
+            <span class="mg-label">Data source</span>
+            <div class="mg-choices" role="radiogroup" aria-label="Goal data source">
+              <label class="mg-choice" class:mg-choice-selected={goalSource === "raids"}>
+                <input class="mg-choice-input" type="radio" value="raids" bind:group={goalSource} />
+                <span class="mg-choice-title">Guild raid feed</span>
+                <span class="mg-choice-desc">Counts raids live from the public guild activity feed.</span>
+              </label>
+              <label class="mg-choice" class:mg-choice-selected={goalSource === "manual"}>
+                <input class="mg-choice-input" type="radio" value="manual" bind:group={goalSource} />
+                <span class="mg-choice-title">Manual</span>
+                <span class="mg-choice-desc">No live wiring - the meter shows the total entered below.</span>
+              </label>
+            </div>
+          </div>
           <div class="mg-grid-2">
-            <label class="mg-field">
-              <span class="mg-label">Live feed</span>
-              <select class="mg-input" bind:value={goalFeed}>
-                <option value="none">None</option>
-                <option value="raids">Guild raid activity</option>
-              </select>
-            </label>
-            {#if goalFeed === "raids"}
+            {#if goalSource === "raids"}
               <label class="mg-field">
-                <span class="mg-label">Count only this raid</span>
-                <input
-                  class="mg-input"
-                  bind:value={goalCountRaid}
-                  placeholder="Nest of the Grootslangs"
-                  maxlength="80"
-                />
+                <span class="mg-label">Which raids count</span>
+                <select class="mg-input" bind:value={goalRaid}>
+                  <option value="">All guild raids</option>
+                  {#each raidOptions as raid (raid)}
+                    <option value={raid}>{raid}</option>
+                  {/each}
+                </select>
               </label>
             {/if}
+            <label class="mg-field">
+              <span class="mg-label">{goalSource === "raids" ? "Final total" : "Total so far"}</span>
+              <input class="mg-input" type="number" min="0" bind:value={goalFinalTotal} />
+            </label>
           </div>
-          <label class="mg-field">
-            <span class="mg-label">Final total</span>
-            <input class="mg-input" type="number" min="0" bind:value={goalFinalTotal} />
-          </label>
-          <p class="mg-hint">Set the final total once the event ends - leave empty while live.</p>
+          <p class="mg-hint">
+            {goalSource === "raids"
+              ? "Final total is optional - set it once the event has ended to freeze the meter."
+              : "Update the total by hand as the event progresses."}
+          </p>
         {/if}
       </section>
 
       <section class="mg-section">
         <SectionLabel>{#snippet children()}Prizes{/snippet}</SectionLabel>
         {#each prizes as prize (prize.id)}
-          <div class="mg-repeat-row">
+          <div class="mg-repeat-row mg-repeat-prize">
             <input class="mg-input" placeholder="Donor" bind:value={prize.donor} maxlength="80" />
+            <input
+              class="mg-input"
+              placeholder="Player (links the donor)"
+              bind:value={prize.donorPlayer}
+              list="mg-member-list"
+              maxlength="25"
+              spellcheck="false"
+              aria-label="Donor's Minecraft player"
+            />
             <input class="mg-input" placeholder="Prize" bind:value={prize.prize} maxlength="300" />
             <button
               type="button"
@@ -361,10 +420,13 @@
         <button
           type="button"
           class="mg-add focus-ring"
-          onclick={() => prizes.push({ donor: "", prize: "", id: nextRowId++ })}
+          onclick={() => prizes.push({ donor: "", prize: "", donorPlayer: "", id: nextRowId++ })}
         >
           + Add prize
         </button>
+        {#if prizes.length > 0}
+          <p class="mg-hint">Naming a player turns the donor into a link to their playercard.</p>
+        {/if}
         {#if prizes.length > 0}
           <label class="mg-field">
             <span class="mg-label">Note</span>
@@ -417,23 +479,50 @@
           <input type="checkbox" bind:checked={trackerEnabled} />
           <span>
             Show a standings board
-            <small>Needs a raid tracker event id from the backend.</small>
+            <small>Per-member contributions from a raid tracker event.</small>
           </span>
         </label>
         {#if trackerEnabled}
-          <div class="mg-grid-2">
+          {#if !trackerManual}
             <label class="mg-field">
-              <span class="mg-label">Tracker event id</span>
-              <input class="mg-input mg-mono" bind:value={trackerEventId} maxlength="64" spellcheck="false" />
-            </label>
-            <label class="mg-field">
-              <span class="mg-label">Tracking source</span>
-              <select class="mg-input" bind:value={trackerTracking}>
-                <option value="api">Wynncraft API</option>
-                <option value="mod">Guild mod</option>
+              <span class="mg-label">Tracker event</span>
+              <select class="mg-input" bind:value={trackerEventId} onchange={syncTracking}>
+                <option value="" disabled>Pick a tracker event</option>
+                {#each trackerChoices as option (option.id)}
+                  <option value={option.id}>{option.name} ({option.window})</option>
+                {/each}
               </select>
             </label>
-          </div>
+            <p class="mg-hint">
+              {trackerEventId
+                ? `Contributions come from ${trackerTracking === "mod" ? "the guild mod" : "the Wynncraft API"}.`
+                : "Standings show each member's contribution inside the tracker window."}
+              <button type="button" class="mg-inline-link focus-ring" onclick={() => (trackerManual = true)}>
+                Enter an id manually
+              </button>
+            </p>
+          {:else}
+            <div class="mg-grid-2">
+              <label class="mg-field">
+                <span class="mg-label">Tracker event id</span>
+                <input class="mg-input mg-mono" bind:value={trackerEventId} maxlength="64" spellcheck="false" />
+              </label>
+              <label class="mg-field">
+                <span class="mg-label">Tracking source</span>
+                <select class="mg-input" bind:value={trackerTracking}>
+                  <option value="api">Wynncraft API</option>
+                  <option value="mod">Guild mod</option>
+                </select>
+              </label>
+            </div>
+            {#if trackerChoices.length > 0}
+              <p class="mg-hint">
+                <button type="button" class="mg-inline-link focus-ring" onclick={() => (trackerManual = false)}>
+                  Pick from the tracker events instead
+                </button>
+              </p>
+            {/if}
+          {/if}
         {/if}
       </section>
 
@@ -453,6 +542,14 @@
         {/if}
       </div>
     </form>
+
+    {#if memberChoices.length > 0}
+      <datalist id="mg-member-list">
+        {#each memberChoices as member (member)}
+          <option value={member}></option>
+        {/each}
+      </datalist>
+    {/if}
 
     {#if mode === "edit"}
       <form class="mg-danger" method="POST" action="?/delete" use:enhance>
@@ -648,6 +745,76 @@
     grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) minmax(0, 2fr) auto;
   }
 
+  .mg-repeat-prize {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 2fr) minmax(0, 3fr) auto;
+  }
+
+  .mg-choices {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .mg-choice {
+    position: relative;
+    display: grid;
+    gap: 4px;
+    padding: 12px 14px;
+    border: 1px solid var(--color-border-subtle);
+    cursor: pointer;
+    transition: border-color var(--dur-fast) ease;
+  }
+
+  .mg-choice:hover {
+    border-color: var(--color-border-accent);
+  }
+
+  .mg-choice-selected,
+  .mg-choice-selected:hover {
+    border-color: color-mix(in srgb, var(--color-gold) 55%, var(--color-border-subtle));
+  }
+
+  .mg-choice-input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .mg-choice:has(.mg-choice-input:focus-visible) {
+    outline: 2px solid var(--color-gold);
+    outline-offset: 2px;
+  }
+
+  .mg-choice-title {
+    color: var(--text-body);
+    font-family: var(--font-display);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+  }
+
+  .mg-choice-selected .mg-choice-title {
+    color: var(--color-gold);
+  }
+
+  .mg-choice-desc {
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+  }
+
+  .mg-inline-link {
+    margin-left: 6px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--color-gold);
+    font-family: var(--font-display);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
   .mg-remove {
     padding: 8px 10px;
     border: 1px solid var(--color-border-subtle);
@@ -779,7 +946,9 @@
   @media (max-width: 640px) {
     .mg-grid-2,
     .mg-repeat-row,
-    .mg-repeat-comp {
+    .mg-repeat-comp,
+    .mg-repeat-prize,
+    .mg-choices {
       grid-template-columns: minmax(0, 1fr);
     }
 

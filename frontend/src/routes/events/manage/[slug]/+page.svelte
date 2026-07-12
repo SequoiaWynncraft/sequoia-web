@@ -25,6 +25,7 @@
         mode="edit"
         initial={data.stored.event}
         initialPublished={data.stored.published}
+        context={data.context}
         error={form?.error ?? null}
         saved={form?.saved ?? false}
       />

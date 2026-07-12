@@ -122,7 +122,10 @@ function parsePrize(value: unknown): PrizeEntry {
   if (!donor) fail("each prize needs a donor");
   const prize = optionalText(raw.prize, "prize", 300);
   if (!prize) fail(`the prize from "${donor}" needs a description`);
-  return { donor, prize };
+  const entry: PrizeEntry = { donor, prize };
+  const donorPlayer = optionalText(raw.donorPlayer, "donor player", 25);
+  if (donorPlayer) entry.donorPlayer = donorPlayer;
+  return entry;
 }
 
 function parseComp(value: unknown): NonNullable<GuildEvent["comp"]> {
