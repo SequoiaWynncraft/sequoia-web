@@ -47,7 +47,10 @@ async function loadRankings(fetchImpl: typeof fetch, window: RankingWindow): Pro
     baseline_sampled_at: data.baseline_sampled_at ?? null,
     current_sampled_at: data.current_sampled_at ?? null,
     warming_up: data.warming_up,
-    totals_only: typeof data.totals_only === "boolean" ? data.totals_only : data.warming_up === true,
+    totals_only:
+      typeof data.totals_only === "boolean"
+        ? data.totals_only
+        : data.warming_up === true || window === "all",
     entries: Array.isArray(data.entries)
       ? data.entries.map((entry: Record<string, unknown>) => ({
           position: entry.position,
