@@ -104,7 +104,7 @@ function parseColor(value: unknown, label: string): string {
   return value.trim().toLowerCase();
 }
 
-const ICON_PLACEMENTS: EventIconPlacement[] = ["hero", "band", "meta", "manage"];
+export const ICON_PLACEMENTS: EventIconPlacement[] = ["hero", "band", "meta", "manage"];
 
 /** Placements are normalized to catalog order with duplicates dropped. */
 function parseIcon(value: unknown): EventIcon {
@@ -116,7 +116,8 @@ function parseIcon(value: unknown): EventIcon {
   const entries = raw.placements;
   if (!Array.isArray(entries)) fail("icon placements must be a list");
   for (const entry of entries) {
-    if (entry !== "hero" && entry !== "band" && entry !== "meta") {
+    // Derived from the list - a hand-written enum here already drifted once.
+    if (!ICON_PLACEMENTS.includes(entry as EventIconPlacement)) {
       fail("icon placements must be hero, band, meta, or manage");
     }
   }

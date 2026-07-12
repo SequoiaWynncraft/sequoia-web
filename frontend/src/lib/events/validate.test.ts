@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { SEED_EVENTS } from "$lib/events/seed";
-import { parseGuildEvent } from "$lib/events/validate";
+import { ICON_PLACEMENTS, parseGuildEvent } from "$lib/events/validate";
 
 const VALID = {
   slug: "test-event",
@@ -121,6 +121,21 @@ describe("parseGuildEvent", () => {
       file: "raid_icon_tna_transparent.png",
       placements: ["hero", "meta"],
     });
+  });
+
+  it("accepts every known icon placement", () => {
+    const result = parseGuildEvent({
+      ...VALID,
+      icon: {
+        file: "raid_icon_tna_transparent.png",
+        // Derived from the catalog so a future placement cannot dodge this test.
+        placements: [...ICON_PLACEMENTS].reverse(),
+      },
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.event.icon?.placements).toEqual(ICON_PLACEMENTS);
+    }
   });
 
   it("rejects icons outside the catalog or with unknown placements", () => {
