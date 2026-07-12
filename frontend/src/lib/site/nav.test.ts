@@ -32,6 +32,7 @@ describe("site navigation registry", () => {
     ]);
     expect(pageView("/statistics/global").tabs.map((tab) => tab.to)).toEqual([
       "/statistics/global/rankings",
+      "/statistics/global/guilds",
     ]);
   });
 

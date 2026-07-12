@@ -9,10 +9,12 @@ export interface ShellStats {
   members_total: number;
 }
 
-export const load: LayoutServerLoad = ({ fetch }) => {
+export const load: LayoutServerLoad = async ({ fetch }) => {
   return {
-    // Streamed: optional sidebar chrome must never block child routes.
-    shell: loadShellStats(fetch),
+    // Awaited: a streamed layout promise commits the response as 200 before a
+    // child route can 404, and the stale-tolerant cache answers this without
+    // blocking in practice.
+    shell: await loadShellStats(fetch),
   };
 };
 

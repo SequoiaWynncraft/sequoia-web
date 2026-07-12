@@ -47,6 +47,10 @@
     });
   }
 
+  function guildHref(name: string): string {
+    return `/statistics/global/guilds/${encodeURIComponent(name)}`;
+  }
+
   function raceHref(key: string): string {
     const query = new URLSearchParams({ window: key });
     if (season !== null) query.set("season", String(season));
@@ -69,6 +73,7 @@
         value: (entry) => entry.guild_name,
         sortValue: (entry) => entry.guild_name.toLowerCase(),
         secondary: (entry) => (entry.prefix ? `[${entry.prefix}]` : null),
+        href: (entry) => guildHref(entry.guild_name),
       },
     ];
     if (!raidRace?.warming_up) {
@@ -114,6 +119,7 @@
       value: (entry) => entry.name,
       sortValue: (entry) => entry.name.toLowerCase(),
       secondary: (entry) => (entry.prefix ? `[${entry.prefix}]` : null),
+      href: (entry) => guildHref(entry.name),
     },
     {
       key: "rating",
