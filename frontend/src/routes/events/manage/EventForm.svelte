@@ -588,6 +588,7 @@
   let presetChoices = $state(context?.presets ?? []);
   let selectedPreset = $state("");
   let newPresetName = $state("");
+  let confirmingPresetDelete = $state(false);
   const presetPayload = $derived(JSON.stringify(draftEvent));
 
   function loadPreset() {
@@ -635,6 +636,7 @@
 
   const presetDelete: SubmitFunction = () => {
     return async ({ result, update }) => {
+      confirmingPresetDelete = false;
       if (result.type === "success") {
         const deleted = (result.data as { presetDeleted?: unknown } | undefined)?.presetDeleted;
         if (typeof deleted === "string") {
@@ -669,7 +671,12 @@
         </button>
       </div>
       <div class="mg-presets">
-        <select class="mg-input mg-preset-select" bind:value={selectedPreset} aria-label="Saved presets">
+        <select
+          class="mg-input mg-preset-select"
+          bind:value={selectedPreset}
+          onchange={() => (confirmingPresetDelete = false)}
+          aria-label="Saved presets"
+        >
           <option value="">Presets…</option>
           {#each presetChoices as preset (preset.name)}
             <option value={preset.name}>{preset.name}</option>
@@ -685,13 +692,27 @@
         </button>
         <form method="POST" action="?/deletePreset" use:enhance={presetDelete}>
           <input type="hidden" name="presetName" value={selectedPreset} />
-          <button
-            type="submit"
-            class="seq-button seq-button-ghost seq-button-sm"
-            disabled={!selectedPreset}
-          >
-            Delete
-          </button>
+          {#if confirmingPresetDelete}
+            <button type="submit" class="seq-button seq-button-ghost seq-button-sm mg-preset-confirm">
+              Confirm delete
+            </button>
+            <button
+              type="button"
+              class="seq-button seq-button-ghost seq-button-sm"
+              onclick={() => (confirmingPresetDelete = false)}
+            >
+              Keep
+            </button>
+          {:else}
+            <button
+              type="button"
+              class="seq-button seq-button-ghost seq-button-sm"
+              onclick={() => (confirmingPresetDelete = true)}
+              disabled={!selectedPreset}
+            >
+              Delete
+            </button>
+          {/if}
         </form>
         <form class="mg-preset-save" method="POST" action="?/savePreset" use:enhance={presetSubmit}>
           <input type="hidden" name="presetPayload" value={presetPayload} />
@@ -1341,6 +1362,10 @@
 
   .mg-preset-save .mg-input {
     width: 160px;
+  }
+
+  .mg-preset-confirm {
+    color: var(--status-error);
   }
 
   .mg-toolbar-error {
