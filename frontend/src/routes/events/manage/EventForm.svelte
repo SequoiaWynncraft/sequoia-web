@@ -58,8 +58,10 @@
   let published = $state(seedPublished);
   // Original instants survive untouched edits - datetime-local inputs carry
   // minute precision, and rewriting an unchanged value would shift seconds.
-  const seedStartsAt = seed?.startsAt ?? "";
-  const seedEndsAt = seed?.endsAt ?? "";
+  // Reassigned by applyDraft so replayed snapshots keep THEIR exact seconds,
+  // not the originally loaded event's.
+  let seedStartsAt = $state(seed?.startsAt ?? "");
+  let seedEndsAt = $state(seed?.endsAt ?? "");
   let startsAt = $state(toInput(seed?.startsAt));
   let endsAt = $state(toInput(seed?.endsAt));
 
@@ -520,8 +522,10 @@
     accent = text(themeDraft.accent) || "#a78bfa";
     accentSecondary = text(themeDraft.accentSecondary) || "#8fb2f0";
     star = text(themeDraft.star) || "#c4b5fd";
-    startsAt = text(draft.startsAt).slice(0, 16);
-    endsAt = text(draft.endsAt).slice(0, 16);
+    seedStartsAt = text(draft.startsAt);
+    seedEndsAt = text(draft.endsAt);
+    startsAt = seedStartsAt.slice(0, 16);
+    endsAt = seedEndsAt.slice(0, 16);
     about = Array.isArray(draft.about)
       ? draft.about.filter((entry): entry is string => typeof entry === "string").join("\n\n")
       : "";
@@ -623,6 +627,8 @@
       if (result.type === "success") {
         const saved = (result.data as { presetSaved?: unknown } | undefined)?.presetSaved;
         if (typeof saved === "string") {
+          // Selection is about to move - an armed delete must not carry over.
+          confirmingPresetDelete = false;
           const entry = { name: saved, payload: payloadAtSubmit, updatedAt: Date.now() };
           const index = presetChoices.findIndex((candidate) => candidate.name === saved);
           if (index >= 0) presetChoices[index] = entry;
