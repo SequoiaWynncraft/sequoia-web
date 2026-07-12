@@ -1,17 +1,20 @@
 import type { PageServerLoad } from "./$types";
 
 import { hubGroups, type HubEvent } from "$lib/events/helpers";
+import { checkEventManager } from "$lib/server/eventManagers";
 import { loadEventRaidCounts, sumCounts } from "$lib/server/eventActivity";
 import { eventStore } from "$lib/server/eventStore";
 
 export const prerender = false;
 
-export const load: PageServerLoad = async ({ fetch }) => {
+export const load: PageServerLoad = async ({ fetch, parent }) => {
   const now = new Date();
   const groups = hubGroups(await eventStore.listPublished(), now);
+  const { viewer } = await parent();
 
   return {
     groups,
+    manager: viewer !== null && (await checkEventManager(fetch, viewer)) === "manager",
     // Optional live progress streams after the hub instead of delaying its
     // first response when the activity feed is slow or unavailable.
     progress: loadProgress(fetch, groups.live, now),
