@@ -8,6 +8,7 @@
   import GoalMeter from "$lib/events/components/GoalMeter.svelte";
   import { themeVars } from "$lib/events/theme";
   import { isoDay } from "$lib/events/format";
+  import { nmsrFace } from "$lib/site/nmsr";
   import type { RaidLeaderboardEntry } from "$lib/server/raidEventBoards";
 
   let { data } = $props();
@@ -39,6 +40,7 @@
       value: (entry) => entry.username,
       sortValue: (entry) => entry.username.toLowerCase(),
       secondary: (entry) => rankLabels[entry.rank] ?? entry.rank,
+      avatar: (entry) => nmsrFace(entry.player_uuid, 22),
       href: (entry) => `/statistics/player/playercard?player=${encodeURIComponent(entry.username)}`,
     },
     {

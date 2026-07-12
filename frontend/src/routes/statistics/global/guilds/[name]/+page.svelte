@@ -5,9 +5,11 @@
   import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
   import StatBlock from "$lib/design-system/components/StatBlock.svelte";
   import StackedColumns from "$lib/design-system/components/charts/StackedColumns.svelte";
+  import Podium from "$lib/design-system/components/Podium.svelte";
   import type { LedgerColumn } from "$lib/design-system/components/ledgerTable";
   import type { GuildMemberStats } from "$lib/api/guildStats";
   import { raidSeriesFor } from "$lib/site/raids";
+  import { nmsrFace } from "$lib/site/nmsr";
 
   let { data } = $props();
 
@@ -51,6 +53,20 @@
     }));
   }
 
+  /** Top raiders, best first - members with hidden raid counts sit out. */
+  const podium = $derived(
+    stats.members
+      .filter((member) => member.raids_total !== null)
+      .sort((a, b) => (b.raids_total ?? 0) - (a.raids_total ?? 0))
+      .slice(0, 5)
+      .map((member) => ({
+        name: member.username,
+        ident: member.uuid ?? member.username,
+        value: `${(member.raids_total ?? 0).toLocaleString()} raids`,
+        href: `/statistics/global/players/${encodeURIComponent(member.uuid ?? member.username)}`,
+      })),
+  );
+
   const memberColumns: LedgerColumn<GuildMemberStats>[] = [
     {
       key: "member",
@@ -59,6 +75,7 @@
       value: (member) => member.username,
       sortValue: (member) => member.username.toLowerCase(),
       secondary: (member) => member.rank,
+      avatar: (member) => nmsrFace(member.uuid ?? member.username, 22),
       // UUIDs dodge the 300 selector that reused usernames answer with.
       href: (member) =>
         `/statistics/global/players/${encodeURIComponent(member.uuid ?? member.username)}`,
@@ -179,6 +196,17 @@
       <StackedColumns series={activitySeries(activity)} columns={activityColumns(activity)} height={190} />
     {/if}
   {/await}
+</section>
+
+<section class="block" aria-label="Top raiders">
+  <SectionLabel>
+    {#snippet children()}Top raiders{/snippet}
+  </SectionLabel>
+  {#if podium.length >= 3}
+    <Podium entries={podium} max={5} label="Top raiders" />
+  {:else}
+    <p class="muted">Not enough visible raid counts for a podium.</p>
+  {/if}
 </section>
 
 <section class="block" aria-label="Roster">

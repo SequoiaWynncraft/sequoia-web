@@ -4,6 +4,7 @@
   import LedgerTable from "$lib/design-system/components/LedgerTable.svelte";
   import type { LedgerColumn } from "$lib/design-system/components/ledgerTable";
   import type { PlayerSearchHit } from "$lib/server/globalPlayer";
+  import { nmsrFace } from "$lib/site/nmsr";
 
   let { data } = $props();
 
@@ -17,6 +18,7 @@
       nameStyle: true,
       value: (hit) => hit.username,
       sortValue: (hit) => hit.username.toLowerCase(),
+      avatar: (hit) => nmsrFace(hit.uuid, 22),
       // UUIDs dodge the 300 selector that reused usernames answer with.
       href: (hit) => `/statistics/global/players/${encodeURIComponent(hit.uuid)}`,
     },

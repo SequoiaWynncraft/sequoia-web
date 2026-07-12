@@ -4,6 +4,7 @@
   import LedgerTable from "$lib/design-system/components/LedgerTable.svelte";
   import type { LedgerColumn } from "$lib/design-system/components/ledgerTable";
   import type { AuditEntry } from "$lib/server/auditLog";
+  import { nmsrFace } from "$lib/site/nmsr";
   import ManageGate from "../ManageGate.svelte";
 
   let { data } = $props();
@@ -32,6 +33,7 @@
       nameStyle: true,
       value: (entry) => entry.actor,
       sortValue: (entry) => entry.actor.toLowerCase(),
+      avatar: (entry) => (entry.actorMinecraftUuid ? nmsrFace(entry.actorMinecraftUuid, 22) : null),
       // UUIDs are the stable identifier; some sessions have no Minecraft name.
       href: (entry) =>
         entry.actorMinecraftUuid
