@@ -8,6 +8,7 @@ import { checkEventManager } from "$lib/server/eventManagers";
 import { eventStore } from "$lib/server/eventStore";
 import { loadEventRaidCounts, sumCounts, type EventDayCount } from "$lib/server/eventActivity";
 import { loadGoalProgress } from "$lib/server/goalProgress";
+import { loadModRunCounts } from "$lib/server/modActivity";
 import {
   loadModLeaderboard,
   loadRaidEvents,
@@ -94,11 +95,13 @@ export const load: PageServerLoad = async ({ fetch, params, parent }) => {
     const goal = event.goal;
     const window = { from: event.startsAt, to: now.toISOString() };
     const daysPromise = chart
-      ? loadEventRaidCounts(fetch, { ...window, countRaid: chart.countRaid }).catch(() => null)
+      ? chart.source === "raidRuns"
+        ? loadModRunCounts(fetch, { from: window.from, to: window.to, raid: chart.countRaid })
+        : loadEventRaidCounts(fetch, { ...window, countRaid: chart.countRaid }).catch(() => null)
       : Promise.resolve(null);
     const sameAsChart =
-      goal?.feed === "raids" &&
       chart !== null &&
+      goal?.feed === chart.source &&
       (chart.countRaid ?? null) === (goal.countRaid ?? null);
     const progressPromise = goal?.feed
       ? sameAsChart

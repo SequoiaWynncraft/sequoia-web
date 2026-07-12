@@ -74,12 +74,14 @@ No CSS framework and no store library.
   the form submissions and the stored rows, so the `GuildEvent` type can grow without
   migrations; every content section is optional and the visual theme is per-event CSS
   custom properties (`--ev-*`). Goals read a configurable live feed
-  (`lib/server/goalProgress.ts`): the raid activity feed (all raids or one), or wars /
-  playtime summed from the daily stat rollups. The activity chart is independently
-  configurable (`GuildEvent.activity`; `eventChart` in `lib/events/helpers.ts`) - it
-  follows a raids-feed goal by default, can chart any single raid, or hide; raids are
-  the only source with a per-day activity feed (wars and playtime expose only window
-  totals from the rollups). Member standings reuse the raid tracker's event
+  (`lib/server/goalProgress.ts`): the raid activity feed (member participation credits,
+  all raids or one), unique runs from the guild mod's completion log
+  (`lib/server/modActivity.ts` - one count per run, so party size never inflates the
+  number, at the cost of missing runs without a mod user), or wars / playtime summed
+  from the daily stat rollups. The activity chart is independently configurable
+  (`GuildEvent.activity`; `eventChart` in `lib/events/helpers.ts`) - it follows a
+  raid-based goal by default, can chart credits or runs for any single raid, or hide;
+  wars and playtime have no per-day feed. Member standings reuse the raid tracker's event
   leaderboards via `lib/server/raidEventBoards.ts` once a `tracker` id is set on the
   event - the editor can pick an existing tracker event, create one inline, or edit one
   (`?/createTracker`, `?/updateTracker` → `POST`/`PUT /internal/raid-events`), and

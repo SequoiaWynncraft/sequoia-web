@@ -22,13 +22,15 @@ export interface EventGoal {
   unlock: string;
   /**
    * Live data source for the meter. "raids" reads the public guild-raid
-   * activity feed, "wars" and "playtime" sum the daily stat rollups over the
-   * event window; absent means manual (the meter shows finalTotal or a dash).
+   * activity feed (member participation credits - party size inflates them),
+   * "raidRuns" counts unique completions from the guild mod's log (one per
+   * run, but only runs a mod user was in), "wars" and "playtime" sum the
+   * daily stat rollups; absent means manual (finalTotal or a dash).
    */
-  feed?: "raids" | "wars" | "playtime";
+  feed?: "raids" | "raidRuns" | "wars" | "playtime";
   /**
-   * Count only this raid's clears (feed "raids" only); absent counts all
-   * guild raids. Must match a Wynncraft raid name from the activity feed.
+   * Count only this raid (raid-based feeds only); absent counts all guild
+   * raids. Must match a Wynncraft raid name.
    */
   countRaid?: string;
   /** Frozen total for ended events - live events read the activity feed. */
@@ -62,11 +64,12 @@ export interface GuildEvent {
   about?: string[];
   goal?: EventGoal;
   /**
-   * Activity chart configuration. Absent follows the goal when it reads the
-   * raid feed; "none" hides the chart; countRaid narrows to one raid. Raids
-   * are the only source with a daily feed today.
+   * Activity chart configuration. Absent follows the goal when it reads a
+   * raid-based feed; "none" hides the chart; countRaid narrows to one raid.
+   * "raids" charts participation credits, "raidRuns" charts unique mod-logged
+   * runs; wars and playtime have no daily feed.
    */
-  activity?: { source: "raids" | "none"; countRaid?: string };
+  activity?: { source: "raids" | "raidRuns" | "none"; countRaid?: string };
   prizes?: PrizeEntry[];
   prizesNote?: string;
   comp?: { roles: CompRole[]; note?: string };

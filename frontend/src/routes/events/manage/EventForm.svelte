@@ -72,19 +72,16 @@
   // Number inputs bind numbers (or null when cleared), not strings.
   let goalTarget = $state<string | number | null | undefined>(seed?.goal ? seed.goal.target : "");
   let goalUnlock = $state(seed?.goal?.unlock ?? "");
-  let goalSource = $state<"manual" | "raids" | "wars" | "playtime">(seed?.goal?.feed ?? "manual");
-  let goalRaid = $state(seed?.goal?.countRaid ?? "");
-  // Chart choice: "goal" follows the goal, "all"/"raid:<name>" chart raids
-  // explicitly, "off" hides the chart.
-  let chartChoice = $state(
-    seed?.activity
-      ? seed.activity.source === "none"
-        ? "off"
-        : seed.activity.countRaid
-          ? `raid:${seed.activity.countRaid}`
-          : "all"
-      : "goal",
+  let goalSource = $state<"manual" | "raids" | "raidRuns" | "wars" | "playtime">(
+    seed?.goal?.feed ?? "manual",
   );
+  let goalRaid = $state(seed?.goal?.countRaid ?? "");
+  // Chart source: "goal" follows the goal, "raids"/"raidRuns" chart raids
+  // explicitly, "off" hides the chart; chartRaid narrows to one raid.
+  let chartSource = $state<"goal" | "raids" | "raidRuns" | "off">(
+    seed?.activity ? (seed.activity.source === "none" ? "off" : seed.activity.source) : "goal",
+  );
+  let chartRaid = $state(seed?.activity?.countRaid ?? "");
   let goalFinalTotal = $state<string | number | null | undefined>(seed?.goal?.finalTotal ?? "");
   // Repeater rows carry a locally generated id so the each blocks are keyed -
   // unkeyed lists with two-way bindings corrupt state when middle rows are
@@ -180,15 +177,18 @@
       };
       if (goalSource !== "manual") {
         goal.feed = goalSource;
-        if (goalSource === "raids" && goalRaid) goal.countRaid = goalRaid;
+        if ((goalSource === "raids" || goalSource === "raidRuns") && goalRaid) {
+          goal.countRaid = goalRaid;
+        }
       }
       if (hasCount(goalFinalTotal)) goal.finalTotal = toCount(goalFinalTotal);
       event.goal = goal;
     }
-    if (chartChoice === "all") event.activity = { source: "raids" };
-    else if (chartChoice === "off") event.activity = { source: "none" };
-    else if (chartChoice.startsWith("raid:")) {
-      event.activity = { source: "raids", countRaid: chartChoice.slice(5) };
+    if (chartSource === "off") event.activity = { source: "none" };
+    else if (chartSource !== "goal") {
+      event.activity = chartRaid
+        ? { source: chartSource, countRaid: chartRaid }
+        : { source: chartSource };
     }
     // Rows added but left fully empty are noise, not intent - drop them,
     // along with the local row ids. A picked player stands in for a missing
@@ -221,8 +221,7 @@
 
   const chartRaidOptions = $derived.by(() => {
     const names = KNOWN_RAIDS.map((raid) => raid.key);
-    const stored = chartChoice.startsWith("raid:") ? chartChoice.slice(5) : "";
-    return stored && !names.includes(stored) ? [...names, stored] : names;
+    return chartRaid && !names.includes(chartRaid) ? [...names, chartRaid] : names;
   });
 
   const parsed = $derived(parseGuildEvent(draftEvent));
@@ -527,7 +526,12 @@
               <label class="mg-choice" class:mg-choice-selected={goalSource === "raids"}>
                 <input class="mg-choice-input" type="radio" name="goal-source" value="raids" bind:group={goalSource} />
                 <span class="mg-choice-title">Guild raid feed</span>
-                <span class="mg-choice-desc">Counts raids live from the public guild activity feed.</span>
+                <span class="mg-choice-desc">Member participation credits from the activity feed - party size inflates them.</span>
+              </label>
+              <label class="mg-choice" class:mg-choice-selected={goalSource === "raidRuns"}>
+                <input class="mg-choice-input" type="radio" name="goal-source" value="raidRuns" bind:group={goalSource} />
+                <span class="mg-choice-title">Mod completions</span>
+                <span class="mg-choice-desc">Counts unique runs from the guild mod - one per party, misses runs without a mod user.</span>
               </label>
               <label class="mg-choice" class:mg-choice-selected={goalSource === "wars"}>
                 <input class="mg-choice-input" type="radio" name="goal-source" value="wars" bind:group={goalSource} />
@@ -547,7 +551,7 @@
             </div>
           </div>
           <div class="mg-grid-2">
-            {#if goalSource === "raids"}
+            {#if goalSource === "raids" || goalSource === "raidRuns"}
               <label class="mg-field">
                 <span class="mg-label">Which raids count</span>
                 <select class="mg-input" bind:value={goalRaid}>
@@ -576,19 +580,28 @@
         <div class="mg-grid-2">
           <label class="mg-field">
             <span class="mg-label">Daily bars show</span>
-            <select class="mg-input" bind:value={chartChoice}>
+            <select class="mg-input" bind:value={chartSource}>
               <option value="goal">Match the goal</option>
-              <option value="all">All guild raids</option>
-              {#each chartRaidOptions as raid (raid)}
-                <option value={`raid:${raid}`}>{raid}</option>
-              {/each}
+              <option value="raids">Raid feed - member credits</option>
+              <option value="raidRuns">Mod completions - unique runs</option>
               <option value="off">Hidden</option>
             </select>
           </label>
+          {#if chartSource === "raids" || chartSource === "raidRuns"}
+            <label class="mg-field">
+              <span class="mg-label">Which raids</span>
+              <select class="mg-input" bind:value={chartRaid}>
+                <option value="">All guild raids</option>
+                {#each chartRaidOptions as raid (raid)}
+                  <option value={raid}>{raid}</option>
+                {/each}
+              </select>
+            </label>
+          {/if}
         </div>
         <p class="mg-hint">
-          Raids are the only source with a daily feed - a wars or playtime goal shows no chart
-          unless one is chosen here.
+          Wars and playtime have no daily feed - those goals show no chart unless a raid source
+          is chosen here.
         </p>
       </section>
 
