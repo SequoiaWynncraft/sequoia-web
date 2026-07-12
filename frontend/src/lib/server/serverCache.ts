@@ -146,7 +146,11 @@ async function initCacheDb(): Promise<Client> {
         sql: "DELETE FROM api_cache WHERE updated_at < ?",
         args: [Date.now() - SWEEP_MAX_AGE_MS],
       })
-      .catch(() => undefined);
+      .catch((error: unknown) => {
+        // Once a day at most - a persistent failure must be visible, or the
+        // retention guarantee dies silently.
+        console.warn("api_cache sweep failed:", error);
+      });
   void sweep();
   const timer = setInterval(sweep, SWEEP_INTERVAL_MS);
   // A held timer must not keep a short-lived process (tests, prerender) alive.
