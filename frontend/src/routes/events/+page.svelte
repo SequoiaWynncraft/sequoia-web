@@ -4,7 +4,7 @@
   import EventSky from "$lib/events/components/EventSky.svelte";
   import EventMeta from "$lib/events/components/EventMeta.svelte";
   import GoalMeter from "$lib/events/components/GoalMeter.svelte";
-  import type { HubEvent } from "$lib/events/registry";
+  import type { HubEvent } from "$lib/events/helpers";
   import type { EventStatus } from "$lib/events/types";
 
   let { data } = $props();

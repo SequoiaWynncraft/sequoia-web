@@ -1,9 +1,10 @@
 import { error } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
 
-import { eventBySlug, eventStatus } from "$lib/events/registry";
+import { eventStatus } from "$lib/events/helpers";
 import type { GuildEvent } from "$lib/events/types";
 import { getGuildStats } from "$lib/server/guildStats";
+import { eventStore } from "$lib/server/eventStore";
 import { loadEventRaidCounts, sumCounts, type EventDayCount } from "$lib/server/eventActivity";
 import {
   loadModLeaderboard,
@@ -25,8 +26,9 @@ export type Standings =
   | { state: "board"; leaderboard: RaidLeaderboardEntry[]; error: string | null };
 
 export const load: PageServerLoad = async ({ fetch, params, parent }) => {
-  const event = eventBySlug(params.slug);
-  if (!event) error(404, "No such event");
+  const stored = await eventStore.get(params.slug);
+  if (!stored || !stored.published) error(404, "No such event");
+  const event = stored.event;
 
   const now = new Date();
   const status = eventStatus(event, now);

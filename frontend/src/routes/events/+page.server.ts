@@ -1,13 +1,14 @@
 import type { PageServerLoad } from "./$types";
 
-import { hubGroups, type HubEvent } from "$lib/events/registry";
+import { hubGroups, type HubEvent } from "$lib/events/helpers";
 import { loadEventRaidCounts, sumCounts } from "$lib/server/eventActivity";
+import { eventStore } from "$lib/server/eventStore";
 
 export const prerender = false;
 
 export const load: PageServerLoad = async ({ fetch }) => {
   const now = new Date();
-  const groups = hubGroups(now);
+  const groups = hubGroups(await eventStore.listPublished(), now);
 
   return {
     groups,
