@@ -103,6 +103,8 @@ export function parsePlayerCard(value: unknown, generatedAt?: string): PlayerCar
     first_join: stringValue(value.firstJoin) ?? null,
     last_join: stringValue(value.lastJoin) ?? null,
     playtime: nonNegativeNumber(value.playtime) ?? null,
+    guild_name: stringValue(guild.name) ?? null,
+    guild_prefix: stringValue(guild.prefix) ?? null,
     guild_rank: stringValue(guild.rank) ?? null,
     guild_rank_stars: stringValue(guild.rankStars) ?? null,
     wars: nonNegativeInteger(globalData.wars) ?? null,

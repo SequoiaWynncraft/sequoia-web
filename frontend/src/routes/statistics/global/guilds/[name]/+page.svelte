@@ -59,6 +59,9 @@
       value: (member) => member.username,
       sortValue: (member) => member.username.toLowerCase(),
       secondary: (member) => member.rank,
+      // UUIDs dodge the 300 selector that reused usernames answer with.
+      href: (member) =>
+        `/statistics/global/players/${encodeURIComponent(member.uuid ?? member.username)}`,
     },
     {
       key: "contributed",
