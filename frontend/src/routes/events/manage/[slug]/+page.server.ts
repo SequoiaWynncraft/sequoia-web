@@ -40,8 +40,10 @@ export const actions: Actions = {
 
   delete: async ({ params, cookies, fetch }) => {
     const manager = await requireEventManager({ cookies, fetch });
-    await eventStore.remove(params.slug);
-    await recordAudit(manager, "event.delete", params.slug);
+    // A stale double-delete removes nothing and must not mint an audit row.
+    if (await eventStore.remove(params.slug)) {
+      await recordAudit(manager, "event.delete", params.slug);
+    }
     redirect(303, "/events/manage");
   },
 

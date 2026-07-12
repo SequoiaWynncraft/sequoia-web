@@ -32,7 +32,11 @@
       nameStyle: true,
       value: (entry) => entry.actor,
       sortValue: (entry) => entry.actor.toLowerCase(),
-      href: (entry) => `/statistics/global/players/${encodeURIComponent(entry.actor)}`,
+      // UUIDs are the stable identifier; some sessions have no Minecraft name.
+      href: (entry) =>
+        entry.actorMinecraftUuid
+          ? `/statistics/global/players/${encodeURIComponent(entry.actorMinecraftUuid)}`
+          : null,
     },
     {
       key: "action",

@@ -10,6 +10,8 @@ export interface AuditEntry {
   at: number;
   actor: string;
   actorDiscordId: string;
+  /** Stable profile link target; empty when the session lacked one. */
+  actorMinecraftUuid: string;
   action: string;
   subject: string;
   detail: string | null;
@@ -32,11 +34,12 @@ export async function recordAudit(
   try {
     const db = await auditDb();
     await db.execute({
-      sql: "INSERT INTO audit_log (at, actor, actor_discord_id, action, subject, detail) VALUES (?, ?, ?, ?, ?, ?)",
+      sql: "INSERT INTO audit_log (at, actor, actor_discord_id, actor_minecraft_uuid, action, subject, detail) VALUES (?, ?, ?, ?, ?, ?, ?)",
       args: [
         Date.now(),
         viewer.minecraftUsername ?? viewer.discordUsername ?? viewer.discordId,
         viewer.discordId,
+        viewer.minecraftUuid,
         action,
         subject,
         detail ?? null,
@@ -51,7 +54,7 @@ export async function recordAudit(
 export async function listAudit(limit = LIST_LIMIT): Promise<AuditEntry[]> {
   const db = await auditDb();
   const result = await db.execute({
-    sql: "SELECT id, at, actor, actor_discord_id, action, subject, detail FROM audit_log ORDER BY id DESC LIMIT ?",
+    sql: "SELECT id, at, actor, actor_discord_id, actor_minecraft_uuid, action, subject, detail FROM audit_log ORDER BY id DESC LIMIT ?",
     args: [Math.min(limit, 1000)],
   });
   return result.rows.flatMap((row): AuditEntry[] => {
@@ -71,6 +74,7 @@ export async function listAudit(limit = LIST_LIMIT): Promise<AuditEntry[]> {
         at: row.at,
         actor: row.actor,
         actorDiscordId: row.actor_discord_id,
+        actorMinecraftUuid: typeof row.actor_minecraft_uuid === "string" ? row.actor_minecraft_uuid : "",
         action: row.action,
         subject: row.subject,
         detail: typeof row.detail === "string" ? row.detail : null,
@@ -95,6 +99,7 @@ async function initAuditDb(): Promise<Client> {
       at INTEGER NOT NULL,
       actor TEXT NOT NULL,
       actor_discord_id TEXT NOT NULL,
+      actor_minecraft_uuid TEXT NOT NULL DEFAULT '',
       action TEXT NOT NULL,
       subject TEXT NOT NULL,
       detail TEXT
