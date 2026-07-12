@@ -55,10 +55,16 @@
   let goalFinalTotal = $state(
     seed?.goal?.finalTotal !== undefined ? String(seed.goal.finalTotal) : "",
   );
-  let prizes = $state<PrizeEntry[]>(seed?.prizes?.map((entry) => ({ ...entry })) ?? []);
+  // Repeater rows carry a locally generated id so the each blocks are keyed -
+  // unkeyed lists with two-way bindings corrupt state when middle rows are
+  // removed.
+  let nextRowId = 0;
+  let prizes = $state<(PrizeEntry & { id: number })[]>(
+    seed?.prizes?.map((entry) => ({ ...entry, id: nextRowId++ })) ?? [],
+  );
   let prizesNote = $state(seed?.prizesNote ?? "");
-  let compRoles = $state<CompRole[]>(
-    seed?.comp?.roles.map((role) => ({ ...role, note: role.note ?? "" })) ?? [],
+  let compRoles = $state<(CompRole & { id: number })[]>(
+    seed?.comp?.roles.map((role) => ({ ...role, note: role.note ?? "", id: nextRowId++ })) ?? [],
   );
   let compNote = $state(seed?.comp?.note ?? "");
   let rules = $state(seed?.rules?.join("\n") ?? "");
@@ -95,10 +101,18 @@
       if (goalFinalTotal.trim()) goal.finalTotal = toCount(goalFinalTotal);
       event.goal = goal;
     }
-    if (prizes.length > 0) event.prizes = prizes;
+    // Rows added but left fully empty are noise, not intent - drop them,
+    // along with the local row ids.
+    const filledPrizes = prizes
+      .filter((entry) => entry.donor.trim() || entry.prize.trim())
+      .map(({ donor, prize }) => ({ donor, prize }));
+    if (filledPrizes.length > 0) event.prizes = filledPrizes;
     if (prizesNote.trim()) event.prizesNote = prizesNote;
-    if (compRoles.length > 0) {
-      event.comp = compNote.trim() ? { roles: compRoles, note: compNote } : { roles: compRoles };
+    const filledRoles = compRoles
+      .filter((entry) => entry.role.trim() || entry.builds.trim() || entry.note?.trim())
+      .map(({ role, builds, note }) => ({ role, builds, note }));
+    if (filledRoles.length > 0) {
+      event.comp = compNote.trim() ? { roles: filledRoles, note: compNote } : { roles: filledRoles };
     }
     const ruleLines = splitLines(rules);
     if (ruleLines.length > 0) event.rules = ruleLines;
@@ -332,19 +346,23 @@
 
       <section class="mg-section">
         <SectionLabel>{#snippet children()}Prizes{/snippet}</SectionLabel>
-        {#each prizes as prize, index}
+        {#each prizes as prize (prize.id)}
           <div class="mg-repeat-row">
             <input class="mg-input" placeholder="Donor" bind:value={prize.donor} maxlength="80" />
             <input class="mg-input" placeholder="Prize" bind:value={prize.prize} maxlength="300" />
             <button
               type="button"
               class="mg-remove focus-ring"
-              onclick={() => prizes.splice(index, 1)}
+              onclick={() => (prizes = prizes.filter((entry) => entry.id !== prize.id))}
               aria-label="Remove prize"
             >✕</button>
           </div>
         {/each}
-        <button type="button" class="mg-add focus-ring" onclick={() => prizes.push({ donor: "", prize: "" })}>
+        <button
+          type="button"
+          class="mg-add focus-ring"
+          onclick={() => prizes.push({ donor: "", prize: "", id: nextRowId++ })}
+        >
           + Add prize
         </button>
         {#if prizes.length > 0}
@@ -357,7 +375,7 @@
 
       <section class="mg-section">
         <SectionLabel>{#snippet children()}Suggested comp{/snippet}</SectionLabel>
-        {#each compRoles as role, index}
+        {#each compRoles as role (role.id)}
           <div class="mg-repeat-row mg-repeat-comp">
             <input class="mg-input" placeholder="Role" bind:value={role.role} maxlength="60" />
             <input class="mg-input" placeholder="Builds" bind:value={role.builds} maxlength="200" />
@@ -365,7 +383,7 @@
             <button
               type="button"
               class="mg-remove focus-ring"
-              onclick={() => compRoles.splice(index, 1)}
+              onclick={() => (compRoles = compRoles.filter((entry) => entry.id !== role.id))}
               aria-label="Remove role"
             >✕</button>
           </div>
@@ -373,7 +391,7 @@
         <button
           type="button"
           class="mg-add focus-ring"
-          onclick={() => compRoles.push({ role: "", builds: "", note: "" })}
+          onclick={() => compRoles.push({ role: "", builds: "", note: "", id: nextRowId++ })}
         >
           + Add role
         </button>
