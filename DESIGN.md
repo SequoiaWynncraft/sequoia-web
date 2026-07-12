@@ -63,6 +63,17 @@ No CSS framework and no store library.
 - `/` — hero, live guild stat blocks, service cards, community artwork ("The Sequoian
   Tree"), and "The Branchmasters" leadership grid with 3D skin renders and online status.
 - `/news`, `/legal`, `/services{,/bagshop,/announcements,/requests,/contact}`
+- `/events` — the events hub: full-width "sky bands" grouped by status (live/upcoming/past),
+  each rendered in its event's own theme; `/events/{slug}` is the per-event page (themed
+  hero, goal meter, activity chart, member standings, prize pool, comp, rules). Events are
+  defined in a typed registry (`frontend/src/lib/events/registry.ts`) — adding an event is
+  adding an entry; every content section is optional and the visual theme is per-event
+  CSS custom properties (`--ev-*`). Live goal/chart data reads the public raid activity
+  feed; member standings reuse the raid tracker's event leaderboards via
+  `lib/server/raidEventBoards.ts` once a `tracker` id is set on the event. Member-only
+  events keep a public hero but their gated sections (goal, prizes, comp, rules, activity,
+  standings) are stripped server-side unless the signed-in viewer verifies against a fresh
+  roster - the same trust rules as the raid leaderboard.
 - `/statistics` hub → `player/{raids,activity,playercard}` and
   `guilds/{war,raid,rankings}`
 - `/statistics/guilds/raid` — the flagship dynamic page: loads raid events and, for
@@ -141,6 +152,13 @@ Sequoian Tree" — a wide commissioned illustration of the membership as charact
 online-status dots. Reusable components live under
 `src/lib/design-system/components/` (Button, Card, OfficerCard, OfficerStrip, RankBadge,
 SectionHeading, ServiceCard, StatBlock, StatusDot).
+
+**Events sub-identity:** event pages keep the Sequoia chrome (gold, pixel type, hairlines)
+but each event owns a *sky* — a themed star-speckled gradient backdrop whose accent hue
+tints that page's structure (✦ section sparks, goal-meter fill, chart marks). The events
+hub stacks those skies as full-width bands; the event page opens them into a full-bleed
+hero that runs under the translucent navbar like the homepage. Events use the
+four-pointed ✦ spark as their section marker, a deliberate sibling of the site's ◆.
 
 **The map app** (`map.seqwawa.com`, separate codebase, linked as MAP in the nav) is the
 same identity in a utility register: full-bleed live territory map with a right sidebar on
