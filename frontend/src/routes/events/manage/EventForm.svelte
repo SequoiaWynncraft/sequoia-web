@@ -184,6 +184,16 @@
     if (option) trackerTracking = option.tracking;
   }
 
+  /** A manually typed id that the picker cannot show must not be submitted. */
+  function leaveManualMode() {
+    if (trackerChoices.some((entry) => entry.id === trackerEventId)) {
+      syncTracking(trackerEventId);
+    } else {
+      trackerEventId = "";
+    }
+    trackerManual = false;
+  }
+
   function toInput(instant?: string): string {
     return instant ? instant.slice(0, 16) : "";
   }
@@ -525,7 +535,7 @@
             </div>
             {#if trackerChoices.length > 0}
               <p class="mg-hint">
-                <button type="button" class="mg-inline-link focus-ring" onclick={() => (trackerManual = false)}>
+                <button type="button" class="mg-inline-link focus-ring" onclick={leaveManualMode}>
                   Pick from the tracker events instead
                 </button>
               </p>
