@@ -136,4 +136,21 @@
       display: none;
     }
   }
+
+  /* Three slots must share narrow viewports instead of overflowing them. */
+  @media (max-width: 640px) {
+    .podium-slot {
+      flex: 1 1 0;
+      min-width: 0;
+      padding: 12px 8px 10px;
+    }
+
+    .podium-render {
+      width: 72px;
+    }
+
+    .podium-first .podium-render {
+      width: 88px;
+    }
+  }
 </style>

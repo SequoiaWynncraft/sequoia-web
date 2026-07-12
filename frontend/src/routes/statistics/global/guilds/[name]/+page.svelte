@@ -53,10 +53,10 @@
     }));
   }
 
-  /** Top raiders, best first - members with hidden raid counts sit out. */
+  /** Top raiders, best first - hidden and zero raid counts sit out. */
   const podium = $derived(
     stats.members
-      .filter((member) => member.raids_total !== null)
+      .filter((member) => (member.raids_total ?? 0) > 0)
       .sort((a, b) => (b.raids_total ?? 0) - (a.raids_total ?? 0))
       .slice(0, 5)
       .map((member) => ({
