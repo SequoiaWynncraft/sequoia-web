@@ -466,7 +466,9 @@
   function undo() {
     clearTimeout(captureTimer);
     if (hasPendingEdit) {
-      // An in-progress edit undoes to the last settled draft and stays redoable.
+      // An in-progress edit undoes to the last settled draft and stays
+      // redoable - and, like any new edit, it abandons the old redo branch.
+      redoStack.length = 0;
       redoStack.push(payload);
       applySnapshot(lastCaptured);
       return;
@@ -504,7 +506,9 @@
       typeof value === "number" && Number.isFinite(value) ? value : "";
     if (!keepSlug) {
       slug = text(draft.slug);
-      slugEdited = slug !== "";
+      // A slug that still matches its name was never hand-edited - keep
+      // auto-slug mode alive across replays.
+      slugEdited = slug !== "" && slug !== slugify(text(draft.name));
     }
     name = text(draft.name);
     tagline = text(draft.tagline);
