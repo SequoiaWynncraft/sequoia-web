@@ -18,6 +18,7 @@
     error = null,
     saved = false,
     trackerCreated = null,
+    trackerUpdated = null,
     trackerError = null,
   }: {
     mode: "create" | "edit";
@@ -30,6 +31,8 @@
     saved?: boolean;
     /** Result of the last ?/createTracker submission. */
     trackerCreated?: TrackerOption | null;
+    /** Result of the last ?/updateTracker submission. */
+    trackerUpdated?: TrackerOption | null;
     trackerError?: string | null;
   } = $props();
 
@@ -100,9 +103,11 @@
   let saving = $state(false);
   let confirmingDelete = $state(false);
 
-  // Inline "new tracker event" creator inside the standings section.
-  let creatingTracker = $state(false);
-  let creatingTrackerBusy = $state(false);
+  // Inline tracker editor inside the standings section - creates new
+  // tracker events or edits the selected one.
+  let trackerEditor = $state<"closed" | "create" | "edit">("closed");
+  let trackerEditId = $state("");
+  let trackerBusy = $state(false);
   let trackerAttempted = $state(false);
   let newTrackerName = $state("");
   let newTrackerStarts = $state("");
@@ -118,7 +123,19 @@
       trackerEventId = created.id;
       trackerTracking = created.tracking;
       trackerManual = false;
-      creatingTracker = false;
+      trackerEditor = "closed";
+    }
+  });
+
+  // Reflect a server-side tracker update into the picker list.
+  $effect(() => {
+    const updated = trackerUpdated;
+    if (!updated) return;
+    const index = trackerChoices.findIndex((option) => option.id === updated.id);
+    if (index >= 0 && JSON.stringify(trackerChoices[index]) !== JSON.stringify(updated)) {
+      trackerChoices[index] = updated;
+      if (trackerEventId === updated.id) trackerTracking = updated.tracking;
+      trackerEditor = "closed";
     }
   });
 
@@ -198,6 +215,7 @@
 
   const trackerPayload = $derived(
     JSON.stringify({
+      id: trackerEditor === "edit" ? trackerEditId : undefined,
       name: newTrackerName,
       startsAt: newTrackerStarts ? toInstant(newTrackerStarts) : "",
       endsAt: newTrackerEnds ? toInstant(newTrackerEnds) : "",
@@ -207,15 +225,15 @@
   );
 
   const submit: SubmitFunction = ({ action, cancel }) => {
-    if (action.search.includes("createTracker")) {
+    if (action.search.includes("createTracker") || action.search.includes("updateTracker")) {
       trackerAttempted = true;
       if (trackerDraftError) {
         cancel();
         return;
       }
-      creatingTrackerBusy = true;
+      trackerBusy = true;
       return async ({ update }) => {
-        creatingTrackerBusy = false;
+        trackerBusy = false;
         await update({ reset: false });
       };
     }
@@ -236,8 +254,24 @@
     newTrackerName = newTrackerName || name || "";
     newTrackerStarts = newTrackerStarts || startsAt;
     newTrackerEnds = newTrackerEnds || endsAt;
+    newTrackerTracking = "mod";
+    trackerEditId = "";
     trackerAttempted = false;
-    creatingTracker = true;
+    trackerEditor = "create";
+  }
+
+  /** Prefills the editor with the selected tracker for editing. */
+  function openTrackerEdit() {
+    const option = selectedTracker;
+    if (!option) return;
+    trackerEditId = option.id;
+    newTrackerName = option.name;
+    newTrackerStarts = option.startsAt.slice(0, 16);
+    newTrackerEnds = option.endsAt.slice(0, 16);
+    newTrackerTracking = option.tracking;
+    newTrackerRaid = option.raid ?? "";
+    trackerAttempted = false;
+    trackerEditor = "edit";
   }
 
   function syncSlug() {
@@ -597,6 +631,11 @@
               {trackerEventId
                 ? `Counts ${selectedTracker?.raid ?? "all guild raids"} via ${trackerTracking === "mod" ? "the guild mod" : "the Wynncraft API"}.`
                 : "Standings show each member's contribution inside the tracker window."}
+              {#if selectedTracker}
+                <button type="button" class="mg-inline-link focus-ring" onclick={openTrackerEdit}>
+                  Edit tracker
+                </button>
+              {/if}
               <button type="button" class="mg-inline-link focus-ring" onclick={() => (trackerManual = true)}>
                 Enter an id manually
               </button>
@@ -624,9 +663,11 @@
             {/if}
           {/if}
 
-          {#if creatingTracker}
+          {#if trackerEditor !== "closed"}
             <div class="mg-tracker-new">
-              <span class="mg-label">New tracker event</span>
+              <span class="mg-label">
+                {trackerEditor === "edit" ? `Edit tracker: ${newTrackerName}` : "New tracker event"}
+              </span>
               <div class="mg-grid-2">
                 <label class="mg-field">
                   <span class="mg-label">Name</span>
@@ -667,17 +708,17 @@
               <div class="mg-tracker-new-actions">
                 <button
                   type="submit"
-                  formaction="?/createTracker"
+                  formaction={trackerEditor === "edit" ? "?/updateTracker" : "?/createTracker"}
                   formnovalidate
                   class="seq-button seq-button-secondary seq-button-sm"
-                  disabled={creatingTrackerBusy}
+                  disabled={trackerBusy}
                 >
-                  Create tracker
+                  {trackerEditor === "edit" ? "Save tracker" : "Create tracker"}
                 </button>
                 <button
                   type="button"
                   class="seq-button seq-button-ghost seq-button-sm"
-                  onclick={() => (creatingTracker = false)}
+                  onclick={() => (trackerEditor = "closed")}
                 >
                   Cancel
                 </button>

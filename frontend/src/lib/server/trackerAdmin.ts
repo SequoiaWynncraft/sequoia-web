@@ -1,15 +1,15 @@
 import { fail } from "@sveltejs/kit";
 import type { Cookies } from "@sveltejs/kit";
 
-import type { TrackerOption } from "./eventFormContext";
+import { trackerOption, type TrackerOption } from "./eventFormContext";
 import { requireEventManager } from "./eventManagers";
-import { formatWindow } from "$lib/events/format";
 import type { RaidEvent } from "./raidEventBoards";
 import { sequoiaWebBackendInternalHeaders, sequoiaWebBackendUrl } from "./sequoiaWebBackend";
 
 const ZONED_PATTERN = /(?:z|[+-]\d\d:\d\d)$/i;
 
 interface TrackerRequest {
+  id?: string;
   name: string;
   startsAt: string;
   endsAt: string;
@@ -17,51 +17,73 @@ interface TrackerRequest {
   raid?: string;
 }
 
+type ManageRequest = { request: Request; cookies: Cookies; fetch: typeof fetch };
+
 /**
  * Shared ?/createTracker form action for the event editor: creates a raid
  * tracker event in the backend and returns it as a picker option.
  */
-export async function createTrackerAction(event: {
-  request: Request;
-  cookies: Cookies;
-  fetch: typeof fetch;
-}) {
-  await requireEventManager(event);
-  const parsed = parseTrackerRequest((await event.request.formData()).get("trackerPayload"));
+export async function createTrackerAction(event: ManageRequest) {
+  const parsed = await authorizeAndParse(event);
   if (typeof parsed === "string") return fail(400, { trackerError: parsed });
+  const result = await submitTracker(event.fetch, "POST", "/internal/raid-events", {
+    slug: trackerSlug(parsed.name),
+    name: parsed.name,
+    starts_at: parsed.startsAt,
+    ends_at: parsed.endsAt,
+    tracking: parsed.tracking,
+    raid: parsed.raid,
+  });
+  return typeof result === "string" ? fail(400, { trackerError: result }) : { trackerCreated: result };
+}
 
+/** Shared ?/updateTracker form action: full update of an existing tracker. */
+export async function updateTrackerAction(event: ManageRequest) {
+  const parsed = await authorizeAndParse(event);
+  if (typeof parsed === "string") return fail(400, { trackerError: parsed });
+  if (!parsed.id) return fail(400, { trackerError: "Malformed submission." });
+  const result = await submitTracker(
+    event.fetch,
+    "PUT",
+    `/internal/raid-events/${encodeURIComponent(parsed.id)}`,
+    {
+      name: parsed.name,
+      starts_at: parsed.startsAt,
+      ends_at: parsed.endsAt,
+      tracking: parsed.tracking,
+      raid: parsed.raid,
+    },
+  );
+  return typeof result === "string" ? fail(400, { trackerError: result }) : { trackerUpdated: result };
+}
+
+async function authorizeAndParse(event: ManageRequest): Promise<TrackerRequest | string> {
+  await requireEventManager(event);
+  return parseTrackerRequest((await event.request.formData()).get("trackerPayload"));
+}
+
+async function submitTracker(
+  fetchImpl: typeof fetch,
+  method: "POST" | "PUT",
+  path: string,
+  body: Record<string, unknown>,
+): Promise<TrackerOption | string> {
   const headers = sequoiaWebBackendInternalHeaders();
-  if (!headers) return fail(503, { trackerError: "The tracker backend is not configured." });
-
+  if (!headers) return "The tracker backend is not configured.";
   try {
-    const response = await event.fetch(sequoiaWebBackendUrl("/internal/raid-events"), {
-      method: "POST",
+    const response = await fetchImpl(sequoiaWebBackendUrl(path), {
+      method,
       headers: { ...headers, "content-type": "application/json" },
-      body: JSON.stringify({
-        slug: trackerSlug(parsed.name),
-        name: parsed.name,
-        starts_at: parsed.startsAt,
-        ends_at: parsed.endsAt,
-        tracking: parsed.tracking,
-        raid: parsed.raid,
-      }),
+      body: JSON.stringify(body),
       signal: AbortSignal.timeout(6000),
     });
     if (!response.ok) {
-      const body = (await response.json().catch(() => null)) as { error?: string } | null;
-      return fail(400, { trackerError: body?.error ?? "The tracker event could not be created." });
+      const errorBody = (await response.json().catch(() => null)) as { error?: string } | null;
+      return errorBody?.error ?? "The tracker backend rejected the request.";
     }
-    const created = (await response.json()) as RaidEvent;
-    const option: TrackerOption = {
-      id: created.id,
-      name: created.name,
-      window: formatWindow({ startsAt: created.starts_at, endsAt: created.ends_at }) ?? "no window",
-      tracking: created.tracking ?? "api",
-      raid: created.raid ?? null,
-    };
-    return { trackerCreated: option };
+    return trackerOption((await response.json()) as RaidEvent);
   } catch {
-    return fail(502, { trackerError: "The tracker backend did not respond." });
+    return "The tracker backend did not respond.";
   }
 }
 
@@ -84,6 +106,7 @@ function parseTrackerRequest(raw: FormDataEntryValue | null): TrackerRequest | s
     return "tracking must be api or mod";
   }
   const request: TrackerRequest = { name, startsAt, endsAt, tracking: record.tracking };
+  if (typeof record.id === "string" && record.id.trim()) request.id = record.id.trim();
   const raid = typeof record.raid === "string" ? record.raid.trim() : "";
   if (raid) {
     if (record.tracking !== "mod") return "raid scoping needs mod tracking";

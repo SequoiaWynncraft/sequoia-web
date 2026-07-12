@@ -3,7 +3,7 @@ import type { Actions, PageServerLoad } from "./$types";
 
 import { eventFormContext } from "$lib/server/eventFormContext";
 import { checkEventManager, requireEventManager } from "$lib/server/eventManagers";
-import { createTrackerAction } from "$lib/server/trackerAdmin";
+import { createTrackerAction, updateTrackerAction } from "$lib/server/trackerAdmin";
 import { parseEventPayload } from "$lib/server/eventPayload";
 import { eventStore } from "$lib/server/eventStore";
 
@@ -38,4 +38,5 @@ export const actions: Actions = {
   },
 
   createTracker: createTrackerAction,
+  updateTracker: updateTrackerAction,
 };
