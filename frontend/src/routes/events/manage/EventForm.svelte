@@ -68,8 +68,19 @@
   // Number inputs bind numbers (or null when cleared), not strings.
   let goalTarget = $state<string | number | null | undefined>(seed?.goal ? seed.goal.target : "");
   let goalUnlock = $state(seed?.goal?.unlock ?? "");
-  let goalSource = $state<"manual" | "raids">(seed?.goal?.feed === "raids" ? "raids" : "manual");
+  let goalSource = $state<"manual" | "raids" | "wars" | "playtime">(seed?.goal?.feed ?? "manual");
   let goalRaid = $state(seed?.goal?.countRaid ?? "");
+  // Chart choice: "goal" follows the goal, "all"/"raid:<name>" chart raids
+  // explicitly, "off" hides the chart.
+  let chartChoice = $state(
+    seed?.activity
+      ? seed.activity.source === "none"
+        ? "off"
+        : seed.activity.countRaid
+          ? `raid:${seed.activity.countRaid}`
+          : "all"
+      : "goal",
+  );
   let goalFinalTotal = $state<string | number | null | undefined>(seed?.goal?.finalTotal ?? "");
   // Repeater rows carry a locally generated id so the each blocks are keyed -
   // unkeyed lists with two-way bindings corrupt state when middle rows are
@@ -159,12 +170,17 @@
         target: toCount(goalTarget),
         unlock: goalUnlock,
       };
-      if (goalSource === "raids") {
-        goal.feed = "raids";
-        if (goalRaid) goal.countRaid = goalRaid;
+      if (goalSource !== "manual") {
+        goal.feed = goalSource;
+        if (goalSource === "raids" && goalRaid) goal.countRaid = goalRaid;
       }
       if (hasCount(goalFinalTotal)) goal.finalTotal = toCount(goalFinalTotal);
       event.goal = goal;
+    }
+    if (chartChoice === "all") event.activity = { source: "raids" };
+    else if (chartChoice === "off") event.activity = { source: "none" };
+    else if (chartChoice.startsWith("raid:")) {
+      event.activity = { source: "raids", countRaid: chartChoice.slice(5) };
     }
     // Rows added but left fully empty are noise, not intent - drop them,
     // along with the local row ids. A picked player stands in for a missing
@@ -193,6 +209,12 @@
   const raidOptions = $derived.by(() => {
     const names = KNOWN_RAIDS.map((raid) => raid.key);
     return goalRaid && !names.includes(goalRaid) ? [...names, goalRaid] : names;
+  });
+
+  const chartRaidOptions = $derived.by(() => {
+    const names = KNOWN_RAIDS.map((raid) => raid.key);
+    const stored = chartChoice.startsWith("raid:") ? chartChoice.slice(5) : "";
+    return stored && !names.includes(stored) ? [...names, stored] : names;
   });
 
   const parsed = $derived(parseGuildEvent(draftEvent));
@@ -490,6 +512,16 @@
                 <span class="mg-choice-title">Guild raid feed</span>
                 <span class="mg-choice-desc">Counts raids live from the public guild activity feed.</span>
               </label>
+              <label class="mg-choice" class:mg-choice-selected={goalSource === "wars"}>
+                <input class="mg-choice-input" type="radio" name="goal-source" value="wars" bind:group={goalSource} />
+                <span class="mg-choice-title">War feed</span>
+                <span class="mg-choice-desc">Sums wars from the daily stat rollups.</span>
+              </label>
+              <label class="mg-choice" class:mg-choice-selected={goalSource === "playtime"}>
+                <input class="mg-choice-input" type="radio" name="goal-source" value="playtime" bind:group={goalSource} />
+                <span class="mg-choice-title">Playtime feed</span>
+                <span class="mg-choice-desc">Sums hours played from the daily stat rollups.</span>
+              </label>
               <label class="mg-choice" class:mg-choice-selected={goalSource === "manual"}>
                 <input class="mg-choice-input" type="radio" name="goal-source" value="manual" bind:group={goalSource} />
                 <span class="mg-choice-title">Manual</span>
@@ -510,16 +542,37 @@
               </label>
             {/if}
             <label class="mg-field">
-              <span class="mg-label">{goalSource === "raids" ? "Final total" : "Total so far"}</span>
+              <span class="mg-label">{goalSource === "manual" ? "Total so far" : "Final total"}</span>
               <input class="mg-input" type="number" min="0" bind:value={goalFinalTotal} />
             </label>
           </div>
           <p class="mg-hint">
-            {goalSource === "raids"
-              ? "Final total is optional - set it once the event has ended to freeze the meter."
-              : "Update the total by hand as the event progresses."}
+            {goalSource === "manual"
+              ? "Update the total by hand as the event progresses."
+              : "Final total is optional - set it once the event has ended to freeze the meter."}
           </p>
         {/if}
+      </section>
+
+      <section class="mg-section">
+        <SectionLabel>{#snippet children()}Activity chart{/snippet}</SectionLabel>
+        <div class="mg-grid-2">
+          <label class="mg-field">
+            <span class="mg-label">Daily bars show</span>
+            <select class="mg-input" bind:value={chartChoice}>
+              <option value="goal">Match the goal</option>
+              <option value="all">All guild raids</option>
+              {#each chartRaidOptions as raid (raid)}
+                <option value={`raid:${raid}`}>{raid}</option>
+              {/each}
+              <option value="off">Hidden</option>
+            </select>
+          </label>
+        </div>
+        <p class="mg-hint">
+          Raids are the only source with a daily feed - a wars or playtime goal shows no chart
+          unless one is chosen here.
+        </p>
       </section>
 
       <section class="mg-section">

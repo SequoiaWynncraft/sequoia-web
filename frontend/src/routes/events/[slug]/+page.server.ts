@@ -1,12 +1,13 @@
 import { error } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
 
-import { eventStatus } from "$lib/events/helpers";
+import { eventChart, eventStatus } from "$lib/events/helpers";
 import type { GuildEvent } from "$lib/events/types";
 import { getGuildStats } from "$lib/server/guildStats";
 import { checkEventManager } from "$lib/server/eventManagers";
 import { eventStore } from "$lib/server/eventStore";
 import { loadEventRaidCounts, sumCounts, type EventDayCount } from "$lib/server/eventActivity";
+import { loadGoalProgress } from "$lib/server/goalProgress";
 import {
   loadModLeaderboard,
   loadRaidEvents,
@@ -76,6 +77,7 @@ export const load: PageServerLoad = async ({ fetch, params, parent }) => {
       draft: false,
       locked: true as const,
       lockReason: membership ?? ("signin" as const),
+      chart: null,
       days: null,
       progress: null,
       today,
@@ -83,13 +85,28 @@ export const load: PageServerLoad = async ({ fetch, params, parent }) => {
     };
   }
 
+  // The chart and the goal meter read independently configured sources; when
+  // both happen to count the same raids, one feed fetch serves both.
+  const chart = eventChart(event);
   let days: EventDayCount[] | null = null;
-  if (status === "live" && event.goal?.feed === "raids" && event.startsAt) {
-    days = await loadEventRaidCounts(fetch, {
-      from: event.startsAt,
-      to: now.toISOString(),
-      countRaid: event.goal.countRaid,
-    }).catch(() => null);
+  let progress: number | null = null;
+  if (status === "live" && event.startsAt) {
+    const window = { from: event.startsAt, to: now.toISOString() };
+    if (chart) {
+      days = await loadEventRaidCounts(fetch, { ...window, countRaid: chart.countRaid }).catch(
+        () => null,
+      );
+    }
+    if (event.goal?.feed) {
+      const sameAsChart =
+        event.goal.feed === "raids" &&
+        chart !== null &&
+        (chart.countRaid ?? null) === (event.goal.countRaid ?? null);
+      progress =
+        sameAsChart && days !== null
+          ? sumCounts(days)
+          : await loadGoalProgress(fetch, event.goal, window);
+    }
   }
 
   let standings: Standings | null = null;
@@ -111,8 +128,9 @@ export const load: PageServerLoad = async ({ fetch, params, parent }) => {
     draft: !stored.published,
     locked: false as const,
     lockReason: null,
+    chart,
     days,
-    progress: days === null ? null : sumCounts(days),
+    progress,
     today,
     standings,
   };

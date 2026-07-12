@@ -1,8 +1,9 @@
 import type { PageServerLoad } from "./$types";
 
 import { hubGroups, type HubEvent } from "$lib/events/helpers";
+import type { EventGoal } from "$lib/events/types";
 import { checkEventManager } from "$lib/server/eventManagers";
-import { loadEventRaidCounts, sumCounts } from "$lib/server/eventActivity";
+import { loadGoalProgress } from "$lib/server/goalProgress";
 import { eventStore } from "$lib/server/eventStore";
 
 export const prerender = false;
@@ -29,14 +30,12 @@ async function loadProgress(
   const progress: Record<string, number | null> = {};
   await Promise.all(
     liveEvents
-      .filter((event) => event.goal?.feed === "raids" && event.startsAt)
+      .filter((event) => event.goal?.feed !== undefined && event.startsAt)
       .map(async (event) => {
-        const days = await loadEventRaidCounts(fetchImpl, {
+        progress[event.slug] = await loadGoalProgress(fetchImpl, event.goal as EventGoal, {
           from: event.startsAt as string,
           to: now.toISOString(),
-          countRaid: event.goal?.countRaid,
-        }).catch(() => null);
-        progress[event.slug] = days === null ? null : sumCounts(days);
+        });
       }),
   );
   return progress;
