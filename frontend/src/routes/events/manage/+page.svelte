@@ -3,6 +3,7 @@
   import Button from "$lib/design-system/components/Button.svelte";
   import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
   import { formatWindow } from "$lib/events/format";
+  import { raidIconUrl } from "$lib/events/raidIcons";
   import type { EventStatus } from "$lib/events/types";
   import ManageGate from "./ManageGate.svelte";
 
@@ -45,6 +46,14 @@
               style="background: linear-gradient(160deg, {entry.event.theme.sky[0]}, {entry.event
                 .theme.sky[1]}); border-color: {entry.event.theme.accent}"
             ></span>
+            {#if entry.event.icon?.placements.includes("manage")}
+              <img
+                class="mg-row-icon"
+                src={raidIconUrl(entry.event.icon.file)}
+                alt=""
+                loading="lazy"
+              />
+            {/if}
             <span class="mg-name">{entry.event.name}</span>
             <span class="mg-chips">
               {#if !entry.published}<span class="mg-chip mg-chip-draft">Draft</span>{/if}
@@ -77,8 +86,8 @@
   }
 
   .mg-row {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+    display: flex;
+    align-items: center;
     align-items: center;
     gap: 16px;
     padding: 14px 10px;
@@ -92,12 +101,21 @@
   }
 
   .mg-swatch {
+    flex: 0 0 34px;
     width: 34px;
     height: 22px;
     border: 1px solid;
   }
 
+  .mg-row-icon {
+    width: 24px;
+    height: 24px;
+    image-rendering: pixelated;
+  }
+
   .mg-name {
+    flex: 1 1 auto;
+    min-width: 0;
     overflow: hidden;
     color: var(--text-heading);
     font-family: var(--font-display);

@@ -104,7 +104,7 @@ function parseColor(value: unknown, label: string): string {
   return value.trim().toLowerCase();
 }
 
-const ICON_PLACEMENTS: EventIconPlacement[] = ["hero", "band", "meta"];
+const ICON_PLACEMENTS: EventIconPlacement[] = ["hero", "band", "meta", "manage"];
 
 /** Placements are normalized to catalog order with duplicates dropped. */
 function parseIcon(value: unknown): EventIcon {
@@ -117,7 +117,7 @@ function parseIcon(value: unknown): EventIcon {
   if (!Array.isArray(entries)) fail("icon placements must be a list");
   for (const entry of entries) {
     if (entry !== "hero" && entry !== "band" && entry !== "meta") {
-      fail("icon placements must be hero, band, or meta");
+      fail("icon placements must be hero, band, meta, or manage");
     }
   }
   const placements = ICON_PLACEMENTS.filter((placement) => entries.includes(placement));

@@ -74,7 +74,7 @@
 
   // Placements serialize in this fixed order, so click order never churns
   // the payload (and with it the undo history).
-  const ICON_PLACEMENT_ORDER: EventIconPlacement[] = ["hero", "band", "meta"];
+  const ICON_PLACEMENT_ORDER: EventIconPlacement[] = ["hero", "band", "meta", "manage"];
   let iconFile = $state(seed?.icon?.file ?? "");
   let iconPlacements = $state<EventIconPlacement[]>(seed?.icon?.placements ?? ["hero"]);
 
@@ -927,6 +927,13 @@
                   <small>Next to the status line.</small>
                 </span>
               </label>
+              <label class="mg-check">
+                <input type="checkbox" value="manage" bind:group={iconPlacements} />
+                <span>
+                  Manage
+                  <small>Marks the event's row in the manage list.</small>
+                </span>
+              </label>
             </div>
           </div>
         {/if}
@@ -1653,6 +1660,7 @@
     display: grid;
     justify-items: center;
     gap: 8px;
+    min-width: 0;
     padding: 12px 6px 10px;
     border: 1px solid var(--color-border-subtle);
     background: none;
@@ -1685,10 +1693,13 @@
   }
 
   .mg-icon-label {
+    max-width: 100%;
+    overflow-wrap: anywhere;
     color: var(--text-muted);
     font-family: var(--font-display);
     font-size: var(--text-2xs);
     letter-spacing: var(--tracking-wider);
+    text-align: center;
     text-transform: uppercase;
   }
 

@@ -15,7 +15,7 @@ export interface EventTheme {
 }
 
 /** Where an event's icon appears; the editor picks any subset. */
-export type EventIconPlacement = "hero" | "band" | "meta";
+export type EventIconPlacement = "hero" | "band" | "meta" | "manage";
 
 export interface EventIcon {
   /** File name from the raid-icon catalog. */
