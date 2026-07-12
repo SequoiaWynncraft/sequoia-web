@@ -39,14 +39,23 @@
     value = date ? `${date}T${timePart || "00:00"}` : "";
   }
 
-  function setTime(event: Event & { currentTarget: HTMLInputElement }) {
-    const normalized = normalizeTime(event.currentTarget.value);
-    if (normalized) event.currentTarget.value = normalized;
+  function commitTime(input: HTMLInputElement) {
+    const normalized = normalizeTime(input.value);
+    if (normalized) input.value = normalized;
     if (!datePart) return;
     // An invalid time must fail validation loudly. Never store the raw text:
     // Date.parse accepts "T24:00Z" as next-day midnight, silently shifting
     // the date - the placeholder below parses to NaN everywhere.
     value = `${datePart}T${normalized ?? "--:--"}`;
+  }
+
+  function setTime(event: Event & { currentTarget: HTMLInputElement }) {
+    commitTime(event.currentTarget);
+  }
+
+  /** Enter submits the surrounding form - commit the typed time first. */
+  function commitOnEnter(event: KeyboardEvent & { currentTarget: HTMLInputElement }) {
+    if (event.key === "Enter") commitTime(event.currentTarget);
   }
 
   const timeInvalid = $derived(datePart !== "" && timePart !== "" && normalizeTime(timePart) === null);
@@ -70,6 +79,7 @@
     autocomplete="off"
     value={timePart}
     onchange={setTime}
+    onkeydown={commitOnEnter}
     disabled={!datePart}
     list="mg-times-{uid}"
     aria-label="{name} time (UTC)"
