@@ -282,9 +282,12 @@
   const trackerDraftError = $derived.by(() => {
     if (!newTrackerName.trim()) return "the tracker needs a name";
     if (!newTrackerStarts || !newTrackerEnds) return "the tracker needs a start and an end";
-    if (Date.parse(toInstant(newTrackerStarts)) >= Date.parse(toInstant(newTrackerEnds))) {
-      return "the tracker must end after it starts";
-    }
+    const starts = Date.parse(toInstant(newTrackerStarts));
+    const ends = Date.parse(toInstant(newTrackerEnds));
+    // A malformed time (e.g. 25:00) parses to NaN, and NaN comparisons are
+    // silently false - reject it explicitly.
+    if (Number.isNaN(starts) || Number.isNaN(ends)) return "tracker times must be valid HH:MM";
+    if (starts >= ends) return "the tracker must end after it starts";
     return null;
   });
 
