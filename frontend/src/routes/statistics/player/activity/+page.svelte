@@ -71,17 +71,41 @@
       : 0,
   );
 
-  /** Top gainers by playtime - the window's headline metric. */
+  let gainsSortKey = $state("playtime");
+
+  /** The podium mirrors the ledger's sort; the name column falls back to raids. */
+  const podiumMetric = $derived.by(() => {
+    switch (gainsSortKey) {
+      case "wars":
+        return { of: (m: MemberProgressEntry) => m.wars, show: (v: number) => v.toLocaleString() };
+      case "member":
+      case "raids":
+        return { of: (m: MemberProgressEntry) => m.raids, show: (v: number) => v.toLocaleString() };
+      case "war_points":
+        return { of: (m: MemberProgressEntry) => m.war_points, show: points };
+      case "rate":
+        return {
+          of: (m: MemberProgressEntry) => m.playtime_hours / windowDays,
+          show: (v: number) => `${points(v)} h / day`,
+        };
+      default:
+        return {
+          of: (m: MemberProgressEntry) => m.playtime_hours,
+          show: (v: number) => `${v.toLocaleString()} h`,
+        };
+    }
+  });
+
   const topGainers = $derived(
     progress
       ? [...progress.members]
-          .filter((member) => member.playtime_hours > 0)
-          .sort((a, b) => b.playtime_hours - a.playtime_hours)
+          .filter((member) => podiumMetric.of(member) > 0)
+          .sort((a, b) => podiumMetric.of(b) - podiumMetric.of(a))
           .slice(0, 5)
           .map((member) => ({
             name: member.player_name,
             ident: member.player_uuid,
-            value: `${member.playtime_hours.toLocaleString()} h`,
+            value: podiumMetric.show(podiumMetric.of(member)),
             href: `/statistics/player/playercard?player=${encodeURIComponent(member.player_name)}`,
           }))
       : [],
@@ -318,6 +342,7 @@
       rows={progress.members}
       rowKey={(member) => member.player_uuid}
       defaultSort="playtime"
+      bind:sortKey={gainsSortKey}
       maxHeight="640px"
     />
     {#if trackingNotes.length > 0}
