@@ -1,5 +1,706 @@
 <script lang="ts">
-  import RegistryPage from "$lib/components/RegistryPage.svelte";
+  import { untrack } from "svelte";
+
+  import { invalidateAll } from "$app/navigation";
+
+  import PageScaffold from "$lib/components/PageScaffold.svelte";
+  import PageHeader from "$lib/components/PageHeader.svelte";
+  import Button from "$lib/design-system/components/Button.svelte";
+  import Card from "$lib/design-system/components/Card.svelte";
+  import SectionHeading from "$lib/design-system/components/SectionHeading.svelte";
+  import {
+    createBagshopClient,
+    RARITIES,
+    type OrderType,
+    type PlacedOrder,
+  } from "$lib/api/bagshop";
+  import {
+    formatEb,
+    groupInventoryByRaid,
+    isCancellable,
+    orderRemainingTotal,
+    roundToLe,
+  } from "$lib/site/bagshop";
+  import { pageView } from "$lib/site/nav";
+  import { webAuthStartUrl } from "$lib/site/webAuth";
+  import type { PageData } from "./$types";
+
+  let { data }: { data: PageData } = $props();
+
+  const view = pageView("/services/bagshop");
+  const client = createBagshopClient({ fetch });
+
+  const groups = $derived(groupInventoryByRaid(data.inventory));
+
+  // Order builder state.
+  let orderType = $state<OrderType>("buy");
+  let amounts = $state<Record<string, string>>({});
+  let minecraftIgn = $state(untrack(() => data.viewer?.minecraftUsername ?? ""));
+  let note = $state("");
+
+  let submitting = $state(false);
+  let submitError = $state<string | null>(null);
+  let confirmation = $state<PlacedOrder | null>(null);
+
+  let cancelling = $state<string | null>(null);
+  let cancelError = $state<string | null>(null);
+
+  const signedIn = $derived(data.viewer !== null);
+
+  interface DraftLine {
+    key: string;
+    raid: string;
+    rarity: string;
+    amount: number;
+    unit: number;
+    total: number;
+  }
+
+  const draftLines = $derived.by<DraftLine[]>(() => {
+    const lines: DraftLine[] = [];
+    for (const item of data.inventory) {
+      const raw = amounts[item.key]?.trim();
+      if (!raw) continue;
+      const amount = Number.parseInt(raw, 10);
+      if (!Number.isFinite(amount) || amount <= 0) continue;
+      const { raid, rarity } = { raid: item.key.split("_")[0], rarity: item.key.split("_").slice(1).join("_") };
+      const unit = orderType === "buy" ? item.buyPrice : item.sellPrice;
+      lines.push({ key: item.key, raid, rarity, amount, unit, total: unit * amount });
+    }
+    return lines;
+  });
+
+  const rawTotal = $derived(draftLines.reduce((sum, line) => sum + line.total, 0));
+  const roundedTotal = $derived(roundToLe(rawTotal, orderType));
+  const MIN_LE = 32;
+  const meetsMinimum = $derived(roundedTotal >= MIN_LE * 64);
+  const canSubmit = $derived(
+    signedIn && draftLines.length > 0 && minecraftIgn.trim().length > 0 && meetsMinimum && !submitting,
+  );
+
+  const ERROR_MESSAGES: Record<string, string> = {
+    out_of_stock: "Everything you requested is out of stock right now.",
+    all_capped: "Every bag type you offered has reached its cap and can't be sold right now.",
+    below_minimum: "Orders must be worth at least 32 LE. Add more bags.",
+    channel_unavailable: "The shop is briefly unavailable. Please try again in a moment.",
+    unauthorized: "Your session expired. Please sign in again.",
+    forbidden: "You're not allowed to do that.",
+  };
+
+  function friendly(code: string, fallback: string): string {
+    return ERROR_MESSAGES[code] ?? fallback;
+  }
+
+  function switchType(next: OrderType) {
+    if (orderType === next) return;
+    orderType = next;
+    confirmation = null;
+    submitError = null;
+  }
+
+  async function submit() {
+    if (!canSubmit) return;
+    submitting = true;
+    submitError = null;
+    confirmation = null;
+    const result = await client.placeOrder({
+      orderType,
+      minecraftIgn: minecraftIgn.trim(),
+      note: note.trim() || undefined,
+      items: draftLines.map((line) => ({ raid: line.raid, rarity: line.rarity, amount: line.amount })),
+    });
+    submitting = false;
+    if (result.ok) {
+      confirmation = result.data;
+      amounts = {};
+      note = "";
+      await invalidateAll();
+    } else {
+      submitError = friendly(result.error.code, result.error.message);
+    }
+  }
+
+  async function cancelOrder(messageId: string) {
+    cancelling = messageId;
+    cancelError = null;
+    const result = await client.cancelOrder(messageId);
+    cancelling = null;
+    if (result.ok) {
+      await invalidateAll();
+    } else {
+      cancelError = friendly(result.error.code, result.error.message);
+    }
+  }
+
+  function orderTotal(order: (typeof data.myOrders)[number]): number {
+    const priceByKey = new Map(
+      data.inventory.map((item) => [item.key, order.orderType === "buy" ? item.buyPrice : item.sellPrice]),
+    );
+    return roundToLe(orderRemainingTotal(order, priceByKey), order.orderType);
+  }
+
+  function formatDate(unixSeconds: number): string {
+    return new Date(unixSeconds * 1000).toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
 </script>
 
-<RegistryPage path="/services/bagshop" />
+<PageScaffold crumbs={view.crumbs} tabs={view.tabs} width="xl">
+  {#snippet children()}
+    <PageHeader kicker={view.kicker} title={view.title} lead={view.lead} />
+
+    {#if data.me?.staff}
+      <div class="bag-staff-banner">
+        <span>You have staff access to the bag shop.</span>
+        <Button href="/services/bagshop/manage" variant="secondary" size="sm">Open manage panel</Button>
+      </div>
+    {/if}
+
+    {#if data.inventoryError}
+      <Card hoverEffect={false}>
+        <p class="bag-notice bag-notice-error">Couldn't load the shop inventory right now. Please try again shortly.</p>
+      </Card>
+    {/if}
+
+    <!-- ─── Inventory ─────────────────────────────────────────────────── -->
+    <section class="bag-section">
+      <SectionHeading kicker="Marketplace" align="left">Current stock &amp; prices</SectionHeading>
+      <p class="bag-section-lead">
+        Buy price is what you pay per bag; sell price is what the shop pays you. Prices are in emerald
+        blocks (64 EB = 1 LE).
+      </p>
+
+      <div class="bag-table-scroll">
+        <table class="bag-table">
+          <thead>
+            <tr>
+              <th scope="col">Raid</th>
+              {#each RARITIES as rarity (rarity)}
+                <th scope="col" class="bag-col-{rarity.toLowerCase()}">{rarity}</th>
+              {/each}
+            </tr>
+          </thead>
+          <tbody>
+            {#each groups as group (group.raid)}
+              <tr>
+                <th scope="row" class="bag-raid-cell">{group.raid}</th>
+                {#each RARITIES as rarity (rarity)}
+                  {@const cell = group.items.find((item) => item.rarity === rarity)}
+                  <td>
+                    {#if cell}
+                      <div class="bag-cell">
+                        <span class="bag-cell-stock" class:bag-cell-out={cell.stock <= 0}>
+                          {cell.stock} in stock
+                        </span>
+                        <span class="bag-cell-price">Buy {formatEb(cell.buyPrice)}</span>
+                        <span class="bag-cell-price">Sell {formatEb(cell.sellPrice)}</span>
+                        {#if cell.cap > 0}
+                          <span class="bag-cell-cap">cap {cell.cap}</span>
+                        {/if}
+                      </div>
+                    {:else}
+                      <span class="bag-cell-empty">—</span>
+                    {/if}
+                  </td>
+                {/each}
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ─── Order builder ─────────────────────────────────────────────── -->
+    <section class="bag-section">
+      <SectionHeading kicker="Place an order" align="left">Build your order</SectionHeading>
+
+      {#if !signedIn}
+        <Card hoverEffect={false}>
+          <p class="bag-notice">Sign in with Discord to place a buy or sell order.</p>
+          <Button href={webAuthStartUrl()} variant="primary">Sign in with Discord</Button>
+        </Card>
+      {:else}
+        <div class="bag-mode-toggle" role="tablist" aria-label="Order type">
+          <button
+            role="tab"
+            aria-selected={orderType === "buy"}
+            class="bag-mode"
+            class:bag-mode-active={orderType === "buy"}
+            onclick={() => switchType("buy")}
+          >
+            Buy bags
+          </button>
+          <button
+            role="tab"
+            aria-selected={orderType === "sell"}
+            class="bag-mode"
+            class:bag-mode-active={orderType === "sell"}
+            onclick={() => switchType("sell")}
+          >
+            Sell bags
+          </button>
+        </div>
+
+        <div class="bag-table-scroll">
+          <table class="bag-table bag-builder">
+            <thead>
+              <tr>
+                <th scope="col">Raid</th>
+                {#each RARITIES as rarity (rarity)}
+                  <th scope="col" class="bag-col-{rarity.toLowerCase()}">{rarity}</th>
+                {/each}
+              </tr>
+            </thead>
+            <tbody>
+              {#each groups as group (group.raid)}
+                <tr>
+                  <th scope="row" class="bag-raid-cell">{group.raid}</th>
+                  {#each RARITIES as rarity (rarity)}
+                    {@const cell = group.items.find((item) => item.rarity === rarity)}
+                    <td>
+                      {#if cell}
+                        <label class="bag-input-wrap">
+                          <input
+                            type="number"
+                            min="0"
+                            inputmode="numeric"
+                            class="bag-input"
+                            placeholder="0"
+                            aria-label="{orderType === 'buy' ? 'Buy' : 'Sell'} {group.raid} {rarity} amount"
+                            bind:value={amounts[cell.key]}
+                          />
+                          <span class="bag-input-price">{formatEb(orderType === "buy" ? cell.buyPrice : cell.sellPrice)}/ea</span>
+                        </label>
+                      {:else}
+                        <span class="bag-cell-empty">—</span>
+                      {/if}
+                    </td>
+                  {/each}
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="bag-form-grid">
+          <label class="bag-field">
+            <span class="bag-field-label">Minecraft IGN</span>
+            <input class="bag-text" maxlength="16" bind:value={minecraftIgn} placeholder="Your in-game name" />
+          </label>
+          <label class="bag-field bag-field-wide">
+            <span class="bag-field-label">Note (optional)</span>
+            <input class="bag-text" maxlength="200" bind:value={note} placeholder="Anything staff should know" />
+          </label>
+        </div>
+
+        <div class="bag-summary">
+          <div class="bag-summary-total">
+            <span class="bag-summary-label">Order total</span>
+            <span class="bag-summary-value">{formatEb(roundedTotal)}</span>
+          </div>
+          <div class="bag-summary-actions">
+            {#if draftLines.length > 0 && !meetsMinimum}
+              <span class="bag-hint">Minimum order is 32 LE.</span>
+            {/if}
+            <Button variant="primary" disabled={!canSubmit} onclick={submit}>
+              {submitting ? "Submitting…" : orderType === "buy" ? "Submit buy order" : "Submit sell offer"}
+            </Button>
+          </div>
+        </div>
+
+        {#if submitError}
+          <p class="bag-notice bag-notice-error">{submitError}</p>
+        {/if}
+
+        {#if confirmation}
+          <Card hoverEffect={false} style="margin-top:1rem">
+            <p class="bag-confirm-title">
+              {confirmation.merged ? "Added to your existing order" : "Order submitted"} — staff will reach out on Discord.
+            </p>
+            <ul class="bag-confirm-list">
+              {#each confirmation.items as line (line.raid + line.rarity)}
+                <li>
+                  <span>{line.raid} · {line.rarity} × {line.amount}</span>
+                  <span class="bag-mono">{formatEb(line.total)}</span>
+                </li>
+              {/each}
+            </ul>
+            <p class="bag-confirm-total">
+              <span>Combined total</span><span class="bag-mono">{formatEb(confirmation.combinedTotal)}</span>
+            </p>
+            {#if confirmation.cappedNotice}
+              <p class="bag-notice bag-notice-warn">{confirmation.cappedNotice}</p>
+            {/if}
+          </Card>
+        {/if}
+      {/if}
+    </section>
+
+    <!-- ─── Your orders ───────────────────────────────────────────────── -->
+    {#if signedIn}
+      <section class="bag-section">
+        <SectionHeading kicker="Your activity" align="left">Your orders</SectionHeading>
+        {#if cancelError}
+          <p class="bag-notice bag-notice-error">{cancelError}</p>
+        {/if}
+        {#if data.myOrders.length === 0}
+          <p class="bag-section-lead">You have no active orders.</p>
+        {:else}
+          <div class="bag-orders">
+            {#each data.myOrders as order (order.messageId)}
+              <Card hoverEffect={false}>
+                <div class="bag-order-head">
+                  <span class="bag-order-type bag-order-{order.orderType}">
+                    {order.orderType === "buy" ? "Buy order" : "Sell offer"}
+                  </span>
+                  <span class="bag-order-status">
+                    {order.claimedByMention ? "Claimed — in progress" : "Awaiting staff"}
+                  </span>
+                  <span class="bag-order-date">{formatDate(order.createdAt)}</span>
+                </div>
+                <ul class="bag-confirm-list">
+                  {#each order.remainingItems as item (item.raid + item.rarity)}
+                    <li><span>{item.raid} · {item.rarity} × {item.amount}</span></li>
+                  {/each}
+                  {#each order.processedItems as processed (processed.item.raid + processed.item.rarity + (processed.filled ? "f" : "d"))}
+                    <li class="bag-processed">
+                      <span>
+                        {processed.filled ? "✅" : "❌"} {processed.item.raid} · {processed.item.rarity} × {processed.item.amount}
+                        {#if !processed.filled && processed.declineReason}— {processed.declineReason}{/if}
+                      </span>
+                    </li>
+                  {/each}
+                </ul>
+                <div class="bag-order-foot">
+                  {#if order.remainingItems.length > 0}
+                    <span class="bag-mono">{formatEb(orderTotal(order))} outstanding</span>
+                  {/if}
+                  {#if isCancellable(order) && order.remainingItems.length > 0}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={cancelling === order.messageId}
+                      onclick={() => cancelOrder(order.messageId)}
+                    >
+                      {cancelling === order.messageId ? "Cancelling…" : "Cancel"}
+                    </Button>
+                  {/if}
+                </div>
+              </Card>
+            {/each}
+          </div>
+        {/if}
+      </section>
+    {/if}
+  {/snippet}
+</PageScaffold>
+
+<style>
+  .bag-section {
+    margin-top: 2.5rem;
+  }
+  .bag-section-lead {
+    color: var(--color-text-secondary);
+    max-width: 60ch;
+    margin: 0.5rem 0 1.25rem;
+    line-height: var(--leading-normal, 1.6);
+  }
+  .bag-staff-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-top: 1.5rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 0.5rem;
+    background: var(--color-surface);
+    color: var(--color-text-secondary);
+    font-size: 0.9rem;
+  }
+
+  .bag-table-scroll {
+    overflow-x: auto;
+  }
+  .bag-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 40rem;
+  }
+  .bag-table th,
+  .bag-table td {
+    padding: 0.65rem 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--color-border-subtle);
+    vertical-align: top;
+  }
+  .bag-table thead th {
+    font-family: var(--font-display);
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-text-dim);
+  }
+  .bag-raid-cell {
+    font-family: var(--font-display);
+    letter-spacing: 0.06em;
+    color: var(--color-text-primary);
+    white-space: nowrap;
+  }
+  .bag-col-unique {
+    color: var(--rarity-unique, var(--color-gold));
+  }
+  .bag-col-rare {
+    color: var(--rarity-rare, var(--color-diamond, #4fd0e0));
+  }
+  .bag-col-legendary {
+    color: var(--rarity-legendary, var(--color-enchant));
+  }
+
+  .bag-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    font-size: 0.85rem;
+  }
+  .bag-cell-stock {
+    color: var(--color-text-primary);
+  }
+  .bag-cell-out {
+    color: var(--color-nether);
+  }
+  .bag-cell-price {
+    color: var(--color-text-secondary);
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+  }
+  .bag-cell-cap {
+    color: var(--color-text-dim);
+    font-size: 0.72rem;
+  }
+  .bag-cell-empty {
+    color: var(--color-text-dim);
+  }
+
+  .bag-mode-toggle {
+    display: inline-flex;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 0.5rem;
+    background: var(--color-deep);
+    margin-bottom: 1.25rem;
+  }
+  .bag-mode {
+    appearance: none;
+    border: none;
+    background: transparent;
+    color: var(--color-text-secondary);
+    font-family: var(--font-display);
+    font-size: 0.8rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.5rem 1rem;
+    border-radius: 0.35rem;
+    cursor: pointer;
+  }
+  .bag-mode-active {
+    background: var(--color-surface);
+    color: var(--color-gold);
+    box-shadow: var(--bevel-slot, inset 0 0 0 1px rgba(245, 197, 66, 0.35));
+  }
+
+  .bag-input-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+  .bag-input {
+    width: 5rem;
+    padding: 0.4rem 0.5rem;
+    background: var(--color-abyss);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 0.35rem;
+    color: var(--color-text-primary);
+    font-family: var(--font-mono);
+  }
+  .bag-input:focus {
+    outline: none;
+    border-color: var(--color-gold);
+  }
+  .bag-input-price {
+    font-size: 0.7rem;
+    color: var(--color-text-dim);
+    font-family: var(--font-mono);
+  }
+
+  .bag-form-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-top: 1.25rem;
+  }
+  .bag-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    flex: 1 1 12rem;
+  }
+  .bag-field-wide {
+    flex: 2 1 20rem;
+  }
+  .bag-field-label {
+    font-family: var(--font-display);
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-text-dim);
+  }
+  .bag-text {
+    padding: 0.55rem 0.7rem;
+    background: var(--color-abyss);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 0.4rem;
+    color: var(--color-text-primary);
+  }
+  .bag-text:focus {
+    outline: none;
+    border-color: var(--color-gold);
+  }
+
+  .bag-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-top: 1.5rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--color-border-subtle);
+  }
+  .bag-summary-label {
+    font-family: var(--font-display);
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-text-dim);
+    margin-right: 0.6rem;
+  }
+  .bag-summary-value {
+    font-family: var(--font-mono);
+    font-size: 1.3rem;
+    color: var(--color-gold);
+  }
+  .bag-summary-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  .bag-hint {
+    color: var(--color-text-dim);
+    font-size: 0.8rem;
+  }
+
+  .bag-notice {
+    color: var(--color-text-secondary);
+    margin: 0 0 0.75rem;
+    line-height: var(--leading-normal, 1.6);
+    white-space: pre-line;
+  }
+  .bag-notice-error {
+    color: var(--color-nether);
+  }
+  .bag-notice-warn {
+    color: var(--color-gold);
+    margin-top: 0.75rem;
+    margin-bottom: 0;
+  }
+
+  .bag-confirm-title {
+    font-family: var(--font-display);
+    letter-spacing: 0.04em;
+    color: var(--color-text-primary);
+    margin: 0 0 0.75rem;
+  }
+  .bag-confirm-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+  .bag-confirm-list li {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    color: var(--color-text-secondary);
+    font-size: 0.9rem;
+  }
+  .bag-processed {
+    color: var(--color-text-dim);
+  }
+  .bag-confirm-total {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    margin: 0.75rem 0 0;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--color-border-subtle);
+    color: var(--color-text-primary);
+  }
+  .bag-mono {
+    font-family: var(--font-mono);
+    color: var(--color-gold);
+  }
+
+  .bag-orders {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
+    gap: 1rem;
+  }
+  .bag-order-head {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.75rem;
+  }
+  .bag-order-type {
+    font-family: var(--font-display);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+  }
+  .bag-order-buy {
+    color: var(--color-diamond, #4fd0e0);
+  }
+  .bag-order-sell {
+    color: var(--color-gold);
+  }
+  .bag-order-status {
+    font-size: 0.8rem;
+    color: var(--color-text-secondary);
+  }
+  .bag-order-date {
+    margin-left: auto;
+    font-size: 0.75rem;
+    color: var(--color-text-dim);
+    font-family: var(--font-mono);
+  }
+  .bag-order-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 0.9rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--color-border-subtle);
+    font-size: 0.85rem;
+  }
+</style>

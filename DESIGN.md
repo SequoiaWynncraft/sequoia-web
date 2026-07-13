@@ -33,6 +33,8 @@ SvelteKit SSR (Bun, :3000 prod / :5173 dev)
   ├── /api/** server routes ─────────► sequoia-web-backend (Rust, :8080)   [this repo]
   │     cookies forwarded                 └── PostgreSQL
   ├── public stats fetches ──────────► sequoia-backend (:8081 / api.seqwawa.com)  [separate repo]
+  ├── /api/bagshop/** ───────────────► seq-bag-shop bot HTTP API (:8080 internal)  [separate repo]
+  │     session JWT forwarded as bearer
   ├── /api/branchmasters ────────────► Wynncraft API v3 (cached in local libSQL)
   └── skin renders ──────────────────► NMSR (api.seqwawa.com/nmsr)
 ```
@@ -48,6 +50,16 @@ SvelteKit SSR (Bun, :3000 prod / :5173 dev)
    for reverse-proxy setups).
 3. **Wynncraft public API** (`api.wynncraft.com/v3`) is called directly by the SvelteKit
    server for branchmasters and by the Rust poller for guild snapshots.
+4. **`seq-bag-shop`** (separate repo, Java Discord bot, HTTP API on `:8080` internal) owns the
+   raid-loot-bag marketplace. The `/services/bagshop` pages proxy to it through
+   `/api/bagshop/**` (`lib/server/bagshop.ts`), **forwarding the `seq_session` cookie as a
+   bearer token** — the session cookie is itself a JWT signed with the shared `JWT_SECRET`
+   carrying `minecraft_uuid`/`minecraft_username`/`discord_id`, which the bot verifies directly.
+   Inventory reads are public; placing/listing/cancelling orders needs any signed-in viewer
+   (the order is owned by the token's Discord id, so the bot still DMs the customer on Discord);
+   staff order management and inventory edits are gated by the bot's `allowlist.json`. The bot
+   API must stay internal — customer/staff separation relies on the token + allowlist, not
+   network exposure.
 
 The web app never connects to Postgres directly — all persistence goes through the Rust
 backend's HTTP API (rule stated in `docs/architecture.md`).
@@ -108,6 +120,12 @@ stay thin by calling `pageView(path)`.
 - Raid-event data is read server-side in the raid page's `load` from the Rust backend's
   `/v1/**`; the member-only leaderboard is fetched with the internal API token after the
   signed-in viewer's guild membership is verified.
+- `/api/bagshop/[...path]` — a thin catch-all proxy to the `seq-bag-shop` bot that forwards the
+  method/path/body with the viewer's `seq_session` cookie attached as a bearer token
+  (`lib/server/bagshop.ts`); the bot enforces customer-vs-staff authorization. The typed client
+  (`lib/api/bagshop.ts`) consumes it with the same `ApiResult` + runtime-guard discipline as the
+  stats client, and the `/services/bagshop` page (customer ordering) and `/services/bagshop/manage`
+  page (staff, gated on the bot's `GET /me` staff flag) are built on it.
 
 **API contract discipline:**
 - `bun run api:types` generates `src/lib/api/generated/public-api.ts` from the sibling
@@ -232,6 +250,7 @@ Target platform is **Coolify** running three services on one network:
 |------------------------|-----------------------|------|-------|
 | `sequoia-web-frontend` | `frontend/Dockerfile` | 3000 | Bun 1.3.14 multi-stage build; `SEQUOIA_WEB_BACKEND_URL=http://sequoia-web-backend:8080` |
 | `sequoia-web-backend`  | `backend/Dockerfile`  | 8080 | Rust multi-stage build; public route `api.seqwawa.com`; holds DB credentials |
+| `seq-bag-shop`         | (separate repo)       | 8080 | Java Discord bot + internal HTTP API; `BAGSHOP_API_URL` points the frontend at it; **not** publicly routed |
 | PostgreSQL             | —                     | 5432 | Reachable from the backend only |
 
 `PUBLIC_SEQUOIA_API_BASE_URL` / `PUBLIC_NMSR_BASE_URL` support either separate origins or
