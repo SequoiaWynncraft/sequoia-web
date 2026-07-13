@@ -17,7 +17,9 @@
   const rankings = $derived(data.rankings);
   const season = $derived(data.season);
   const raidRace = $derived(data.raidRace);
+  const warRace = $derived(data.warRace);
   const activeWindow = $derived(data.window);
+  const activeWarWindow = $derived(data.warWindow);
   const activeRaid = $derived(data.raid ?? "");
 
   const RAID_SCOPES = [
@@ -38,6 +40,13 @@
   const sequoiaRaidEntry = $derived(
     raidRace?.entries.find((entry) => entry.guild_name === guildName) ?? null,
   );
+
+  const warWindowNote = $derived.by(() => {
+    if (!warRace?.baseline_sampled_at || !warRace.current_sampled_at || warRace.totals_only) {
+      return null;
+    }
+    return `${raceDay(warRace.baseline_sampled_at)} → ${raceDay(warRace.current_sampled_at)}`;
+  });
 
   const raceWindowNote = $derived.by(() => {
     if (!raidRace?.baseline_sampled_at || !raidRace.current_sampled_at || raidRace.totals_only) {
@@ -61,13 +70,24 @@
   function raceHref(key: string): string {
     const query = new URLSearchParams({ window: key });
     if (activeRaid) query.set("raid", activeRaid);
-    if (season !== null) query.set("season", String(season));
-    return `?${query}`;
+    return withSharedParams(query);
   }
 
   function raidScopeHref(key: string): string {
     const query = new URLSearchParams({ window: activeWindow });
     if (key) query.set("raid", key);
+    return withSharedParams(query);
+  }
+
+  function warHref(key: string): string {
+    const query = new URLSearchParams({ window: activeWindow, wwindow: key });
+    if (activeRaid) query.set("raid", activeRaid);
+    if (season !== null) query.set("season", String(season));
+    return `?${query}`;
+  }
+
+  function withSharedParams(query: URLSearchParams): string {
+    if (activeWarWindow !== "7d") query.set("wwindow", activeWarWindow);
     if (season !== null) query.set("season", String(season));
     return `?${query}`;
   }
@@ -182,6 +202,53 @@
     return columns;
   });
 
+  const warColumns: LedgerColumn<GlobalRaidRankingEntry>[] = $derived.by(() => {
+    const columns: LedgerColumn<GlobalRaidRankingEntry>[] = [
+      {
+        key: "position",
+        label: "#",
+        numeric: true,
+        value: (entry) => String(entry.position),
+        sortValue: (entry) => entry.position,
+      },
+      {
+        key: "guild",
+        label: "Guild",
+        nameStyle: true,
+        value: (entry) => entry.guild_name,
+        sortValue: (entry) => entry.guild_name.toLowerCase(),
+        secondary: (entry) => (entry.prefix ? `[${entry.prefix}]` : null),
+        href: (entry) => guildHref(entry.guild_name),
+      },
+    ];
+    if (!warRace?.totals_only) {
+      columns.push({
+        key: "gained",
+        label: "Wars gained",
+        numeric: true,
+        value: (entry) => `+${entry.raids_gained.toLocaleString()}`,
+        sortValue: (entry) => entry.raids_gained,
+      });
+    }
+    columns.push(
+      {
+        key: "total",
+        label: "Total wars",
+        numeric: true,
+        value: (entry) => entry.raids_total.toLocaleString(),
+        sortValue: (entry) => entry.raids_total,
+      },
+      {
+        key: "rank",
+        label: "Overall #",
+        numeric: true,
+        value: (entry) => String(entry.leaderboard_rank),
+        sortValue: (entry) => entry.leaderboard_rank,
+      },
+    );
+    return columns;
+  });
+
   const standingsColumns: LedgerColumn<SeasonRankingEntry>[] = [
     {
       key: "position",
@@ -251,6 +318,7 @@
     const value = (event.currentTarget as HTMLSelectElement).value;
     const query = new URLSearchParams({ season: value });
     if (activeWindow !== "7d") query.set("window", activeWindow);
+    if (activeWarWindow !== "7d") query.set("wwindow", activeWarWindow);
     if (activeRaid) query.set("raid", activeRaid);
     void goto(`?${query}`, { noScroll: true, keepFocus: true });
   }
@@ -327,6 +395,38 @@
     />
   {:else}
     <p class="muted">Raid rankings are temporarily unavailable.</p>
+  {/if}
+</section>
+
+<section class="block" aria-label="Guild war race">
+  <SectionLabel meta={warRace ? `top ${warRace.entries.length} · every 10 min` : undefined}>
+    {#snippet children()}Guild war race{/snippet}
+    {#snippet actions()}
+      <ScopeChips
+        scopes={[...RANKING_WINDOWS]}
+        active={activeWarWindow}
+        href={warHref}
+        note={warWindowNote}
+        label="War race window"
+      />
+    {/snippet}
+  </SectionLabel>
+  {#if warRace && warRace.entries.length > 0}
+    {#if warRace.warming_up}
+      <p class="muted">Delta tracking is warming up - showing current totals.</p>
+    {/if}
+    <LedgerTable
+      columns={warColumns}
+      rows={warRace.entries}
+      rowKey={(entry) => `${entry.position}:${entry.guild_name}`}
+      defaultSort="position"
+      defaultDescending={false}
+      showRank={false}
+      highlight={(entry) => entry.guild_name === guildName}
+      maxHeight="480px"
+    />
+  {:else}
+    <p class="muted">War rankings are temporarily unavailable.</p>
   {/if}
 </section>
 
