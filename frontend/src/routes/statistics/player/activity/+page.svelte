@@ -6,6 +6,7 @@
   import DeferredPanel from "$lib/design-system/components/DeferredPanel.svelte";
   import ScopeChips from "$lib/design-system/components/ScopeChips.svelte";
   import { nmsrFace } from "$lib/site/nmsr";
+  import Podium from "$lib/design-system/components/Podium.svelte";
   import type { GuildMemberStats } from "$lib/api/guildStats";
   import type { MemberProgressEntry } from "$lib/api/memberProgress";
 
@@ -14,6 +15,8 @@
   // "now" is the roster as it stands; every other scope shows gains over that window.
   const SCOPES = [
     { key: "now", label: "now" },
+    { key: "1d", label: "1d" },
+    { key: "3d", label: "3d" },
     { key: "1w", label: "1w" },
     { key: "1m", label: "1m" },
     { key: "3m", label: "3m" },
@@ -52,6 +55,37 @@
     }
     return totals;
   });
+
+  /** UTC rollup days summed by the backend - the range is from..to inclusive. */
+  const windowDays = $derived(
+    data.view === "gains"
+      ? Math.max(1, Math.round((Date.parse(data.to) - Date.parse(data.from)) / 86_400_000) + 1)
+      : 1,
+  );
+
+  const activeCount = $derived(
+    progress
+      ? progress.members.filter(
+          (member) => member.playtime_hours > 0 || member.wars > 0 || member.raids > 0,
+        ).length
+      : 0,
+  );
+
+  /** Top gainers by playtime - the window's headline metric. */
+  const topGainers = $derived(
+    progress
+      ? [...progress.members]
+          .filter((member) => member.playtime_hours > 0)
+          .sort((a, b) => b.playtime_hours - a.playtime_hours)
+          .slice(0, 3)
+          .map((member) => ({
+            name: member.player_name,
+            ident: member.player_uuid,
+            value: `${member.playtime_hours.toLocaleString()} h`,
+            href: `/statistics/player/playercard?player=${encodeURIComponent(member.player_name)}`,
+          }))
+      : [],
+  );
 
   const trackingNotes = $derived.by(() => {
     if (data.view !== "gains" || !progress) return [];
@@ -194,6 +228,13 @@
       value: (member) => points(member.war_points),
       sortValue: (member) => member.war_points,
     },
+    {
+      key: "rate",
+      label: "h / day",
+      numeric: true,
+      value: (member) => points(member.playtime_hours / windowDays),
+      sortValue: (member) => member.playtime_hours / windowDays,
+    },
   ];
 </script>
 
@@ -264,8 +305,12 @@
   </div>
   <div class="divider-gold divider-below"></div>
 
+  {#if topGainers.length === 3}
+    <Podium entries={topGainers} label="Top gainers" />
+  {/if}
+
   <section class="block" aria-label="Member gains">
-    <SectionLabel meta="{progress.members.length} members">
+    <SectionLabel meta="{progress.members.length} members · {activeCount} active">
       {#snippet children()}Gains ledger{/snippet}
     </SectionLabel>
     <LedgerTable
