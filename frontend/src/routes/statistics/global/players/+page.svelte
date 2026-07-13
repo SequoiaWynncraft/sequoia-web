@@ -3,6 +3,13 @@
   import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
   import LedgerTable from "$lib/design-system/components/LedgerTable.svelte";
   import type { LedgerColumn } from "$lib/design-system/components/ledgerTable";
+  import ScopeChips from "$lib/design-system/components/ScopeChips.svelte";
+  import Podium from "$lib/design-system/components/Podium.svelte";
+  import {
+    PLAYER_METRICS,
+    PLAYER_WINDOWS,
+    type GlobalPlayerRankingEntry,
+  } from "$lib/api/globalPlayers";
   import type { PlayerSearchHit } from "$lib/server/globalPlayer";
   import { nmsrFace } from "$lib/site/nmsr";
 
@@ -10,8 +17,95 @@
 
   const query = $derived(data.query);
   const hits = $derived(data.hits);
+  const rankings = $derived(data.rankings);
+  const activeMetric = $derived(data.metric);
+  const activeWindow = $derived(data.window);
 
-  const columns: LedgerColumn<PlayerSearchHit>[] = [
+  const metricLabel = $derived(
+    PLAYER_METRICS.find((metric) => metric.key === activeMetric)?.label ?? "Playtime",
+  );
+
+  function boardHref(metric: string, window: string): string {
+    const params = new URLSearchParams();
+    if (metric !== "playtime") params.set("metric", metric);
+    if (window !== "7d") params.set("window", window);
+    const suffix = params.toString();
+    return suffix ? `?${suffix}` : "?";
+  }
+
+  function playerHref(entry: GlobalPlayerRankingEntry): string {
+    // UUIDs dodge the 300 selector that reused usernames answer with.
+    return `/statistics/global/players/${encodeURIComponent(entry.player_uuid)}`;
+  }
+
+  function metricValue(value: number): string {
+    return activeMetric === "playtime" ? `${value.toLocaleString()} h` : value.toLocaleString();
+  }
+
+  const windowNote = $derived.by(() => {
+    if (!rankings) return null;
+    if (rankings.from && rankings.to) return `${day(rankings.from)} to ${day(rankings.to)}`;
+    if (rankings.range === "all" && rankings.data_since) {
+      return `tracked since ${day(rankings.data_since)}`;
+    }
+    return null;
+  });
+
+  function day(value: string): string {
+    return new Date(`${value}T00:00:00Z`).toLocaleDateString("en-GB", {
+      month: "short",
+      day: "numeric",
+      timeZone: "UTC",
+    });
+  }
+
+  const podiumEntries = $derived(
+    (rankings?.entries ?? []).slice(0, 5).map((entry) => ({
+      name: entry.username,
+      ident: entry.player_uuid,
+      value: metricValue(entry.value),
+      href: playerHref(entry),
+    })),
+  );
+
+  const boardColumns: LedgerColumn<GlobalPlayerRankingEntry>[] = $derived.by(() => [
+    {
+      key: "position",
+      label: "#",
+      numeric: true,
+      value: (entry) => String(entry.position),
+      sortValue: (entry) => entry.position,
+    },
+    {
+      key: "player",
+      label: "Player",
+      nameStyle: true,
+      value: (entry) => entry.username,
+      sortValue: (entry) => entry.username.toLowerCase(),
+      avatar: (entry) => nmsrFace(entry.player_uuid, 22),
+      href: (entry) => playerHref(entry),
+    },
+    {
+      key: "guild",
+      label: "Guild",
+      value: (entry) => entry.guild_name ?? "-",
+      sortValue: (entry) => entry.guild_name?.toLowerCase() ?? null,
+      secondary: (entry) => (entry.guild_prefix ? `[${entry.guild_prefix}]` : null),
+      href: (entry) =>
+        entry.guild_name
+          ? `/statistics/global/guilds/${encodeURIComponent(entry.guild_name)}`
+          : null,
+    },
+    {
+      key: "value",
+      label: metricLabel,
+      numeric: true,
+      value: (entry) => metricValue(entry.value),
+      sortValue: (entry) => entry.value,
+    },
+  ]);
+
+  const searchColumns: LedgerColumn<PlayerSearchHit>[] = [
     {
       key: "player",
       label: "Player",
@@ -19,13 +113,12 @@
       value: (hit) => hit.username,
       sortValue: (hit) => hit.username.toLowerCase(),
       avatar: (hit) => nmsrFace(hit.uuid, 22),
-      // UUIDs dodge the 300 selector that reused usernames answer with.
       href: (hit) => `/statistics/global/players/${encodeURIComponent(hit.uuid)}`,
     },
   ];
 </script>
 
-<StatsHeader kicker="Global" title="Players" lead="Look up any player on Wynncraft." />
+<StatsHeader kicker="Global" title="Players" lead="Look up any player - or see who leads the server." />
 
 <form class="lookup" method="GET" action="/statistics/global/players">
   <input
@@ -51,7 +144,7 @@
       <p class="muted">No players match "{query}".</p>
     {:else}
       <LedgerTable
-        columns={columns}
+        columns={searchColumns}
         rows={hits}
         rowKey={(hit) => hit.uuid}
         defaultSort="player"
@@ -62,8 +155,51 @@
     {/if}
   </section>
 {:else if query.length > 0}
-  <p class="muted">Type at least 3 characters to search.</p>
+  <p class="muted lookup-hint">Type at least 3 characters to search.</p>
 {/if}
+
+<section class="block" aria-label="Player rankings">
+  <SectionLabel
+    meta={rankings ? `top ${rankings.entries.length} · every 15 min` : undefined}
+  >
+    {#snippet children()}Player rankings{/snippet}
+    {#snippet actions()}
+      <div class="board-scopes">
+        <ScopeChips
+          scopes={[...PLAYER_METRICS]}
+          active={activeMetric}
+          href={(key) => boardHref(key, activeWindow)}
+          label="Metric"
+        />
+        <ScopeChips
+          scopes={[...PLAYER_WINDOWS]}
+          active={activeWindow}
+          href={(key) => boardHref(activeMetric, key)}
+          note={windowNote}
+          label="Window"
+        />
+      </div>
+    {/snippet}
+  </SectionLabel>
+  {#if rankings && rankings.warming_up}
+    <p class="muted">Rankings are warming up - check back in a few minutes.</p>
+  {:else if rankings && rankings.entries.length > 0}
+    {#if podiumEntries.length >= 3}
+      <Podium max={5} entries={podiumEntries} label="Top players" />
+    {/if}
+    <LedgerTable
+      columns={boardColumns}
+      rows={rankings.entries}
+      rowKey={(entry) => entry.player_uuid}
+      defaultSort="position"
+      defaultDescending={false}
+      showRank={false}
+      maxHeight="640px"
+    />
+  {:else}
+    <p class="muted">Player rankings are temporarily unavailable.</p>
+  {/if}
+</section>
 
 <style>
   .lookup {
@@ -113,6 +249,12 @@
     outline-offset: 2px;
   }
 
+  .board-scopes {
+    display: grid;
+    gap: 8px;
+    justify-items: end;
+  }
+
   .block {
     margin-bottom: 40px;
   }
@@ -121,5 +263,9 @@
     margin: 0;
     color: var(--text-muted);
     font-size: var(--text-sm);
+  }
+
+  .lookup-hint {
+    margin-bottom: 40px;
   }
 </style>
