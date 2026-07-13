@@ -26,7 +26,7 @@
   });
 
   const podium = $derived(
-    [...raiders].sort((a, b) => (b.raids_total ?? 0) - (a.raids_total ?? 0)).slice(0, 3),
+    [...raiders].sort((a, b) => (b.raids_total ?? 0) - (a.raids_total ?? 0)).slice(0, 5),
   );
 
   const columns: LedgerColumn<GuildMemberStats>[] = $derived([
@@ -65,7 +65,8 @@
 
 {#if stats}
   <Podium
-    label="Top three raiders"
+    max={5}
+    label="Top raiders"
     entries={podium.map((member) => ({
       name: member.username,
       ident: member.uuid ?? member.username,

@@ -38,7 +38,7 @@
   <div class="podium" aria-label={label}>
     {#each arranged as entry (entry.ident)}
       <a
-        class="podium-slot"
+        class="podium-slot podium-place-{Math.min(entry.place, 4)}"
         class:podium-first={entry.place === 1}
         class:podium-extra={entry.place > 3}
         href={entry.href}
@@ -92,17 +92,45 @@
 
   .podium-first {
     border-color: rgba(245, 197, 66, 0.35);
-    padding-top: 26px;
   }
 
   .podium-render {
-    width: 96px;
     height: auto;
     image-rendering: pixelated;
   }
 
-  .podium-first .podium-render {
-    width: 120px;
+  /* A real staircase: every place gets its own step so the hierarchy reads
+     at a glance. Slots bottom-align, so render size and headroom set height. */
+  .podium-place-1 {
+    padding-top: 30px;
+  }
+
+  .podium-place-1 .podium-render {
+    width: 124px;
+  }
+
+  .podium-place-2 {
+    padding-top: 22px;
+  }
+
+  .podium-place-2 .podium-render {
+    width: 108px;
+  }
+
+  .podium-place-3 {
+    padding-top: 15px;
+  }
+
+  .podium-place-3 .podium-render {
+    width: 96px;
+  }
+
+  .podium-place-4 {
+    padding-top: 10px;
+  }
+
+  .podium-place-4 .podium-render {
+    width: 86px;
   }
 
   .podium-place {
@@ -142,15 +170,20 @@
     .podium-slot {
       flex: 1 1 0;
       min-width: 0;
-      padding: 12px 8px 10px;
+      padding-right: 8px;
+      padding-left: 8px;
     }
 
-    .podium-render {
-      width: 72px;
-    }
-
-    .podium-first .podium-render {
+    .podium-place-1 .podium-render {
       width: 88px;
+    }
+
+    .podium-place-2 .podium-render {
+      width: 76px;
+    }
+
+    .podium-place-3 .podium-render {
+      width: 68px;
     }
   }
 </style>
