@@ -13,7 +13,7 @@ export function isPlayerMetric(value: string | null): value is PlayerMetric {
 
 /** Windows the player rankings boards cover; day-granular UTC rollups. */
 export const PLAYER_WINDOWS = [
-  { key: "1d", label: "24h" },
+  { key: "1d", label: "1d" },
   { key: "7d", label: "7 days" },
   { key: "30d", label: "30 days" },
   { key: "all", label: "Lifetime" },

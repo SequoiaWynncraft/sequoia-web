@@ -44,7 +44,12 @@
 
   const windowNote = $derived.by(() => {
     if (!rankings) return null;
-    if (rankings.from && rankings.to) return `${day(rankings.from)} to ${day(rankings.to)}`;
+    if (rankings.from && rankings.to) {
+      // Tracking may have started inside the requested window - never claim more.
+      const truncated = rankings.data_since !== null && rankings.data_since > rankings.from;
+      const from = truncated && rankings.data_since ? rankings.data_since : rankings.from;
+      return `${truncated ? "tracked " : ""}${day(from)} to ${day(rankings.to)}`;
+    }
     if (rankings.range === "all" && rankings.data_since) {
       return `tracked since ${day(rankings.data_since)}`;
     }
