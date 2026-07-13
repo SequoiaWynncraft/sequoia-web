@@ -10,7 +10,8 @@ import { createCachedResource, type CachedResource } from "$lib/server/serverCac
 const FRESH_MS = 2 * 60 * 1000;
 const STALE_MS = 60 * 60 * 1000;
 
-// One resource per (window, raid) pair - a small fixed set (4 windows x 6 scopes).
+// One resource per (window, raid) pair - a small fixed set (4 windows x 6 scopes),
+// plus one per window for the war boards.
 const resources = new Map<string, CachedResource<GlobalRaidRankings>>();
 
 export async function getGlobalRaidRankings(
@@ -18,14 +19,33 @@ export async function getGlobalRaidRankings(
   window: RankingWindow,
   raid?: string,
 ): Promise<GlobalRaidRankingsResponse> {
-  const key = `${window}:${raid ?? "all-raids"}`;
+  return getBoard(fetchImpl, `global-raid-rankings:${window}:${raid ?? "all-raids"}:v2`, (impl) =>
+    loadRankings(impl, "guild-raid-rankings", window, raid),
+  );
+}
+
+/** Guild war race - same board shape; entry counts are wars, gambits/SR stay zero. */
+export async function getGlobalWarRankings(
+  fetchImpl: typeof fetch,
+  window: RankingWindow,
+): Promise<GlobalRaidRankingsResponse> {
+  return getBoard(fetchImpl, `global-war-rankings:${window}:v1`, (impl) =>
+    loadRankings(impl, "guild-war-rankings", window),
+  );
+}
+
+async function getBoard(
+  fetchImpl: typeof fetch,
+  key: string,
+  load: (impl: typeof fetch) => Promise<GlobalRaidRankings>,
+): Promise<GlobalRaidRankingsResponse> {
   let resource = resources.get(key);
   if (!resource) {
     resource = createCachedResource<GlobalRaidRankings>({
-      key: `global-raid-rankings:${key}:v2`,
+      key,
       freshMs: FRESH_MS,
       staleMs: STALE_MS,
-      load: (impl) => loadRankings(impl, window, raid),
+      load,
       validate: isGlobalRaidRankings,
     });
     resources.set(key, resource);
@@ -40,14 +60,15 @@ export async function getGlobalRaidRankings(
 
 async function loadRankings(
   fetchImpl: typeof fetch,
+  endpoint: "guild-raid-rankings" | "guild-war-rankings",
   window: RankingWindow,
   raid?: string,
 ): Promise<GlobalRaidRankings> {
   const query = new URLSearchParams({ range: window });
   if (raid) query.set("raid", raid);
-  const url = `${SEQUOIA_API_BASE_URL}/public/global/guild-raid-rankings?${query}`;
+  const url = `${SEQUOIA_API_BASE_URL}/public/global/${endpoint}?${query}`;
   const response = await fetchImpl(url, { signal: AbortSignal.timeout(8000) });
-  if (!response.ok) throw new Error(`Global raid rankings request failed (${response.status}).`);
+  if (!response.ok) throw new Error(`Global rankings request failed (${response.status}).`);
   const data = (await response.json()) as Record<string, unknown>;
   // The extra columns default to zero so a backend that predates them still
   // renders the board instead of failing validation.
