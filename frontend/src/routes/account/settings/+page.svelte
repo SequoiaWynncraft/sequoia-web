@@ -68,7 +68,7 @@
 
         <div class="signal-options">
           {#each options as option, index}
-            <label class="signal-option" class:signal-option-selected={(form?.dmLevel ?? data.preference) === option.value}>
+            <label class="signal-option">
               <input
                 type="radio"
                 name="dm_level"
@@ -94,7 +94,10 @@
           {:else if form?.error === "unavailable"}
             <span class="save-error">Sierra could not save this yet. Your previous preference is unchanged.</span>
           {:else if form?.error === "signin"}
-            <span class="save-error">Your session expired. Sign in again before saving.</span>
+            <span class="save-error">
+              Your session expired.
+              <a href={webAuthStartUrl(page.url.href)}>Sign in again</a> before saving.
+            </span>
           {:else}
             <span>Default: important only</span>
           {/if}
@@ -194,7 +197,7 @@
     border-color: var(--color-border-accent);
   }
 
-  .signal-option-selected {
+  .signal-option:has(input:checked) {
     border-color: rgba(245, 197, 66, 0.7);
     background: linear-gradient(90deg, rgba(245, 197, 66, 0.1), rgba(245, 197, 66, 0.015));
   }

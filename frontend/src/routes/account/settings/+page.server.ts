@@ -14,10 +14,12 @@ export const load: PageServerLoad = async ({ parent, cookies, fetch }) => {
   const token = cookies.get("seq_session");
   if (!viewer || !token) return { access: "signin" as const, preference: null };
 
-  const preference = await getPartyFinderDmLevel(token, fetch);
-  return preference
-    ? { access: "ready" as const, preference }
-    : { access: "unavailable" as const, preference: null };
+  const result = await getPartyFinderDmLevel(token, fetch);
+  if (result.status === "ok") return { access: "ready" as const, preference: result.level };
+  return {
+    access: result.status === "unauthorized" ? ("signin" as const) : ("unavailable" as const),
+    preference: null,
+  };
 };
 
 export const actions: Actions = {
