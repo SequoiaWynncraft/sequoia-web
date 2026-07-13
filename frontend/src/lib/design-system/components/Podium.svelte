@@ -47,7 +47,7 @@
           class="podium-render"
           src={nmsrFrontBust(entry.ident, 120)}
           alt="{entry.name}'s skin"
-          loading="lazy"
+          loading="eager"
         />
         <span class="podium-place">#{entry.place}</span>
         <span class="podium-name">{entry.name}</span>
@@ -99,6 +99,9 @@
   }
 
   .podium-render {
+    /* Front-bust renders are square; reserving the box before the skin loads
+       keeps slot heights stable, so reloads and re-sorts never jitter. */
+    aspect-ratio: 1;
     height: auto;
     /* The clamp minimums can exceed a very narrow slot - never overflow it. */
     max-width: 100%;
