@@ -56,10 +56,10 @@
     return totals;
   });
 
-  /** Whole UTC days covered by the window; today counts once it has data. */
+  /** UTC rollup days summed by the backend - the range is from..to inclusive. */
   const windowDays = $derived(
     data.view === "gains"
-      ? Math.max(1, Math.round((Date.parse(data.to) - Date.parse(data.from)) / 86_400_000))
+      ? Math.max(1, Math.round((Date.parse(data.to) - Date.parse(data.from)) / 86_400_000) + 1)
       : 1,
   );
 
