@@ -100,6 +100,8 @@
 
   .podium-render {
     height: auto;
+    /* The clamp minimums can exceed a very narrow slot - never overflow it. */
+    max-width: 100%;
     image-rendering: pixelated;
   }
 
