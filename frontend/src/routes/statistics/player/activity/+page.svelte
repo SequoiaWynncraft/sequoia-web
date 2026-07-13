@@ -77,7 +77,7 @@
       ? [...progress.members]
           .filter((member) => member.playtime_hours > 0)
           .sort((a, b) => b.playtime_hours - a.playtime_hours)
-          .slice(0, 3)
+          .slice(0, 5)
           .map((member) => ({
             name: member.player_name,
             ident: member.player_uuid,
@@ -305,8 +305,8 @@
   </div>
   <div class="divider-gold divider-below"></div>
 
-  {#if topGainers.length === 3}
-    <Podium entries={topGainers} label="Top gainers" />
+  {#if topGainers.length >= 3}
+    <Podium max={5} entries={topGainers} label="Top gainers" />
   {/if}
 
   <section class="block" aria-label="Member gains">
