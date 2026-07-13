@@ -110,19 +110,19 @@
   }
 
   .podium-place-2 {
-    padding-top: 20px;
+    padding-top: 22px;
   }
 
   .podium-place-2 .podium-render {
-    width: 102px;
+    width: 108px;
   }
 
   .podium-place-3 {
-    padding-top: 14px;
+    padding-top: 15px;
   }
 
   .podium-place-3 .podium-render {
-    width: 90px;
+    width: 96px;
   }
 
   .podium-place-4 {
@@ -130,7 +130,7 @@
   }
 
   .podium-place-4 .podium-render {
-    width: 78px;
+    width: 86px;
   }
 
   .podium-place {
