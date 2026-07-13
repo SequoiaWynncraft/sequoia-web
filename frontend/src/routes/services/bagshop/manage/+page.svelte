@@ -1,5 +1,6 @@
 <script lang="ts">
   import { invalidateAll } from "$app/navigation";
+  import { SvelteSet } from "svelte/reactivity";
 
   import PageScaffold from "$lib/components/PageScaffold.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
@@ -18,7 +19,9 @@
 
   const groups = $derived(groupInventoryByRaid(data.inventory));
 
-  let busy = $state<string | null>(null);
+  // Message/inventory IDs with an action in flight — a Set so concurrent Fill/Decline/Save
+  // actions keep independent pending state rather than clobbering one another.
+  const busy = new SvelteSet<string>();
   let actionError = $state<string | null>(null);
   let declineReasons = $state<Record<string, string>>({});
 
@@ -31,15 +34,21 @@
   }
 
   async function run(id: string, fn: () => Promise<{ ok: boolean; error?: { code: string; message: string } }>) {
-    busy = id;
+    busy.add(id);
     actionError = null;
-    const result = await fn();
-    busy = null;
-    if (!result.ok && result.error) {
-      actionError = result.error.code === "forbidden" ? "That action was rejected — you may not be allowed." : result.error.message;
-      return;
+    try {
+      const result = await fn();
+      if (!result.ok) {
+        actionError =
+          result.error?.code === "forbidden"
+            ? "That action was rejected — you may not be allowed."
+            : (result.error?.message ?? "That action failed. Please try again.");
+        return;
+      }
+      await invalidateAll();
+    } finally {
+      busy.delete(id);
     }
-    await invalidateAll();
   }
 
   const claim = (order: Order) => run(`claim:${order.messageId}`, () => client.claimOrder(order.messageId));
@@ -62,22 +71,28 @@
     const s = Number.parseInt(draft.stock, 10);
     const p = Number.parseInt(draft.price, 10);
     const c = Number.parseInt(draft.cap, 10);
+    // Never send negative stock, price or cap upstream — reject the save outright.
+    if ((Number.isFinite(s) && s < 0) || (Number.isFinite(p) && p < 0) || (Number.isFinite(c) && c < 0)) return;
     if (Number.isFinite(s) && s !== stock) patch.stock = s;
     if (Number.isFinite(p) && p !== price) patch.price = p;
     if (Number.isFinite(c) && c !== cap) patch.cap = c;
     if (Object.keys(patch).length === 0) return;
 
-    busy = `inv:${key}`;
+    const id = `inv:${key}`;
+    busy.add(id);
     actionError = null;
-    const result = await client.patchInventory(key, patch);
-    busy = null;
-    if (!result.ok) {
-      actionError = result.error.code === "forbidden" ? "Inventory edits are restricted to shop staff." : result.error.message;
-      return;
+    try {
+      const result = await client.patchInventory(key, patch);
+      if (!result.ok) {
+        actionError = result.error.code === "forbidden" ? "Inventory edits are restricted to shop staff." : result.error.message;
+        return;
+      }
+      savedKey = key;
+      delete drafts[key];
+      await invalidateAll();
+    } finally {
+      busy.delete(id);
     }
-    savedKey = key;
-    delete drafts[key];
-    await invalidateAll();
   }
 </script>
 
@@ -92,7 +107,11 @@
     <!-- ─── Open orders ───────────────────────────────────────────────── -->
     <section class="mg-section">
       <SectionHeading kicker="Queue" align="left">Open orders</SectionHeading>
-      {#if data.openOrders.length === 0}
+      {#if data.ordersError}
+        <Card hoverEffect={false}>
+          <p class="mg-error">Couldn't load the order queue right now. Please try again shortly.</p>
+        </Card>
+      {:else if data.openOrders.length === 0}
         <p class="mg-lead">No open orders right now.</p>
       {:else}
         <div class="mg-orders">
@@ -117,7 +136,7 @@
                         <Button
                           size="sm"
                           variant="secondary"
-                          disabled={busy === `fill:${order.messageId}:${item.raid}:${item.rarity}`}
+                          disabled={busy.has(`fill:${order.messageId}:${item.raid}:${item.rarity}`)}
                           onclick={() => fillAllItem(order, item.raid, item.rarity)}
                         >
                           Fill
@@ -125,7 +144,7 @@
                         <Button
                           size="sm"
                           variant="ghost"
-                          disabled={busy === `decline:${order.messageId}:${item.raid}:${item.rarity}`}
+                          disabled={busy.has(`decline:${order.messageId}:${item.raid}:${item.rarity}`)}
                           onclick={() => declineItem(order, item.raid, item.rarity)}
                         >
                           Decline
@@ -145,11 +164,11 @@
 
               <div class="mg-order-foot">
                 {#if !order.claimedByMention}
-                  <Button size="sm" variant="primary" disabled={busy === `claim:${order.messageId}`} onclick={() => claim(order)}>
+                  <Button size="sm" variant="primary" disabled={busy.has(`claim:${order.messageId}`)} onclick={() => claim(order)}>
                     Claim
                   </Button>
                 {:else}
-                  <Button size="sm" variant="ghost" disabled={busy === `declineall:${order.messageId}`} onclick={() => declineOrder(order)}>
+                  <Button size="sm" variant="ghost" disabled={busy.has(`declineall:${order.messageId}`)} onclick={() => declineOrder(order)}>
                     Decline all remaining
                   </Button>
                 {/if}
@@ -164,6 +183,11 @@
     <section class="mg-section">
       <SectionHeading kicker="Inventory" align="left">Stock, prices &amp; caps</SectionHeading>
       <p class="mg-lead">Prices are in emerald blocks. A cap of 0 means no limit.</p>
+      {#if data.inventoryError}
+        <Card hoverEffect={false}>
+          <p class="mg-error">Couldn't load the inventory right now. Please try again shortly.</p>
+        </Card>
+      {/if}
       <div class="mg-table-scroll">
         <table class="mg-table">
           <thead>
@@ -183,14 +207,14 @@
                   {@const draft = draftFor(cell.key, cell.stock, cell.sellPrice, cell.cap)}
                   <tr>
                     <th scope="row" class="mg-bag">{group.raid} · {rarity}</th>
-                    <td><input class="mg-num" type="number" min="0" bind:value={draft.stock} onchange={(e) => (drafts[cell.key] = { ...draft, stock: e.currentTarget.value })} /></td>
-                    <td><input class="mg-num" type="number" min="0" bind:value={draft.price} onchange={(e) => (drafts[cell.key] = { ...draft, price: e.currentTarget.value })} /></td>
-                    <td><input class="mg-num" type="number" min="0" bind:value={draft.cap} onchange={(e) => (drafts[cell.key] = { ...draft, cap: e.currentTarget.value })} /></td>
+                    <td><input class="mg-num" type="number" min="0" bind:value={draft.stock} oninput={(e) => (drafts[cell.key] = { ...draft, stock: e.currentTarget.value })} /></td>
+                    <td><input class="mg-num" type="number" min="0" bind:value={draft.price} oninput={(e) => (drafts[cell.key] = { ...draft, price: e.currentTarget.value })} /></td>
+                    <td><input class="mg-num" type="number" min="0" bind:value={draft.cap} oninput={(e) => (drafts[cell.key] = { ...draft, cap: e.currentTarget.value })} /></td>
                     <td>
                       <Button
                         size="sm"
                         variant="secondary"
-                        disabled={busy === `inv:${cell.key}`}
+                        disabled={busy.has(`inv:${cell.key}`)}
                         onclick={() => saveInventory(cell.key, cell.stock, cell.sellPrice, cell.cap)}
                       >
                         {savedKey === cell.key && !drafts[cell.key] ? "Saved" : "Save"}

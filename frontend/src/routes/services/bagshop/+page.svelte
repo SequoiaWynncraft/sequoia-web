@@ -1,5 +1,6 @@
 <script lang="ts">
   import { untrack } from "svelte";
+  import { SvelteSet } from "svelte/reactivity";
 
   import { invalidateAll } from "$app/navigation";
 
@@ -11,6 +12,7 @@
   import {
     createBagshopClient,
     RARITIES,
+    splitInventoryKey,
     type OrderType,
     type PlacedOrder,
   } from "$lib/api/bagshop";
@@ -32,9 +34,10 @@
 
   const groups = $derived(groupInventoryByRaid(data.inventory));
 
-  // Order builder state.
+  // Order builder state. Number inputs bind as `number | null` (Svelte coerces them and
+  // reports an empty field as null), so `amounts` is keyed to that, not strings.
   let orderType = $state<OrderType>("buy");
-  let amounts = $state<Record<string, string>>({});
+  let amounts = $state<Record<string, number | null>>({});
   let minecraftIgn = $state(untrack(() => data.viewer?.minecraftUsername ?? ""));
   let note = $state("");
 
@@ -42,7 +45,9 @@
   let submitError = $state<string | null>(null);
   let confirmation = $state<PlacedOrder | null>(null);
 
-  let cancelling = $state<string | null>(null);
+  // Message IDs with a cancel in flight — a Set so cancelling one order doesn't drop the
+  // pending state of another the customer cancelled concurrently.
+  const cancelling = new SvelteSet<string>();
   let cancelError = $state<string | null>(null);
 
   const signedIn = $derived(data.viewer !== null);
@@ -59,11 +64,10 @@
   const draftLines = $derived.by<DraftLine[]>(() => {
     const lines: DraftLine[] = [];
     for (const item of data.inventory) {
-      const raw = amounts[item.key]?.trim();
-      if (!raw) continue;
-      const amount = Number.parseInt(raw, 10);
-      if (!Number.isFinite(amount) || amount <= 0) continue;
-      const { raid, rarity } = { raid: item.key.split("_")[0], rarity: item.key.split("_").slice(1).join("_") };
+      const amount = amounts[item.key];
+      // Only whole positive quantities count — empty (null) and decimals are skipped.
+      if (amount == null || !Number.isInteger(amount) || amount <= 0) continue;
+      const { raid, rarity } = splitInventoryKey(item.key);
       const unit = orderType === "buy" ? item.buyPrice : item.sellPrice;
       lines.push({ key: item.key, raid, rarity, amount, unit, total: unit * amount });
     }
@@ -121,14 +125,17 @@
   }
 
   async function cancelOrder(messageId: string) {
-    cancelling = messageId;
+    cancelling.add(messageId);
     cancelError = null;
-    const result = await client.cancelOrder(messageId);
-    cancelling = null;
-    if (result.ok) {
-      await invalidateAll();
-    } else {
-      cancelError = friendly(result.error.code, result.error.message);
+    try {
+      const result = await client.cancelOrder(messageId);
+      if (result.ok) {
+        await invalidateAll();
+      } else {
+        cancelError = friendly(result.error.code, result.error.message);
+      }
+    } finally {
+      cancelling.delete(messageId);
     }
   }
 
@@ -347,7 +354,11 @@
         {#if cancelError}
           <p class="bag-notice bag-notice-error">{cancelError}</p>
         {/if}
-        {#if data.myOrders.length === 0}
+        {#if data.ordersError}
+          <Card hoverEffect={false}>
+            <p class="bag-notice bag-notice-error">Couldn't load your orders right now. Please refresh in a moment before placing a new order.</p>
+          </Card>
+        {:else if data.myOrders.length === 0}
           <p class="bag-section-lead">You have no active orders.</p>
         {:else}
           <div class="bag-orders">
@@ -383,10 +394,10 @@
                     <Button
                       variant="ghost"
                       size="sm"
-                      disabled={cancelling === order.messageId}
+                      disabled={cancelling.has(order.messageId)}
                       onclick={() => cancelOrder(order.messageId)}
                     >
-                      {cancelling === order.messageId ? "Cancelling…" : "Cancel"}
+                      {cancelling.has(order.messageId) ? "Cancelling…" : "Cancel"}
                     </Button>
                   {/if}
                 </div>

@@ -22,16 +22,18 @@ const handle: RequestHandler = async ({ params, request, cookies, url }) => {
   }
 
   const hasBody = method === "POST" || method === "PATCH";
-  const body = hasBody ? await request.text() : undefined;
+  // Collapse an empty body to undefined so a bodyless POST/PATCH forwards no body at all.
+  const body = hasBody ? (await request.text()) || undefined : undefined;
 
   return proxyToBagshop(`/${subpath}`, {
     method,
     token: cookies.get("seq_session"),
     search: url.search,
-    body: hasBody ? (body ?? "") : undefined,
+    body,
   });
 };
 
+/** Builds a no-store JSON error response with an `{ error }` body. */
 function jsonError(status: number, error: string): Response {
   return new Response(JSON.stringify({ error }), {
     status,

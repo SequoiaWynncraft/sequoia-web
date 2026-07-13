@@ -102,10 +102,12 @@ export interface InventoryPatch {
 
 // ─── Type guards ─────────────────────────────────────────────────────────────
 
+/** True if the value is a non-null object usable as a keyed record. */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+/** Runtime guard for an {@link InventoryItem} shape. */
 function isInventoryItem(value: unknown): value is InventoryItem {
   return (
     isRecord(value) &&
@@ -117,6 +119,7 @@ function isInventoryItem(value: unknown): value is InventoryItem {
   );
 }
 
+/** Runtime guard for an {@link OrderItem} shape. */
 function isOrderItem(value: unknown): value is OrderItem {
   return (
     isRecord(value) &&
@@ -126,6 +129,18 @@ function isOrderItem(value: unknown): value is OrderItem {
   );
 }
 
+/** Runtime guard for a {@link ProcessedItem} shape. */
+function isProcessedItem(value: unknown): value is ProcessedItem {
+  return (
+    isRecord(value) &&
+    isOrderItem(value.item) &&
+    typeof value.filled === "boolean" &&
+    // The bot's Gson omits null fields, so filled items arrive with no `declineReason` key.
+    (value.declineReason == null || typeof value.declineReason === "string")
+  );
+}
+
+/** Runtime guard for an {@link Order} shape. */
 function isOrder(value: unknown): value is Order {
   return (
     isRecord(value) &&
@@ -133,23 +148,40 @@ function isOrder(value: unknown): value is Order {
     (value.orderType === "buy" || value.orderType === "sell") &&
     Array.isArray(value.remainingItems) &&
     value.remainingItems.every(isOrderItem) &&
-    Array.isArray(value.processedItems)
+    Array.isArray(value.processedItems) &&
+    value.processedItems.every(isProcessedItem)
   );
 }
 
+/** Runtime guard for a {@link BagshopMe} shape. */
 function isMe(value: unknown): value is BagshopMe {
   return isRecord(value) && typeof value.minecraftUuid === "string" && typeof value.staff === "boolean";
 }
 
+/** Runtime guard for a {@link PlacedOrderItem} shape. */
+function isPlacedOrderItem(value: unknown): value is PlacedOrderItem {
+  return (
+    isRecord(value) &&
+    typeof value.raid === "string" &&
+    typeof value.rarity === "string" &&
+    typeof value.amount === "number" &&
+    typeof value.unitPrice === "number" &&
+    typeof value.total === "number"
+  );
+}
+
+/** Runtime guard for a {@link PlacedOrder} shape. */
 function isPlacedOrder(value: unknown): value is PlacedOrder {
   return (
     isRecord(value) &&
     (value.orderType === "buy" || value.orderType === "sell") &&
     Array.isArray(value.items) &&
+    value.items.every(isPlacedOrderItem) &&
     typeof value.combinedTotal === "number"
   );
 }
 
+/** True if the value is an array whose every element satisfies `guard`. */
 function isArrayOf<T>(value: unknown, guard: (item: unknown) => item is T): value is T[] {
   return Array.isArray(value) && value.every(guard);
 }
@@ -166,6 +198,7 @@ const ERROR_CODES: Record<string, BagshopErrorCode> = {
   not_allowed: "forbidden",
 };
 
+/** Issues a proxy request and normalizes transport/HTTP failures into a typed {@link BagshopError}. */
 async function request(
   fetchImpl: typeof fetch,
   path: string,
@@ -204,6 +237,7 @@ async function request(
   return { ok: true, data: body };
 }
 
+/** Passes a successful result through only if its data satisfies `guard`, else an `invalid_response` error. */
 function validated<T>(result: ApiResult<unknown>, guard: (v: unknown) => v is T): ApiResult<T> {
   if (!result.ok) return result;
   if (!guard(result.data)) {
@@ -229,6 +263,11 @@ export interface BagshopClient {
   patchInventory(key: string, patch: InventoryPatch): Promise<ApiResult<InventoryItem>>;
 }
 
+/**
+ * Builds a {@link BagshopClient} bound to the given `fetch` (SvelteKit's load `fetch`
+ * on the server, `window.fetch` in the browser). Every method routes through the
+ * same-origin `/api/bagshop/**` proxy and runtime-validates its response.
+ */
 export function createBagshopClient(options: { fetch: typeof fetch }): BagshopClient {
   const f = options.fetch;
 
@@ -292,6 +331,8 @@ export function createBagshopClient(options: { fetch: typeof fetch }): BagshopCl
 
 /** Splits an inventory key like "NOTG_Rare" into its raid and rarity parts. */
 export function splitInventoryKey(key: string): { raid: string; rarity: string } {
-  const sep = key.indexOf("_");
+  // Split on the last "_" so raid codes that themselves contain underscores stay intact
+  // (rarities never do). Keys without a separator keep the whole string as the raid.
+  const sep = key.lastIndexOf("_");
   return sep < 0 ? { raid: key, rarity: "" } : { raid: key.slice(0, sep), rarity: key.slice(sep + 1) };
 }

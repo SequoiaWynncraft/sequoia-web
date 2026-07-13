@@ -25,19 +25,23 @@ interface ProxyOptions {
  * through unchanged. The bag shop itself enforces auth (customer vs. allowlisted staff).
  */
 export async function proxyToBagshop(path: string, opts: ProxyOptions): Promise<Response> {
+  // Treat an empty-string body as absent: a bodyless POST/PATCH forwards no body and no
+  // Content-Type, so the bag shop never sees a spurious `application/json` on an empty request.
+  const body = opts.body ? opts.body : undefined;
   const headers: Record<string, string> = { accept: "application/json" };
   if (opts.token) headers.authorization = `Bearer ${opts.token}`;
-  if (opts.body !== undefined) headers["content-type"] = "application/json";
+  if (body !== undefined) headers["content-type"] = "application/json";
 
   let upstream: Response;
   try {
     upstream = await fetch(bagshopUrl(path) + (opts.search ?? ""), {
       method: opts.method,
       headers,
-      body: opts.body,
+      body,
       signal: AbortSignal.timeout(5000),
     });
-  } catch {
+  } catch (err) {
+    console.error(`bag shop proxy request to ${path} failed:`, err);
     return new Response(JSON.stringify({ error: "bagshop_unreachable" }), {
       status: 503,
       headers: { "content-type": "application/json", "cache-control": "no-store" },
