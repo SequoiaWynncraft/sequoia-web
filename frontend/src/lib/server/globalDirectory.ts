@@ -58,7 +58,8 @@ export async function getGlobalGuildDirectory(
       : [],
   };
   if (!isGlobalDirectoryPage(normalized)) throw new Error("Unexpected guild directory response.");
-  evictOldest();
+  // Refreshing an existing key overwrites in place - only new keys need room.
+  if (!pageCache.has(key)) evictOldest();
   pageCache.set(key, { expires: Date.now() + TTL_MS, page: normalized });
   return normalized;
 }

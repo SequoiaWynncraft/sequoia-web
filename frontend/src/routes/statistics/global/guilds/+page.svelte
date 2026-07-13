@@ -18,6 +18,8 @@
   const lastPage = $derived(
     directory && directory.size > 0 ? Math.max(0, Math.ceil(directory.total / directory.size) - 1) : 0,
   );
+  // Stale links can point past the end; every pager target clamps to reality.
+  const currentPage = $derived(Math.min(page, lastPage));
 
   function directoryHref(sort: string, targetPage: number): string {
     const params = new URLSearchParams();
@@ -177,19 +179,23 @@
     />
     {#if lastPage > 0}
       <nav class="pager" aria-label="Directory pages">
-        {#if page > 0}
-          <a href={directoryHref(activeSort, page - 1)}>← Previous</a>
+        {#if currentPage > 0}
+          <a href={directoryHref(activeSort, currentPage - 1)}>← Previous</a>
         {:else}
           <span class="pager-gap"></span>
         {/if}
-        <span class="pager-status">Page {Math.min(page, lastPage) + 1} of {lastPage + 1}</span>
-        {#if page < lastPage}
-          <a href={directoryHref(activeSort, page + 1)}>Next →</a>
+        <span class="pager-status">Page {currentPage + 1} of {lastPage + 1}</span>
+        {#if currentPage < lastPage}
+          <a href={directoryHref(activeSort, currentPage + 1)}>Next →</a>
         {:else}
           <span class="pager-gap"></span>
         {/if}
       </nav>
     {/if}
+  {:else if directory && directory.total > 0}
+    <p class="muted">
+      This page is past the end - <a class="pager-reset" href={directoryHref(activeSort, 0)}>back to the first page</a>.
+    </p>
   {:else if directory}
     <p class="muted">No guilds match{query ? ` "${query}"` : ""}.</p>
   {:else}
@@ -290,5 +296,13 @@
 
   .pager-gap {
     min-width: 80px;
+  }
+
+  .pager-reset {
+    color: var(--text-heading);
+  }
+
+  .pager-reset:hover {
+    color: var(--color-gold);
   }
 </style>
