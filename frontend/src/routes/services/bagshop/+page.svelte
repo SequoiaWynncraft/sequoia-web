@@ -125,6 +125,7 @@
   }
 
   async function cancelOrder(messageId: string) {
+    if (cancelling.has(messageId)) return;
     cancelling.add(messageId);
     cancelError = null;
     try {
@@ -139,11 +140,12 @@
     }
   }
 
-  function orderTotal(order: (typeof data.myOrders)[number]): number {
+  function orderTotal(order: (typeof data.myOrders)[number]): number | null {
     const priceByKey = new Map(
       data.inventory.map((item) => [item.key, order.orderType === "buy" ? item.buyPrice : item.sellPrice]),
     );
-    return roundToLe(orderRemainingTotal(order, priceByKey), order.orderType);
+    const remaining = orderRemainingTotal(order, priceByKey);
+    return remaining === null ? null : roundToLe(remaining, order.orderType);
   }
 
   function formatDate(unixSeconds: number): string {
@@ -388,7 +390,10 @@
                 </ul>
                 <div class="bag-order-foot">
                   {#if order.remainingItems.length > 0}
-                    <span class="bag-mono">{formatEb(orderTotal(order))} outstanding</span>
+                    {@const outstanding = orderTotal(order)}
+                    {#if outstanding !== null}
+                      <span class="bag-mono">{formatEb(outstanding)} outstanding</span>
+                    {/if}
                   {/if}
                   {#if isCancellable(order) && order.remainingItems.length > 0}
                     <Button

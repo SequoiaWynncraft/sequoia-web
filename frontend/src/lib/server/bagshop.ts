@@ -32,13 +32,21 @@ export async function proxyToBagshop(path: string, opts: ProxyOptions): Promise<
   if (opts.token) headers.authorization = `Bearer ${opts.token}`;
   if (body !== undefined) headers["content-type"] = "application/json";
 
-  let upstream: Response;
   try {
-    upstream = await fetch(bagshopUrl(path) + (opts.search ?? ""), {
+    const upstream = await fetch(bagshopUrl(path) + (opts.search ?? ""), {
       method: opts.method,
       headers,
       body,
       signal: AbortSignal.timeout(5000),
+    });
+    // Read the body inside the try so a mid-stream read failure also degrades to the 503.
+    const text = await upstream.text();
+    return new Response(text, {
+      status: upstream.status,
+      headers: {
+        "content-type": upstream.headers.get("content-type") ?? "application/json",
+        "cache-control": "no-store",
+      },
     });
   } catch (err) {
     console.error(`bag shop proxy request to ${path} failed:`, err);
@@ -47,13 +55,4 @@ export async function proxyToBagshop(path: string, opts: ProxyOptions): Promise<
       headers: { "content-type": "application/json", "cache-control": "no-store" },
     });
   }
-
-  const text = await upstream.text();
-  return new Response(text, {
-    status: upstream.status,
-    headers: {
-      "content-type": upstream.headers.get("content-type") ?? "application/json",
-      "cache-control": "no-store",
-    },
-  });
 }

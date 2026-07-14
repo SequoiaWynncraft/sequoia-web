@@ -73,6 +73,11 @@ describe("orderRemainingTotal / isCancellable", () => {
     expect(orderRemainingTotal(order, prices)).toBe(3 * 10 + 2 * 100);
   });
 
+  it("returns null when any item's price is unknown rather than counting it as zero", () => {
+    const prices = new Map([["NOTG_Rare", 10]]); // NOL_Unique missing
+    expect(orderRemainingTotal(order, prices)).toBeNull();
+  });
+
   it("treats an unclaimed order as cancellable", () => {
     expect(isCancellable(order)).toBe(true);
     expect(isCancellable({ ...order, claimedByMention: "staff <@1>" })).toBe(false);

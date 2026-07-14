@@ -23,7 +23,7 @@ Monorepo combining a Bun workspace and a Cargo workspace:
 
 ## System architecture
 
-Three backends/data sources are involved — keeping them straight matters:
+Four backends/data sources are involved — keeping them straight matters:
 
 ```
 Browser
@@ -244,7 +244,7 @@ runs with `-D warnings` — error handling is explicit (`anyhow::Context` + `?`)
 
 ## Deployment
 
-Target platform is **Coolify** running three services on one network:
+Target platform is **Coolify** running four services on one network:
 
 | Service                | Image                 | Port | Notes |
 |------------------------|-----------------------|------|-------|

@@ -33,8 +33,13 @@
     return drafts[key] ?? { stock: String(stock), price: String(price), cap: String(cap) };
   }
 
-  async function run(id: string, fn: () => Promise<{ ok: boolean; error?: { code: string; message: string } }>) {
-    busy.add(id);
+  /** A per-order lock so a claim/fill/decline can't race another mutation on the same order. */
+  const orderLock = (order: Order) => `order:${order.messageId}`;
+
+  async function run(lockId: string, fn: () => Promise<{ ok: boolean; error?: { code: string; message: string } }>) {
+    // Serialize by resource: ignore a second action while one on the same order/row is in flight.
+    if (busy.has(lockId)) return;
+    busy.add(lockId);
     actionError = null;
     try {
       const result = await fn();
@@ -47,38 +52,50 @@
       }
       await invalidateAll();
     } finally {
-      busy.delete(id);
+      busy.delete(lockId);
     }
   }
 
-  const claim = (order: Order) => run(`claim:${order.messageId}`, () => client.claimOrder(order.messageId));
+  const claim = (order: Order) => run(orderLock(order), () => client.claimOrder(order.messageId));
   const fillAllItem = (order: Order, raid: string, rarity: string) =>
-    run(`fill:${order.messageId}:${raid}:${rarity}`, () => client.fillItem(order.messageId, raid, rarity));
+    run(orderLock(order), () => client.fillItem(order.messageId, raid, rarity));
 
   function declineItem(order: Order, raid: string, rarity: string) {
     const reason = (declineReasons[order.messageId] ?? "").trim();
-    return run(`decline:${order.messageId}:${raid}:${rarity}`, () => client.declineItem(order.messageId, raid, rarity, reason));
+    return run(orderLock(order), () => client.declineItem(order.messageId, raid, rarity, reason));
   }
 
   function declineOrder(order: Order) {
     const reason = (declineReasons[order.messageId] ?? "").trim();
-    return run(`declineall:${order.messageId}`, () => client.declineOrder(order.messageId, reason));
+    return run(orderLock(order), () => client.declineOrder(order.messageId, reason));
+  }
+
+  /** Parses an inventory field: "" → unchanged (null), a non-negative integer → its value, anything else → invalid. */
+  function parseInventoryField(raw: string): number | null | "invalid" {
+    const trimmed = raw.trim();
+    if (trimmed === "") return null;
+    // Reject decimals, negatives and other malformed input rather than truncating with parseInt.
+    if (!/^\d+$/.test(trimmed)) return "invalid";
+    return Number(trimmed);
   }
 
   async function saveInventory(key: string, stock: number, price: number, cap: number) {
     const draft = draftFor(key, stock, price, cap);
+    const s = parseInventoryField(draft.stock);
+    const p = parseInventoryField(draft.price);
+    const c = parseInventoryField(draft.cap);
+    if (s === "invalid" || p === "invalid" || c === "invalid") {
+      actionError = "Stock, price and cap must be whole numbers (0 or more).";
+      return;
+    }
     const patch: Record<string, number> = {};
-    const s = Number.parseInt(draft.stock, 10);
-    const p = Number.parseInt(draft.price, 10);
-    const c = Number.parseInt(draft.cap, 10);
-    // Never send negative stock, price or cap upstream — reject the save outright.
-    if ((Number.isFinite(s) && s < 0) || (Number.isFinite(p) && p < 0) || (Number.isFinite(c) && c < 0)) return;
-    if (Number.isFinite(s) && s !== stock) patch.stock = s;
-    if (Number.isFinite(p) && p !== price) patch.price = p;
-    if (Number.isFinite(c) && c !== cap) patch.cap = c;
+    if (s !== null && s !== stock) patch.stock = s;
+    if (p !== null && p !== price) patch.price = p;
+    if (c !== null && c !== cap) patch.cap = c;
     if (Object.keys(patch).length === 0) return;
 
     const id = `inv:${key}`;
+    if (busy.has(id)) return;
     busy.add(id);
     actionError = null;
     try {
@@ -136,7 +153,7 @@
                         <Button
                           size="sm"
                           variant="secondary"
-                          disabled={busy.has(`fill:${order.messageId}:${item.raid}:${item.rarity}`)}
+                          disabled={busy.has(`order:${order.messageId}`)}
                           onclick={() => fillAllItem(order, item.raid, item.rarity)}
                         >
                           Fill
@@ -144,7 +161,7 @@
                         <Button
                           size="sm"
                           variant="ghost"
-                          disabled={busy.has(`decline:${order.messageId}:${item.raid}:${item.rarity}`)}
+                          disabled={busy.has(`order:${order.messageId}`)}
                           onclick={() => declineItem(order, item.raid, item.rarity)}
                         >
                           Decline
@@ -164,11 +181,11 @@
 
               <div class="mg-order-foot">
                 {#if !order.claimedByMention}
-                  <Button size="sm" variant="primary" disabled={busy.has(`claim:${order.messageId}`)} onclick={() => claim(order)}>
+                  <Button size="sm" variant="primary" disabled={busy.has(`order:${order.messageId}`)} onclick={() => claim(order)}>
                     Claim
                   </Button>
                 {:else}
-                  <Button size="sm" variant="ghost" disabled={busy.has(`declineall:${order.messageId}`)} onclick={() => declineOrder(order)}>
+                  <Button size="sm" variant="ghost" disabled={busy.has(`order:${order.messageId}`)} onclick={() => declineOrder(order)}>
                     Decline all remaining
                   </Button>
                 {/if}

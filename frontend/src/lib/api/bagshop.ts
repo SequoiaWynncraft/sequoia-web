@@ -46,7 +46,8 @@ export interface OrderItem {
 export interface ProcessedItem {
   item: OrderItem;
   filled: boolean;
-  declineReason: string | null;
+  // Omitted by the bot's Gson (no `serializeNulls`) for filled items — hence optional.
+  declineReason?: string | null;
 }
 
 export interface Order {
@@ -57,17 +58,19 @@ export interface Order {
   userName: string;
   minecraftIgn: string;
   createdAt: number;
-  claimedByMention: string | null;
+  // Both null on the bot when unclaimed / unsplit, so Gson omits them: optional here.
+  claimedByMention?: string | null;
   remainingItems: OrderItem[];
   processedItems: ProcessedItem[];
-  linkedMessageId: string | null;
+  linkedMessageId?: string | null;
   splitPart: number;
 }
 
 export interface BagshopMe {
   minecraftUuid: string;
-  minecraftUsername: string | null;
-  discordId: string | null;
+  // Null → omitted by the bot's Gson: optional.
+  minecraftUsername?: string | null;
+  discordId?: string | null;
   staff: boolean;
 }
 
@@ -146,6 +149,9 @@ function isOrder(value: unknown): value is Order {
     isRecord(value) &&
     typeof value.messageId === "string" &&
     (value.orderType === "buy" || value.orderType === "sell") &&
+    typeof value.userId === "string" &&
+    typeof value.createdAt === "number" &&
+    typeof value.splitPart === "number" &&
     Array.isArray(value.remainingItems) &&
     value.remainingItems.every(isOrderItem) &&
     Array.isArray(value.processedItems) &&
@@ -175,6 +181,8 @@ function isPlacedOrder(value: unknown): value is PlacedOrder {
   return (
     isRecord(value) &&
     (value.orderType === "buy" || value.orderType === "sell") &&
+    typeof value.merged === "boolean" &&
+    typeof value.createdAt === "number" &&
     Array.isArray(value.items) &&
     value.items.every(isPlacedOrderItem) &&
     typeof value.combinedTotal === "number"
@@ -196,6 +204,8 @@ const ERROR_CODES: Record<string, BagshopErrorCode> = {
   channel_unavailable: "channel_unavailable",
   not_owner: "forbidden",
   not_allowed: "forbidden",
+  // The proxy's 503 outage body — treat it as a transport failure, like a direct fetch reject.
+  bagshop_unreachable: "network_error",
 };
 
 /** Issues a proxy request and normalizes transport/HTTP failures into a typed {@link BagshopError}. */
@@ -214,7 +224,12 @@ async function request(
     return { ok: false, error: { code: "network_error", message: "Could not reach the bag shop." } };
   }
 
-  const text = await response.text();
+  let text: string;
+  try {
+    text = await response.text();
+  } catch {
+    return { ok: false, error: { code: "network_error", message: "Could not reach the bag shop." } };
+  }
   let body: unknown = null;
   if (text.length > 0) {
     try {

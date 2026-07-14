@@ -43,12 +43,19 @@ export function groupInventoryByRaid(inventory: InventoryItem[]): RaidGroup[] {
   return order.map((raid) => ({ raid, items: byRaid.get(raid) ?? [] }));
 }
 
-/** Sum of an order's outstanding items using the supplied per-key unit prices. */
-export function orderRemainingTotal(order: Order, unitPriceByKey: Map<string, number>): number {
-  return order.remainingItems.reduce(
-    (sum, item) => sum + (unitPriceByKey.get(`${item.raid}_${item.rarity}`) ?? 0) * item.amount,
-    0,
-  );
+/**
+ * Sum of an order's outstanding items using the supplied per-key unit prices, or `null` when
+ * any item's price is unknown — so callers can hide the total rather than show one that silently
+ * treats a missing price as zero.
+ */
+export function orderRemainingTotal(order: Order, unitPriceByKey: Map<string, number>): number | null {
+  let sum = 0;
+  for (const item of order.remainingItems) {
+    const unit = unitPriceByKey.get(`${item.raid}_${item.rarity}`);
+    if (unit === undefined) return null;
+    sum += unit * item.amount;
+  }
+  return sum;
 }
 
 /** True while an order can still be cancelled by its owner (no staff has claimed it). */
