@@ -49,6 +49,8 @@
   // pending state of another the customer cancelled concurrently.
   const cancelling = new SvelteSet<string>();
   let cancelError = $state<string | null>(null);
+  // Message ID whose Cancel button is awaiting an "Are you sure?" confirmation, or null.
+  let confirmingCancel = $state<string | null>(null);
 
   const signedIn = $derived(data.viewer !== null);
 
@@ -76,8 +78,27 @@
 
   const rawTotal = $derived(draftLines.reduce((sum, line) => sum + line.total, 0));
   const roundedTotal = $derived(roundToLe(rawTotal, orderType));
-  const MIN_LE = 32;
-  const meetsMinimum = $derived(roundedTotal >= MIN_LE * 64);
+  const MIN_LE = 4;
+
+  // The most the shop could actually pay out for this draft. For buy orders the bot clamps
+  // each line to current stock before checking the minimum, so a request for more bags than
+  // exist is worth only what's in stock — mirror that so we can warn precisely instead of
+  // telling the customer to "add more bags" they can't obtain. Sell offers aren't stock-capped.
+  const achievableTotal = $derived.by(() => {
+    if (orderType !== "buy") return roundedTotal;
+    const stockByKey = new Map(data.inventory.map((item) => [item.key, item.stock]));
+    let sum = 0;
+    for (const line of draftLines) {
+      const stock = stockByKey.get(line.key) ?? 0;
+      sum += line.unit * Math.max(0, Math.min(line.amount, stock));
+    }
+    return roundToLe(sum, orderType);
+  });
+
+  // True when stock limits shrink the order below what the customer asked for — i.e. the shop
+  // can't fully fill it. Used to explain a below-minimum draft the customer can't fix by adding more.
+  const stockLimited = $derived(orderType === "buy" && achievableTotal < roundedTotal);
+  const meetsMinimum = $derived(achievableTotal >= MIN_LE * 64);
   const canSubmit = $derived(
     signedIn && draftLines.length > 0 && minecraftIgn.trim().length > 0 && meetsMinimum && !submitting,
   );
@@ -85,7 +106,7 @@
   const ERROR_MESSAGES: Record<string, string> = {
     out_of_stock: "Everything you requested is out of stock right now.",
     all_capped: "Every bag type you offered has reached its cap and can't be sold right now.",
-    below_minimum: "Orders must be worth at least 32 LE. Add more bags.",
+    below_minimum: "Orders must be worth at least 4 LE.",
     channel_unavailable: "The shop is briefly unavailable. Please try again in a moment.",
     unauthorized: "Your session expired. Please sign in again.",
     forbidden: "You're not allowed to do that.",
@@ -126,6 +147,7 @@
 
   async function cancelOrder(messageId: string) {
     if (cancelling.has(messageId)) return;
+    confirmingCancel = null;
     cancelling.add(messageId);
     cancelError = null;
     try {
@@ -313,7 +335,14 @@
           </div>
           <div class="bag-summary-actions">
             {#if draftLines.length > 0 && !meetsMinimum}
-              <span class="bag-hint">Minimum order is 32 LE.</span>
+              {#if stockLimited}
+                <span class="bag-hint">
+                  We don't have that many bags in stock — even buying all we have comes to just
+                  {formatEb(achievableTotal)}, below the {MIN_LE} LE minimum.
+                </span>
+              {:else}
+                <span class="bag-hint">Minimum order is {MIN_LE} LE.</span>
+              {/if}
             {/if}
             <Button variant="primary" disabled={!canSubmit} onclick={submit}>
               {submitting ? "Submitting…" : orderType === "buy" ? "Submit buy order" : "Submit sell offer"}
@@ -396,14 +425,31 @@
                     {/if}
                   {/if}
                   {#if isCancellable(order) && order.remainingItems.length > 0}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      disabled={cancelling.has(order.messageId)}
-                      onclick={() => cancelOrder(order.messageId)}
-                    >
-                      {cancelling.has(order.messageId) ? "Cancelling…" : "Cancel"}
-                    </Button>
+                    {#if confirmingCancel === order.messageId}
+                      <div class="bag-cancel-confirm">
+                        <span class="bag-cancel-ask">Cancel this order?</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={cancelling.has(order.messageId)}
+                          onclick={() => cancelOrder(order.messageId)}
+                        >
+                          {cancelling.has(order.messageId) ? "Cancelling…" : "Yes, cancel"}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={cancelling.has(order.messageId)}
+                          onclick={() => (confirmingCancel = null)}
+                        >
+                          Keep it
+                        </Button>
+                      </div>
+                    {:else}
+                      <Button variant="ghost" size="sm" onclick={() => (confirmingCancel = order.messageId)}>
+                        Cancel
+                      </Button>
+                    {/if}
                   {/if}
                 </div>
               </Card>
@@ -718,5 +764,16 @@
     padding-top: 0.75rem;
     border-top: 1px solid var(--color-border-subtle);
     font-size: 0.85rem;
+  }
+  .bag-cancel-confirm {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .bag-cancel-ask {
+    color: var(--color-text-secondary);
+    font-size: 0.8rem;
   }
 </style>
