@@ -6,6 +6,7 @@
 
   import PageScaffold from "$lib/components/PageScaffold.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
+  import CurrencyAmount from "$lib/components/CurrencyAmount.svelte";
   import Button from "$lib/design-system/components/Button.svelte";
   import Card from "$lib/design-system/components/Card.svelte";
   import SectionHeading from "$lib/design-system/components/SectionHeading.svelte";
@@ -17,12 +18,12 @@
     type PlacedOrder,
   } from "$lib/api/bagshop";
   import {
-    formatEb,
     groupInventoryByRaid,
     isCancellable,
     orderRemainingTotal,
     roundToLe,
   } from "$lib/site/bagshop";
+  import { CURRENCY_ASSETS } from "$lib/site/currency";
   import { pageView } from "$lib/site/nav";
   import { webAuthStartUrl } from "$lib/site/webAuth";
   import type { PageData } from "./$types";
@@ -201,9 +202,26 @@
     <section class="bag-section">
       <SectionHeading kicker="Marketplace" align="left">Current stock &amp; prices</SectionHeading>
       <p class="bag-section-lead">
-        Buy price is what you pay per bag; sell price is what the shop pays you. Prices are in emerald
-        blocks (64 EB = 1 LE).
+        Buy price is what you pay per bag; sell price is what the shop pays you.
       </p>
+
+      <div
+        class="bag-currency-legend"
+        role="img"
+        aria-label="64 emeralds equal 1 emerald block; 64 emerald blocks equal 1 liquid emerald"
+      >
+        <span class="bag-currency-equation" aria-hidden="true">
+          <span>64</span><img src={CURRENCY_ASSETS.emerald.url} alt="" width="64" height="64" />
+          <span class="bag-currency-equals">=</span>
+          <span>1</span><img src={CURRENCY_ASSETS.emeraldBlock.url} alt="" width="64" height="64" />
+        </span>
+        <span class="bag-currency-divider" aria-hidden="true"></span>
+        <span class="bag-currency-equation" aria-hidden="true">
+          <span>64</span><img src={CURRENCY_ASSETS.emeraldBlock.url} alt="" width="64" height="64" />
+          <span class="bag-currency-equals">=</span>
+          <span>1</span><img src={CURRENCY_ASSETS.liquidEmerald.url} alt="" width="64" height="64" />
+        </span>
+      </div>
 
       <div class="bag-table-scroll">
         <table class="bag-table">
@@ -227,8 +245,8 @@
                         <span class="bag-cell-stock" class:bag-cell-out={cell.stock <= 0}>
                           {cell.stock} in stock
                         </span>
-                        <span class="bag-cell-price">Buy {formatEb(cell.buyPrice)}</span>
-                        <span class="bag-cell-price">Sell {formatEb(cell.sellPrice)}</span>
+                        <span class="bag-cell-price">Buy <CurrencyAmount value={cell.buyPrice} size="sm" /></span>
+                        <span class="bag-cell-price">Sell <CurrencyAmount value={cell.sellPrice} size="sm" /></span>
                         {#if cell.cap > 0}
                           <span class="bag-cell-cap">cap {cell.cap}</span>
                         {/if}
@@ -304,7 +322,9 @@
                             aria-label="{orderType === 'buy' ? 'Buy' : 'Sell'} {group.raid} {rarity} amount"
                             bind:value={amounts[cell.key]}
                           />
-                          <span class="bag-input-price">{formatEb(orderType === "buy" ? cell.buyPrice : cell.sellPrice)}/ea</span>
+                          <span class="bag-input-price">
+                            <CurrencyAmount value={orderType === "buy" ? cell.buyPrice : cell.sellPrice} size="sm" />/ea
+                          </span>
                         </label>
                       {:else}
                         <span class="bag-cell-empty">—</span>
@@ -331,14 +351,14 @@
         <div class="bag-summary">
           <div class="bag-summary-total">
             <span class="bag-summary-label">Order total</span>
-            <span class="bag-summary-value">{formatEb(roundedTotal)}</span>
+            <span class="bag-summary-value"><CurrencyAmount value={roundedTotal} size="lg" /></span>
           </div>
           <div class="bag-summary-actions">
             {#if draftLines.length > 0 && !meetsMinimum}
               {#if stockLimited}
                 <span class="bag-hint">
                   We don't have that many bags in stock — even buying all we have comes to just
-                  {formatEb(achievableTotal)}, below the {MIN_LE} LE minimum.
+                  <CurrencyAmount value={achievableTotal} size="sm" />, below the {MIN_LE} LE minimum.
                 </span>
               {:else}
                 <span class="bag-hint">Minimum order is {MIN_LE} LE.</span>
@@ -363,12 +383,12 @@
               {#each confirmation.items as line (line.raid + line.rarity)}
                 <li>
                   <span>{line.raid} · {line.rarity} × {line.amount}</span>
-                  <span class="bag-mono">{formatEb(line.total)}</span>
+                  <span class="bag-mono"><CurrencyAmount value={line.total} /></span>
                 </li>
               {/each}
             </ul>
             <p class="bag-confirm-total">
-              <span>Combined total</span><span class="bag-mono">{formatEb(confirmation.combinedTotal)}</span>
+              <span>Combined total</span><span class="bag-mono"><CurrencyAmount value={confirmation.combinedTotal} /></span>
             </p>
             {#if confirmation.cappedNotice}
               <p class="bag-notice bag-notice-warn">{confirmation.cappedNotice}</p>
@@ -421,7 +441,7 @@
                   {#if order.remainingItems.length > 0}
                     {@const outstanding = orderTotal(order)}
                     {#if outstanding !== null}
-                      <span class="bag-mono">{formatEb(outstanding)} outstanding</span>
+                      <span class="bag-mono"><CurrencyAmount value={outstanding} /> outstanding</span>
                     {/if}
                   {/if}
                   {#if isCancellable(order) && order.remainingItems.length > 0}
@@ -488,6 +508,40 @@
 
   .bag-table-scroll {
     overflow-x: auto;
+  }
+  .bag-currency-legend {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.85rem;
+    margin: -0.35rem 0 1.25rem;
+    padding: 0.45rem 0.7rem;
+    border: 1px solid color-mix(in srgb, var(--color-emerald) 32%, var(--color-border-subtle));
+    border-radius: 0.4rem;
+    background: color-mix(in srgb, var(--color-emerald) 6%, var(--color-deep));
+    color: var(--color-text-secondary);
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+  }
+  .bag-currency-equation {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.18rem;
+  }
+  .bag-currency-equation img {
+    width: 1.5rem;
+    height: 1.5rem;
+    object-fit: contain;
+    image-rendering: pixelated;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55));
+  }
+  .bag-currency-equals {
+    margin: 0 0.3rem;
+    color: var(--color-text-dim);
+  }
+  .bag-currency-divider {
+    width: 1px;
+    height: 1.4rem;
+    background: var(--color-border-subtle);
   }
   .bag-table {
     width: 100%;

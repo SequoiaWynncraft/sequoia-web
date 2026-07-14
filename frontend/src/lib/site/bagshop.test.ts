@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import type { InventoryItem, Order } from "$lib/api/bagshop";
-import { formatEb, groupInventoryByRaid, isCancellable, orderRemainingTotal, roundToLe } from "$lib/site/bagshop";
+import {
+  currencyParts,
+  formatEb,
+  groupInventoryByRaid,
+  isCancellable,
+  orderRemainingTotal,
+  roundToLe,
+} from "$lib/site/bagshop";
 
 function inv(key: string, over: Partial<InventoryItem> = {}): InventoryItem {
   return { key, stock: 0, sellPrice: 0, buyPrice: 0, cap: 0, ...over };
@@ -21,6 +28,17 @@ describe("formatEb", () => {
 
   it("never renders negative amounts", () => {
     expect(formatEb(-5)).toBe("0 EB");
+  });
+});
+
+describe("currencyParts", () => {
+  it("returns the icon denominations used by the formatted amount", () => {
+    expect(currencyParts(0)).toEqual([{ amount: 0, unit: "EB" }]);
+    expect(currencyParts(64)).toEqual([{ amount: 1, unit: "LE" }]);
+    expect(currencyParts(123)).toEqual([
+      { amount: 1, unit: "LE" },
+      { amount: 59, unit: "EB" },
+    ]);
   });
 });
 

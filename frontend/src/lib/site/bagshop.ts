@@ -1,15 +1,31 @@
 import { splitInventoryKey, type InventoryItem, type Order, type OrderType } from "$lib/api/bagshop";
+import type { CurrencyUnit } from "$lib/site/currency";
 
 export const EB_PER_LE = 64;
 
-/** Formats an emerald-block amount as "3 LE 12 EB" — the shop's currency (1 LE = 64 EB). */
-export function formatEb(eb: number): string {
+export interface CurrencyPart {
+  amount: number;
+  unit: Extract<CurrencyUnit, "EB" | "LE">;
+}
+
+/** Splits an emerald-block amount into the denominations shown by the shop. */
+export function currencyParts(eb: number): CurrencyPart[] {
   const safe = Math.max(0, Math.round(eb));
   const le = Math.floor(safe / EB_PER_LE);
   const rem = safe % EB_PER_LE;
-  if (le === 0) return `${rem} EB`;
-  if (rem === 0) return `${le} LE`;
-  return `${le} LE ${rem} EB`;
+  if (le === 0) return [{ amount: rem, unit: "EB" }];
+  if (rem === 0) return [{ amount: le, unit: "LE" }];
+  return [
+    { amount: le, unit: "LE" },
+    { amount: rem, unit: "EB" },
+  ];
+}
+
+/** Formats an emerald-block amount as "3 LE 12 EB" — the shop's currency (1 LE = 64 EB). */
+export function formatEb(eb: number): string {
+  return currencyParts(eb)
+    .map((part) => `${part.amount} ${part.unit}`)
+    .join(" ");
 }
 
 /**
