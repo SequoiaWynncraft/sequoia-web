@@ -11,7 +11,7 @@
   {#each parts as part (part.unit)}
     {@const asset = CURRENCY_ASSET_BY_UNIT[part.unit]}
     <span class="currency-part" aria-hidden="true">
-      <span>{part.amount.toLocaleString()}</span>
+      <span>{part.amount.toLocaleString("en-US")}</span>
       <img src={asset.url} alt="" title={asset.label} width="64" height="64" />
     </span>
   {/each}

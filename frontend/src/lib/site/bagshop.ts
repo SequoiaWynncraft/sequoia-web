@@ -10,7 +10,7 @@ export interface CurrencyPart {
 
 /** Splits an emerald-block amount into the denominations shown by the shop. */
 export function currencyParts(eb: number): CurrencyPart[] {
-  const safe = Math.max(0, Math.round(eb));
+  const safe = Number.isFinite(eb) ? Math.max(0, Math.round(eb)) : 0;
   const le = Math.floor(safe / EB_PER_LE);
   const rem = safe % EB_PER_LE;
   if (le === 0) return [{ amount: rem, unit: "EB" }];

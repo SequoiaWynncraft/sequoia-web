@@ -40,6 +40,24 @@ describe("currencyParts", () => {
       { amount: 59, unit: "EB" },
     ]);
   });
+
+  it("normalizes invalid, negative, and fractional inputs", () => {
+    expect(currencyParts(Number.NaN)).toEqual([{ amount: 0, unit: "EB" }]);
+    expect(currencyParts(Number.POSITIVE_INFINITY)).toEqual([{ amount: 0, unit: "EB" }]);
+    expect(currencyParts(-1)).toEqual([{ amount: 0, unit: "EB" }]);
+    expect(currencyParts(12.4)).toEqual([{ amount: 12, unit: "EB" }]);
+    expect(currencyParts(12.5)).toEqual([{ amount: 13, unit: "EB" }]);
+  });
+
+  it("rounds across denomination boundaries", () => {
+    expect(currencyParts(63.4)).toEqual([{ amount: 63, unit: "EB" }]);
+    expect(currencyParts(63.5)).toEqual([{ amount: 1, unit: "LE" }]);
+    expect(currencyParts(64.4)).toEqual([{ amount: 1, unit: "LE" }]);
+    expect(currencyParts(64.5)).toEqual([
+      { amount: 1, unit: "LE" },
+      { amount: 1, unit: "EB" },
+    ]);
+  });
 });
 
 describe("roundToLe", () => {
