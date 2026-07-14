@@ -78,7 +78,7 @@
 
   const rawTotal = $derived(draftLines.reduce((sum, line) => sum + line.total, 0));
   const roundedTotal = $derived(roundToLe(rawTotal, orderType));
-  const MIN_LE = 4;
+  const MIN_LE = 32;
 
   // The most the shop could actually pay out for this draft. For buy orders the bot clamps
   // each line to current stock before checking the minimum, so a request for more bags than
@@ -106,7 +106,7 @@
   const ERROR_MESSAGES: Record<string, string> = {
     out_of_stock: "Everything you requested is out of stock right now.",
     all_capped: "Every bag type you offered has reached its cap and can't be sold right now.",
-    below_minimum: "Orders must be worth at least 4 LE.",
+    below_minimum: "Orders must be worth at least 32 LE.",
     channel_unavailable: "The shop is briefly unavailable. Please try again in a moment.",
     unauthorized: "Your session expired. Please sign in again.",
     forbidden: "You're not allowed to do that.",
