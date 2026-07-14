@@ -6,10 +6,10 @@ import { sameUuid } from "$lib/server/raidEventBoards";
 import { loadViewer } from "$lib/server/viewerSession";
 import {
   createRewardQueueRequest,
-  MAX_TOME_REASON_LENGTH,
   type CreateRewardQueueResult,
   type RewardRequestType,
 } from "$lib/server/rewardQueue";
+import { MAX_TOME_REASON_LENGTH } from "$lib/rewardQueue";
 
 export const prerender = false;
 
@@ -64,15 +64,16 @@ async function submitRequest(
   const token = cookies.get("seq_session");
   if (!token || !(await loadViewer(token, fetch))) return fail(401, { type, error: "signin" as const });
 
-  let reason: string | null = null;
-  if (type === "tome") {
-    const raw = (await request.formData()).get("reason");
-    reason = typeof raw === "string" ? raw.trim() : "";
-    if (reason.length === 0) return fail(400, { type, error: "reason_required" as const });
-    if (reason.length > MAX_TOME_REASON_LENGTH) return fail(400, { type, error: "reason_too_long" as const });
+  if (type === "aspect") {
+    return toActionResult(type, await createRewardQueueRequest(token, { type: "aspect" }, fetch));
   }
 
-  return toActionResult(type, await createRewardQueueRequest(token, type, reason, fetch));
+  const raw = (await request.formData()).get("reason");
+  const reason = typeof raw === "string" ? raw.trim() : "";
+  if (reason.length === 0) return fail(400, { type, error: "reason_required" as const });
+  if (reason.length > MAX_TOME_REASON_LENGTH) return fail(400, { type, error: "reason_too_long" as const });
+
+  return toActionResult(type, await createRewardQueueRequest(token, { type: "tome", reason }, fetch));
 }
 
 export const actions: Actions = {

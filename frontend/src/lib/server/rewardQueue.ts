@@ -4,8 +4,11 @@ import { SEQUOIA_API_BASE_URL } from "$lib/config/public";
 export const REWARD_REQUEST_TYPES = ["aspect", "tome"] as const;
 export type RewardRequestType = (typeof REWARD_REQUEST_TYPES)[number];
 
-/** Upper bound on a tome request reason, matching the backend's `MAX_REASON_LENGTH`. */
-export const MAX_TOME_REASON_LENGTH = 1000;
+/**
+ * A reward queue request to forward to the backend. A tome request carries a non-empty reason;
+ * an aspect request never carries one, so the two shapes are kept distinct at the type level.
+ */
+export type RewardQueueRequest = { type: "tome"; reason: string } | { type: "aspect" };
 
 const REWARD_QUEUE_REQUESTS_PATH = "/api/reward-queue/requests";
 const REQUEST_TIMEOUT_MS = 5000;
@@ -35,7 +38,7 @@ export function parseRewardRequestType(value: unknown): RewardRequestType | null
 function errorMessage(body: unknown, fallback: string): string {
   if (body !== null && typeof body === "object") {
     const record = body as Record<string, unknown>;
-    if (typeof record.message === "string" && record.message.trim().length > 0) return record.message;
+    if (typeof record.message === "string" && record.message.trim().length > 0) return record.message.trim();
   }
   return fallback;
 }
@@ -48,8 +51,7 @@ function errorMessage(body: unknown, fallback: string): string {
  */
 export async function createRewardQueueRequest(
   token: string,
-  type: RewardRequestType,
-  reason: string | null,
+  request: RewardQueueRequest,
   fetchImpl: typeof fetch,
 ): Promise<CreateRewardQueueResult> {
   let response: Response;
@@ -60,7 +62,9 @@ export async function createRewardQueueRequest(
         authorization: `Bearer ${token}`,
         "content-type": "application/json",
       },
-      body: JSON.stringify(type === "tome" ? { type, reason } : { type }),
+      body: JSON.stringify(
+        request.type === "tome" ? { type: "tome", reason: request.reason } : { type: "aspect" },
+      ),
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
   } catch {

@@ -8,7 +8,8 @@
   import SectionHeading from "$lib/design-system/components/SectionHeading.svelte";
   import { pageView } from "$lib/site/nav";
   import { webAuthStartUrl } from "$lib/site/webAuth";
-  import { MAX_TOME_REASON_LENGTH, type RewardRequestType } from "$lib/server/rewardQueue";
+  import { MAX_TOME_REASON_LENGTH } from "$lib/rewardQueue";
+  import type { RewardRequestType } from "$lib/server/rewardQueue";
   import type { PageData, ActionData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -61,8 +62,11 @@
     return () => {
       submitting = type;
       return async ({ update }: { update: () => Promise<void> }) => {
-        await update();
-        submitting = null;
+        try {
+          await update();
+        } finally {
+          submitting = null;
+        }
       };
     };
   }
