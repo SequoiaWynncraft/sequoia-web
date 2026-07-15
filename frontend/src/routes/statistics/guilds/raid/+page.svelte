@@ -11,6 +11,7 @@
   let { data } = $props();
 
   const stats = $derived(data.stats);
+  const customWindow = $derived(data.customWindow);
   const signInUrl = $derived(webAuthStartUrl());
 
   const rankLabels: Record<string, string> = {
@@ -162,14 +163,48 @@
 <div class="event-grid">
   <section class="block" aria-label="Raid events">
     <SectionLabel>
-      {#snippet children()}Events{/snippet}
+      {#snippet children()}Timeframe{/snippet}
     </SectionLabel>
+    <p class="muted timeframe-help">
+      Enter a timeframe to rank member raids over a custom window ending now.
+      Use <code>min</code> (minutes), <code>h</code> (hours), <code>d</code> (days),
+      or <code>m</code> (months) — e.g. <code>20min</code>, <code>7h</code>,
+      <code>0.5d</code>, <code>1m</code>.
+    </p>
+    <form class="timeframe-form" method="GET" action="/statistics/guilds/raid">
+      <input
+        class="timeframe-input"
+        class:invalid={data.windowInvalid}
+        type="text"
+        name="window"
+        placeholder="e.g. 0.5d"
+        value={data.windowInput}
+        aria-label="Custom raid timeframe"
+        aria-invalid={data.windowInvalid}
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <button class="timeframe-submit" type="submit">Show</button>
+    </form>
+    {#if data.windowInvalid}
+      <p class="muted error timeframe-note">
+        Couldn't read "{data.windowInput}". Try a number and a unit like <code>20min</code> or <code>7h</code>.
+      </p>
+    {:else if data.customWindow}
+      <a class="timeframe-clear" href="/statistics/guilds/raid">Clear timeframe</a>
+    {/if}
+
+    <div class="events-heading">
+      <SectionLabel>
+        {#snippet children()}Events{/snippet}
+      </SectionLabel>
+    </div>
     {#if data.events.length > 0}
       <div class="event-stack">
         {#each data.events as event (event.id)}
           <a
             class="event-row"
-            class:selected={data.selectedEvent?.id === event.id}
+            class:selected={!customWindow && data.selectedEvent?.id === event.id}
             href={`/statistics/guilds/raid?event=${event.id}`}
           >
             <span class="event-name">{event.name}</span>
@@ -183,11 +218,17 @@
   </section>
 
   <section class="block" aria-label="Event contribution leaderboard">
-    <SectionLabel meta={data.selectedEvent ? `${formatDate(data.selectedEvent.starts_at)} – ${formatDate(data.selectedEvent.ends_at)}${data.selectedEvent.tracking === "mod" ? " · in-game tracked" : ""}` : undefined}>
-      {#snippet children()}{data.selectedEvent?.name ?? "Contribution"}{/snippet}
-    </SectionLabel>
+    {#if customWindow}
+      <SectionLabel meta={`${formatDate(customWindow.from)} – ${formatDate(customWindow.to)} · in-game tracked`}>
+        {#snippet children()}Last {customWindow.label}{/snippet}
+      </SectionLabel>
+    {:else}
+      <SectionLabel meta={data.selectedEvent ? `${formatDate(data.selectedEvent.starts_at)} – ${formatDate(data.selectedEvent.ends_at)}${data.selectedEvent.tracking === "mod" ? " · in-game tracked" : ""}` : undefined}>
+        {#snippet children()}{data.selectedEvent?.name ?? "Contribution"}{/snippet}
+      </SectionLabel>
+    {/if}
     {#if !data.viewer}
-      <p class="muted"><a class="auth-link" href={signInUrl}>Sign in</a> to see member contributions for this event.</p>
+      <p class="muted"><a class="auth-link" href={signInUrl}>Sign in</a> to see member contributions{customWindow ? " for this timeframe" : " for this event"}.</p>
     {:else if data.membershipUnverified}
       <p class="muted">Membership can't be verified right now - try again shortly.</p>
     {:else if !data.isMember}
@@ -202,6 +243,8 @@
         defaultSort="raids"
         maxHeight="480px"
       />
+    {:else if customWindow}
+      <p class="muted">No member raids were tracked in the last {customWindow.label}.</p>
     {:else}
       <p class="muted">No raid deltas have been observed for this event yet.</p>
     {/if}
@@ -282,6 +325,88 @@
     display: grid;
     grid-template-columns: minmax(240px, 340px) minmax(0, 1fr);
     gap: 40px;
+  }
+
+  .timeframe-help {
+    margin-bottom: 12px;
+    line-height: var(--leading-normal);
+  }
+
+  .timeframe-help code {
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: rgba(245, 197, 66, 0.08);
+    color: var(--color-gold-light);
+    font-family: var(--font-data);
+    font-size: 0.85em;
+  }
+
+  .timeframe-form {
+    display: flex;
+    gap: 8px;
+  }
+
+  .timeframe-input {
+    flex: 1;
+    min-width: 0;
+    padding: 9px 12px;
+    border: 1px solid var(--color-border-subtle);
+    background: rgba(19, 22, 31, 0.6);
+    color: var(--text-heading);
+    font-family: var(--font-data);
+    font-size: var(--text-sm);
+  }
+
+  .timeframe-input:focus-visible {
+    border-color: rgba(245, 197, 66, 0.55);
+    outline: none;
+  }
+
+  .timeframe-input.invalid {
+    border-color: var(--status-error);
+  }
+
+  .timeframe-submit {
+    padding: 9px 16px;
+    border: 1px solid rgba(245, 197, 66, 0.45);
+    background: rgba(245, 197, 66, 0.08);
+    color: var(--color-gold);
+    font-family: var(--font-display);
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background var(--dur-fast) ease, border-color var(--dur-fast) ease;
+  }
+
+  .timeframe-submit:hover {
+    border-color: rgba(245, 197, 66, 0.7);
+    background: rgba(245, 197, 66, 0.14);
+  }
+
+  .timeframe-submit:focus-visible {
+    outline: 2px solid rgba(245, 197, 66, 0.5);
+    outline-offset: 2px;
+  }
+
+  .timeframe-note {
+    margin-top: 8px;
+  }
+
+  .timeframe-clear {
+    display: inline-block;
+    margin-top: 8px;
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+    text-decoration: none;
+  }
+
+  .timeframe-clear:hover {
+    color: var(--color-gold);
+  }
+
+  .events-heading {
+    margin-top: 28px;
   }
 
   .event-stack {

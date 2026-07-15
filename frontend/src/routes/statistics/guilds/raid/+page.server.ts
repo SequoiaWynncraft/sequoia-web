@@ -9,8 +9,19 @@ import {
   sameUuid,
   type RaidLeaderboardEntry,
 } from "$lib/server/raidEventBoards";
+import { parseDuration } from "$lib/site/duration";
 
 export const prerender = false;
+
+/** A member-contribution board scoped to an ad-hoc timeframe ending "now". */
+export interface CustomWindow {
+  /** The raw timeframe text the viewer typed, echoed back into the form. */
+  input: string;
+  /** Compact label for the window, e.g. "20 min". */
+  label: string;
+  from: string;
+  to: string;
+}
 
 const ACTIVITY_WINDOW_DAYS = 14;
 
@@ -33,6 +44,24 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
   const selectedEvent =
     events.find((event) => event.id === url.searchParams.get("event")) ?? events[0] ?? null;
 
+  // A custom timeframe (e.g. `?window=0.5d`) reuses the mod contribution board
+  // over an ad-hoc window ending now. When present and valid it drives the
+  // board in place of the selected event.
+  const windowInput = url.searchParams.get("window")?.trim() ?? "";
+  const parsedWindow = windowInput ? parseDuration(windowInput) : null;
+  const windowInvalid = windowInput !== "" && parsedWindow === null;
+  let customWindow: CustomWindow | null = null;
+  if (parsedWindow) {
+    const to = new Date();
+    const from = new Date(to.getTime() - parsedWindow.ms);
+    customWindow = {
+      input: windowInput,
+      label: parsedWindow.label,
+      from: from.toISOString(),
+      to: to.toISOString(),
+    };
+  }
+
   // Event contributions are member-only; the tracker trusts this check, so it
   // must not authorize from a stale roster (stale stats are display-only).
   // With a viewer present the roster was requested fresh, so stale here means
@@ -47,7 +76,15 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
   let leaderboard: RaidLeaderboardEntry[] = [];
   let leaderboardError: string | null = null;
 
-  if (isMember && selectedEvent) {
+  if (isMember && customWindow) {
+    const result = await loadModLeaderboard(
+      fetch,
+      { starts_at: customWindow.from, ends_at: customWindow.to },
+      freshRoster ?? [],
+    );
+    leaderboard = result.leaderboard;
+    leaderboardError = result.error;
+  } else if (isMember && selectedEvent) {
     const result =
       selectedEvent.tracking === "mod"
         ? await loadModLeaderboard(fetch, selectedEvent, freshRoster ?? [])
@@ -61,6 +98,9 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
     membershipUnverified,
     events,
     selectedEvent,
+    customWindow,
+    windowInput,
+    windowInvalid,
     leaderboard,
     leaderboardError,
     stats,
