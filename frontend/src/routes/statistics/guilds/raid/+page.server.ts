@@ -10,8 +10,12 @@ import {
   type RaidLeaderboardEntry,
 } from "$lib/server/raidEventBoards";
 import { parseDuration } from "$lib/site/duration";
+import { KNOWN_RAIDS } from "$lib/site/raids";
 
 export const prerender = false;
+
+/** Timeframe shown when the viewer hasn't picked an event or typed a window. */
+const DEFAULT_WINDOW = "7d";
 
 /** A member-contribution board scoped to an ad-hoc timeframe ending "now". */
 export interface CustomWindow {
@@ -41,15 +45,26 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
     getGuildStats(fetch, { allowStale: viewer === null }).catch(() => null),
   ]);
 
-  const selectedEvent =
-    events.find((event) => event.id === url.searchParams.get("event")) ?? events[0] ?? null;
+  // An event drives the board only when explicitly selected; otherwise the
+  // board defaults to a timeframe window (below) rather than the first event.
+  const eventParam = url.searchParams.get("event");
+  const selectedEvent = eventParam
+    ? (events.find((event) => event.id === eventParam) ?? null)
+    : null;
 
   // A custom timeframe (e.g. `?window=0.5d`) reuses the mod contribution board
-  // over an ad-hoc window ending now. When present and valid it drives the
-  // board in place of the selected event.
-  const windowInput = url.searchParams.get("window")?.trim() ?? "";
+  // over an ad-hoc window ending now. With no window and no event selected the
+  // board falls back to the default window, so it always shows something.
+  const windowRaw = url.searchParams.get("window")?.trim() ?? "";
+  const windowInput = windowRaw === "" && selectedEvent === null ? DEFAULT_WINDOW : windowRaw;
   const parsedWindow = windowInput ? parseDuration(windowInput) : null;
-  const windowInvalid = windowInput !== "" && parsedWindow === null;
+  // Only an explicitly typed bad value is flagged - never the implicit default.
+  const windowInvalid = windowRaw !== "" && parsedWindow === null;
+
+  // Raid filter for the timeframe board: a known raid name, or null for "all".
+  const raidParam = url.searchParams.get("raid");
+  const selectedRaid =
+    raidParam && KNOWN_RAIDS.some((raid) => raid.key === raidParam) ? raidParam : null;
   let customWindow: CustomWindow | null = null;
   if (parsedWindow) {
     const to = new Date();
@@ -79,7 +94,7 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
   if (isMember && customWindow) {
     const result = await loadModLeaderboard(
       fetch,
-      { starts_at: customWindow.from, ends_at: customWindow.to },
+      { starts_at: customWindow.from, ends_at: customWindow.to, raid: selectedRaid },
       freshRoster ?? [],
     );
     leaderboard = result.leaderboard;
@@ -101,6 +116,7 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
     customWindow,
     windowInput,
     windowInvalid,
+    selectedRaid,
     leaderboard,
     leaderboardError,
     stats,
