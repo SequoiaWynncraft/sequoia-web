@@ -100,8 +100,5 @@ export async function createRewardQueueRequest(
   if (response.status === 400) {
     return { status: "invalid", message: errorMessage(body, "That request couldn't be submitted.") };
   }
-  // Everything else (426 mod-version gate, 503 username resolution, 404 not deployed, 5xx) maps
-  // to a soft "unavailable" for members — but log the real status so the cause isn't invisible.
-  console.error("reward queue request failed", response.status, text.slice(0, 500));
   return { status: "unavailable" };
 }
