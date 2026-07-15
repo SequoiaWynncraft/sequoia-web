@@ -214,7 +214,7 @@
       <p class="muted error timeframe-note">
         Couldn't read "{data.windowInput}". Try a number and a unit like <code>20min</code> or <code>7h</code>.
       </p>
-    {:else if data.customWindow}
+    {:else if data.customWindow && !data.windowIsDefault}
       <a class="timeframe-clear" href="/statistics/guilds/raid">Clear timeframe</a>
     {/if}
 

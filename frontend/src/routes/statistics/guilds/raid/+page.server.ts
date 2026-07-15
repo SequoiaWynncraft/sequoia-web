@@ -56,7 +56,10 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
   // over an ad-hoc window ending now. With no window and no event selected the
   // board falls back to the default window, so it always shows something.
   const windowRaw = url.searchParams.get("window")?.trim() ?? "";
-  const windowInput = windowRaw === "" && selectedEvent === null ? DEFAULT_WINDOW : windowRaw;
+  // The default window is implicit (no explicit input, no event selected); the
+  // page uses this to avoid offering a no-op "Clear timeframe" link on it.
+  const windowIsDefault = windowRaw === "" && selectedEvent === null;
+  const windowInput = windowIsDefault ? DEFAULT_WINDOW : windowRaw;
   const parsedWindow = windowInput ? parseDuration(windowInput) : null;
   // Only an explicitly typed bad value is flagged - never the implicit default.
   const windowInvalid = windowRaw !== "" && parsedWindow === null;
@@ -115,6 +118,7 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
     selectedEvent,
     customWindow,
     windowInput,
+    windowIsDefault,
     windowInvalid,
     selectedRaid,
     leaderboard,
