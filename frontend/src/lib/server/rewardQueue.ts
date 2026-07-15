@@ -1,4 +1,4 @@
-import { SEQUOIA_API_BASE_URL } from "$lib/config/public";
+import { SEQUOIA_API_BASE_URL, SEQUOIA_MOD_VERSION } from "$lib/config/public";
 
 /** The two reward queues a member can request from, matching the backend's `RequestType`. */
 export const REWARD_REQUEST_TYPES = ["aspect", "tome"] as const;
@@ -61,6 +61,10 @@ export async function createRewardQueueRequest(
       headers: {
         authorization: `Bearer ${token}`,
         "content-type": "application/json",
+        // The backend's JwtAuthInterceptor gates /api/** on a mod-version check before auth and
+        // returns 426 without a usable version when running in ENFORCE mode. The website is a
+        // first-party client, so it advertises the current mod release to clear that gate.
+        "x-sequoia-mod-version": SEQUOIA_MOD_VERSION,
       },
       body: JSON.stringify(
         request.type === "tome" ? { type: "tome", reason: request.reason } : { type: "aspect" },

@@ -9,6 +9,14 @@ export const SEQUOIA_API_BASE_URL =
     ? ""
     : configuredBaseUrl || (dev ? "http://localhost:8081" : "https://api.seqwawa.com");
 
+/**
+ * Mod version advertised to the Sequoia backend via the `X-Sequoia-Mod-Version` header on
+ * gated `/api/**` calls. The backend's client-compatibility gate rejects (426) requests without
+ * a usable version when it runs in ENFORCE mode, so the website sends the current mod release.
+ * Overridable via env so ops can bump it without a code change when the minimum is raised.
+ */
+export const SEQUOIA_MOD_VERSION = envValue("PUBLIC_SEQUOIA_MOD_VERSION").trim() || "1.6.8";
+
 export const NMSR_BASE_URL =
   configuredNmsrBaseUrl === "same-origin"
     ? "/nmsr"
