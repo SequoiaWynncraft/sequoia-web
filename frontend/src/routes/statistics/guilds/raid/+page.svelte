@@ -6,13 +6,34 @@
   import type { LedgerColumn } from "$lib/design-system/components/ledgerTable";
   import BarList from "$lib/design-system/components/BarList.svelte";
   import StackedColumns from "$lib/design-system/components/charts/StackedColumns.svelte";
-  import { raidSeriesFor } from "$lib/site/raids";
+  import ScopeChips from "$lib/design-system/components/ScopeChips.svelte";
+  import { KNOWN_RAIDS, raidSeriesFor } from "$lib/site/raids";
 
   let { data } = $props();
 
   const stats = $derived(data.stats);
   const customWindow = $derived(data.customWindow);
   const signInUrl = $derived(webAuthStartUrl());
+
+  /** Raid filter chips for the timeframe board: "all" plus each known raid. */
+  const raidScopes = [
+    { key: "all", label: "All" },
+    ...KNOWN_RAIDS.map((raid) => ({ key: raid.key, label: raid.short })),
+  ];
+  const activeRaid = $derived(data.selectedRaid ?? "all");
+  /** Short label of the active raid, for empty-state copy. */
+  const activeRaidShort = $derived(
+    KNOWN_RAIDS.find((raid) => raid.key === data.selectedRaid)?.short ?? null,
+  );
+
+  /** Link for a raid chip, preserving the active timeframe and clearing "all". */
+  function raidHref(key: string): string {
+    const params = new URLSearchParams();
+    if (data.windowInput && data.windowInput !== "7d") params.set("window", data.windowInput);
+    if (key !== "all") params.set("raid", key);
+    const query = params.toString();
+    return query ? `?${query}` : "?";
+  }
 
   const rankLabels: Record<string, string> = {
     owner: "Owner",
@@ -172,6 +193,9 @@
       <code>0.5d</code>, <code>1m</code>.
     </p>
     <form class="timeframe-form" method="GET" action="/statistics/guilds/raid">
+      {#if data.selectedRaid}
+        <input type="hidden" name="raid" value={data.selectedRaid} />
+      {/if}
       <input
         class="timeframe-input"
         class:invalid={data.windowInvalid}
@@ -190,7 +214,7 @@
       <p class="muted error timeframe-note">
         Couldn't read "{data.windowInput}". Try a number and a unit like <code>20min</code> or <code>7h</code>.
       </p>
-    {:else if data.customWindow}
+    {:else if data.customWindow && !data.windowIsDefault}
       <a class="timeframe-clear" href="/statistics/guilds/raid">Clear timeframe</a>
     {/if}
 
@@ -221,6 +245,9 @@
     {#if customWindow}
       <SectionLabel meta={`${formatDate(customWindow.from)} – ${formatDate(customWindow.to)} · in-game tracked`}>
         {#snippet children()}Last {customWindow.label}{/snippet}
+        {#snippet actions()}
+          <ScopeChips scopes={raidScopes} active={activeRaid} href={raidHref} label="Raid filter" />
+        {/snippet}
       </SectionLabel>
     {:else}
       <SectionLabel meta={data.selectedEvent ? `${formatDate(data.selectedEvent.starts_at)} – ${formatDate(data.selectedEvent.ends_at)}${data.selectedEvent.tracking === "mod" ? " · in-game tracked" : ""}` : undefined}>
@@ -244,7 +271,9 @@
         maxHeight="480px"
       />
     {:else if customWindow}
-      <p class="muted">No member raids were tracked in the last {customWindow.label}.</p>
+      <p class="muted">
+        No {activeRaidShort ? `${activeRaidShort} ` : ""}member raids were tracked in the last {customWindow.label}.
+      </p>
     {:else}
       <p class="muted">No raid deltas have been observed for this event yet.</p>
     {/if}
