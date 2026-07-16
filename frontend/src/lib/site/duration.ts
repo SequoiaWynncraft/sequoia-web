@@ -72,13 +72,19 @@ const TRACKING_START_MS = Date.UTC(2020, 0, 1);
  * it lies in the future, so an open-ended range reads "up to now".
  *
  * Returns `null` when the input has no `t:` prefix (not a range attempt). For a
- * range attempt that can't be served it returns an `{ error }`: a start before
- * raid tracking began ({@link TRACKING_START_MS}, 2020), or an empty window
- * once clamped.
+ * `t:`-prefixed input that can't be served it returns an `{ error }`: a
+ * malformed range that doesn't match the `start-end` shape, a start before raid
+ * tracking began ({@link TRACKING_START_MS}, 2020), or an empty window once
+ * clamped.
  */
 export function parseTimestampRange(input: string, now: Date): TimestampRangeResult {
-  const match = input.trim().match(/^[tT]:\s*(\d+)\s*-\s*(\d+)$/);
-  if (!match) return null;
+  const trimmed = input.trim();
+  // Without the `t:` prefix this isn't a range attempt at all, so defer to the
+  // other window parsers rather than surfacing an error.
+  if (!/^[tT]:/.test(trimmed)) return null;
+
+  const match = trimmed.match(/^[tT]:\s*(\d+)\s*-\s*(\d+)$/);
+  if (!match) return { error: "Couldn't read that timestamp range." };
 
   let fromMs = Number(match[1]) * 1000;
   let toMs = Number(match[2]) * 1000;

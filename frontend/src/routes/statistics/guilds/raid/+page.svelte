@@ -184,7 +184,8 @@
       <code>d</code> (days), or <code>m</code> (months) — e.g. <code>20min</code>,
       <code>7h</code>, <code>0.5d</code>, <code>1m</code>. Or enter a Unix-timestamp
       range prefixed with <code>t:</code>, like <code>t:1784109600-1784282400</code>,
-      to set an explicit start and end — an end past now is clamped to now.
+      to set an explicit start and end — timestamps are in seconds (not
+      milliseconds), and an end past now is clamped to now.
     </p>
     <form class="timeframe-form" method="GET" action="/statistics/guilds/raid">
       {#if data.selectedRaid}

@@ -95,6 +95,15 @@ describe("parseTimestampRange", () => {
     expect(parseTimestampRange("", now)).toBeNull();
   });
 
+  it("errors on a t: prefixed input that isn't a valid range", () => {
+    expect(parseTimestampRange("t:abc", now)).toEqual({
+      error: "Couldn't read that timestamp range.",
+    });
+    expect(parseTimestampRange("t:1784109600", now)).toEqual({
+      error: "Couldn't read that timestamp range.",
+    });
+  });
+
   it("allows spans longer than a year, since the 2020 floor bounds the query", () => {
     // ~2020-01-02 to now (2027): well over a year, but both after the floor.
     expect(parseTimestampRange("t:1577923200-1784282400", now)).toEqual({
