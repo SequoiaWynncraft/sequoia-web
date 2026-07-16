@@ -92,6 +92,7 @@
       value: (entry) => entry.username,
       sortValue: (entry) => entry.username.toLowerCase(),
       avatar: (entry) => entry.insigniaUrl ?? null,
+      avatarAlt: (entry) => (entry.insignia ? `${entry.insignia.toLowerCase()} insignia` : null),
       secondary: (entry) => entry.progressionRank ?? null,
       href: (entry) => `/statistics/player/playercard?player=${encodeURIComponent(entry.username)}`,
     },
@@ -179,10 +180,12 @@
       {#snippet children()}Timeframe{/snippet}
     </SectionLabel>
     <p class="muted timeframe-help">
-      Enter a timeframe to rank member raids over a custom window ending now.
-      Use <code>min</code> (minutes), <code>h</code> (hours), <code>d</code> (days),
-      or <code>m</code> (months) — e.g. <code>20min</code>, <code>7h</code>,
-      <code>0.5d</code>, <code>1m</code>.
+      Enter a timeframe. Use <code>min</code> (minutes), <code>h</code> (hours),
+      <code>d</code> (days), or <code>m</code> (months) — e.g. <code>20min</code>,
+      <code>7h</code>, <code>0.5d</code>, <code>1m</code>. Or enter a Unix-timestamp
+      range prefixed with <code>t:</code>, like <code>t:1784109600-1784282400</code>,
+      to set an explicit start and end — timestamps are in seconds (not
+      milliseconds), and an end past now is clamped to now.
     </p>
     <form class="timeframe-form" method="GET" action="/statistics/guilds/raid">
       {#if data.selectedRaid}
@@ -204,7 +207,12 @@
     </form>
     {#if data.windowInvalid}
       <p class="muted error timeframe-note">
-        Couldn't read "{data.windowInput}". Try a number and a unit like <code>20min</code> or <code>7h</code>.
+        {#if data.windowError}
+          {data.windowError}
+        {:else}
+          Couldn't read "{data.windowInput}". Try a duration like <code>20min</code> or <code>7h</code>,
+          or a <code>t:</code> timestamp range.
+        {/if}
       </p>
     {:else if data.customWindow && !data.windowIsDefault}
       <a class="timeframe-clear" href="/statistics/guilds/raid">Clear timeframe</a>
@@ -234,7 +242,14 @@
   </section>
 
   <section class="block" aria-label="Event contribution leaderboard">
-    {#if customWindow}
+    {#if customWindow && customWindow.kind === "range"}
+      <SectionLabel meta="in-game tracked">
+        {#snippet children()}{formatDate(customWindow.from)} – {formatDate(customWindow.to)}{/snippet}
+        {#snippet actions()}
+          <ScopeChips scopes={raidScopes} active={activeRaid} href={raidHref} label="Raid filter" />
+        {/snippet}
+      </SectionLabel>
+    {:else if customWindow}
       <SectionLabel meta={`${formatDate(customWindow.from)} – ${formatDate(customWindow.to)} · in-game tracked`}>
         {#snippet children()}Last {customWindow.label}{/snippet}
         {#snippet actions()}
@@ -264,7 +279,8 @@
       />
     {:else if customWindow}
       <p class="muted">
-        No {activeRaidShort ? `${activeRaidShort} ` : ""}member raids were tracked in the last {customWindow.label}.
+        No {activeRaidShort ? `${activeRaidShort} ` : ""}member raids were tracked
+        {customWindow.kind === "range" ? "in this timeframe" : `in the last ${customWindow.label}`}.
       </p>
     {:else}
       <p class="muted">No raid deltas have been observed for this event yet.</p>
