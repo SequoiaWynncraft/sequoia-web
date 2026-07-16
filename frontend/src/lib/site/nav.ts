@@ -307,6 +307,37 @@ export function homepageServices(): NavLeaf[] {
   return cardsFor("/services");
 }
 
+/**
+ * The three headline statistics pages surfaced on the homepage, ordered
+ * left-to-right. These carry curated query strings (e.g. a default window) so
+ * the cards land on a ready-to-read view rather than a bare page.
+ */
+export function homepageStatistics(): NavLeaf[] {
+  return [
+    {
+      label: "Rankings",
+      to: "/statistics/global/rankings?window=1d&wwindow=1d",
+      icon: "trophy",
+      description: "Where every guild stands.",
+      cta: "View",
+    },
+    {
+      label: "Raid",
+      to: "/statistics/guilds/raid",
+      icon: "sword",
+      description: "Raid output and member contributions.",
+      cta: "View",
+    },
+    {
+      label: "Activity",
+      to: "/statistics/player/activity?range=1w",
+      icon: "online",
+      description: "Member presence and gains over time.",
+      cta: "View",
+    },
+  ];
+}
+
 export function pageView(path: string): PageView {
   const match = findPage(path);
   if (!match) throw new Error(`Unknown site page: ${path}`);
