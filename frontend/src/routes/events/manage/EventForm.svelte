@@ -7,7 +7,14 @@
   import EventSky from "$lib/events/components/EventSky.svelte";
   import GoalMeter from "$lib/events/components/GoalMeter.svelte";
   import { RAID_ICONS, raidIconUrl } from "$lib/events/raidIcons";
-  import type { CompRole, EventIconPlacement, EventTheme, GuildEvent, PrizeEntry } from "$lib/events/types";
+  import type {
+    CompRole,
+    EventIconPlacement,
+    EventTheme,
+    GuildEvent,
+    PrizeEntry,
+    RaffleWinner,
+  } from "$lib/events/types";
   import { parseGuildEvent } from "$lib/events/validate";
   import type { EventFormContext, TrackerOption } from "$lib/server/eventFormContext";
   import { KNOWN_RAIDS } from "$lib/site/raids";
@@ -164,6 +171,82 @@
         !trackerChoices.some((option) => option.id === seed.tracker?.eventId)),
   );
 
+  // ── Raffles ─────────────────────────────────────────────────────────
+  interface RaffleRow {
+    /** Stable id that persists in the event JSON and targets rolls. */
+    id: string;
+    /** Local list key, distinct from the persisted id. */
+    key: number;
+    prize: string;
+    winnerCount: string | number | null | undefined;
+    perTicket: string | number | null | undefined;
+    windowFrom: string;
+    windowTo: string;
+    /** Original window instants, so an untouched field keeps its seconds. */
+    seedWindowFrom: string;
+    seedWindowTo: string;
+    /** Frozen roll results, edited only by rolling - passed through on save. */
+    winners: RaffleWinner[];
+    drawnAt: string;
+  }
+
+  function newRaffleRow(): RaffleRow {
+    return {
+      id: crypto.randomUUID(),
+      key: nextRowId++,
+      prize: "",
+      winnerCount: 1,
+      perTicket: 5,
+      windowFrom: "",
+      windowTo: "",
+      seedWindowFrom: "",
+      seedWindowTo: "",
+      winners: [],
+      drawnAt: "",
+    };
+  }
+
+  // Only raffles that already exist server-side can be rolled - a fresh row
+  // must be saved first. This mirrors the persisted state, so undo never
+  // changes it.
+  const seedRaffleIds = new Set((seed?.raffles ?? []).map((raffle) => raffle.id));
+  let raffleExcludeWinners = $state(seed?.raffleExcludeWinners ?? false);
+  let raffles = $state<RaffleRow[]>(
+    seed?.raffles?.map((raffle) => ({
+      id: raffle.id,
+      key: nextRowId++,
+      prize: raffle.prize,
+      winnerCount: raffle.winnerCount,
+      perTicket: raffle.perTicket,
+      windowFrom: toInput(raffle.window?.from),
+      windowTo: toInput(raffle.window?.to),
+      seedWindowFrom: raffle.window?.from ?? "",
+      seedWindowTo: raffle.window?.to ?? "",
+      winners: raffle.winners ?? [],
+      drawnAt: raffle.drawnAt ?? "",
+    })) ?? [],
+  );
+  let rollingId = $state<string | null>(null);
+  let rollError = $state<string | null>(null);
+
+  // Flattens every raffle into one winner-slot per row for the results table:
+  // a raffle with three winners becomes three rows sharing its prize.
+  const RAFFLE_MAX_WINNERS = 50;
+  const raffleSlots = $derived.by(() =>
+    raffles.flatMap((row) => {
+      const count = Math.max(0, Math.min(RAFFLE_MAX_WINNERS, Math.floor(Number(toCount(row.winnerCount)) || 0)));
+      const saved = seedRaffleIds.has(row.id);
+      return Array.from({ length: count }, (_unused, slot) => ({
+        key: `${row.key}:${slot}`,
+        raffleId: row.id,
+        slot,
+        prize: row.prize.trim(),
+        winner: row.winners.find((entry) => entry.slot === slot) ?? null,
+        saved,
+      }));
+    }),
+  );
+
   let showValidation = $state(false);
   let saving = $state(false);
   let confirmingDelete = $state(false);
@@ -276,6 +359,34 @@
     const ruleLines = splitLines(rules);
     if (ruleLines.length > 0) event.rules = ruleLines;
     if (trackerEnabled) event.tracker = { eventId: trackerEventId, tracking: trackerTracking };
+    // Rows added but left fully empty are noise; a filled row carries its
+    // frozen winners through unchanged so a save never wipes a rolled result.
+    const filledRaffles = raffles
+      .filter((row) => row.prize.trim() || hasCount(row.winnerCount) || hasCount(row.perTicket))
+      .map((row) => {
+        const raffle: Record<string, unknown> = {
+          id: row.id,
+          prize: row.prize,
+          winnerCount: toCount(row.winnerCount),
+          perTicket: toCount(row.perTicket),
+        };
+        if (row.windowFrom && row.windowTo) {
+          raffle.window = {
+            from: keepInstant(row.windowFrom, row.seedWindowFrom),
+            to: keepInstant(row.windowTo, row.seedWindowTo),
+          };
+        }
+        // Shrinking the winner count drops the now-orphaned slots' winners.
+        const winnerCount = toCount(row.winnerCount);
+        const keptWinners = row.winners.filter(
+          (winner) => Number.isInteger(winner.slot) && winner.slot < winnerCount,
+        );
+        if (keptWinners.length > 0) raffle.winners = keptWinners;
+        if (keptWinners.length > 0 && row.drawnAt) raffle.drawnAt = row.drawnAt;
+        return raffle;
+      });
+    if (filledRaffles.length > 0) event.raffles = filledRaffles;
+    if (raffleExcludeWinners) event.raffleExcludeWinners = true;
     return event;
   });
 
@@ -331,6 +442,27 @@
       trackerBusy = true;
       return async ({ update }) => {
         trackerBusy = false;
+        await update({ reset: false });
+      };
+    }
+    if (action.search.includes("rollRaffle")) {
+      rollError = null;
+      // A roll persists a single slot server-side; reflect the frozen winner
+      // onto that slot so the editor updates without a reseed.
+      return async ({ result, update }) => {
+        if (result.type === "success") {
+          const data = result.data as
+            | { rolled?: string; slot?: number; winner?: RaffleWinner }
+            | undefined;
+          const row = raffles.find((entry) => entry.id === data?.rolled);
+          if (row && data?.winner && typeof data.slot === "number") {
+            row.winners = [...row.winners.filter((entry) => entry.slot !== data.slot), data.winner];
+            row.drawnAt = new Date().toISOString();
+          }
+        } else if (result.type === "failure") {
+          rollError = (result.data as { error?: string } | undefined)?.error ?? "The roll failed.";
+        }
+        rollingId = null;
         await update({ reset: false });
       };
     }
@@ -611,6 +743,37 @@
     trackerManual =
       trackerChoices.length === 0 ||
       (trackerEnabled && !trackerChoices.some((option) => option.id === trackerEventId));
+    const rafflesDraft = Array.isArray(draft.raffles) ? draft.raffles : [];
+    raffles = rafflesDraft.map((entry) => {
+      const record = (entry ?? {}) as Record<string, unknown>;
+      const windowRecord = (record.window ?? null) as Record<string, unknown> | null;
+      const from = windowRecord ? text(windowRecord.from) : "";
+      const to = windowRecord ? text(windowRecord.to) : "";
+      const winnersDraft = Array.isArray(record.winners) ? record.winners : [];
+      return {
+        // A snapshot missing an id (hand-edited preset) still needs a stable one.
+        id: text(record.id) || crypto.randomUUID(),
+        key: nextRowId++,
+        prize: text(record.prize),
+        winnerCount: count(record.winnerCount),
+        perTicket: count(record.perTicket),
+        windowFrom: from.slice(0, 16),
+        windowTo: to.slice(0, 16),
+        seedWindowFrom: from,
+        seedWindowTo: to,
+        winners: winnersDraft.map((winner) => {
+          const winnerRecord = (winner ?? {}) as Record<string, unknown>;
+          return {
+            slot: typeof winnerRecord.slot === "number" ? winnerRecord.slot : 0,
+            username: text(winnerRecord.username),
+            player_uuid: text(winnerRecord.player_uuid),
+            tickets: typeof winnerRecord.tickets === "number" ? winnerRecord.tickets : 0,
+          };
+        }),
+        drawnAt: text(record.drawnAt),
+      };
+    });
+    raffleExcludeWinners = draft.raffleExcludeWinners === true;
   }
 
   // ── Presets ─────────────────────────────────────────────────────────
@@ -1318,6 +1481,103 @@
         {/if}
       </section>
 
+      <section class="mg-section">
+        <SectionLabel>{#snippet children()}Raffles{/snippet}</SectionLabel>
+        <p class="mg-hint">
+          Entrants earn one ticket per <em>raids / ticket</em> raids on the standings board,
+          counted inside each raffle's window. Set up each raffle, save, then roll each winner
+          below - re-rolling replaces that slot.
+        </p>
+        {#if raffles.length > 1}
+          <label class="mg-check">
+            <input type="checkbox" bind:checked={raffleExcludeWinners} />
+            <span>
+              Exclude winners from other raffles
+              <small>A member who wins any raffle is dropped from every other draw here.</small>
+            </span>
+          </label>
+        {/if}
+        {#each raffles as raffle (raffle.key)}
+          <div class="mg-raffle">
+            <div class="mg-repeat-row mg-repeat-raffle">
+              <input class="mg-input" placeholder="Prize" bind:value={raffle.prize} maxlength="300" />
+              <label class="mg-field mg-field-tight">
+                <span class="mg-label">Winners</span>
+                <input class="mg-input" type="number" min="1" max={RAFFLE_MAX_WINNERS} bind:value={raffle.winnerCount} />
+              </label>
+              <label class="mg-field mg-field-tight">
+                <span class="mg-label">Raids / ticket</span>
+                <input class="mg-input" type="number" min="1" bind:value={raffle.perTicket} />
+              </label>
+              <button
+                type="button"
+                class="mg-remove focus-ring"
+                onclick={() => (raffles = raffles.filter((entry) => entry.key !== raffle.key))}
+                aria-label="Remove raffle"
+              >✕</button>
+            </div>
+            <div class="mg-grid-2">
+              <label class="mg-field">
+                <span class="mg-label">Ticket window start (UTC)</span>
+                <InstantField bind:value={raffle.windowFrom} name="Raffle window start" />
+              </label>
+              <label class="mg-field">
+                <span class="mg-label">Ticket window end (UTC)</span>
+                <InstantField bind:value={raffle.windowTo} name="Raffle window end" />
+              </label>
+            </div>
+          </div>
+        {/each}
+        <button
+          type="button"
+          class="mg-add focus-ring"
+          onclick={() => raffles.push(newRaffleRow())}
+        >
+          + Add raffle
+        </button>
+
+        {#if raffleSlots.length > 0}
+          <div class="mg-raffle-results" role="table" aria-label="Raffle winners">
+            <div class="mg-raffle-result mg-raffle-result-head" role="row">
+              <span role="columnheader">Winner</span>
+              <span role="columnheader">Prize</span>
+              <span role="columnheader" class="mg-raffle-roll-head">Roll</span>
+            </div>
+            {#each raffleSlots as row (row.key)}
+              <div class="mg-raffle-result" role="row">
+                <span
+                  class="mg-raffle-cell mg-raffle-winner-cell"
+                  class:mg-raffle-unrolled={!row.winner}
+                  role="cell"
+                >{row.winner ? row.winner.username : "Not rolled"}</span>
+                <span class="mg-raffle-cell mg-raffle-prize-cell" role="cell">{row.prize || "—"}</span>
+                <span class="mg-raffle-roll-cell" role="cell">
+                  {#if row.saved}
+                    <button
+                      type="submit"
+                      formaction="?/rollRaffle"
+                      formnovalidate
+                      name="rollTarget"
+                      value={`${row.raffleId}:${row.slot}`}
+                      class="mg-roll-btn focus-ring"
+                      onclick={() => (rollingId = row.key)}
+                      disabled={rollingId !== null}
+                      aria-label={row.winner ? "Re-roll this winner" : "Roll this winner"}
+                      title={row.winner ? "Re-roll" : "Roll"}
+                    >↺</button>
+                  {:else}
+                    <span class="mg-raffle-savefirst">Save first</span>
+                  {/if}
+                </span>
+              </div>
+            {/each}
+          </div>
+        {/if}
+        {#if rollError}
+          <span class="mg-error" role="alert">{rollError}</span>
+        {/if}
+      </section>
+
       <div class="mg-footer">
         <button type="submit" class="seq-button seq-button-primary seq-button-md" disabled={saving}>
           {mode === "create" ? "Create event" : "Save changes"}
@@ -1611,6 +1871,104 @@
   .mg-repeat-milestone {
     grid-template-columns: minmax(0, 1fr) minmax(0, 3fr) auto;
     margin-bottom: 8px;
+  }
+
+  .mg-repeat-raffle {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+    align-items: end;
+  }
+
+  .mg-field-tight {
+    gap: 4px;
+  }
+
+  .mg-raffle {
+    display: grid;
+    gap: 12px;
+    padding: 16px;
+    border: 1px solid var(--color-border-subtle);
+    margin-bottom: 10px;
+  }
+
+  .mg-raffle-results {
+    display: grid;
+    gap: 8px;
+    margin-top: 22px;
+  }
+
+  .mg-raffle-result {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) 44px;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .mg-raffle-result-head {
+    color: var(--text-muted);
+    font-family: var(--font-display);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+  }
+
+  .mg-raffle-roll-head {
+    text-align: center;
+  }
+
+  .mg-raffle-cell {
+    padding: 10px 12px;
+    border: 1px solid var(--color-border-subtle);
+    background: color-mix(in srgb, var(--color-abyss) 45%, transparent);
+    color: var(--text-body);
+    font-family: var(--font-data);
+    font-size: var(--text-sm);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mg-raffle-unrolled {
+    color: var(--text-muted);
+    font-style: italic;
+  }
+
+  .mg-raffle-roll-cell {
+    display: flex;
+    justify-content: center;
+  }
+
+  .mg-roll-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: 1px solid color-mix(in srgb, var(--color-gold) 45%, var(--color-border-subtle));
+    background: transparent;
+    color: var(--color-gold);
+    font-size: 1.05rem;
+    line-height: 1;
+    cursor: pointer;
+    transition:
+      border-color var(--dur-fast) ease,
+      background var(--dur-fast) ease,
+      transform var(--dur-fast) ease;
+  }
+
+  .mg-roll-btn:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-gold) 12%, transparent);
+    transform: rotate(-45deg);
+  }
+
+  .mg-roll-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .mg-raffle-savefirst {
+    color: var(--text-muted);
+    font-size: var(--text-2xs);
+    text-align: center;
   }
 
   .mg-goal {

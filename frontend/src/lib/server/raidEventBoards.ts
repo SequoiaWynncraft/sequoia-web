@@ -1,4 +1,6 @@
 import type { GuildMemberStats } from "$lib/api/guildStats";
+import type { GuildEvent } from "$lib/events/types";
+import type { RaffleEntrant } from "$lib/events/raffle";
 import { sequoiaBackendInternalHeaders, sequoiaBackendOrigin } from "$lib/server/sequoiaBackend";
 import {
   sequoiaWebBackendInternalHeaders,
@@ -126,6 +128,58 @@ export async function loadModLeaderboard(
   } catch {
     return { leaderboard: [], error: LEADERBOARD_UNAVAILABLE };
   }
+}
+
+export interface RaffleEligibility {
+  entrants: RaffleEntrant[];
+  error: string | null;
+}
+
+/**
+ * Resolves the raffle's entrant pool from the event tracker's raid board and
+ * converts each member's raids into weighted tickets (floor(raids / perTicket),
+ * zero-ticket entrants dropped). Mirrors the standings resolution: mod-tracked
+ * events honor the raffle `window` and the caller's `countRaid` (the event's
+ * activity-chart raid) against the mod leaderboard; API-tracked events only
+ * expose their whole-window totals, so the window and raid filter are ignored
+ * there.
+ */
+export async function loadRaffleEligible(
+  fetchImpl: typeof fetch,
+  tracker: NonNullable<GuildEvent["tracker"]>,
+  roster: GuildMemberStats[],
+  options: { perTicket: number; window?: { from: string; to: string }; countRaid?: string },
+): Promise<RaffleEligibility> {
+  const board = await loadRaffleLeaderboard(fetchImpl, tracker, roster, options);
+  if (board.error) return { entrants: [], error: board.error };
+  const perTicket = Math.max(1, Math.trunc(options.perTicket));
+  const entrants = board.leaderboard.flatMap((entry) => {
+    const tickets = Math.floor(entry.raids / perTicket);
+    if (tickets <= 0) return [];
+    return [{ player_uuid: entry.player_uuid, username: entry.username, tickets }];
+  });
+  return { entrants, error: null };
+}
+
+async function loadRaffleLeaderboard(
+  fetchImpl: typeof fetch,
+  tracker: NonNullable<GuildEvent["tracker"]>,
+  roster: GuildMemberStats[],
+  options: { window?: { from: string; to: string }; countRaid?: string },
+): Promise<LeaderboardResult> {
+  const tracked = (await loadRaidEvents(fetchImpl)).find((entry) => entry.id === tracker.eventId);
+  const tracking = tracked?.tracking ?? tracker.tracking;
+  if (tracking !== "mod") return loadTrackerLeaderboard(fetchImpl, tracker.eventId);
+  if (!tracked) return { leaderboard: [], error: LEADERBOARD_UNAVAILABLE };
+  return loadModLeaderboard(
+    fetchImpl,
+    {
+      starts_at: options.window?.from ?? tracked.starts_at,
+      ends_at: options.window?.to ?? tracked.ends_at,
+      raid: options.countRaid ?? tracked.raid,
+    },
+    roster,
+  );
 }
 
 async function readJson<T>(response: Response, fallback: T): Promise<T> {

@@ -2,8 +2,11 @@ import { error, fail, redirect } from "@sveltejs/kit";
 import type { Actions, PageServerLoad } from "./$types";
 
 import { recordAudit } from "$lib/server/auditLog";
+import { drawWinners, secureRng } from "$lib/events/raffle";
 import { eventFormContext } from "$lib/server/eventFormContext";
 import { checkEventManager, requireEventManager } from "$lib/server/eventManagers";
+import { getGuildStats } from "$lib/server/guildStats";
+import { loadRaffleEligible } from "$lib/server/raidEventBoards";
 import { createTrackerAction, updateTrackerAction } from "$lib/server/trackerAdmin";
 import { parseEventPayload } from "$lib/server/eventPayload";
 import { deletePresetAction, savePresetAction } from "$lib/server/eventPresets";
@@ -46,6 +49,62 @@ export const actions: Actions = {
       await recordAudit(manager, "event.delete", params.slug);
     }
     redirect(303, "/events/manage");
+  },
+
+  rollRaffle: async ({ request, params, cookies, fetch }) => {
+    const manager = await requireEventManager({ cookies, fetch });
+    // rollTarget is "raffleId:slot" - a single slot is rolled at a time.
+    const [raffleId, slotText] = String((await request.formData()).get("rollTarget") ?? "").split(":");
+    const slot = Number(slotText);
+    // Roll against the saved event, not the submitted draft, so a re-roll is
+    // deterministic and never depends on unsaved editor state.
+    const stored = await eventStore.get(params.slug);
+    if (!stored) error(404, "No such event");
+    const event = stored.event;
+    const raffle = event.raffles?.find((entry) => entry.id === raffleId);
+    if (!raffle) return fail(400, { error: "Save the raffle before rolling it." });
+    if (!Number.isInteger(slot) || slot < 0 || slot >= raffle.winnerCount) {
+      return fail(400, { error: "That winner slot no longer exists - save and try again." });
+    }
+    if (!event.tracker) return fail(400, { error: "This event needs a tracker to roll raffles." });
+
+    // Membership trust mirrors the public standings board: only a fresh
+    // roster is authoritative for who is eligible.
+    const stats = await getGuildStats(fetch, { allowStale: false }).catch(() => null);
+    if (stats === null || stats.stale) {
+      return fail(503, { error: "Member data is temporarily unavailable - try again shortly." });
+    }
+    const pool = await loadRaffleEligible(fetch, event.tracker, stats.members, {
+      perTicket: raffle.perTicket,
+      window: raffle.window,
+      // The raid scope follows the event's activity chart; absent falls back
+      // to the tracker's own raid scope inside loadRaffleEligible.
+      countRaid: event.activity?.countRaid,
+    });
+    if (pool.error) return fail(503, { error: pool.error });
+
+    // Nobody already holding a slot can win this one: every other slot of this
+    // raffle, plus - when the event bars repeat winners - every other raffle's
+    // winners.
+    const others = (raffle.winners ?? []).filter((winner) => winner.slot !== slot);
+    const crossRaffle = event.raffleExcludeWinners
+      ? (event.raffles ?? [])
+          .filter((entry) => entry.id !== raffle.id)
+          .flatMap((entry) => entry.winners ?? [])
+      : [];
+    const exclude = [...others, ...crossRaffle].map((winner) => winner.player_uuid);
+    const [drawn] = drawWinners(pool.entrants, 1, { exclude, rng: secureRng });
+    if (!drawn) {
+      return fail(400, { error: "No eligible members are left to draw for this slot." });
+    }
+
+    raffle.winners = [...others, { slot, ...drawn }];
+    raffle.drawnAt = new Date().toISOString();
+    if (!(await eventStore.update(event, { published: stored.published }))) {
+      error(404, "No such event");
+    }
+    await recordAudit(manager, "event.rollRaffle", params.slug, `${raffleId}:${slot}`);
+    return { rolled: raffleId, slot, winner: { slot, ...drawn } };
   },
 
   createTracker: createTrackerAction,

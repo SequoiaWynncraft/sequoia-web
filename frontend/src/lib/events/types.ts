@@ -67,6 +67,38 @@ export interface CompRole {
   note?: string;
 }
 
+/** A single drawn raffle winner, frozen onto its slot at roll time. */
+export interface RaffleWinner {
+  /** Which winner slot (0-based) this fills; slots are rolled independently. */
+  slot: number;
+  username: string;
+  player_uuid: string;
+  /** Ticket count the winner held when drawn - kept for display and audit. */
+  tickets: number;
+}
+
+/**
+ * A prize draw whose entries come from the event tracker's raid board:
+ * `perTicket` raids inside `window` earn one weighted ticket. Winners are
+ * frozen when a manager rolls, so the public page never recomputes them.
+ */
+export interface EventRaffle {
+  /** Stable id used to target rolls and re-rolls; persists in the event JSON. */
+  id: string;
+  /** One prize per raffle - create several raffles for several items. */
+  prize: string;
+  /** How many distinct winners to draw. */
+  winnerCount: number;
+  /** Raids per ticket: entrants earn floor(raids / perTicket) weighted tickets. */
+  perTicket: number;
+  /** Ticket-earning window (RFC3339); absent uses the tracker's full window. */
+  window?: { from: string; to: string };
+  /** Frozen winners keyed by slot; a slot with no entry is not yet drawn. */
+  winners?: RaffleWinner[];
+  /** RFC3339 instant of the most recent slot roll. */
+  drawnAt?: string;
+}
+
 export interface GuildEvent {
   slug: string;
   name: string;
@@ -95,4 +127,8 @@ export interface GuildEvent {
   rules?: string[];
   /** Raid-tracker window powering the member standings board. */
   tracker?: { eventId: string; tracking: "api" | "mod" };
+  /** Prize draws earning tickets from the tracker's raid board. */
+  raffles?: EventRaffle[];
+  /** When set, a winner of any raffle is excluded from the rest of this event. */
+  raffleExcludeWinners?: boolean;
 }

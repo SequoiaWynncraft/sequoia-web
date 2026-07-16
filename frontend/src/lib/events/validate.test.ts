@@ -229,6 +229,88 @@ describe("parseGuildEvent", () => {
     );
   });
 
+  it("round-trips raffles, normalizing the window and carrying frozen winners", () => {
+    const result = parseGuildEvent({
+      ...VALID,
+      raffleExcludeWinners: true,
+      raffles: [
+        {
+          id: "r1",
+          prize: " 5 stx LE ",
+          winnerCount: 2,
+          perTicket: 5,
+          window: { from: "2026-08-01T00:00:00+02:00", to: "2026-08-08T00:00:00Z" },
+          winners: [{ slot: 0, username: "Alice", player_uuid: "uuid-a", tickets: 4 }],
+          drawnAt: "2026-08-08T12:00:00Z",
+        },
+      ],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.event.raffleExcludeWinners).toBe(true);
+    const raffle = result.event.raffles?.[0];
+    expect(raffle?.prize).toBe("5 stx LE");
+    expect(raffle?.window?.from).toBe("2026-07-31T22:00:00.000Z");
+    expect(raffle?.winners).toEqual([{ slot: 0, username: "Alice", player_uuid: "uuid-a", tickets: 4 }]);
+    expect(raffle?.drawnAt).toBe("2026-08-08T12:00:00.000Z");
+  });
+
+  it("accepts a minimal undrawn raffle and drops the exclude flag when false", () => {
+    const result = parseGuildEvent({
+      ...VALID,
+      raffleExcludeWinners: false,
+      raffles: [{ id: "r1", prize: "Mythic", winnerCount: 1, perTicket: 3 }],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.event.raffleExcludeWinners).toBeUndefined();
+    expect(result.event.raffles?.[0].winners).toBeUndefined();
+    expect(result.event.raffles?.[0].window).toBeUndefined();
+  });
+
+  it("rejects malformed raffles with a field-specific error", () => {
+    expectError({ ...VALID, raffles: [{ prize: "x", winnerCount: 1, perTicket: 1 }] }, "id");
+    expectError({ ...VALID, raffles: [{ id: "r1", winnerCount: 1, perTicket: 1 }] }, "prize");
+    expectError(
+      { ...VALID, raffles: [{ id: "r1", prize: "x", winnerCount: 0, perTicket: 1 }] },
+      "winner count",
+    );
+    expectError(
+      { ...VALID, raffles: [{ id: "r1", prize: "x", winnerCount: 1, perTicket: 0 }] },
+      "per ticket",
+    );
+    expectError(
+      {
+        ...VALID,
+        raffles: [
+          {
+            id: "r1",
+            prize: "x",
+            winnerCount: 1,
+            perTicket: 1,
+            window: { from: "2026-08-08T00:00:00Z", to: "2026-08-01T00:00:00Z" },
+          },
+        ],
+      },
+      "end after it starts",
+    );
+    expectError(
+      {
+        ...VALID,
+        raffles: [
+          {
+            id: "r1",
+            prize: "x",
+            winnerCount: 1,
+            perTicket: 1,
+            window: { from: "2026-08-01T00:00", to: "2026-08-08T00:00:00Z" },
+          },
+        ],
+      },
+      "timezone",
+    );
+  });
+
   it("rejects malformed input with a field-specific error", () => {
     expectError({ ...VALID, slug: "Bad Slug!" }, "slug");
     expectError({ ...VALID, slug: "manage" }, "reserved");
