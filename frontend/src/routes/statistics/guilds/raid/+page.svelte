@@ -92,6 +92,7 @@
       value: (entry) => entry.username,
       sortValue: (entry) => entry.username.toLowerCase(),
       avatar: (entry) => entry.insigniaUrl ?? null,
+      avatarAlt: (entry) => (entry.insignia ? `${entry.insignia.toLowerCase()} insignia` : null),
       secondary: (entry) => entry.progressionRank ?? null,
       href: (entry) => `/statistics/player/playercard?player=${encodeURIComponent(entry.username)}`,
     },

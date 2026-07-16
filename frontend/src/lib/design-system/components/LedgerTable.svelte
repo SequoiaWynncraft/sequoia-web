@@ -104,9 +104,10 @@
             {@const link = column.href?.(row) ?? null}
             {@const secondary = column.secondary?.(row) ?? null}
             {@const avatar = column.avatar?.(row) ?? null}
+            {@const avatarAlt = column.avatarAlt?.(row) ?? null}
             {@const icon = column.icon?.(row) ?? null}
             <td class:numeric={column.numeric} class:name-cell={column.nameStyle}>
-              {#if avatar}<img class="avatar" src={avatar} alt="" loading="lazy" width="22" height="22" />{/if}
+              {#if avatar}<img class="avatar" src={avatar} alt={avatarAlt ?? ""} title={avatarAlt ?? undefined} loading="lazy" width="22" height="22" />{/if}
               {#if mark}<span class="mark" style="background:{mark}" aria-hidden="true"></span>{/if}
               {#if link}
                 <a href={link} class="cell-link">{column.value(row)}</a>
