@@ -316,7 +316,7 @@ export function homepageStatistics(): NavLeaf[] {
   return [
     {
       label: "Rankings",
-      to: "/statistics/global/rankings?window=1d&wwindow=1d&season=31",
+      to: "/statistics/global/rankings?window=1d&wwindow=1d",
       icon: "trophy",
       description: "Where every guild stands.",
       cta: "View",
