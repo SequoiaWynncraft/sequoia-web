@@ -22,6 +22,12 @@ export interface RaidLeaderboardEntry {
   username: string;
   raids: number;
   rank: string;
+  /** Honour insignia artwork URL, when the member holds a graded insignia. */
+  insigniaUrl?: string | null;
+  /** Insignia grade (e.g. "GOLD"), used for the image alt text. */
+  insignia?: string | null;
+  /** Sequoia internal/progression rank label (e.g. "Druid"), when known. */
+  progressionRank?: string | null;
 }
 
 export type LeaderboardResult = { leaderboard: RaidLeaderboardEntry[]; error: string | null };

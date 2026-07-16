@@ -9,6 +9,11 @@ import {
   sameUuid,
   type RaidLeaderboardEntry,
 } from "$lib/server/raidEventBoards";
+import {
+  getLinkedRankProfiles,
+  memberRanksByUuid,
+  type MemberRankEntry,
+} from "$lib/server/rankProfiles";
 import { parseDuration } from "$lib/site/duration";
 import { KNOWN_RAIDS } from "$lib/site/raids";
 
@@ -16,6 +21,11 @@ export const prerender = false;
 
 /** Timeframe shown when the viewer hasn't picked an event or typed a window. */
 const DEFAULT_WINDOW = "7d";
+
+/** How long the optional insignia lookup may keep a ready board waiting. */
+const RANKS_GRACE_MS = 1500;
+
+const EMPTY_RANKS: Record<string, MemberRankEntry> = {};
 
 /** A member-contribution board scoped to an ad-hoc timeframe ending "now". */
 export interface CustomWindow {
@@ -37,6 +47,12 @@ export interface ActivityDay {
 export const load: PageServerLoad = async ({ fetch, url, parent }) => {
   // Streamed: the activity feed must never hold the page back.
   const activity = loadActivity(fetch).catch(() => null);
+  // Best-effort insignia enrichment for the leaderboard - kicked off now so it
+  // runs alongside the roster/event fetches and is usually ready by the time the
+  // board is built (a short grace below caps how long it may hold the page).
+  const ranksPromise = getLinkedRankProfiles(fetch)
+    .then(memberRanksByUuid)
+    .catch(() => EMPTY_RANKS);
   const { viewer } = await parent();
   // Signed-in viewers await a roster refresh because membership is authorized
   // against it; anonymous visitors take the stale-tolerant fast path.
@@ -109,6 +125,26 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
         : await loadTrackerLeaderboard(fetch, selectedEvent.id);
     leaderboard = result.leaderboard;
     leaderboardError = result.error;
+  }
+
+  // Attach insignia artwork to each row. Enrichment only - a cold or slow rank
+  // cache forfeits the images after a short grace rather than holding the board.
+  if (leaderboard.length > 0) {
+    const ranks = await Promise.race([
+      ranksPromise,
+      new Promise<Record<string, MemberRankEntry>>((resolve) => {
+        setTimeout(resolve, RANKS_GRACE_MS, EMPTY_RANKS);
+      }),
+    ]);
+    leaderboard = leaderboard.map((entry) => {
+      const standing = ranks[entry.player_uuid.toLowerCase()];
+      return {
+        ...entry,
+        insigniaUrl: standing?.insigniaUrl ?? null,
+        insignia: standing?.insignia ?? null,
+        progressionRank: standing?.rank ?? null,
+      };
+    });
   }
 
   return {

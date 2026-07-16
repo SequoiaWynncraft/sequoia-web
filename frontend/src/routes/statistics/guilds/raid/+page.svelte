@@ -35,15 +35,6 @@
     return query ? `?${query}` : "?";
   }
 
-  const rankLabels: Record<string, string> = {
-    owner: "Owner",
-    chief: "Chief",
-    strategist: "Strategist",
-    captain: "Captain",
-    recruiter: "Recruiter",
-    recruit: "Recruit",
-  };
-
   /** Guild-wide totals per raid, summed from every member's per-raid counts. */
   const raidTotals = $derived.by(() => {
     if (!stats) return [];
@@ -100,7 +91,8 @@
       nameStyle: true,
       value: (entry) => entry.username,
       sortValue: (entry) => entry.username.toLowerCase(),
-      secondary: (entry) => rankLabels[entry.rank] ?? entry.rank,
+      avatar: (entry) => entry.insigniaUrl ?? null,
+      secondary: (entry) => entry.progressionRank ?? null,
       href: (entry) => `/statistics/player/playercard?player=${encodeURIComponent(entry.username)}`,
     },
     {
