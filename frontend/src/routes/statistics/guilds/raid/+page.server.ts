@@ -14,7 +14,7 @@ import {
   memberRanksByUuid,
   type MemberRankEntry,
 } from "$lib/server/rankProfiles";
-import { parseDuration } from "$lib/site/duration";
+import { parseDuration, parseTimestampRange } from "$lib/site/duration";
 import { KNOWN_RAIDS } from "$lib/site/raids";
 
 export const prerender = false;
@@ -27,11 +27,16 @@ const RANKS_GRACE_MS = 1500;
 
 const EMPTY_RANKS: Record<string, MemberRankEntry> = {};
 
-/** A member-contribution board scoped to an ad-hoc timeframe ending "now". */
+/** A member-contribution board scoped to an ad-hoc timeframe. */
 export interface CustomWindow {
+  /**
+   * How the window was expressed: a relative "duration" ending now, or an
+   * explicit timestamp "range". The view titles the board accordingly.
+   */
+  kind: "duration" | "range";
   /** The raw timeframe text the viewer typed, echoed back into the form. */
   input: string;
-  /** Compact label for the window, e.g. "20 min". */
+  /** Compact label for a duration window, e.g. "20 min" (unused for ranges). */
   label: string;
   from: string;
   to: string;
@@ -76,9 +81,17 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
   // page uses this to avoid offering a no-op "Clear timeframe" link on it.
   const windowIsDefault = windowRaw === "" && selectedEvent === null;
   const windowInput = windowIsDefault ? DEFAULT_WINDOW : windowRaw;
+  const now = new Date();
+  // The input accepts two forms: a relative duration ("20min", "0.5d") ending
+  // now, or a prefixed Unix-timestamp range ("t:1784109600-1784282400").
   const parsedWindow = windowInput ? parseDuration(windowInput) : null;
-  // Only an explicitly typed bad value is flagged - never the implicit default.
-  const windowInvalid = windowRaw !== "" && parsedWindow === null;
+  const rangeResult = windowInput && !parsedWindow ? parseTimestampRange(windowInput, now) : null;
+  const parsedRange = rangeResult && "range" in rangeResult ? rangeResult.range : null;
+  // A `t:` range that can't be served carries its own message (e.g. before 2020).
+  const rangeError = rangeResult && "error" in rangeResult ? rangeResult.error : null;
+  // Only an explicitly typed value that neither form accepts is flagged - never
+  // the implicit default.
+  const windowInvalid = windowRaw !== "" && parsedWindow === null && parsedRange === null;
 
   // Raid filter for the timeframe board: a known raid name, or null for "all".
   const raidParam = url.searchParams.get("raid");
@@ -86,13 +99,21 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
     raidParam && KNOWN_RAIDS.some((raid) => raid.key === raidParam) ? raidParam : null;
   let customWindow: CustomWindow | null = null;
   if (parsedWindow) {
-    const to = new Date();
-    const from = new Date(to.getTime() - parsedWindow.ms);
+    const from = new Date(now.getTime() - parsedWindow.ms);
     customWindow = {
+      kind: "duration",
       input: windowInput,
       label: parsedWindow.label,
       from: from.toISOString(),
-      to: to.toISOString(),
+      to: now.toISOString(),
+    };
+  } else if (parsedRange) {
+    customWindow = {
+      kind: "range",
+      input: windowInput,
+      label: "",
+      from: new Date(parsedRange.fromMs).toISOString(),
+      to: new Date(parsedRange.toMs).toISOString(),
     };
   }
 
@@ -156,6 +177,7 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
     windowInput,
     windowIsDefault,
     windowInvalid,
+    windowError: rangeError,
     selectedRaid,
     leaderboard,
     leaderboardError,

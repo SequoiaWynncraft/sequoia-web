@@ -44,3 +44,58 @@ export function parseDuration(input: string): ParsedDuration | null {
 
   return { ms, label: `${match[1]} ${UNIT_LABEL[unit]}` };
 }
+
+/** An explicit start/end window resolved from a Unix-timestamp range. */
+export interface TimestampRange {
+  /** Window start, in epoch milliseconds. */
+  fromMs: number;
+  /** Window end, in epoch milliseconds (clamped to `now` when in the future). */
+  toMs: number;
+}
+
+/**
+ * Outcome of {@link parseTimestampRange}: a resolved `range`, a user-facing
+ * `error` when the input is a range attempt that isn't queryable, or `null`
+ * when the input isn't a timestamp range at all (no `t:` prefix).
+ */
+export type TimestampRangeResult = { range: TimestampRange } | { error: string } | null;
+
+/** Earliest instant we have raid tracking for; queries before it are rejected. */
+const TRACKING_START_MS = Date.UTC(2020, 0, 1);
+
+/**
+ * Parse a prefixed Unix-timestamp range like `t:1784109600-1784282400`
+ * (start-end, in seconds) into an explicit window. The `t:`/`T:` prefix is
+ * required so plain hyphenated numbers (e.g. a year range like `2020-2024`)
+ * are never silently read as epoch seconds. A reversed range is auto-corrected
+ * so the smaller timestamp is the start, and the end is clamped to `now` when
+ * it lies in the future, so an open-ended range reads "up to now".
+ *
+ * Returns `null` when the input has no `t:` prefix (not a range attempt). For a
+ * range attempt that can't be served it returns an `{ error }`: a start before
+ * raid tracking began ({@link TRACKING_START_MS}, 2020), or an empty window
+ * once clamped.
+ */
+export function parseTimestampRange(input: string, now: Date): TimestampRangeResult {
+  const match = input.trim().match(/^[tT]:\s*(\d+)\s*-\s*(\d+)$/);
+  if (!match) return null;
+
+  let fromMs = Number(match[1]) * 1000;
+  let toMs = Number(match[2]) * 1000;
+  if (!Number.isFinite(fromMs) || !Number.isFinite(toMs)) {
+    return { error: "Couldn't read those timestamps." };
+  }
+  // Auto-correct a reversed range so the earlier timestamp is always the start.
+  if (fromMs > toMs) [fromMs, toMs] = [toMs, fromMs];
+
+  // Reject anything reaching before raid tracking began, naming the offending year.
+  if (fromMs < TRACKING_START_MS) {
+    const year = new Date(fromMs).getUTCFullYear();
+    return { error: `Outside of tracked time, you tried to query year ${year}.` };
+  }
+
+  toMs = Math.min(toMs, now.getTime());
+  if (fromMs >= toMs) return { error: "That timeframe is empty." };
+
+  return { range: { fromMs, toMs } };
+}
