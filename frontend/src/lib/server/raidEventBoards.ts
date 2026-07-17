@@ -206,13 +206,23 @@ function rosterMembersOnly(
   entries: RaidLeaderboardEntry[],
   roster: GuildMemberStats[],
 ): RaidLeaderboardEntry[] {
-  const byUuid = new Set(
-    roster.flatMap((member) => (member.uuid !== null ? [normalizeUuid(member.uuid)] : [])),
+  const byUuid = new Map(
+    roster.flatMap(
+      (member) => (member.uuid !== null ? [[normalizeUuid(member.uuid), member] as const] : []),
+    ),
   );
-  const byName = new Set(roster.map((member) => member.username.toLowerCase()));
-  return entries.filter(
-    (entry) => byUuid.has(normalizeUuid(entry.player_uuid)) || byName.has(entry.username.toLowerCase()),
-  );
+  const byName = new Map(roster.map((member) => [member.username.toLowerCase(), member] as const));
+  return entries.flatMap((entry) => {
+    // An entry that carries a UUID must match by UUID - a stale or reused name
+    // must never stand in for a real identity. Name matching is only for the
+    // (unexpected) entry the tracker left without a UUID. On a UUID match, emit
+    // the roster member's own UUID so the raffle identity stays authoritative.
+    const member = entry.player_uuid
+      ? byUuid.get(normalizeUuid(entry.player_uuid))
+      : byName.get(entry.username.toLowerCase());
+    if (!member) return [];
+    return [{ ...entry, player_uuid: member.uuid ?? entry.player_uuid ?? entry.username.toLowerCase() }];
+  });
 }
 
 async function readJson<T>(response: Response, fallback: T): Promise<T> {
