@@ -453,7 +453,7 @@
     }),
   );
 
-  const submit: SubmitFunction = ({ action, cancel }) => {
+  const submit: SubmitFunction = ({ action, cancel, formData }) => {
     if (action.search.includes("createTracker") || action.search.includes("updateTracker")) {
       trackerAttempted = true;
       if (trackerDraftError) {
@@ -468,6 +468,12 @@
     }
     if (action.search.includes("rollRaffle")) {
       rollError = null;
+      // Mark the roll in flight here, not in the button's onclick: disabling a
+      // submit button from within its own click handler makes Svelte flush the
+      // `disabled` update before the browser dispatches the submit, cancelling
+      // it. By the time enhance calls submit, the submission is already ours to
+      // keep, so disabling the buttons now is safe.
+      rollingId = String(formData.get("rollTarget") ?? "pending");
       // A roll persists a single slot server-side; reflect the frozen winner
       // onto that slot so the editor updates without a reseed.
       return async ({ result, update }) => {
@@ -1581,7 +1587,6 @@
                       name="rollTarget"
                       value={`${row.raffleId}:${row.slot}`}
                       class="mg-roll-btn focus-ring"
-                      onclick={() => (rollingId = row.key)}
                       disabled={rollingId !== null}
                       aria-label={row.winner ? "Re-roll this winner" : "Roll this winner"}
                       title={row.winner ? "Re-roll" : "Roll"}
