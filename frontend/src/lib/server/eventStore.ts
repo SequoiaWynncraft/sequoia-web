@@ -20,8 +20,13 @@ export interface EventStore {
   get(slug: string): Promise<StoredEvent | null>;
   /** Atomic create - returns false when the slug is already taken. */
   insert(event: GuildEvent, options: { published: boolean }): Promise<boolean>;
-  /** Atomic update - returns false when no event has that slug. */
-  update(event: GuildEvent, options: { published: boolean }): Promise<boolean>;
+  /**
+   * Atomic update - returns false when no event has that slug. When
+   * `ifUpdatedAt` is given, the write only lands if the row still carries that
+   * `updatedAt`, so a concurrent read-modify-write (e.g. two raffle rolls)
+   * loses instead of silently clobbering; the loser gets false.
+   */
+  update(event: GuildEvent, options: { published: boolean; ifUpdatedAt?: number }): Promise<boolean>;
   /** Returns false when no event had that slug. */
   remove(slug: string): Promise<boolean>;
 }
@@ -121,10 +126,13 @@ export function createEventStore(getClient: () => Promise<Client>): EventStore {
 
     async update(event, options) {
       const db = await ready();
-      const result = await db.execute({
-        sql: "UPDATE guild_events SET data = ?, published = ?, updated_at = ? WHERE slug = ?",
-        args: [JSON.stringify(event), options.published ? 1 : 0, Date.now(), event.slug],
-      });
+      const sql =
+        options.ifUpdatedAt === undefined
+          ? "UPDATE guild_events SET data = ?, published = ?, updated_at = ? WHERE slug = ?"
+          : "UPDATE guild_events SET data = ?, published = ?, updated_at = ? WHERE slug = ? AND updated_at = ?";
+      const args = [JSON.stringify(event), options.published ? 1 : 0, Date.now(), event.slug];
+      if (options.ifUpdatedAt !== undefined) args.push(options.ifUpdatedAt);
+      const result = await db.execute({ sql, args });
       return result.rowsAffected > 0;
     },
 

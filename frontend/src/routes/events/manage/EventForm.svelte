@@ -207,9 +207,10 @@
   }
 
   // Only raffles that already exist server-side can be rolled - a fresh row
-  // must be saved first. This mirrors the persisted state, so undo never
-  // changes it.
-  const seedRaffleIds = new Set((seed?.raffles ?? []).map((raffle) => raffle.id));
+  // must be saved first. Derived from the live `initial` prop (not the mount
+  // snapshot) so a save that adds a raffle unlocks its roll button without a
+  // full reload; undo never touches `initial`, so it stays out of the picture.
+  const seedRaffleIds = $derived(new Set((initial?.raffles ?? []).map((raffle) => raffle.id)));
   let raffleExcludeWinners = $state(seed?.raffleExcludeWinners ?? false);
   let raffles = $state<RaffleRow[]>(
     seed?.raffles?.map((raffle) => ({
@@ -359,10 +360,13 @@
     const ruleLines = splitLines(rules);
     if (ruleLines.length > 0) event.rules = ruleLines;
     if (trackerEnabled) event.tracker = { eventId: trackerEventId, tracking: trackerTracking };
-    // Rows added but left fully empty are noise; a filled row carries its
-    // frozen winners through unchanged so a save never wipes a rolled result.
+    // Rows added but left fully empty are noise; drop them so an untouched
+    // "+ Add raffle" click never fails the save on a missing prize. The
+    // winner-count/raids-per-ticket defaults are always present, so they can't
+    // signal intent - a row counts only once it has a prize, a window, or
+    // frozen winners (the last keeps a save from ever wiping a rolled result).
     const filledRaffles = raffles
-      .filter((row) => row.prize.trim() || hasCount(row.winnerCount) || hasCount(row.perTicket))
+      .filter((row) => row.prize.trim() || (row.windowFrom && row.windowTo) || row.winners.length > 0)
       .map((row) => {
         const raffle: Record<string, unknown> = {
           id: row.id,

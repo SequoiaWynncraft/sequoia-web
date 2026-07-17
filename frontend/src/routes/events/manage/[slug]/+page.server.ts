@@ -53,9 +53,13 @@ export const actions: Actions = {
 
   rollRaffle: async ({ request, params, cookies, fetch }) => {
     const manager = await requireEventManager({ cookies, fetch });
-    // rollTarget is "raffleId:slot" - a single slot is rolled at a time.
-    const [raffleId, slotText] = String((await request.formData()).get("rollTarget") ?? "").split(":");
-    const slot = Number(slotText);
+    // rollTarget is "raffleId:slot" - a single slot is rolled at a time. Split
+    // on the LAST colon so a raffle id that itself contains one (e.g. a
+    // hand-edited preset) still parses the trailing slot correctly.
+    const rollTarget = String((await request.formData()).get("rollTarget") ?? "");
+    const sep = rollTarget.lastIndexOf(":");
+    const raffleId = sep >= 0 ? rollTarget.slice(0, sep) : rollTarget;
+    const slot = Number(sep >= 0 ? rollTarget.slice(sep + 1) : "");
     // Roll against the saved event, not the submitted draft, so a re-roll is
     // deterministic and never depends on unsaved editor state.
     const stored = await eventStore.get(params.slug);
@@ -100,8 +104,11 @@ export const actions: Actions = {
 
     raffle.winners = [...others, { slot, ...drawn }];
     raffle.drawnAt = new Date().toISOString();
-    if (!(await eventStore.update(event, { published: stored.published }))) {
-      error(404, "No such event");
+    // Guard on the version we read: if another roll (or save) landed in the
+    // meantime, this write loses rather than clobbering that winner, and the
+    // manager is told to retry against the fresh state.
+    if (!(await eventStore.update(event, { published: stored.published, ifUpdatedAt: stored.updatedAt }))) {
+      return fail(409, { error: "This event just changed - reload and roll again." });
     }
     await recordAudit(manager, "event.rollRaffle", params.slug, `${raffleId}:${slot}`);
     return { rolled: raffleId, slot, winner: { slot, ...drawn } };

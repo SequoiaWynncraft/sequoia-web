@@ -304,7 +304,18 @@ function parseRaffle(value: unknown, label: string): EventRaffle {
     const winners = parseList(raw.winners, `${label} winners`, (entry) =>
       parseRaffleWinner(entry, label),
     );
-    if (winners) raffle.winners = winners;
+    if (winners) {
+      // One winner per slot, every slot inside the declared count - keeps the
+      // public board (which renders one row per slot) from hiding a persisted
+      // winner or double-booking a slot.
+      const slots = new Set<number>();
+      for (const winner of winners) {
+        if (winner.slot >= raffle.winnerCount) fail(`${label} winner slot is out of range`);
+        if (slots.has(winner.slot)) fail(`${label} has two winners in the same slot`);
+        slots.add(winner.slot);
+      }
+      raffle.winners = winners;
+    }
   }
   if (present(raw.drawnAt)) raffle.drawnAt = parseInstant(raw.drawnAt, `${label} draw time`);
   return raffle;
