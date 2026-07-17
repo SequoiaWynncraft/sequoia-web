@@ -28,7 +28,8 @@ export const load: PageServerLoad = async ({ fetch, params, parent }) => {
 export const actions: Actions = {
   save: async ({ request, params, cookies, fetch }) => {
     const manager = await requireEventManager({ cookies, fetch });
-    const payload = parseEventPayload(await request.formData());
+    const formData = await request.formData();
+    const payload = parseEventPayload(formData);
     if ("error" in payload) return fail(400, { error: payload.error });
     if (payload.event.slug !== params.slug) return fail(400, { error: "the slug cannot be changed" });
     // Raffle winners are server-owned (only rollRaffle writes them). Graft the
@@ -36,6 +37,15 @@ export const actions: Actions = {
     // landed after it loaded; drop slots the save shrinks past.
     const stored = await eventStore.get(params.slug);
     if (!stored) error(404, "No such event");
+    // Optimistic-concurrency check against the version the form loaded from: if
+    // the stored event moved on since (another manager saved, or a roll landed),
+    // the draft is stale and would silently clobber that change even though the
+    // winner graft below only reconciles raffle data. Reject it so the manager
+    // reloads the current state first. (The ifUpdatedAt guard on the write is the
+    // narrower read/write TOCTOU check on this request's own read.)
+    if (Number(formData.get("baseUpdatedAt")) !== stored.updatedAt) {
+      return fail(409, { error: "This event just changed - reload and save again." });
+    }
     if (payload.event.raffles) {
       const priorById = new Map((stored.event.raffles ?? []).map((entry) => [entry.id, entry]));
       for (const raffle of payload.event.raffles) {

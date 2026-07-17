@@ -23,6 +23,7 @@
     mode,
     initial = null,
     initialPublished = false,
+    initialUpdatedAt = null,
     context = null,
     error = null,
     saved = false,
@@ -34,6 +35,9 @@
     mode: "create" | "edit";
     initial?: GuildEvent | null;
     initialPublished?: boolean;
+    /** Stored version the form loaded from; sent back so the save can reject a
+     * stale draft that would clobber a concurrent edit or roll. */
+    initialUpdatedAt?: number | null;
     /** Picker data (roster, tracker events); the form degrades without it. */
     context?: EventFormContext | null;
     /** Rejection from the last server submission. */
@@ -972,6 +976,10 @@
 
     <form method="POST" action="?/save" use:enhance={submit}>
       <input type="hidden" name="payload" value={payload} />
+      <!-- Live prop, not the mount snapshot: a roll or save refreshes `initial`
+           via load, advancing this so the manager's own follow-up save isn't
+           rejected as stale - only a change they never saw is. -->
+      <input type="hidden" name="baseUpdatedAt" value={initialUpdatedAt ?? ""} />
       <input type="hidden" name="trackerPayload" value={trackerPayload} />
 
       <section class="mg-section">
