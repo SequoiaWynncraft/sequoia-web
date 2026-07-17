@@ -78,7 +78,11 @@ export const actions: Actions = {
     const rollTarget = String((await request.formData()).get("rollTarget") ?? "");
     const sep = rollTarget.lastIndexOf(":");
     const raffleId = sep >= 0 ? rollTarget.slice(0, sep) : rollTarget;
-    const slot = Number(sep >= 0 ? rollTarget.slice(sep + 1) : "");
+    const slotText = sep >= 0 ? rollTarget.slice(sep + 1) : "";
+    // Require an explicit colon and a non-empty slot: Number("") is 0, so a
+    // target missing its slot must become NaN to fail the slot check below
+    // rather than silently rolling slot 0.
+    const slot = slotText === "" ? Number.NaN : Number(slotText);
     // Roll against the saved event, not the submitted draft, so a re-roll is
     // deterministic and never depends on unsaved editor state.
     const stored = await eventStore.get(params.slug);
