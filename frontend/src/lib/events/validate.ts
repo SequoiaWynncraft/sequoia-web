@@ -75,7 +75,19 @@ function parseEvent(value: unknown): GuildEvent {
   if (present(raw.tracker)) event.tracker = parseTracker(raw.tracker);
   const raffles = parseRaffles(raw);
   if (raffles) event.raffles = raffles;
-  if (raw.raffleExcludeWinners === true) event.raffleExcludeWinners = true;
+  if (raw.raffleExcludeWinners === true) {
+    event.raffleExcludeWinners = true;
+    // With exclusion on, every raffle shares one winner pool - a member may hold
+    // at most one winning slot across the whole event. Reject a uuid that already
+    // won another raffle so a stale form or hand-edited preset can't slip past.
+    const across = new Set<string>();
+    for (const raffle of raffles ?? []) {
+      for (const winner of raffle.winners ?? []) {
+        if (across.has(winner.player_uuid)) fail("a member cannot win more than one raffle");
+        across.add(winner.player_uuid);
+      }
+    }
+  }
   return event;
 }
 
@@ -345,7 +357,9 @@ function parseRaffleWinner(value: unknown, label: string): RaffleWinner {
     slot: parseCount(raw.slot, `${label} winner slot`, 0),
     username: requiredText(raw.username, `${label} winner name`, 40),
     player_uuid: requiredText(raw.player_uuid, `${label} winner uuid`, 64),
-    tickets: parseCount(raw.tickets, `${label} winner tickets`, 0),
+    // A winner was drawn from the ticket-weighted pool, where zero-ticket
+    // entrants never win - a persisted winner therefore holds at least one.
+    tickets: parseCount(raw.tickets, `${label} winner tickets`, 1),
   };
 }
 

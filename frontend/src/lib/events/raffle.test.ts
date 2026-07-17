@@ -50,6 +50,17 @@ describe("drawWinners", () => {
     expect(winners).toEqual([{ username: "Alice", player_uuid: "a", tickets: 5 }]);
   });
 
+  it("collapses repeated uuids so a member wins at most one slot", () => {
+    const pool: RaffleEntrant[] = [
+      { player_uuid: "a", username: "Alice", tickets: 3 },
+      { player_uuid: "a", username: "Alice", tickets: 3 },
+      { player_uuid: "b", username: "Bob", tickets: 1 },
+    ];
+    const winners = drawWinners(pool, 5, { rng: sequenceRng([0, 0]) });
+    expect(winners.filter((w) => w.player_uuid === "a").length).toBe(1);
+    expect(new Set(winners.map((w) => w.player_uuid))).toEqual(new Set(["a", "b"]));
+  });
+
   it("does not mutate the caller's pool", () => {
     const snapshot = JSON.parse(JSON.stringify(POOL));
     drawWinners(POOL, 2, { rng: sequenceRng([0, 0]) });

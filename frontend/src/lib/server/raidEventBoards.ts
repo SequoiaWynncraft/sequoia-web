@@ -118,9 +118,11 @@ export async function loadModLeaderboard(
           {
             // Prefer the roster member's own UUID: a name-matched entry has no
             // player_uuid, and a username-as-uuid would break both nmsr faces
-            // and cross-raffle exclusion (which compares uuids).
+            // and cross-raffle exclusion (which compares uuids). Carry the
+            // roster's own username too, so a stale or spoofed mod-reported name
+            // can never stand in for the member's identity on the board.
             player_uuid: member.uuid ?? entry.player_uuid ?? entry.username.toLowerCase(),
-            username: entry.username,
+            username: member.username,
             raids: entry.raids,
             rank: member.rank,
           },
@@ -221,7 +223,13 @@ function rosterMembersOnly(
       ? byUuid.get(normalizeUuid(entry.player_uuid))
       : byName.get(entry.username.toLowerCase());
     if (!member) return [];
-    return [{ ...entry, player_uuid: member.uuid ?? entry.player_uuid ?? entry.username.toLowerCase() }];
+    return [
+      {
+        ...entry,
+        player_uuid: member.uuid ?? entry.player_uuid ?? entry.username.toLowerCase(),
+        username: member.username,
+      },
+    ];
   });
 }
 

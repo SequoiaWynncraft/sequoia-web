@@ -3,6 +3,7 @@ import type { Actions, PageServerLoad } from "./$types";
 
 import { recordAudit } from "$lib/server/auditLog";
 import { drawWinners, secureRng } from "$lib/events/raffle";
+import { parseGuildEvent } from "$lib/events/validate";
 import { eventFormContext } from "$lib/server/eventFormContext";
 import { checkEventManager, requireEventManager } from "$lib/server/eventManagers";
 import { getGuildStats } from "$lib/server/guildStats";
@@ -50,10 +51,16 @@ export const actions: Actions = {
         }
       }
     }
+    // Grafting the server-owned winners back on can reintroduce an invariant
+    // break the submitted draft didn't have (e.g. a cross-raffle duplicate under
+    // winner exclusion). Re-validate the grafted event so we never persist a
+    // combination the validator would reject.
+    const regrafted = parseGuildEvent(payload.event);
+    if (!regrafted.ok) return fail(400, { error: regrafted.error });
     // Guard on the version we grafted from: a raffle roll (or another save)
     // landing between the read above and this write must not be silently
     // overwritten with the older snapshot.
-    if (!(await eventStore.update(payload.event, { published: payload.published, ifUpdatedAt: stored.updatedAt }))) {
+    if (!(await eventStore.update(regrafted.event, { published: payload.published, ifUpdatedAt: stored.updatedAt }))) {
       return fail(409, { error: "This event just changed - reload and save again." });
     }
     await recordAudit(
@@ -134,7 +141,15 @@ export const actions: Actions = {
     if (!(await eventStore.update(event, { published: stored.published, ifUpdatedAt: stored.updatedAt }))) {
       return fail(409, { error: "This event just changed - reload and roll again." });
     }
-    await recordAudit(manager, "event.rollRaffle", params.slug, `${raffleId}:${slot}`);
+    // Record who was drawn, not just where: the audit trail must show the exact
+    // winner (uuid, name, ticket weight) and when the draw landed, so a roll can
+    // be reconstructed from the log alone.
+    await recordAudit(
+      manager,
+      "event.rollRaffle",
+      params.slug,
+      `${raffleId}:${slot} → ${drawn.username} (${drawn.player_uuid}), ${drawn.tickets} tickets, ${raffle.drawnAt}`,
+    );
     return { rolled: raffleId, slot, winner: { slot, ...drawn }, drawnAt: raffle.drawnAt };
   },
 

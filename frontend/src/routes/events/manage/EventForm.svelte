@@ -236,7 +236,18 @@
   function raffleConfigUnchanged(row: RaffleRow): boolean {
     const saved = initial?.raffles?.find((entry) => entry.id === row.id);
     if (!saved) return false;
+    // The roll also reads the *stored* tracker wiring and winner-exclusion flag,
+    // so unsaved edits to either would draw against stale config even when this
+    // row's own fields match. Gate on those too, and on the prize identity, so a
+    // roll only ever reflects exactly what the server holds.
+    const eventConfigUnchanged =
+      trackerEnabled === (initial?.tracker !== undefined) &&
+      trackerEventId === (initial?.tracker?.eventId ?? "") &&
+      trackerTracking === (initial?.tracker?.tracking ?? "api") &&
+      raffleExcludeWinners === (initial?.raffleExcludeWinners ?? false);
     return (
+      eventConfigUnchanged &&
+      row.prize.trim() === saved.prize &&
       toCount(row.winnerCount) === saved.winnerCount &&
       toCount(row.perTicket) === saved.perTicket &&
       row.windowFrom === toInput(saved.window?.from) &&
@@ -380,7 +391,7 @@
     // signal intent - a row counts only once it has a prize, a window, or
     // frozen winners (the last keeps a save from ever wiping a rolled result).
     const filledRaffles = raffles
-      .filter((row) => row.prize.trim() || (row.windowFrom && row.windowTo) || row.winners.length > 0)
+      .filter((row) => row.prize.trim() || row.windowFrom || row.windowTo || row.winners.length > 0)
       .map((row) => {
         const raffle: Record<string, unknown> = {
           id: row.id,
