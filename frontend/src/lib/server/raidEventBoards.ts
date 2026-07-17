@@ -141,17 +141,17 @@ export interface RaffleEligibility {
 /**
  * Resolves the raffle's entrant pool from the event tracker's raid board and
  * converts each member's raids into weighted tickets (floor(raids / perTicket),
- * zero-ticket entrants dropped). Mirrors the standings resolution: mod-tracked
- * events honor the raffle `window` and the caller's `countRaid` (the event's
- * activity-chart raid) against the mod leaderboard; API-tracked events only
- * expose their whole-window totals, so a windowed raffle is rejected there
- * (the `countRaid` is the API tracker's own backend scope, not raffle intent).
+ * zero-ticket entrants dropped). Mirrors the standings resolution: both paths
+ * count against the tracker's own raid scope (never the activity chart's), and
+ * both are restricted to the supplied roster so someone who has left the guild
+ * cannot win. Mod-tracked events honor the raffle `window`; API-tracked events
+ * only expose whole-window totals, so a windowed raffle is rejected there.
  */
 export async function loadRaffleEligible(
   fetchImpl: typeof fetch,
   tracker: NonNullable<GuildEvent["tracker"]>,
   roster: GuildMemberStats[],
-  options: { perTicket: number; window?: { from: string; to: string }; countRaid?: string },
+  options: { perTicket: number; window?: { from: string; to: string } },
 ): Promise<RaffleEligibility> {
   const board = await loadRaffleLeaderboard(fetchImpl, tracker, roster, options);
   if (board.error) return { entrants: [], error: board.error };
@@ -168,7 +168,7 @@ async function loadRaffleLeaderboard(
   fetchImpl: typeof fetch,
   tracker: NonNullable<GuildEvent["tracker"]>,
   roster: GuildMemberStats[],
-  options: { window?: { from: string; to: string }; countRaid?: string },
+  options: { window?: { from: string; to: string } },
 ): Promise<LeaderboardResult> {
   const tracked = (await loadRaidEvents(fetchImpl)).find((entry) => entry.id === tracker.eventId);
   const tracking = tracked?.tracking ?? tracker.tracking;
@@ -182,7 +182,12 @@ async function loadRaffleLeaderboard(
           "Windowed raffles aren't supported for API-tracked events - remove the window or use a mod tracker.",
       };
     }
-    return loadTrackerLeaderboard(fetchImpl, tracker.eventId);
+    const board = await loadTrackerLeaderboard(fetchImpl, tracker.eventId);
+    if (board.error) return board;
+    // The API tracker aggregates historical event deltas with no membership
+    // join, so an ex-member stays on the board. Restrict eligibility to the
+    // fresh roster (uuid, name fallback) exactly as the mod path does.
+    return { leaderboard: rosterMembersOnly(board.leaderboard, roster), error: null };
   }
   if (!tracked) return { leaderboard: [], error: LEADERBOARD_UNAVAILABLE };
   return loadModLeaderboard(
@@ -190,9 +195,23 @@ async function loadRaffleLeaderboard(
     {
       starts_at: options.window?.from ?? tracked.starts_at,
       ends_at: options.window?.to ?? tracked.ends_at,
-      raid: options.countRaid ?? tracked.raid,
+      raid: tracked.raid,
     },
     roster,
+  );
+}
+
+/** Keeps only leaderboard entries that match a current roster member. */
+function rosterMembersOnly(
+  entries: RaidLeaderboardEntry[],
+  roster: GuildMemberStats[],
+): RaidLeaderboardEntry[] {
+  const byUuid = new Set(
+    roster.flatMap((member) => (member.uuid !== null ? [normalizeUuid(member.uuid)] : [])),
+  );
+  const byName = new Set(roster.map((member) => member.username.toLowerCase()));
+  return entries.filter(
+    (entry) => byUuid.has(normalizeUuid(entry.player_uuid)) || byName.has(entry.username.toLowerCase()),
   );
 }
 

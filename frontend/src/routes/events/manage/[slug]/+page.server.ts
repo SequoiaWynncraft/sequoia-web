@@ -34,7 +34,8 @@ export const actions: Actions = {
     // stored winners onto the payload so a stale form can't revert a roll that
     // landed after it loaded; drop slots the save shrinks past.
     const stored = await eventStore.get(params.slug);
-    if (stored && payload.event.raffles) {
+    if (!stored) error(404, "No such event");
+    if (payload.event.raffles) {
       const priorById = new Map((stored.event.raffles ?? []).map((entry) => [entry.id, entry]));
       for (const raffle of payload.event.raffles) {
         const winners = (priorById.get(raffle.id)?.winners ?? []).filter(
@@ -49,8 +50,11 @@ export const actions: Actions = {
         }
       }
     }
-    if (!(await eventStore.update(payload.event, { published: payload.published }))) {
-      error(404, "No such event");
+    // Guard on the version we grafted from: a raffle roll (or another save)
+    // landing between the read above and this write must not be silently
+    // overwritten with the older snapshot.
+    if (!(await eventStore.update(payload.event, { published: payload.published, ifUpdatedAt: stored.updatedAt }))) {
+      return fail(409, { error: "This event just changed - reload and save again." });
     }
     await recordAudit(
       manager,
@@ -104,9 +108,6 @@ export const actions: Actions = {
     const pool = await loadRaffleEligible(fetch, event.tracker, stats.members, {
       perTicket: raffle.perTicket,
       window: raffle.window,
-      // The raid scope follows the event's activity chart; absent falls back
-      // to the tracker's own raid scope inside loadRaffleEligible.
-      countRaid: event.activity?.countRaid,
     });
     if (pool.error) return fail(503, { error: pool.error });
 
