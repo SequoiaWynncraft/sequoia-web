@@ -419,6 +419,22 @@ describe("parseGuildEvent", () => {
     );
   });
 
+  it("supports up to 50 raffles but rejects a 51st", () => {
+    const raffle = (index: number) => ({
+      id: `r${index}`,
+      prize: "Mythic",
+      winnerCount: 1,
+      perTicket: 1,
+    });
+    const fifty = Array.from({ length: 50 }, (_, index) => raffle(index));
+    const result = parseGuildEvent({ ...VALID, raffles: fifty });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.event.raffles?.length).toBe(50);
+
+    const fiftyOne = Array.from({ length: 51 }, (_, index) => raffle(index));
+    expectError({ ...VALID, raffles: fiftyOne }, "at most 50 raffles are supported");
+  });
+
   it("rejects malformed input with a field-specific error", () => {
     expectError({ ...VALID, slug: "Bad Slug!" }, "slug");
     expectError({ ...VALID, slug: "manage" }, "reserved");

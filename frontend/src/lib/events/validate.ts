@@ -285,7 +285,7 @@ function parseTracker(value: unknown): NonNullable<GuildEvent["tracker"]> {
   };
 }
 
-const MAX_RAFFLES = 10;
+const MAX_RAFFLES = 50;
 const MAX_RAFFLE_WINNERS = 50;
 
 /** Reads the optional raffles list, capped and each strictly validated. */
