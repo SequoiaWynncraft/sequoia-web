@@ -374,6 +374,44 @@ describe("parseGuildEvent", () => {
       {
         ...VALID,
         raffles: [
+          {
+            id: "r1",
+            prize: "x",
+            winnerCount: 1,
+            perTicket: 1,
+            winners: [{ slot: 0, username: "Alice", player_uuid: "uuid-a", tickets: 0 }],
+          },
+        ],
+      },
+      "winner tickets",
+    );
+    expectError(
+      {
+        ...VALID,
+        raffleExcludeWinners: true,
+        raffles: [
+          {
+            id: "r1",
+            prize: "x",
+            winnerCount: 1,
+            perTicket: 1,
+            winners: [{ slot: 0, username: "Alice", player_uuid: "uuid-a", tickets: 2 }],
+          },
+          {
+            id: "r2",
+            prize: "y",
+            winnerCount: 1,
+            perTicket: 1,
+            winners: [{ slot: 0, username: "Alice", player_uuid: "uuid-a", tickets: 3 }],
+          },
+        ],
+      },
+      "more than one raffle",
+    );
+    expectError(
+      {
+        ...VALID,
+        raffles: [
           { id: "r1", prize: "x", winnerCount: 1, perTicket: 1, window: { from: "2026-08-01T00:00:00Z" } },
         ],
       },

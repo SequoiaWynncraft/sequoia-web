@@ -23,6 +23,7 @@
     mode,
     initial = null,
     initialPublished = false,
+    initialUpdatedAt = null,
     context = null,
     error = null,
     saved = false,
@@ -34,6 +35,9 @@
     mode: "create" | "edit";
     initial?: GuildEvent | null;
     initialPublished?: boolean;
+    /** Stored version the form loaded from; sent back so the save can reject a
+     * stale draft that would clobber a concurrent edit or roll. */
+    initialUpdatedAt?: number | null;
     /** Picker data (roster, tracker events); the form degrades without it. */
     context?: EventFormContext | null;
     /** Rejection from the last server submission. */
@@ -236,7 +240,18 @@
   function raffleConfigUnchanged(row: RaffleRow): boolean {
     const saved = initial?.raffles?.find((entry) => entry.id === row.id);
     if (!saved) return false;
+    // The roll also reads the *stored* tracker wiring and winner-exclusion flag,
+    // so unsaved edits to either would draw against stale config even when this
+    // row's own fields match. Gate on those too, and on the prize identity, so a
+    // roll only ever reflects exactly what the server holds.
+    const eventConfigUnchanged =
+      trackerEnabled === (initial?.tracker !== undefined) &&
+      trackerEventId === (initial?.tracker?.eventId ?? "") &&
+      trackerTracking === (initial?.tracker?.tracking ?? "api") &&
+      raffleExcludeWinners === (initial?.raffleExcludeWinners ?? false);
     return (
+      eventConfigUnchanged &&
+      row.prize.trim() === saved.prize &&
       toCount(row.winnerCount) === saved.winnerCount &&
       toCount(row.perTicket) === saved.perTicket &&
       row.windowFrom === toInput(saved.window?.from) &&
@@ -380,7 +395,7 @@
     // signal intent - a row counts only once it has a prize, a window, or
     // frozen winners (the last keeps a save from ever wiping a rolled result).
     const filledRaffles = raffles
-      .filter((row) => row.prize.trim() || (row.windowFrom && row.windowTo) || row.winners.length > 0)
+      .filter((row) => row.prize.trim() || row.windowFrom || row.windowTo || row.winners.length > 0)
       .map((row) => {
         const raffle: Record<string, unknown> = {
           id: row.id,
@@ -453,7 +468,7 @@
     }),
   );
 
-  const submit: SubmitFunction = ({ action, cancel }) => {
+  const submit: SubmitFunction = ({ action, cancel, formData }) => {
     if (action.search.includes("createTracker") || action.search.includes("updateTracker")) {
       trackerAttempted = true;
       if (trackerDraftError) {
@@ -468,6 +483,12 @@
     }
     if (action.search.includes("rollRaffle")) {
       rollError = null;
+      // Mark the roll in flight here, not in the button's onclick: disabling a
+      // submit button from within its own click handler makes Svelte flush the
+      // `disabled` update before the browser dispatches the submit, cancelling
+      // it. By the time enhance calls submit, the submission is already ours to
+      // keep, so disabling the buttons now is safe.
+      rollingId = String(formData.get("rollTarget") ?? "pending");
       // A roll persists a single slot server-side; reflect the frozen winner
       // onto that slot so the editor updates without a reseed.
       return async ({ result, update }) => {
@@ -955,6 +976,10 @@
 
     <form method="POST" action="?/save" use:enhance={submit}>
       <input type="hidden" name="payload" value={payload} />
+      <!-- Live prop, not the mount snapshot: a roll or save refreshes `initial`
+           via load, advancing this so the manager's own follow-up save isn't
+           rejected as stale - only a change they never saw is. -->
+      <input type="hidden" name="baseUpdatedAt" value={initialUpdatedAt ?? ""} />
       <input type="hidden" name="trackerPayload" value={trackerPayload} />
 
       <section class="mg-section">
@@ -1581,7 +1606,6 @@
                       name="rollTarget"
                       value={`${row.raffleId}:${row.slot}`}
                       class="mg-roll-btn focus-ring"
-                      onclick={() => (rollingId = row.key)}
                       disabled={rollingId !== null}
                       aria-label={row.winner ? "Re-roll this winner" : "Roll this winner"}
                       title={row.winner ? "Re-roll" : "Roll"}

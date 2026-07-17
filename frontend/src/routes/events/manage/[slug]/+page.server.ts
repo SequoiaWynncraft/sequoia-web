@@ -3,6 +3,7 @@ import type { Actions, PageServerLoad } from "./$types";
 
 import { recordAudit } from "$lib/server/auditLog";
 import { drawWinners, secureRng } from "$lib/events/raffle";
+import { parseGuildEvent } from "$lib/events/validate";
 import { eventFormContext } from "$lib/server/eventFormContext";
 import { checkEventManager, requireEventManager } from "$lib/server/eventManagers";
 import { getGuildStats } from "$lib/server/guildStats";
@@ -27,7 +28,8 @@ export const load: PageServerLoad = async ({ fetch, params, parent }) => {
 export const actions: Actions = {
   save: async ({ request, params, cookies, fetch }) => {
     const manager = await requireEventManager({ cookies, fetch });
-    const payload = parseEventPayload(await request.formData());
+    const formData = await request.formData();
+    const payload = parseEventPayload(formData);
     if ("error" in payload) return fail(400, { error: payload.error });
     if (payload.event.slug !== params.slug) return fail(400, { error: "the slug cannot be changed" });
     // Raffle winners are server-owned (only rollRaffle writes them). Graft the
@@ -35,6 +37,15 @@ export const actions: Actions = {
     // landed after it loaded; drop slots the save shrinks past.
     const stored = await eventStore.get(params.slug);
     if (!stored) error(404, "No such event");
+    // Optimistic-concurrency check against the version the form loaded from: if
+    // the stored event moved on since (another manager saved, or a roll landed),
+    // the draft is stale and would silently clobber that change even though the
+    // winner graft below only reconciles raffle data. Reject it so the manager
+    // reloads the current state first. (The ifUpdatedAt guard on the write is the
+    // narrower read/write TOCTOU check on this request's own read.)
+    if (Number(formData.get("baseUpdatedAt")) !== stored.updatedAt) {
+      return fail(409, { error: "This event just changed - reload and save again." });
+    }
     if (payload.event.raffles) {
       const priorById = new Map((stored.event.raffles ?? []).map((entry) => [entry.id, entry]));
       for (const raffle of payload.event.raffles) {
@@ -50,10 +61,16 @@ export const actions: Actions = {
         }
       }
     }
+    // Grafting the server-owned winners back on can reintroduce an invariant
+    // break the submitted draft didn't have (e.g. a cross-raffle duplicate under
+    // winner exclusion). Re-validate the grafted event so we never persist a
+    // combination the validator would reject.
+    const regrafted = parseGuildEvent(payload.event);
+    if (!regrafted.ok) return fail(400, { error: regrafted.error });
     // Guard on the version we grafted from: a raffle roll (or another save)
     // landing between the read above and this write must not be silently
     // overwritten with the older snapshot.
-    if (!(await eventStore.update(payload.event, { published: payload.published, ifUpdatedAt: stored.updatedAt }))) {
+    if (!(await eventStore.update(regrafted.event, { published: payload.published, ifUpdatedAt: stored.updatedAt }))) {
       return fail(409, { error: "This event just changed - reload and save again." });
     }
     await recordAudit(
@@ -134,7 +151,15 @@ export const actions: Actions = {
     if (!(await eventStore.update(event, { published: stored.published, ifUpdatedAt: stored.updatedAt }))) {
       return fail(409, { error: "This event just changed - reload and roll again." });
     }
-    await recordAudit(manager, "event.rollRaffle", params.slug, `${raffleId}:${slot}`);
+    // Record who was drawn, not just where: the audit trail must show the exact
+    // winner (uuid, name, ticket weight) and when the draw landed, so a roll can
+    // be reconstructed from the log alone.
+    await recordAudit(
+      manager,
+      "event.rollRaffle",
+      params.slug,
+      `${raffleId}:${slot} → ${drawn.username} (${drawn.player_uuid}), ${drawn.tickets} tickets, ${raffle.drawnAt}`,
+    );
     return { rolled: raffleId, slot, winner: { slot, ...drawn }, drawnAt: raffle.drawnAt };
   },
 

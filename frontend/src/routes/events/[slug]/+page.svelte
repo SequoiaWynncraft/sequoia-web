@@ -22,10 +22,14 @@
       event.icon?.placements.includes(placement) ? raidIconUrl(event.icon.file) : null,
   );
 
-  /** Live reads the feed, ended freezes on finalTotal, before start shows zero. */
+  /**
+   * Live and ended both read the feed (ended is frozen at the event's end in the
+   * loader); before the event starts shows zero. A null progress (manual goal or
+   * feed down) falls back to finalTotal inside GoalMeter.
+   */
   const goalCurrent = $derived((index: number): number | null => {
-    if (status === "live") return data.progress?.[index] ?? null;
-    return status === "ended" ? null : 0;
+    if (status === "upcoming") return 0;
+    return data.progress?.[index] ?? null;
   });
 
   const rankLabels: Record<string, string> = {
@@ -144,28 +148,31 @@
       </section>
     {/if}
 
-    {#if data.chart && status !== "ended"}
+    {#if data.chart && (status === "live" || status === "ended") && event.startsAt}
       <section class="ev-section" aria-label="Event activity">
         <h2 class="ev-label">
           <span class="ev-spark" aria-hidden="true">✦</span>Activity
-          {#if status === "live" && event.startsAt}
-            <span class="ev-label-meta">daily, since {isoDay(event.startsAt)}</span>
-          {/if}
+          <span class="ev-label-meta">
+            {#if status === "ended" && event.endsAt}
+              daily, {isoDay(event.startsAt)} – {isoDay(event.endsAt)}
+            {:else}
+              daily, since {isoDay(event.startsAt)}
+            {/if}
+          </span>
         </h2>
-        {#if status !== "live"}
-          <p class="ev-muted">Tracking begins when the event starts.</p>
-        {:else if data.days === null}
+        {#if data.days === null}
           <p class="ev-muted">The activity feed is temporarily unavailable.</p>
         {:else if data.days.length === 0}
-          <p class="ev-muted">No activity recorded yet - the feed is collecting.</p>
-        {:else if event.startsAt}
+          <p class="ev-muted">No activity recorded - the feed is empty for this window.</p>
+        {:else}
           <div class="ev-chart">
             <DailyBars
               points={data.days}
               from={isoDay(event.startsAt)}
-              to={data.today}
+              to={status === "ended" && event.endsAt ? isoDay(event.endsAt) : data.today}
               metricLabel={data.chart.label}
               height={190}
+              caption="Peak day highlighted"
             />
           </div>
         {/if}

@@ -91,8 +91,11 @@ export const load: PageServerLoad = async ({ fetch, params, parent }) => {
   const chart = eventChart(event);
   let days: EventDayCount[] | null = null;
   let progress: (number | null)[] = (event.goals ?? []).map(() => null);
-  if (status === "live" && event.startsAt) {
-    const window = { from: event.startsAt, to: now.toISOString() };
+  if ((status === "live" || status === "ended") && event.startsAt) {
+    // Live counts up to now; an ended event freezes at its end time so a raid
+    // logged after the event closed can't inflate the frozen totals.
+    const windowTo = status === "ended" && event.endsAt ? event.endsAt : now.toISOString();
+    const window = { from: event.startsAt, to: windowTo };
     const daysPromise = chart
       ? chart.source === "raidRuns"
         ? loadModRunCounts(fetch, { from: window.from, to: window.to, raid: chart.countRaid })

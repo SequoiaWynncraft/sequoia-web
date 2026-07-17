@@ -34,9 +34,18 @@ export function drawWinners(
   { exclude, rng = Math.random }: DrawOptions = {},
 ): DrawnEntrant[] {
   const excluded = new Set(exclude ?? []);
-  // Fresh copy: entrants are spliced out as they win, so the caller's pool
-  // is never mutated.
-  const remaining = pool.filter((entry) => entry.tickets > 0 && !excluded.has(entry.player_uuid));
+  // Fresh copy: entrants are spliced out as they win, so the caller's pool is
+  // never mutated. A uuid can appear more than once when two leaderboard entries
+  // resolve to the same roster member; dedupe on first sighting so a member can
+  // never take two slots in one draw.
+  const seen = new Set<string>();
+  const remaining = pool.filter((entry) => {
+    if (entry.tickets <= 0 || excluded.has(entry.player_uuid) || seen.has(entry.player_uuid)) {
+      return false;
+    }
+    seen.add(entry.player_uuid);
+    return true;
+  });
   const winners: DrawnEntrant[] = [];
   const target = Math.min(count, remaining.length);
   for (let drawn = 0; drawn < target; drawn++) {
