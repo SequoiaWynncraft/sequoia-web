@@ -285,6 +285,13 @@ function parseRaffles(raw: Record<string, unknown>): EventRaffle[] | undefined {
   const raffles = entries.map((entry, index) =>
     parseRaffle(entry, entries.length === 1 ? "raffle" : `raffle ${index + 1}`),
   );
+  // Ids target rolls and re-rolls, so a collision would make one raffle
+  // unreachable behind the other.
+  const ids = new Set<string>();
+  for (const raffle of raffles) {
+    if (ids.has(raffle.id)) fail("raffle ids must be unique");
+    ids.add(raffle.id);
+  }
   return raffles.length > 0 ? raffles : undefined;
 }
 
@@ -309,10 +316,13 @@ function parseRaffle(value: unknown, label: string): EventRaffle {
       // public board (which renders one row per slot) from hiding a persisted
       // winner or double-booking a slot.
       const slots = new Set<number>();
+      const players = new Set<string>();
       for (const winner of winners) {
         if (winner.slot >= raffle.winnerCount) fail(`${label} winner slot is out of range`);
         if (slots.has(winner.slot)) fail(`${label} has two winners in the same slot`);
+        if (players.has(winner.player_uuid)) fail(`${label} lists the same player twice`);
         slots.add(winner.slot);
+        players.add(winner.player_uuid);
       }
       raffle.winners = winners;
     }

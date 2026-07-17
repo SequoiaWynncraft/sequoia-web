@@ -116,7 +116,10 @@ export async function loadModLeaderboard(
         if (!member) return [];
         return [
           {
-            player_uuid: entry.player_uuid ?? entry.username.toLowerCase(),
+            // Prefer the roster member's own UUID: a name-matched entry has no
+            // player_uuid, and a username-as-uuid would break both nmsr faces
+            // and cross-raffle exclusion (which compares uuids).
+            player_uuid: member.uuid ?? entry.player_uuid ?? entry.username.toLowerCase(),
             username: entry.username,
             raids: entry.raids,
             rank: member.rank,
@@ -141,8 +144,8 @@ export interface RaffleEligibility {
  * zero-ticket entrants dropped). Mirrors the standings resolution: mod-tracked
  * events honor the raffle `window` and the caller's `countRaid` (the event's
  * activity-chart raid) against the mod leaderboard; API-tracked events only
- * expose their whole-window totals, so the window and raid filter are ignored
- * there.
+ * expose their whole-window totals, so a windowed raffle is rejected there
+ * (the `countRaid` is the API tracker's own backend scope, not raffle intent).
  */
 export async function loadRaffleEligible(
   fetchImpl: typeof fetch,
@@ -169,7 +172,18 @@ async function loadRaffleLeaderboard(
 ): Promise<LeaderboardResult> {
   const tracked = (await loadRaidEvents(fetchImpl)).find((entry) => entry.id === tracker.eventId);
   const tracking = tracked?.tracking ?? tracker.tracking;
-  if (tracking !== "mod") return loadTrackerLeaderboard(fetchImpl, tracker.eventId);
+  if (tracking !== "mod") {
+    // API trackers only expose whole-window totals, so a raffle window would be
+    // silently ignored - reject it rather than draw against the wrong counts.
+    if (options.window) {
+      return {
+        leaderboard: [],
+        error:
+          "Windowed raffles aren't supported for API-tracked events - remove the window or use a mod tracker.",
+      };
+    }
+    return loadTrackerLeaderboard(fetchImpl, tracker.eventId);
+  }
   if (!tracked) return { leaderboard: [], error: LEADERBOARD_UNAVAILABLE };
   return loadModLeaderboard(
     fetchImpl,

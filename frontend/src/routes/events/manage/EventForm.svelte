@@ -230,13 +230,27 @@
   let rollingId = $state<string | null>(null);
   let rollError = $state<string | null>(null);
 
+  // A saved raffle is only rollable while its draw-affecting config matches what
+  // the server holds: the roll runs against the stored winnerCount/perTicket/
+  // window, so unsaved edits to those would silently draw against stale values.
+  function raffleConfigUnchanged(row: RaffleRow): boolean {
+    const saved = initial?.raffles?.find((entry) => entry.id === row.id);
+    if (!saved) return false;
+    return (
+      toCount(row.winnerCount) === saved.winnerCount &&
+      toCount(row.perTicket) === saved.perTicket &&
+      row.windowFrom === toInput(saved.window?.from) &&
+      row.windowTo === toInput(saved.window?.to)
+    );
+  }
+
   // Flattens every raffle into one winner-slot per row for the results table:
   // a raffle with three winners becomes three rows sharing its prize.
   const RAFFLE_MAX_WINNERS = 50;
   const raffleSlots = $derived.by(() =>
     raffles.flatMap((row) => {
       const count = Math.max(0, Math.min(RAFFLE_MAX_WINNERS, Math.floor(Number(toCount(row.winnerCount)) || 0)));
-      const saved = seedRaffleIds.has(row.id);
+      const saved = seedRaffleIds.has(row.id) && raffleConfigUnchanged(row);
       return Array.from({ length: count }, (_unused, slot) => ({
         key: `${row.key}:${slot}`,
         raffleId: row.id,
@@ -374,7 +388,10 @@
           winnerCount: toCount(row.winnerCount),
           perTicket: toCount(row.perTicket),
         };
-        if (row.windowFrom && row.windowTo) {
+        // Serialize the window when either bound is set, not only both, so a
+        // one-sided window reaches the validator (which rejects the empty bound)
+        // instead of silently vanishing.
+        if (row.windowFrom || row.windowTo) {
           raffle.window = {
             from: keepInstant(row.windowFrom, row.seedWindowFrom),
             to: keepInstant(row.windowTo, row.seedWindowTo),
@@ -456,12 +473,12 @@
       return async ({ result, update }) => {
         if (result.type === "success") {
           const data = result.data as
-            | { rolled?: string; slot?: number; winner?: RaffleWinner }
+            | { rolled?: string; slot?: number; winner?: RaffleWinner; drawnAt?: string }
             | undefined;
           const row = raffles.find((entry) => entry.id === data?.rolled);
           if (row && data?.winner && typeof data.slot === "number") {
             row.winners = [...row.winners.filter((entry) => entry.slot !== data.slot), data.winner];
-            row.drawnAt = new Date().toISOString();
+            row.drawnAt = data.drawnAt ?? new Date().toISOString();
           }
         } else if (result.type === "failure") {
           rollError = (result.data as { error?: string } | undefined)?.error ?? "The roll failed.";

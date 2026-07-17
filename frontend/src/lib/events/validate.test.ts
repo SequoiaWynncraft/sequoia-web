@@ -342,6 +342,43 @@ describe("parseGuildEvent", () => {
       },
       "same slot",
     );
+    expectError(
+      {
+        ...VALID,
+        raffles: [
+          {
+            id: "r1",
+            prize: "x",
+            winnerCount: 2,
+            perTicket: 1,
+            winners: [
+              { slot: 0, username: "Alice", player_uuid: "uuid-a", tickets: 2 },
+              { slot: 1, username: "Alice", player_uuid: "uuid-a", tickets: 2 },
+            ],
+          },
+        ],
+      },
+      "same player",
+    );
+    expectError(
+      {
+        ...VALID,
+        raffles: [
+          { id: "dup", prize: "x", winnerCount: 1, perTicket: 1 },
+          { id: "dup", prize: "y", winnerCount: 1, perTicket: 1 },
+        ],
+      },
+      "ids must be unique",
+    );
+    expectError(
+      {
+        ...VALID,
+        raffles: [
+          { id: "r1", prize: "x", winnerCount: 1, perTicket: 1, window: { from: "2026-08-01T00:00:00Z" } },
+        ],
+      },
+      "timezone",
+    );
   });
 
   it("rejects malformed input with a field-specific error", () => {

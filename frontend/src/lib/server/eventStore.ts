@@ -130,7 +130,12 @@ export function createEventStore(getClient: () => Promise<Client>): EventStore {
         options.ifUpdatedAt === undefined
           ? "UPDATE guild_events SET data = ?, published = ?, updated_at = ? WHERE slug = ?"
           : "UPDATE guild_events SET data = ?, published = ?, updated_at = ? WHERE slug = ? AND updated_at = ?";
-      const args = [JSON.stringify(event), options.published ? 1 : 0, Date.now(), event.slug];
+      // The guarded write must advance the token strictly: two rolls in the
+      // same millisecond would otherwise write a token equal to the guard
+      // value, letting a later CAS on the old value still match and clobber.
+      const now =
+        options.ifUpdatedAt === undefined ? Date.now() : Math.max(Date.now(), options.ifUpdatedAt + 1);
+      const args = [JSON.stringify(event), options.published ? 1 : 0, now, event.slug];
       if (options.ifUpdatedAt !== undefined) args.push(options.ifUpdatedAt);
       const result = await db.execute({ sql, args });
       return result.rowsAffected > 0;

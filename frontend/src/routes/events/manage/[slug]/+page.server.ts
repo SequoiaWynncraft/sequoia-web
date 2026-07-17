@@ -30,6 +30,25 @@ export const actions: Actions = {
     const payload = parseEventPayload(await request.formData());
     if ("error" in payload) return fail(400, { error: payload.error });
     if (payload.event.slug !== params.slug) return fail(400, { error: "the slug cannot be changed" });
+    // Raffle winners are server-owned (only rollRaffle writes them). Graft the
+    // stored winners onto the payload so a stale form can't revert a roll that
+    // landed after it loaded; drop slots the save shrinks past.
+    const stored = await eventStore.get(params.slug);
+    if (stored && payload.event.raffles) {
+      const priorById = new Map((stored.event.raffles ?? []).map((entry) => [entry.id, entry]));
+      for (const raffle of payload.event.raffles) {
+        const winners = (priorById.get(raffle.id)?.winners ?? []).filter(
+          (winner) => winner.slot < raffle.winnerCount,
+        );
+        if (winners.length > 0) {
+          raffle.winners = winners;
+          raffle.drawnAt = priorById.get(raffle.id)?.drawnAt;
+        } else {
+          delete raffle.winners;
+          delete raffle.drawnAt;
+        }
+      }
+    }
     if (!(await eventStore.update(payload.event, { published: payload.published }))) {
       error(404, "No such event");
     }
@@ -111,7 +130,7 @@ export const actions: Actions = {
       return fail(409, { error: "This event just changed - reload and roll again." });
     }
     await recordAudit(manager, "event.rollRaffle", params.slug, `${raffleId}:${slot}`);
-    return { rolled: raffleId, slot, winner: { slot, ...drawn } };
+    return { rolled: raffleId, slot, winner: { slot, ...drawn }, drawnAt: raffle.drawnAt };
   },
 
   createTracker: createTrackerAction,
