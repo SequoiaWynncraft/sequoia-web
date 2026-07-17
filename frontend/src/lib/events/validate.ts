@@ -4,9 +4,11 @@ import type {
   EventGoal,
   EventIcon,
   EventIconPlacement,
+  EventRaffle,
   EventTheme,
   GuildEvent,
   PrizeEntry,
+  RaffleWinner,
 } from "./types";
 
 export type ParseResult = { ok: true; event: GuildEvent } | { ok: false; error: string };
@@ -71,6 +73,9 @@ function parseEvent(value: unknown): GuildEvent {
   const rules = parseLines(raw.rules, "rules", 500);
   if (rules) event.rules = rules;
   if (present(raw.tracker)) event.tracker = parseTracker(raw.tracker);
+  const raffles = parseRaffles(raw);
+  if (raffles) event.raffles = raffles;
+  if (raw.raffleExcludeWinners === true) event.raffleExcludeWinners = true;
   return event;
 }
 
@@ -265,6 +270,82 @@ function parseTracker(value: unknown): NonNullable<GuildEvent["tracker"]> {
   return {
     eventId: requiredText(raw.eventId, "tracker event id", 64),
     tracking: raw.tracking,
+  };
+}
+
+const MAX_RAFFLES = 10;
+const MAX_RAFFLE_WINNERS = 50;
+
+/** Reads the optional raffles list, capped and each strictly validated. */
+function parseRaffles(raw: Record<string, unknown>): EventRaffle[] | undefined {
+  if (!present(raw.raffles)) return undefined;
+  const entries = raw.raffles;
+  if (!Array.isArray(entries)) fail("raffles must be a list");
+  if (entries.length > MAX_RAFFLES) fail(`at most ${MAX_RAFFLES} raffles are supported`);
+  const raffles = entries.map((entry, index) =>
+    parseRaffle(entry, entries.length === 1 ? "raffle" : `raffle ${index + 1}`),
+  );
+  // Ids target rolls and re-rolls, so a collision would make one raffle
+  // unreachable behind the other.
+  const ids = new Set<string>();
+  for (const raffle of raffles) {
+    if (ids.has(raffle.id)) fail("raffle ids must be unique");
+    ids.add(raffle.id);
+  }
+  return raffles.length > 0 ? raffles : undefined;
+}
+
+function parseRaffle(value: unknown, label: string): EventRaffle {
+  const raw = asRecord(value, label);
+  const raffle: EventRaffle = {
+    id: requiredText(raw.id, `${label} id`, 64),
+    prize: requiredText(raw.prize, `${label} prize`, 300),
+    winnerCount: parseCount(raw.winnerCount, `${label} winner count`, 1),
+    perTicket: parseCount(raw.perTicket, `${label} raids per ticket`, 1),
+  };
+  if (raffle.winnerCount > MAX_RAFFLE_WINNERS) {
+    fail(`${label} has too many winners (max ${MAX_RAFFLE_WINNERS})`);
+  }
+  if (present(raw.window)) raffle.window = parseRaffleWindow(raw.window, label);
+  if (present(raw.winners)) {
+    const winners = parseList(raw.winners, `${label} winners`, (entry) =>
+      parseRaffleWinner(entry, label),
+    );
+    if (winners) {
+      // One winner per slot, every slot inside the declared count - keeps the
+      // public board (which renders one row per slot) from hiding a persisted
+      // winner or double-booking a slot.
+      const slots = new Set<number>();
+      const players = new Set<string>();
+      for (const winner of winners) {
+        if (winner.slot >= raffle.winnerCount) fail(`${label} winner slot is out of range`);
+        if (slots.has(winner.slot)) fail(`${label} has two winners in the same slot`);
+        if (players.has(winner.player_uuid)) fail(`${label} lists the same player twice`);
+        slots.add(winner.slot);
+        players.add(winner.player_uuid);
+      }
+      raffle.winners = winners;
+    }
+  }
+  if (present(raw.drawnAt)) raffle.drawnAt = parseInstant(raw.drawnAt, `${label} draw time`);
+  return raffle;
+}
+
+function parseRaffleWindow(value: unknown, label: string): NonNullable<EventRaffle["window"]> {
+  const raw = asRecord(value, `${label} window`);
+  const from = parseInstant(raw.from, `${label} window start`);
+  const to = parseInstant(raw.to, `${label} window end`);
+  if (Date.parse(from) >= Date.parse(to)) fail(`${label} window must end after it starts`);
+  return { from, to };
+}
+
+function parseRaffleWinner(value: unknown, label: string): RaffleWinner {
+  const raw = asRecord(value, `${label} winner`);
+  return {
+    slot: parseCount(raw.slot, `${label} winner slot`, 0),
+    username: requiredText(raw.username, `${label} winner name`, 40),
+    player_uuid: requiredText(raw.player_uuid, `${label} winner uuid`, 64),
+    tickets: parseCount(raw.tickets, `${label} winner tickets`, 0),
   };
 }
 

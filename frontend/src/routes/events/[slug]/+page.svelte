@@ -37,6 +37,18 @@
     recruit: "Recruit",
   };
 
+  // One row per winner slot across every raffle, mirroring the manage table:
+  // a raffle with three winners shows three rows sharing its prize.
+  const raffleRows = $derived(
+    (event.raffles ?? []).flatMap((raffle) =>
+      Array.from({ length: raffle.winnerCount }, (_unused, slot) => ({
+        key: `${raffle.id}:${slot}`,
+        prize: raffle.prize,
+        winner: raffle.winners?.find((entry) => entry.slot === slot) ?? null,
+      })),
+    ),
+  );
+
   const standingsColumns: LedgerColumn<RaidLeaderboardEntry>[] = [
     {
       key: "member",
@@ -236,6 +248,39 @@
           </section>
         {/if}
       </div>
+    {/if}
+
+    {#if raffleRows.length > 0}
+      <section class="ev-section" aria-label="Raffles">
+        <h2 class="ev-label">
+          <span class="ev-spark" aria-hidden="true">✦</span>{event.raffles && event.raffles.length === 1
+            ? "Raffle"
+            : "Raffles"}
+        </h2>
+        <div class="ev-raffles" role="table" aria-label="Raffle winners">
+          <div class="ev-raffle-row ev-raffle-head" role="row">
+            <span role="columnheader">Winner</span>
+            <span role="columnheader">Prize</span>
+          </div>
+          {#each raffleRows as row (row.key)}
+            <div class="ev-raffle-row" role="row">
+              {#if row.winner}
+                <a
+                  class="ev-raffle-cell ev-raffle-winner focus-ring"
+                  role="cell"
+                  href={`/statistics/player/playercard?player=${encodeURIComponent(row.winner.username)}`}
+                >
+                  <img class="ev-raffle-face" src={nmsrFace(row.winner.player_uuid, 22)} alt="" />
+                  {row.winner.username}
+                </a>
+              {:else}
+                <span class="ev-raffle-cell ev-raffle-unrolled" role="cell">Not rolled</span>
+              {/if}
+              <span class="ev-raffle-cell ev-raffle-prize" role="cell">{row.prize || "—"}</span>
+            </div>
+          {/each}
+        </div>
+      </section>
     {/if}
 
     {#if event.rules}
@@ -611,6 +656,63 @@
     border-bottom: 1px solid var(--color-border-subtle);
     color: var(--text-body);
     font-size: var(--text-sm);
+  }
+
+  .ev-raffles {
+    display: grid;
+    gap: 8px;
+  }
+
+  .ev-raffle-row {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    gap: 12px;
+    align-items: center;
+  }
+
+  .ev-raffle-head {
+    color: var(--text-muted);
+    font-family: var(--font-display);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+    padding: 0 2px;
+  }
+
+  .ev-raffle-cell {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 14px;
+    border: 1px solid var(--color-border-subtle);
+    background: color-mix(in srgb, var(--ev-sky-1) 28%, transparent);
+    color: var(--text-body);
+    font-family: var(--font-data);
+    font-size: var(--text-sm);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ev-raffle-winner {
+    text-decoration: none;
+    transition: color var(--dur-fast) ease;
+  }
+
+  .ev-raffle-winner:hover {
+    color: var(--ev-accent);
+  }
+
+  .ev-raffle-unrolled {
+    color: var(--text-muted);
+    font-style: italic;
+  }
+
+  .ev-raffle-face {
+    width: 22px;
+    height: 22px;
+    image-rendering: pixelated;
+    flex-shrink: 0;
   }
 
   @media (max-width: 900px) {

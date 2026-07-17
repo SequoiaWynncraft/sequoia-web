@@ -1,4 +1,6 @@
 import type { GuildMemberStats } from "$lib/api/guildStats";
+import type { GuildEvent } from "$lib/events/types";
+import type { RaffleEntrant } from "$lib/events/raffle";
 import { sequoiaBackendInternalHeaders, sequoiaBackendOrigin } from "$lib/server/sequoiaBackend";
 import {
   sequoiaWebBackendInternalHeaders,
@@ -114,7 +116,10 @@ export async function loadModLeaderboard(
         if (!member) return [];
         return [
           {
-            player_uuid: entry.player_uuid ?? entry.username.toLowerCase(),
+            // Prefer the roster member's own UUID: a name-matched entry has no
+            // player_uuid, and a username-as-uuid would break both nmsr faces
+            // and cross-raffle exclusion (which compares uuids).
+            player_uuid: member.uuid ?? entry.player_uuid ?? entry.username.toLowerCase(),
             username: entry.username,
             raids: entry.raids,
             rank: member.rank,
@@ -126,6 +131,98 @@ export async function loadModLeaderboard(
   } catch {
     return { leaderboard: [], error: LEADERBOARD_UNAVAILABLE };
   }
+}
+
+export interface RaffleEligibility {
+  entrants: RaffleEntrant[];
+  error: string | null;
+}
+
+/**
+ * Resolves the raffle's entrant pool from the event tracker's raid board and
+ * converts each member's raids into weighted tickets (floor(raids / perTicket),
+ * zero-ticket entrants dropped). Mirrors the standings resolution: both paths
+ * count against the tracker's own raid scope (never the activity chart's), and
+ * both are restricted to the supplied roster so someone who has left the guild
+ * cannot win. Mod-tracked events honor the raffle `window`; API-tracked events
+ * only expose whole-window totals, so a windowed raffle is rejected there.
+ */
+export async function loadRaffleEligible(
+  fetchImpl: typeof fetch,
+  tracker: NonNullable<GuildEvent["tracker"]>,
+  roster: GuildMemberStats[],
+  options: { perTicket: number; window?: { from: string; to: string } },
+): Promise<RaffleEligibility> {
+  const board = await loadRaffleLeaderboard(fetchImpl, tracker, roster, options);
+  if (board.error) return { entrants: [], error: board.error };
+  const perTicket = Math.max(1, Math.trunc(options.perTicket));
+  const entrants = board.leaderboard.flatMap((entry) => {
+    const tickets = Math.floor(entry.raids / perTicket);
+    if (tickets <= 0) return [];
+    return [{ player_uuid: entry.player_uuid, username: entry.username, tickets }];
+  });
+  return { entrants, error: null };
+}
+
+async function loadRaffleLeaderboard(
+  fetchImpl: typeof fetch,
+  tracker: NonNullable<GuildEvent["tracker"]>,
+  roster: GuildMemberStats[],
+  options: { window?: { from: string; to: string } },
+): Promise<LeaderboardResult> {
+  const tracked = (await loadRaidEvents(fetchImpl)).find((entry) => entry.id === tracker.eventId);
+  const tracking = tracked?.tracking ?? tracker.tracking;
+  if (tracking !== "mod") {
+    // API trackers only expose whole-window totals, so a raffle window would be
+    // silently ignored - reject it rather than draw against the wrong counts.
+    if (options.window) {
+      return {
+        leaderboard: [],
+        error:
+          "Windowed raffles aren't supported for API-tracked events - remove the window or use a mod tracker.",
+      };
+    }
+    const board = await loadTrackerLeaderboard(fetchImpl, tracker.eventId);
+    if (board.error) return board;
+    // The API tracker aggregates historical event deltas with no membership
+    // join, so an ex-member stays on the board. Restrict eligibility to the
+    // fresh roster (uuid, name fallback) exactly as the mod path does.
+    return { leaderboard: rosterMembersOnly(board.leaderboard, roster), error: null };
+  }
+  if (!tracked) return { leaderboard: [], error: LEADERBOARD_UNAVAILABLE };
+  return loadModLeaderboard(
+    fetchImpl,
+    {
+      starts_at: options.window?.from ?? tracked.starts_at,
+      ends_at: options.window?.to ?? tracked.ends_at,
+      raid: tracked.raid,
+    },
+    roster,
+  );
+}
+
+/** Keeps only leaderboard entries that match a current roster member. */
+function rosterMembersOnly(
+  entries: RaidLeaderboardEntry[],
+  roster: GuildMemberStats[],
+): RaidLeaderboardEntry[] {
+  const byUuid = new Map(
+    roster.flatMap(
+      (member) => (member.uuid !== null ? [[normalizeUuid(member.uuid), member] as const] : []),
+    ),
+  );
+  const byName = new Map(roster.map((member) => [member.username.toLowerCase(), member] as const));
+  return entries.flatMap((entry) => {
+    // An entry that carries a UUID must match by UUID - a stale or reused name
+    // must never stand in for a real identity. Name matching is only for the
+    // (unexpected) entry the tracker left without a UUID. On a UUID match, emit
+    // the roster member's own UUID so the raffle identity stays authoritative.
+    const member = entry.player_uuid
+      ? byUuid.get(normalizeUuid(entry.player_uuid))
+      : byName.get(entry.username.toLowerCase());
+    if (!member) return [];
+    return [{ ...entry, player_uuid: member.uuid ?? entry.player_uuid ?? entry.username.toLowerCase() }];
+  });
 }
 
 async function readJson<T>(response: Response, fallback: T): Promise<T> {
