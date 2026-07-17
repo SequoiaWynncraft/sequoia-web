@@ -10,6 +10,7 @@
     showRank = true,
     highlight,
     maxHeight,
+    sortKey = $bindable(defaultSort),
   }: {
     columns: LedgerColumn<Row>[];
     rows: Row[];
@@ -19,11 +20,11 @@
     showRank?: boolean;
     highlight?: (row: Row) => boolean;
     maxHeight?: string;
+    /** Bindable active sort column, for parents that mirror the ordering. */
+    sortKey?: string;
   } = $props();
 
   // svelte-ignore state_referenced_locally — props intentionally seed the initial sort only
-  let sortKey = $state(defaultSort);
-  // svelte-ignore state_referenced_locally
   let descending = $state(defaultDescending);
 
   const sorted = $derived.by(() => {

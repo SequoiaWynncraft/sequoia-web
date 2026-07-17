@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import type { InventoryItem, Order } from "$lib/api/bagshop";
-import { formatEb, groupInventoryByRaid, isCancellable, orderRemainingTotal, roundToLe } from "$lib/site/bagshop";
+import {
+  currencyParts,
+  formatEb,
+  groupInventoryByRaid,
+  isCancellable,
+  orderRemainingTotal,
+  roundToLe,
+} from "$lib/site/bagshop";
 
 function inv(key: string, over: Partial<InventoryItem> = {}): InventoryItem {
   return { key, stock: 0, sellPrice: 0, buyPrice: 0, cap: 0, ...over };
@@ -21,6 +28,35 @@ describe("formatEb", () => {
 
   it("never renders negative amounts", () => {
     expect(formatEb(-5)).toBe("0 EB");
+  });
+});
+
+describe("currencyParts", () => {
+  it("returns the icon denominations used by the formatted amount", () => {
+    expect(currencyParts(0)).toEqual([{ amount: 0, unit: "EB" }]);
+    expect(currencyParts(64)).toEqual([{ amount: 1, unit: "LE" }]);
+    expect(currencyParts(123)).toEqual([
+      { amount: 1, unit: "LE" },
+      { amount: 59, unit: "EB" },
+    ]);
+  });
+
+  it("normalizes invalid, negative, and fractional inputs", () => {
+    expect(currencyParts(Number.NaN)).toEqual([{ amount: 0, unit: "EB" }]);
+    expect(currencyParts(Number.POSITIVE_INFINITY)).toEqual([{ amount: 0, unit: "EB" }]);
+    expect(currencyParts(-1)).toEqual([{ amount: 0, unit: "EB" }]);
+    expect(currencyParts(12.4)).toEqual([{ amount: 12, unit: "EB" }]);
+    expect(currencyParts(12.5)).toEqual([{ amount: 13, unit: "EB" }]);
+  });
+
+  it("rounds across denomination boundaries", () => {
+    expect(currencyParts(63.4)).toEqual([{ amount: 63, unit: "EB" }]);
+    expect(currencyParts(63.5)).toEqual([{ amount: 1, unit: "LE" }]);
+    expect(currencyParts(64.4)).toEqual([{ amount: 1, unit: "LE" }]);
+    expect(currencyParts(64.5)).toEqual([
+      { amount: 1, unit: "LE" },
+      { amount: 1, unit: "EB" },
+    ]);
   });
 });
 

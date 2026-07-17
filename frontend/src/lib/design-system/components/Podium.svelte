@@ -47,7 +47,7 @@
           class="podium-render"
           src={nmsrFrontBust(entry.ident, 120)}
           alt="{entry.name}'s skin"
-          loading="lazy"
+          loading="eager"
         />
         <span class="podium-place">#{entry.place}</span>
         <span class="podium-name">{entry.name}</span>
@@ -60,7 +60,8 @@
 <style>
   .podium {
     display: flex;
-    justify-content: flex-start;
+    /* The staircase is symmetric - center it when the caps leave slack. */
+    justify-content: center;
     align-items: flex-end;
     gap: 12px;
     margin-bottom: 40px;
@@ -68,8 +69,11 @@
 
   .podium-slot {
     display: grid;
-    flex: 0 1 200px;
-    min-width: 130px;
+    /* Slots share whatever width sits above the ledger - three entries get
+       roomy cards, five divide the same span. Renders scale with the slot. */
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 340px;
     justify-items: center;
     gap: 4px;
     padding: 18px 14px 14px;
@@ -95,7 +99,12 @@
   }
 
   .podium-render {
+    /* Front-bust renders are square; reserving the box before the skin loads
+       keeps slot heights stable, so reloads and re-sorts never jitter. */
+    aspect-ratio: 1;
     height: auto;
+    /* The clamp minimums can exceed a very narrow slot - never overflow it. */
+    max-width: 100%;
     image-rendering: pixelated;
   }
 
@@ -106,7 +115,7 @@
   }
 
   .podium-place-1 .podium-render {
-    width: 124px;
+    width: clamp(88px, 56%, 210px);
   }
 
   .podium-place-2 {
@@ -114,7 +123,7 @@
   }
 
   .podium-place-2 .podium-render {
-    width: 108px;
+    width: clamp(76px, 48%, 178px);
   }
 
   .podium-place-3 {
@@ -122,7 +131,7 @@
   }
 
   .podium-place-3 .podium-render {
-    width: 96px;
+    width: clamp(68px, 43%, 158px);
   }
 
   .podium-place-4 {
@@ -130,7 +139,7 @@
   }
 
   .podium-place-4 .podium-render {
-    width: 86px;
+    width: clamp(62px, 38%, 140px);
   }
 
   .podium-place {
@@ -165,25 +174,11 @@
     }
   }
 
-  /* Three slots must share narrow viewports instead of overflowing them. */
+  /* Narrow viewports: the clamps bottom out, only the padding needs trimming. */
   @media (max-width: 640px) {
     .podium-slot {
-      flex: 1 1 0;
-      min-width: 0;
       padding-right: 8px;
       padding-left: 8px;
-    }
-
-    .podium-place-1 .podium-render {
-      width: 88px;
-    }
-
-    .podium-place-2 .podium-render {
-      width: 76px;
-    }
-
-    .podium-place-3 .podium-render {
-      width: 68px;
     }
   }
 </style>
