@@ -61,6 +61,23 @@ describe("drawWinners", () => {
     expect(new Set(winners.map((w) => w.player_uuid))).toEqual(new Set(["a", "b"]));
   });
 
+  it("drains a full 150-member guild pool without truncating", () => {
+    // Every guild member enters (>=1 ticket); the draw must handle the whole
+    // roster - both a partial draw and one that empties the pool.
+    const pool: RaffleEntrant[] = Array.from({ length: 150 }, (_, index) => ({
+      player_uuid: `p${index}`,
+      username: `Member${index}`,
+      tickets: index + 1,
+    }));
+    const fifty = drawWinners(pool, 50, { rng: sequenceRng([0.5]) });
+    expect(fifty.length).toBe(50);
+    expect(new Set(fifty.map((w) => w.player_uuid)).size).toBe(50);
+
+    const everyone = drawWinners(pool, 150, { rng: sequenceRng([0.5]) });
+    expect(everyone.length).toBe(150);
+    expect(new Set(everyone.map((w) => w.player_uuid)).size).toBe(150);
+  });
+
   it("does not mutate the caller's pool", () => {
     const snapshot = JSON.parse(JSON.stringify(POOL));
     drawWinners(POOL, 2, { rng: sequenceRng([0, 0]) });
