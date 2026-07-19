@@ -128,7 +128,10 @@ export const load: PageServerLoad = async ({ fetch, params, parent }) => {
       const mine = viewer
         ? result.leaderboard.find((entry) => sameUuid(entry.player_uuid, viewer.minecraftUuid))
         : undefined;
-      viewerRaids = mine?.raids ?? 0;
+      // On an outage the board comes back empty with an error - keep progress
+      // unknown (null) rather than reporting a false 0, mirroring the standings
+      // error state. A real member with no raids still reads 0.
+      viewerRaids = result.error ? null : (mine?.raids ?? 0);
     } else {
       standings = { state: membership ?? "signin" };
     }

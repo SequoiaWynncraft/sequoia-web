@@ -160,7 +160,7 @@ describe("loadRaffleEligible", () => {
     // The gate reads the tracker's whole window while tickets read the raffle
     // window; the stub returns the same board for both, so a member clearing the
     // gate on full-window totals still qualifies.
-    stubRoutes({
+    const seen = stubRoutes({
       tracked: [MONTH],
       modEntries: [{ player_uuid: "uuid-alice", username: "Alice", raids: 25 }],
     });
@@ -173,6 +173,11 @@ describe("loadRaffleEligible", () => {
 
     expect(result.error).toBeNull();
     expect(result.entrants).toEqual([{ player_uuid: "uuid-alice", username: "Alice", tickets: 5 }]);
+    // The gate's unwindowed fetch is the last mod call, so `seen` reflects it:
+    // the whole tracked window (MONTH), not the raffle's narrower window.
+    expect(seen.modFrom).toBe(MONTH.starts_at);
+    expect(seen.modTo).toBe(MONTH.ends_at);
+    expect(seen.modRaid).toBeNull();
   });
 
   it("rejects a windowed raffle on an API tracker (whole-window totals only)", async () => {

@@ -331,6 +331,19 @@
       })),
   );
 
+  // Removing or emptying a personal milestone drops it from milestoneOptions;
+  // clear any raffle gate that pointed at it so the picker visibly resets and no
+  // stale id lingers until serialization. Setting "" is stable (falsy, so the
+  // effect no-ops on its own re-run).
+  $effect(() => {
+    const valid = new Set(milestoneOptions.map((option) => option.id));
+    for (const raffle of raffles) {
+      if (raffle.requiresMilestone && !valid.has(raffle.requiresMilestone)) {
+        raffle.requiresMilestone = "";
+      }
+    }
+  });
+
   let showValidation = $state(false);
   let saving = $state(false);
   let confirmingDelete = $state(false);
