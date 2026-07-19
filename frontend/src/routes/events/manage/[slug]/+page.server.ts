@@ -122,9 +122,15 @@ export const actions: Actions = {
     if (stats === null || stats.stale) {
       return fail(503, { error: "Member data is temporarily unavailable - try again shortly." });
     }
+    // A milestone-gated raffle only draws from members who reached that personal
+    // milestone's raid target over the full standings window.
+    const requiredRaids = raffle.requiresMilestone
+      ? event.personalMilestones?.find((milestone) => milestone.id === raffle.requiresMilestone)?.at
+      : undefined;
     const pool = await loadRaffleEligible(fetch, event.tracker, stats.members, {
       perTicket: raffle.perTicket,
       window: raffle.window,
+      requiredRaids,
     });
     if (pool.error) return fail(503, { error: pool.error });
 

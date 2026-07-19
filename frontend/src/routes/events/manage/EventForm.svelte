@@ -145,6 +145,31 @@
       previewPercent: 60,
     })) ?? [],
   );
+  // ── Personal milestones ─────────────────────────────────────────────
+  // Per-member raid thresholds. Each row carries a stable id (like a raffle)
+  // so a raffle's milestone gate can reference it across saves and undo.
+  interface PersonalMilestoneRow {
+    /** Stable id persisted in the event JSON and targeted by raffle gates. */
+    id: string;
+    /** Local list key, distinct from the persisted id. */
+    key: number;
+    at: string | number | null | undefined;
+    unlock: string;
+  }
+
+  function newPersonalMilestoneRow(): PersonalMilestoneRow {
+    return { id: crypto.randomUUID(), key: nextRowId++, at: "", unlock: "" };
+  }
+
+  let personalMilestones = $state<PersonalMilestoneRow[]>(
+    seed?.personalMilestones?.map((milestone) => ({
+      id: milestone.id,
+      key: nextRowId++,
+      at: milestone.at,
+      unlock: milestone.unlock,
+    })) ?? [],
+  );
+
   // Chart source: "goal" follows the first raid-based goal, "raids"/"raidRuns"
   // chart raids explicitly, "off" hides the chart; chartRaid narrows to one raid.
   let chartSource = $state<"goal" | "raids" | "raidRuns" | "off">(
@@ -192,6 +217,8 @@
     /** Frozen roll results, edited only by rolling - passed through on save. */
     winners: RaffleWinner[];
     drawnAt: string;
+    /** PersonalMilestone id required to enter, or "" for no gate. */
+    requiresMilestone: string;
   }
 
   function newRaffleRow(): RaffleRow {
@@ -207,6 +234,7 @@
       seedWindowTo: "",
       winners: [],
       drawnAt: "",
+      requiresMilestone: "",
     };
   }
 
@@ -229,6 +257,7 @@
       seedWindowTo: raffle.window?.to ?? "",
       winners: raffle.winners ?? [],
       drawnAt: raffle.drawnAt ?? "",
+      requiresMilestone: raffle.requiresMilestone ?? "",
     })) ?? [],
   );
   let rollingId = $state<string | null>(null);
@@ -249,8 +278,20 @@
       trackerEventId === (initial?.tracker?.eventId ?? "") &&
       trackerTracking === (initial?.tracker?.tracking ?? "api") &&
       raffleExcludeWinners === (initial?.raffleExcludeWinners ?? false);
+    // The roll resolves this raffle's gate to the *stored* milestone target, so
+    // both the gate choice and (when gated) the referenced milestone's target
+    // must match what the server holds - an unsaved edit to either would draw
+    // against a stale threshold.
+    const gate = row.requiresMilestone || "";
+    const savedGate = saved.requiresMilestone ?? "";
+    const gateTargetUnchanged =
+      gate === "" ||
+      toCount(personalMilestones.find((entry) => entry.id === gate)?.at) ===
+        initial?.personalMilestones?.find((entry) => entry.id === gate)?.at;
     return (
       eventConfigUnchanged &&
+      gate === savedGate &&
+      gateTargetUnchanged &&
       row.prize.trim() === saved.prize &&
       toCount(row.winnerCount) === saved.winnerCount &&
       toCount(row.perTicket) === saved.perTicket &&
@@ -276,6 +317,32 @@
       }));
     }),
   );
+
+  // Milestones a raffle gate can point at: only rows with a real target, since a
+  // gate is a raid threshold - an unlock-only row (no `at`) would serialize to a
+  // NaN target and fail the save-time validator. A raffle keeps a gate whose row
+  // was emptied but not removed.
+  const milestoneOptions = $derived(
+    personalMilestones
+      .filter((row) => hasCount(row.at))
+      .map((row) => ({
+        id: row.id,
+        label: `${row.unlock.trim() || "Milestone"} (≥${toCount(row.at)} raids)`,
+      })),
+  );
+
+  // Removing or emptying a personal milestone drops it from milestoneOptions;
+  // clear any raffle gate that pointed at it so the picker visibly resets and no
+  // stale id lingers until serialization. Setting "" is stable (falsy, so the
+  // effect no-ops on its own re-run).
+  $effect(() => {
+    const valid = new Set(milestoneOptions.map((option) => option.id));
+    for (const raffle of raffles) {
+      if (raffle.requiresMilestone && !valid.has(raffle.requiresMilestone)) {
+        raffle.requiresMilestone = "";
+      }
+    }
+  });
 
   let showValidation = $state(false);
   let saving = $state(false);
@@ -362,6 +429,12 @@
         return goal;
       });
     }
+    // Rows added but left fully empty are noise, not intent - drop them, and
+    // keep the stable id so a raffle gate keeps pointing at the same milestone.
+    const filledMilestones = personalMilestones
+      .filter((row) => hasCount(row.at) || row.unlock.trim())
+      .map((row) => ({ id: row.id, at: toCount(row.at), unlock: row.unlock }));
+    if (filledMilestones.length > 0) event.personalMilestones = filledMilestones;
     if (chartSource === "off") event.activity = { source: "none" };
     else if (chartSource !== "goal") {
       event.activity = chartRaid
@@ -419,6 +492,11 @@
         );
         if (keptWinners.length > 0) raffle.winners = keptWinners;
         if (keptWinners.length > 0 && row.drawnAt) raffle.drawnAt = row.drawnAt;
+        // Only emit a gate that still points at a live milestone - a milestone
+        // deleted after being picked would otherwise fail validation as dangling.
+        if (row.requiresMilestone && filledMilestones.some((m) => m.id === row.requiresMilestone)) {
+          raffle.requiresMilestone = row.requiresMilestone;
+        }
         return raffle;
       });
     if (filledRaffles.length > 0) event.raffles = filledRaffles;
@@ -750,6 +828,17 @@
         previewPercent: 60,
       };
     });
+    const milestonesDraft = Array.isArray(draft.personalMilestones) ? draft.personalMilestones : [];
+    personalMilestones = milestonesDraft.map((entry) => {
+      const record = (entry ?? {}) as Record<string, unknown>;
+      return {
+        // A snapshot missing an id (hand-edited preset) still needs a stable one.
+        id: text(record.id) || crypto.randomUUID(),
+        key: nextRowId++,
+        at: count(record.at),
+        unlock: text(record.unlock),
+      };
+    });
     const activityDraft = (draft.activity ?? null) as Record<string, unknown> | null;
     chartSource = activityDraft
       ? activityDraft.source === "none"
@@ -813,6 +902,7 @@
           };
         }),
         drawnAt: text(record.drawnAt),
+        requiresMilestone: text(record.requiresMilestone),
       };
     });
     raffleExcludeWinners = draft.raffleExcludeWinners === true;
@@ -1281,6 +1371,51 @@
       </section>
 
       <section class="mg-section">
+        <SectionLabel>{#snippet children()}Personal milestones{/snippet}</SectionLabel>
+        <p class="mg-hint">
+          Per-member raid targets on the standings board - each member sees their own progress on
+          the event page, and a raffle below can require one to enter. Needs a tracker (set under
+          Standings) to count raids.
+        </p>
+        {#each personalMilestones as milestone (milestone.key)}
+          <div class="mg-repeat-row mg-repeat-milestone">
+            <input
+              class="mg-input"
+              type="number"
+              min="1"
+              placeholder="Raids"
+              bind:value={milestone.at}
+              aria-label="Personal milestone target"
+            />
+            <input
+              class="mg-input"
+              placeholder="Unlocks, e.g. Rank Up eligibility"
+              bind:value={milestone.unlock}
+              maxlength="120"
+              aria-label="Personal milestone unlock"
+            />
+            <button
+              type="button"
+              class="mg-remove focus-ring"
+              onclick={() =>
+                (personalMilestones = personalMilestones.filter((entry) => entry.key !== milestone.key))}
+              aria-label="Remove personal milestone"
+            >✕</button>
+          </div>
+        {/each}
+        <button
+          type="button"
+          class="mg-add focus-ring"
+          onclick={() => personalMilestones.push(newPersonalMilestoneRow())}
+        >
+          + Add personal milestone
+        </button>
+        {#if personalMilestones.length > 1}
+          <p class="mg-hint">Targets must ascend.</p>
+        {/if}
+      </section>
+
+      <section class="mg-section">
         <SectionLabel>{#snippet children()}Activity chart{/snippet}</SectionLabel>
         <div class="mg-grid-2">
           <label class="mg-field">
@@ -1572,6 +1707,20 @@
                 <InstantField bind:value={raffle.windowTo} name="Raffle window end" />
               </label>
             </div>
+            {#if milestoneOptions.length > 0}
+              <label class="mg-field">
+                <span class="mg-label">Requires personal milestone</span>
+                <select class="mg-input" bind:value={raffle.requiresMilestone}>
+                  <option value="">No requirement</option>
+                  {#each milestoneOptions as option (option.id)}
+                    <option value={option.id}>{option.label}</option>
+                  {/each}
+                </select>
+                <span class="mg-hint">
+                  Only members who reached this milestone (full event standings) may enter.
+                </span>
+              </label>
+            {/if}
           </div>
         {/each}
         <button

@@ -53,7 +53,26 @@
     ),
   );
 
-  const standingsColumns: LedgerColumn<RaidLeaderboardEntry>[] = [
+  // Personal milestones are ascending by target (enforced by the validator), so
+  // the last one a member has cleared is their highest tier.
+  const personalMilestones = $derived(event.personalMilestones ?? []);
+
+  /** The highest personal milestone a raid count has reached, or null. */
+  const highestTier = (raids: number) =>
+    personalMilestones.reduce<(typeof personalMilestones)[number] | null>(
+      (best, milestone) => (raids >= milestone.at ? milestone : best),
+      null,
+    );
+
+  /** Count of tiers reached, for sorting the standings milestone column. */
+  const tiersReached = (raids: number) =>
+    personalMilestones.filter((milestone) => raids >= milestone.at).length;
+
+  // A GoalMeter renders any {metricLabel, milestones} shape - reuse it for the
+  // signed-in member's own progress by feeding their raid total as the current.
+  const viewerGoal = $derived({ metricLabel: "raids", milestones: personalMilestones });
+
+  const standingsColumns = $derived<LedgerColumn<RaidLeaderboardEntry>[]>([
     {
       key: "member",
       label: "Member",
@@ -71,7 +90,18 @@
       value: (entry) => entry.raids.toLocaleString(),
       sortValue: (entry) => entry.raids,
     },
-  ];
+    // The milestone column only appears when the event defines personal milestones.
+    ...(personalMilestones.length > 0
+      ? [
+          {
+            key: "milestone",
+            label: "Milestone",
+            value: (entry: RaidLeaderboardEntry) => highestTier(entry.raids)?.unlock ?? "—",
+            sortValue: (entry: RaidLeaderboardEntry) => tiersReached(entry.raids),
+          },
+        ]
+      : []),
+  ]);
 </script>
 
 <svelte:head>
@@ -176,6 +206,18 @@
             />
           </div>
         {/if}
+      </section>
+    {/if}
+
+    {#if personalMilestones.length > 0 && data.viewerRaids !== null}
+      <section class="ev-section" aria-label="Your milestones">
+        <h2 class="ev-label">
+          <span class="ev-spark" aria-hidden="true">✦</span>Your progress
+          <span class="ev-label-meta">{data.viewerRaids.toLocaleString()} raids</span>
+        </h2>
+        <div class="ev-personal">
+          <GoalMeter goal={viewerGoal} current={data.viewerRaids} />
+        </div>
       </section>
     {/if}
 

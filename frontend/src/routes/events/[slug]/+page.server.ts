@@ -83,6 +83,7 @@ export const load: PageServerLoad = async ({ fetch, params, parent }) => {
       progress: null,
       today,
       standings: null,
+      viewerRaids: null,
     };
   }
 
@@ -116,10 +117,21 @@ export const load: PageServerLoad = async ({ fetch, params, parent }) => {
   }
 
   let standings: Standings | null = null;
+  // The signed-in member's own raid total, read off the same board, so the page
+  // can show their progress toward the personal milestones.
+  let viewerRaids: number | null = null;
   if (event.tracker && event.startsAt && event.endsAt && status !== "upcoming") {
     if (membership === "member") {
       const result = await loadTrackerStandings(fetch, event.tracker, roster);
       standings = { state: "board", leaderboard: result.leaderboard, error: result.error };
+      const { viewer } = await parent();
+      const mine = viewer
+        ? result.leaderboard.find((entry) => sameUuid(entry.player_uuid, viewer.minecraftUuid))
+        : undefined;
+      // On an outage the board comes back empty with an error - keep progress
+      // unknown (null) rather than reporting a false 0, mirroring the standings
+      // error state. A real member with no raids still reads 0.
+      viewerRaids = result.error ? null : (mine?.raids ?? 0);
     } else {
       standings = { state: membership ?? "signin" };
     }
@@ -136,6 +148,7 @@ export const load: PageServerLoad = async ({ fetch, params, parent }) => {
     progress,
     today,
     standings,
+    viewerRaids,
   };
 };
 

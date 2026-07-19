@@ -136,6 +136,50 @@ describe("loadRaffleEligible", () => {
     expect(seen.modTo).toBe(MONTH.ends_at);
   });
 
+  it("drops members below a personal-milestone raid gate", async () => {
+    stubRoutes({
+      tracked: [MONTH],
+      modEntries: [
+        { player_uuid: "uuid-alice", username: "Alice", raids: 30 },
+        { player_uuid: "uuid-bob", username: "Bob", raids: 12 },
+      ],
+    });
+
+    const result = await loadRaffleEligible(fetch, { eventId: "evt", tracking: "mod" }, ROSTER, {
+      perTicket: 5,
+      requiredRaids: 20,
+    });
+
+    expect(result.error).toBeNull();
+    // Bob (12 raids) is below the gate and dropped even though he earns tickets;
+    // Alice (30) clears it: floor(30/5)=6.
+    expect(result.entrants).toEqual([{ player_uuid: "uuid-alice", username: "Alice", tickets: 6 }]);
+  });
+
+  it("measures the milestone gate over the full window, not the raffle window", async () => {
+    // The gate reads the tracker's whole window while tickets read the raffle
+    // window; the stub returns the same board for both, so a member clearing the
+    // gate on full-window totals still qualifies.
+    const seen = stubRoutes({
+      tracked: [MONTH],
+      modEntries: [{ player_uuid: "uuid-alice", username: "Alice", raids: 25 }],
+    });
+
+    const result = await loadRaffleEligible(fetch, { eventId: "evt", tracking: "mod" }, ROSTER, {
+      perTicket: 5,
+      window: { from: "2026-08-01T00:00:00.000Z", to: "2026-08-07T00:00:00.000Z" },
+      requiredRaids: 20,
+    });
+
+    expect(result.error).toBeNull();
+    expect(result.entrants).toEqual([{ player_uuid: "uuid-alice", username: "Alice", tickets: 5 }]);
+    // The gate's unwindowed fetch is the last mod call, so `seen` reflects it:
+    // the whole tracked window (MONTH), not the raffle's narrower window.
+    expect(seen.modFrom).toBe(MONTH.starts_at);
+    expect(seen.modTo).toBe(MONTH.ends_at);
+    expect(seen.modRaid).toBeNull();
+  });
+
   it("rejects a windowed raffle on an API tracker (whole-window totals only)", async () => {
     stubRoutes({ tracked: [{ ...MONTH, tracking: "api" }] });
 

@@ -7,6 +7,7 @@ import type {
   EventRaffle,
   EventTheme,
   GuildEvent,
+  PersonalMilestone,
   PrizeEntry,
   RaffleWinner,
 } from "./types";
@@ -64,6 +65,8 @@ function parseEvent(value: unknown): GuildEvent {
   if (about) event.about = about;
   const goals = parseGoals(raw);
   if (goals) event.goals = goals;
+  const personalMilestones = parsePersonalMilestones(raw);
+  if (personalMilestones) event.personalMilestones = personalMilestones;
   if (present(raw.activity)) event.activity = parseActivity(raw.activity);
   const prizes = parseList(raw.prizes, "prizes", parsePrize);
   if (prizes) event.prizes = prizes;
@@ -74,7 +77,17 @@ function parseEvent(value: unknown): GuildEvent {
   if (rules) event.rules = rules;
   if (present(raw.tracker)) event.tracker = parseTracker(raw.tracker);
   const raffles = parseRaffles(raw);
-  if (raffles) event.raffles = raffles;
+  if (raffles) {
+    event.raffles = raffles;
+    // A raffle gate must point at a real personal milestone: a dangling id would
+    // silently never let anyone in. Checked here, where both lists are resolved.
+    const milestoneIds = new Set((personalMilestones ?? []).map((milestone) => milestone.id));
+    for (const raffle of raffles) {
+      if (raffle.requiresMilestone !== undefined && !milestoneIds.has(raffle.requiresMilestone)) {
+        fail(`raffle "${raffle.prize}" requires a personal milestone that does not exist`);
+      }
+    }
+  }
   if (raw.raffleExcludeWinners === true) {
     event.raffleExcludeWinners = true;
     // With exclusion on, every raffle shares one winner pool - a member may hold
@@ -228,6 +241,43 @@ function parseMilestones(raw: Record<string, unknown>, label: string): EventGoal
   return milestones;
 }
 
+const MAX_PERSONAL_MILESTONES = 8;
+
+/**
+ * Reads the optional personal-milestones list: per-member raid thresholds with
+ * stable ids (targeted by raffle gates), strictly ascending targets, and unique
+ * ids. An empty or absent list yields undefined.
+ */
+function parsePersonalMilestones(raw: Record<string, unknown>): PersonalMilestone[] | undefined {
+  if (!present(raw.personalMilestones)) return undefined;
+  const entries = raw.personalMilestones;
+  if (!Array.isArray(entries)) fail("personal milestones must be a list");
+  if (entries.length > MAX_PERSONAL_MILESTONES) {
+    fail(`at most ${MAX_PERSONAL_MILESTONES} personal milestones are supported`);
+  }
+  const milestones = entries.map((entry, index) => {
+    const name = entries.length === 1 ? "personal milestone" : `personal milestone ${index + 1}`;
+    const milestone = asRecord(entry, name);
+    return {
+      id: requiredText(milestone.id, `${name} id`, 64),
+      at: parseCount(milestone.at, `${name} target`, 1),
+      unlock: requiredText(milestone.unlock, `${name} unlock`, 120),
+    };
+  });
+  if (milestones.length === 0) return undefined;
+  const ids = new Set<string>();
+  for (const milestone of milestones) {
+    if (ids.has(milestone.id)) fail("personal milestone ids must be unique");
+    ids.add(milestone.id);
+  }
+  for (let index = 1; index < milestones.length; index++) {
+    if (milestones[index].at <= milestones[index - 1].at) {
+      fail("personal milestones must have ascending targets");
+    }
+  }
+  return milestones;
+}
+
 function parseActivity(value: unknown): NonNullable<GuildEvent["activity"]> {
   const raw = asRecord(value, "activity chart");
   if (raw.source !== "raids" && raw.source !== "raidRuns" && raw.source !== "none") {
@@ -340,6 +390,9 @@ function parseRaffle(value: unknown, label: string): EventRaffle {
     }
   }
   if (present(raw.drawnAt)) raffle.drawnAt = parseInstant(raw.drawnAt, `${label} draw time`);
+  const requiresMilestone = optionalText(raw.requiresMilestone, `${label} milestone gate`, 64);
+  // The referenced id is cross-checked against personalMilestones in parseEvent.
+  if (requiresMilestone) raffle.requiresMilestone = requiresMilestone;
   return raffle;
 }
 

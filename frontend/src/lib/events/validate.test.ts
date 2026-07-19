@@ -229,6 +229,81 @@ describe("parseGuildEvent", () => {
     );
   });
 
+  it("round-trips ascending personal milestones with their ids", () => {
+    const result = parseGuildEvent({
+      ...VALID,
+      personalMilestones: [
+        { id: "m1", at: 10, unlock: "Bronze" },
+        { id: "m2", at: 30, unlock: "Silver" },
+      ],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.event.personalMilestones).toEqual([
+      { id: "m1", at: 10, unlock: "Bronze" },
+      { id: "m2", at: 30, unlock: "Silver" },
+    ]);
+  });
+
+  it("rejects out-of-order, duplicate-id, or over-cap personal milestones", () => {
+    expectError(
+      {
+        ...VALID,
+        personalMilestones: [
+          { id: "m1", at: 30, unlock: "A" },
+          { id: "m2", at: 10, unlock: "B" },
+        ],
+      },
+      "ascending",
+    );
+    expectError(
+      {
+        ...VALID,
+        personalMilestones: [
+          { id: "dup", at: 10, unlock: "A" },
+          { id: "dup", at: 30, unlock: "B" },
+        ],
+      },
+      "ids must be unique",
+    );
+    expectError(
+      { ...VALID, personalMilestones: [{ at: 10, unlock: "A" }] },
+      "id",
+    );
+    const nine = Array.from({ length: 9 }, (_, index) => ({
+      id: `m${index}`,
+      at: (index + 1) * 10,
+      unlock: `Tier ${index}`,
+    }));
+    expectError({ ...VALID, personalMilestones: nine }, "at most 8 personal milestones");
+  });
+
+  it("gates a raffle on an existing personal milestone but rejects a dangling reference", () => {
+    const ok = parseGuildEvent({
+      ...VALID,
+      personalMilestones: [{ id: "m1", at: 20, unlock: "Eligible" }],
+      raffles: [{ id: "r1", prize: "x", winnerCount: 1, perTicket: 1, requiresMilestone: "m1" }],
+    });
+    expect(ok.ok).toBe(true);
+    if (ok.ok) expect(ok.event.raffles?.[0].requiresMilestone).toBe("m1");
+
+    expectError(
+      {
+        ...VALID,
+        personalMilestones: [{ id: "m1", at: 20, unlock: "Eligible" }],
+        raffles: [{ id: "r1", prize: "x", winnerCount: 1, perTicket: 1, requiresMilestone: "ghost" }],
+      },
+      "does not exist",
+    );
+    expectError(
+      {
+        ...VALID,
+        raffles: [{ id: "r1", prize: "x", winnerCount: 1, perTicket: 1, requiresMilestone: "m1" }],
+      },
+      "does not exist",
+    );
+  });
+
   it("round-trips raffles, normalizing the window and carrying frozen winners", () => {
     const result = parseGuildEvent({
       ...VALID,
