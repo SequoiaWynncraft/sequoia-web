@@ -148,17 +148,41 @@ export interface RaffleEligibility {
  * both are restricted to the supplied roster so someone who has left the guild
  * cannot win. Mod-tracked events honor the raffle `window`; API-tracked events
  * only expose whole-window totals, so a windowed raffle is rejected there.
+ *
+ * When `requiredRaids` is set (a personal-milestone gate), eligibility is
+ * further restricted to members who reached that many raids over the tracker's
+ * FULL standings window - not the raffle window - so the gate matches the
+ * milestone progress shown on the public event page.
  */
 export async function loadRaffleEligible(
   fetchImpl: typeof fetch,
   tracker: NonNullable<GuildEvent["tracker"]>,
   roster: GuildMemberStats[],
-  options: { perTicket: number; window?: { from: string; to: string } },
+  options: { perTicket: number; window?: { from: string; to: string }; requiredRaids?: number },
 ): Promise<RaffleEligibility> {
-  const board = await loadRaffleLeaderboard(fetchImpl, tracker, roster, options);
+  // Resolve the tracked event once and reuse it for both board reads below, so a
+  // windowed gated raffle doesn't fetch the raid-events list twice.
+  const tracked = (await loadRaidEvents(fetchImpl)).find((entry) => entry.id === tracker.eventId);
+  const board = await loadRaffleLeaderboard(fetchImpl, tracker, roster, options, tracked);
   if (board.error) return { entrants: [], error: board.error };
+  // The milestone gate reads the full-window standings. Without a raffle window
+  // the ticket board already IS the full board, so reuse it; otherwise fetch the
+  // unwindowed board once and keep the uuids that cleared the threshold.
+  let gate: Set<string> | null = null;
+  if (options.requiredRaids !== undefined && options.requiredRaids > 0) {
+    const fullBoard = options.window
+      ? await loadRaffleLeaderboard(fetchImpl, tracker, roster, {}, tracked)
+      : board;
+    if (fullBoard.error) return { entrants: [], error: fullBoard.error };
+    gate = new Set(
+      fullBoard.leaderboard
+        .filter((entry) => entry.raids >= options.requiredRaids!)
+        .map((entry) => normalizeUuid(entry.player_uuid)),
+    );
+  }
   const perTicket = Math.max(1, Math.trunc(options.perTicket));
   const entrants = board.leaderboard.flatMap((entry) => {
+    if (gate && !gate.has(normalizeUuid(entry.player_uuid))) return [];
     const tickets = Math.floor(entry.raids / perTicket);
     if (tickets <= 0) return [];
     return [{ player_uuid: entry.player_uuid, username: entry.username, tickets }];
@@ -171,8 +195,8 @@ async function loadRaffleLeaderboard(
   tracker: NonNullable<GuildEvent["tracker"]>,
   roster: GuildMemberStats[],
   options: { window?: { from: string; to: string } },
+  tracked: RaidEvent | undefined,
 ): Promise<LeaderboardResult> {
-  const tracked = (await loadRaidEvents(fetchImpl)).find((entry) => entry.id === tracker.eventId);
   const tracking = tracked?.tracking ?? tracker.tracking;
   if (tracking !== "mod") {
     // API trackers only expose whole-window totals, so a raffle window would be

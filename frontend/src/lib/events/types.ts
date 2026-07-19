@@ -31,6 +31,20 @@ export interface GoalMilestone {
   unlock: string;
 }
 
+/**
+ * A per-member raid threshold reached individually on the standings board,
+ * distinct from the guild-wide GoalMilestone. Members see their own progress
+ * on the event page, and raffles can gate entry on reaching one.
+ */
+export interface PersonalMilestone {
+  /** Stable id used to target raffle gates; persists in the event JSON. */
+  id: string;
+  /** Raid count a member must personally reach on the tracker's standings board. */
+  at: number;
+  /** What reaching it represents, e.g. "Rank Up eligibility". */
+  unlock: string;
+}
+
 export interface EventGoal {
   /** What is being counted, e.g. "guild raids". */
   metricLabel: string;
@@ -97,6 +111,11 @@ export interface EventRaffle {
   winners?: RaffleWinner[];
   /** RFC3339 instant of the most recent slot roll. */
   drawnAt?: string;
+  /**
+   * When set, only members who reached this PersonalMilestone (by its id) over
+   * the full event standings window may enter this raffle.
+   */
+  requiresMilestone?: string;
 }
 
 export interface GuildEvent {
@@ -114,6 +133,12 @@ export interface GuildEvent {
   about?: string[];
   /** Tracked goals, each with its own data source and milestone unlocks. */
   goals?: EventGoal[];
+  /**
+   * Per-member raid milestones, in strictly ascending order by `at`, shown on
+   * the standings board; a raffle may gate entry on one. Meaningful only with a
+   * tracker configured, since progress reads the tracker's standings board.
+   */
+  personalMilestones?: PersonalMilestone[];
   /**
    * Activity chart configuration. Absent follows the first goal reading a
    * raid-based feed; "none" hides the chart; countRaid narrows to one raid.
