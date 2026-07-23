@@ -288,7 +288,7 @@
     [/^namelessSrGuilds$/, () => "TNA season rating"],
     [/^orphionSrGuilds$/, () => "NOL season rating"],
     [/^grootslangSrGuilds$/, () => "NOTG season rating"],
-    [/^frumaSrGuilds$/, () => "Fruma season rating"],
+    [/^frumaSrGuilds$/, () => "TWP season rating"],
     [/^guildLevel$/, () => "Guild level"],
     [/^guildTerritories$/, () => "Territories"],
     [/^guildWars$/, () => "Wars"],

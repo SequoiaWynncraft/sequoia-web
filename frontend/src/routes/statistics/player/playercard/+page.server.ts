@@ -1,3 +1,5 @@
+import { redirect } from "@sveltejs/kit";
+
 import type { PageServerLoad } from "./$types";
 
 import type { PlayerCardResponse } from "$lib/api/playerCard";
@@ -22,9 +24,21 @@ export interface PlayerCardResult {
 /** Matches the backend's 400-day span clamp. */
 const SERIES_DAYS = 399;
 
-export const load: PageServerLoad = async ({ fetch, url }) => {
-  const stats = await getGuildStats(fetch, { allowStale: true }).catch(() => null);
+export const load: PageServerLoad = async ({ fetch, url, parent }) => {
   const player = url.searchParams.get("player")?.trim() ?? "";
+
+  // With no player specified, default to the signed-in member's own card.
+  // Other params are carried over so shared links keep their state.
+  if (!player) {
+    const { viewer } = await parent();
+    if (viewer?.minecraftUsername) {
+      const params = new URLSearchParams(url.searchParams);
+      params.set("player", viewer.minecraftUsername);
+      redirect(307, `?${params}`);
+    }
+  }
+
+  const stats = await getGuildStats(fetch, { allowStale: true }).catch(() => null);
 
   return {
     player,
