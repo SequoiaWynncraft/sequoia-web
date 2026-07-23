@@ -41,7 +41,7 @@ export function errorCopy(status: number): {
     };
   }
 
-  if (status >= 500) {
+  if (status >= 500 && status < 600) {
     return {
       heading,
       message: "Something broke on our end. Give it a moment, then try again.",

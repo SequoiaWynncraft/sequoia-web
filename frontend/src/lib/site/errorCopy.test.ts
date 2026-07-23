@@ -33,4 +33,11 @@ describe("errorCopy", () => {
     expect(copy.title).toBe("418 — Error");
     expect(copy.message).toBeTruthy();
   });
+
+  it("does not treat status 600 as a server error", () => {
+    const copy = errorCopy(600);
+    expect(copy.title).toBe("600 — Error");
+    expect(copy.message).toBe("Something went wrong reaching this page.");
+    expect(copy.message).not.toMatch(/our end/i);
+  });
 });
