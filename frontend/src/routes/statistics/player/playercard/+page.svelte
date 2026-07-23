@@ -19,6 +19,15 @@
     query = data.player;
   });
 
+  /** How many names the dropdown offers — enough to be useful, never the whole roster. */
+  const MAX_SUGGESTIONS = 10;
+
+  const suggestions = $derived.by(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return [];
+    return data.memberNames.filter((name) => name.toLowerCase().includes(needle)).slice(0, MAX_SUGGESTIONS);
+  });
+
   let copied = $state(false);
 
   function search(event: SubmitEvent) {
@@ -166,7 +175,7 @@
     bind:value={query}
   />
   <datalist id="member-names">
-    {#each data.memberNames as name (name)}
+    {#each suggestions as name (name)}
       <option value={name}></option>
     {/each}
   </datalist>
