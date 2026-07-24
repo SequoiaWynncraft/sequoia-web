@@ -28,6 +28,11 @@
   {#if data.access !== "manager"}
     <ManageGate access={data.access} returnTo="/events/manage" />
   {:else if data.entries}
+    {#if data.auditWarning}
+      <p class="mg-audit-warning" role="alert">
+        The deletion succeeded but was not recorded in the audit log.
+      </p>
+    {/if}
     <SectionLabel meta={String(data.entries.length)}>
       {#snippet children()}All events{/snippet}
       {#snippet actions()}
@@ -75,6 +80,12 @@
     width: min(940px, 100% - 3rem);
     margin: 0 auto;
     padding-bottom: 48px;
+  }
+
+  .mg-audit-warning {
+    margin: 0 0 18px;
+    color: var(--status-error);
+    font-size: var(--text-sm);
   }
 
   .mg-list {

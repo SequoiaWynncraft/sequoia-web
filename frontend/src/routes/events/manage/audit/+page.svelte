@@ -71,7 +71,11 @@
 
   {#if data.access !== "manager"}
     <ManageGate access={data.access} returnTo="/events/manage/audit" />
-  {:else if data.entries}
+  {:else if data.entries === null}
+    <p class="mg-muted" role="alert">
+      The audit log is unavailable right now - actions may be recorded that cannot be shown. Reload to retry.
+    </p>
+  {:else}
     <SectionLabel meta={`latest ${data.entries.length}`}>
       {#snippet children()}Management actions{/snippet}
     </SectionLabel>

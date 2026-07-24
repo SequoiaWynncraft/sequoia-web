@@ -31,6 +31,7 @@
     trackerUpdated = null,
     trackerError = null,
     presetError = null,
+    auditWarning = false,
   }: {
     mode: "create" | "edit";
     initial?: GuildEvent | null;
@@ -49,6 +50,8 @@
     trackerUpdated?: TrackerOption | null;
     trackerError?: string | null;
     presetError?: string | null;
+    /** The last action succeeded but its audit row did not land. */
+    auditWarning?: boolean;
   } = $props();
 
   // The form deliberately seeds from the props once - the parent remounts it
@@ -1809,6 +1812,9 @@
           <span class="mg-error" role="alert">{error}</span>
         {:else if saved}
           <span class="mg-saved">Saved</span>
+        {/if}
+        {#if auditWarning}
+          <span class="mg-error" role="alert">Done, but not recorded in the audit log.</span>
         {/if}
       </div>
     </form>
