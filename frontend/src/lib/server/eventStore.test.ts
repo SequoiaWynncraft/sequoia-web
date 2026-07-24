@@ -62,6 +62,27 @@ describe("event store", () => {
     expect(await store.update({ ...DRAFT, slug: "never-created" }, { published: true })).toBe(false);
   });
 
+  it("only deletes the version the caller reviewed", async () => {
+    const { store } = memoryStore();
+    expect(await store.insert(DRAFT, { published: true })).toBe(true);
+    const first = await store.get("draft-event");
+    expect(first).not.toBeNull();
+
+    // Another manager improves the event (guarded, as the save action does, so
+    // the version token strictly advances); the stale tab's delete must lose.
+    expect(
+      await store.update({ ...DRAFT, name: "Improved" }, { published: true, ifUpdatedAt: first!.updatedAt }),
+    ).toBe(true);
+    expect(await store.remove("draft-event", { ifUpdatedAt: first!.updatedAt })).toBe(false);
+    expect((await store.get("draft-event"))?.event.name).toBe("Improved");
+
+    // Deleting the current version succeeds exactly once.
+    const current = await store.get("draft-event");
+    expect(await store.remove("draft-event", { ifUpdatedAt: current!.updatedAt })).toBe(true);
+    expect(await store.remove("draft-event", { ifUpdatedAt: current!.updatedAt })).toBe(false);
+    expect(await store.get("draft-event")).toBeNull();
+  });
+
   it("never resurrects deleted seed events", async () => {
     const { client, store } = memoryStore();
     expect(await store.remove("colossus-sprint")).toBe(true);

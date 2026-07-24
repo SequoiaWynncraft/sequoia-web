@@ -27,8 +27,12 @@ export interface EventStore {
    * loses instead of silently clobbering; the loser gets false.
    */
   update(event: GuildEvent, options: { published: boolean; ifUpdatedAt?: number }): Promise<boolean>;
-  /** Returns false when no event had that slug. */
-  remove(slug: string): Promise<boolean>;
+  /**
+   * Returns false when no event had that slug. When `ifUpdatedAt` is given,
+   * the delete only lands if the row still carries that `updatedAt`, so a
+   * stale tab cannot remove a version its manager never reviewed.
+   */
+  remove(slug: string, options?: { ifUpdatedAt?: number }): Promise<boolean>;
 }
 
 /**
@@ -141,12 +145,15 @@ export function createEventStore(getClient: () => Promise<Client>): EventStore {
       return result.rowsAffected > 0;
     },
 
-    async remove(slug) {
+    async remove(slug, options = {}) {
       const db = await ready();
-      const result = await db.execute({
-        sql: "DELETE FROM guild_events WHERE slug = ?",
-        args: [slug],
-      });
+      const sql =
+        options.ifUpdatedAt === undefined
+          ? "DELETE FROM guild_events WHERE slug = ?"
+          : "DELETE FROM guild_events WHERE slug = ? AND updated_at = ?";
+      const args: (string | number)[] = [slug];
+      if (options.ifUpdatedAt !== undefined) args.push(options.ifUpdatedAt);
+      const result = await db.execute({ sql, args });
       return result.rowsAffected > 0;
     },
   };

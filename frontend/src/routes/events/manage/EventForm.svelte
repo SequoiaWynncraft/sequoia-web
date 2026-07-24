@@ -1799,6 +1799,9 @@
 
     {#if mode === "edit"}
       <form class="mg-danger" method="POST" action="?/delete" use:enhance>
+        <!-- Same live version token as the save form: deleting is only safe
+             against the version the manager actually reviewed. -->
+        <input type="hidden" name="baseUpdatedAt" value={initialUpdatedAt ?? ""} />
         {#if confirmingDelete}
           <span class="mg-error">This permanently removes the event.</span>
           <button type="submit" class="mg-delete focus-ring">Confirm delete</button>

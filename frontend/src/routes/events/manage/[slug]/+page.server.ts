@@ -82,12 +82,26 @@ export const actions: Actions = {
     return { saved: true };
   },
 
-  delete: async ({ params, cookies, fetch }) => {
+  delete: async ({ request, params, cookies, fetch }) => {
     const manager = await requireEventManager({ cookies, fetch });
-    // A stale double-delete removes nothing and must not mint an audit row.
-    if (await eventStore.remove(params.slug)) {
-      await recordAudit(manager, "event.delete", params.slug);
+    const baseUpdatedAt = Number((await request.formData()).get("baseUpdatedAt"));
+    if (!Number.isFinite(baseUpdatedAt)) {
+      return fail(400, { error: "Reload the page before deleting." });
     }
+    const stored = await eventStore.get(params.slug);
+    // Already gone (e.g. the other tab won): deletion is done, not a conflict.
+    if (!stored) redirect(303, "/events/manage");
+    // Guard on the version the manager reviewed: a delete from a stale tab must
+    // not remove an event someone else changed since. The get above only serves
+    // the audit payload; the CAS delete is the authoritative check.
+    if (
+      stored.updatedAt !== baseUpdatedAt ||
+      !(await eventStore.remove(params.slug, { ifUpdatedAt: baseUpdatedAt }))
+    ) {
+      return fail(409, { error: "This event just changed - reload before deleting." });
+    }
+    // Retain the deleted payload so the event can be reconstructed from the log.
+    await recordAudit(manager, "event.delete", params.slug, JSON.stringify(stored.event));
     redirect(303, "/events/manage");
   },
 
