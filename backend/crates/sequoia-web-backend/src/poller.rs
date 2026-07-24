@@ -3,7 +3,14 @@ use std::{sync::Arc, time::Duration};
 use anyhow::Context;
 use tokio::time::sleep;
 
-use crate::{db::IngestSummary, model::GuildSnapshot, wynn::WynnClient};
+use crate::{
+    db::IngestSummary,
+    model::GuildSnapshot,
+    wynn::{WynnClient, WynnError},
+};
+
+/// Upper bound on a rate-limit backoff, so a bogus header cannot stall polling.
+const MAX_RATE_LIMIT_DELAY: Duration = Duration::from_secs(15 * 60);
 
 #[derive(Clone)]
 pub struct RaidTracker {
@@ -35,13 +42,14 @@ impl RaidTracker {
             .wynn
             .as_ref()
             .context("WYNNCRAFT_ACCESS_TOKEN is required to poll guild raids")?;
-        wynn.fetch_guild_snapshot(&self.guild_prefix).await
+        Ok(wynn.fetch_guild_snapshot(&self.guild_prefix).await?)
     }
 }
 
 pub fn spawn_poll_loop(tracker: RaidTracker, interval: Duration) {
     tokio::spawn(async move {
         loop {
+            let mut delay = interval;
             match tracker.poll_once().await {
                 Ok(summary) => {
                     tracing::info!(
@@ -55,11 +63,21 @@ pub fn spawn_poll_loop(tracker: RaidTracker, interval: Duration) {
                     );
                 }
                 Err(error) => {
-                    tracing::warn!(%error, "guild raid poll failed");
+                    // A rate-limited poll waits out the upstream's reset window
+                    // instead of hammering it again on the normal cadence.
+                    if let Some(WynnError::RateLimited {
+                        retry_after: Some(retry),
+                    }) = error.downcast_ref::<WynnError>()
+                    {
+                        // The cap yields to a longer configured interval:
+                        // clamp panics when min > max.
+                        delay = (*retry).clamp(interval, MAX_RATE_LIMIT_DELAY.max(interval));
+                    }
+                    tracing::warn!(%error, delay_secs = delay.as_secs(), "guild raid poll failed");
                 }
             }
 
-            sleep(interval).await;
+            sleep(delay).await;
         }
     });
 }
