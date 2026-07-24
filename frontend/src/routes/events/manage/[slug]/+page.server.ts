@@ -70,7 +70,11 @@ export const actions: Actions = {
     // Guard on the version we grafted from: a raffle roll (or another save)
     // landing between the read above and this write must not be silently
     // overwritten with the older snapshot.
-    if (!(await eventStore.update(regrafted.event, { published: payload.published, ifUpdatedAt: stored.updatedAt }))) {
+    const newUpdatedAt = await eventStore.update(regrafted.event, {
+      published: payload.published,
+      ifUpdatedAt: stored.updatedAt,
+    });
+    if (newUpdatedAt === null) {
       return fail(409, { error: "This event just changed - reload and save again." });
     }
     await recordAudit(
@@ -79,24 +83,50 @@ export const actions: Actions = {
       params.slug,
       payload.published ? "published" : "draft",
     );
-    return { saved: true };
+    // The exact version this save wrote: the client adopts it as its reviewed
+    // token, so a concurrent save landing during the response can't slip in.
+    return { saved: true, newUpdatedAt };
   },
 
-  delete: async ({ params, cookies, fetch }) => {
+  delete: async ({ request, params, cookies, fetch }) => {
     const manager = await requireEventManager({ cookies, fetch });
-    // A stale double-delete removes nothing and must not mint an audit row.
-    if (await eventStore.remove(params.slug)) {
-      await recordAudit(manager, "event.delete", params.slug);
+    // Number(null) and Number("") are 0, so a missing token must become NaN to
+    // be rejected as malformed rather than treated as version 0.
+    const rawBaseUpdatedAt = (await request.formData()).get("baseUpdatedAt");
+    const baseUpdatedAt =
+      typeof rawBaseUpdatedAt === "string" && rawBaseUpdatedAt.trim() !== ""
+        ? Number(rawBaseUpdatedAt)
+        : Number.NaN;
+    if (!Number.isSafeInteger(baseUpdatedAt)) {
+      return fail(400, { error: "Reload the page before deleting." });
     }
+    const stored = await eventStore.get(params.slug);
+    // Already gone (e.g. the other tab won): deletion is done, not a conflict.
+    if (!stored) redirect(303, "/events/manage");
+    // Guard on the version the manager reviewed: a delete from a stale tab must
+    // not remove an event someone else changed since. The get above only serves
+    // the audit payload; the CAS delete is the authoritative check.
+    if (stored.updatedAt !== baseUpdatedAt) {
+      return fail(409, { error: "This event just changed - reload before deleting." });
+    }
+    if (!(await eventStore.remove(params.slug, { ifUpdatedAt: baseUpdatedAt }))) {
+      // The CAS lost a race after the read above: a concurrent delete of the
+      // same version is done, a concurrent update is a conflict.
+      if (!(await eventStore.get(params.slug))) redirect(303, "/events/manage");
+      return fail(409, { error: "This event just changed - reload before deleting." });
+    }
+    // Retain the deleted payload so the event can be reconstructed from the log.
+    await recordAudit(manager, "event.delete", params.slug, JSON.stringify(stored.event));
     redirect(303, "/events/manage");
   },
 
   rollRaffle: async ({ request, params, cookies, fetch }) => {
     const manager = await requireEventManager({ cookies, fetch });
+    const formData = await request.formData();
     // rollTarget is "raffleId:slot" - a single slot is rolled at a time. Split
     // on the LAST colon so a raffle id that itself contains one (e.g. a
     // hand-edited preset) still parses the trailing slot correctly.
-    const rollTarget = String((await request.formData()).get("rollTarget") ?? "");
+    const rollTarget = String(formData.get("rollTarget") ?? "");
     const sep = rollTarget.lastIndexOf(":");
     const raffleId = sep >= 0 ? rollTarget.slice(0, sep) : rollTarget;
     const slotText = sep >= 0 ? rollTarget.slice(sep + 1) : "";
@@ -108,6 +138,21 @@ export const actions: Actions = {
     // deterministic and never depends on unsaved editor state.
     const stored = await eventStore.get(params.slug);
     if (!stored) error(404, "No such event");
+    // A roll from a stale tab would run against raffle config the manager
+    // never reviewed - and its success would advance the tab's version token
+    // past those unseen changes. Reject it like a stale save. Same strict
+    // parsing as delete: a missing token is malformed, not version 0.
+    const rawBaseUpdatedAt = formData.get("baseUpdatedAt");
+    const baseUpdatedAt =
+      typeof rawBaseUpdatedAt === "string" && rawBaseUpdatedAt.trim() !== ""
+        ? Number(rawBaseUpdatedAt)
+        : Number.NaN;
+    if (!Number.isSafeInteger(baseUpdatedAt)) {
+      return fail(400, { error: "Reload the page before rolling." });
+    }
+    if (baseUpdatedAt !== stored.updatedAt) {
+      return fail(409, { error: "This event just changed - reload and roll again." });
+    }
     const event = stored.event;
     const raffle = event.raffles?.find((entry) => entry.id === raffleId);
     if (!raffle) return fail(400, { error: "Save the raffle before rolling it." });
@@ -154,7 +199,11 @@ export const actions: Actions = {
     // Guard on the version we read: if another roll (or save) landed in the
     // meantime, this write loses rather than clobbering that winner, and the
     // manager is told to retry against the fresh state.
-    if (!(await eventStore.update(event, { published: stored.published, ifUpdatedAt: stored.updatedAt }))) {
+    const newUpdatedAt = await eventStore.update(event, {
+      published: stored.published,
+      ifUpdatedAt: stored.updatedAt,
+    });
+    if (newUpdatedAt === null) {
       return fail(409, { error: "This event just changed - reload and roll again." });
     }
     // Record who was drawn, not just where: the audit trail must show the exact
@@ -166,7 +215,7 @@ export const actions: Actions = {
       params.slug,
       `${raffleId}:${slot} → ${drawn.username} (${drawn.player_uuid}), ${drawn.tickets} tickets, ${raffle.drawnAt}`,
     );
-    return { rolled: raffleId, slot, winner: { slot, ...drawn }, drawnAt: raffle.drawnAt };
+    return { rolled: raffleId, slot, winner: { slot, ...drawn }, drawnAt: raffle.drawnAt, newUpdatedAt };
   },
 
   createTracker: createTrackerAction,

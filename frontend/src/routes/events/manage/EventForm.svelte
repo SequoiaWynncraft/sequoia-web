@@ -57,6 +57,14 @@
   const seed = initial;
   // svelte-ignore state_referenced_locally
   const seedPublished = initialPublished;
+  // The version token the visible draft is based on. Every enhanced action
+  // reruns `load` and refreshes `initialUpdatedAt`, so using the live prop
+  // would adopt a concurrent manager's version after e.g. a tracker or preset
+  // action - letting this editor save or delete over content it never
+  // displayed. Seeded at mount, advanced only by this tab's own successful
+  // saves and rolls (after which the visible draft matches the store again).
+  // svelte-ignore state_referenced_locally
+  let knownUpdatedAt = $state(initialUpdatedAt);
   // svelte-ignore state_referenced_locally
   const memberChoices = context?.members ?? [];
   // svelte-ignore state_referenced_locally
@@ -572,13 +580,23 @@
       return async ({ result, update }) => {
         if (result.type === "success") {
           const data = result.data as
-            | { rolled?: string; slot?: number; winner?: RaffleWinner; drawnAt?: string }
+            | {
+                rolled?: string;
+                slot?: number;
+                winner?: RaffleWinner;
+                drawnAt?: string;
+                newUpdatedAt?: number;
+              }
             | undefined;
           const row = raffles.find((entry) => entry.id === data?.rolled);
           if (row && data?.winner && typeof data.slot === "number") {
             row.winners = [...row.winners.filter((entry) => entry.slot !== data.slot), data.winner];
             row.drawnAt = data.drawnAt ?? new Date().toISOString();
           }
+          // Adopt exactly the version this roll wrote (reflected above) - not
+          // the reloaded page data, which may already contain someone else's
+          // later save.
+          knownUpdatedAt = data?.newUpdatedAt ?? knownUpdatedAt;
         } else if (result.type === "failure") {
           rollError = (result.data as { error?: string } | undefined)?.error ?? "The roll failed.";
         }
@@ -592,8 +610,14 @@
       return;
     }
     saving = true;
-    return async ({ update }) => {
+    return async ({ result, update }) => {
       saving = false;
+      // Adopt exactly the version this save wrote - not the reloaded page
+      // data, which may already contain someone else's later save.
+      if (result.type === "success") {
+        const data = result.data as { newUpdatedAt?: number } | undefined;
+        knownUpdatedAt = data?.newUpdatedAt ?? knownUpdatedAt;
+      }
       await update({ reset: false });
     };
   };
@@ -1066,10 +1090,10 @@
 
     <form method="POST" action="?/save" use:enhance={submit}>
       <input type="hidden" name="payload" value={payload} />
-      <!-- Live prop, not the mount snapshot: a roll or save refreshes `initial`
-           via load, advancing this so the manager's own follow-up save isn't
-           rejected as stale - only a change they never saw is. -->
-      <input type="hidden" name="baseUpdatedAt" value={initialUpdatedAt ?? ""} />
+      <!-- The version the visible draft is based on (see knownUpdatedAt): own
+           saves and rolls advance it so follow-up saves aren't rejected as
+           stale, but a change this tab never displayed is. -->
+      <input type="hidden" name="baseUpdatedAt" value={knownUpdatedAt ?? ""} />
       <input type="hidden" name="trackerPayload" value={trackerPayload} />
 
       <section class="mg-section">
@@ -1799,6 +1823,9 @@
 
     {#if mode === "edit"}
       <form class="mg-danger" method="POST" action="?/delete" use:enhance>
+        <!-- Same draft-pinned version token as the save form: deleting is only
+             safe against the version the manager actually reviewed. -->
+        <input type="hidden" name="baseUpdatedAt" value={knownUpdatedAt ?? ""} />
         {#if confirmingDelete}
           <span class="mg-error">This permanently removes the event.</span>
           <button type="submit" class="mg-delete focus-ring">Confirm delete</button>
