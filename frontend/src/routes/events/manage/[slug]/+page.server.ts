@@ -134,8 +134,17 @@ export const actions: Actions = {
     if (!stored) error(404, "No such event");
     // A roll from a stale tab would run against raffle config the manager
     // never reviewed - and its success would advance the tab's version token
-    // past those unseen changes. Reject it like a stale save.
-    if (Number(formData.get("baseUpdatedAt")) !== stored.updatedAt) {
+    // past those unseen changes. Reject it like a stale save. Same strict
+    // parsing as delete: a missing token is malformed, not version 0.
+    const rawBaseUpdatedAt = formData.get("baseUpdatedAt");
+    const baseUpdatedAt =
+      typeof rawBaseUpdatedAt === "string" && rawBaseUpdatedAt.trim() !== ""
+        ? Number(rawBaseUpdatedAt)
+        : Number.NaN;
+    if (!Number.isSafeInteger(baseUpdatedAt)) {
+      return fail(400, { error: "Reload the page before rolling." });
+    }
+    if (baseUpdatedAt !== stored.updatedAt) {
       return fail(409, { error: "This event just changed - reload and roll again." });
     }
     const event = stored.event;
