@@ -27,6 +27,12 @@ impl WynnClient {
 
     pub async fn fetch_guild_snapshot(&self, prefix: &str) -> anyhow::Result<GuildSnapshot> {
         let url = format!("{}/guild/prefix/{}", self.base_url, prefix);
+        // Stamped before the request goes out: the payload can only reflect
+        // server state from before this instant, so ordering snapshots by a
+        // request-start time keeps a stalled older request older than any
+        // faster later one - stamping on receipt would let it leapfrog the
+        // monotonic admission check.
+        let fetched_at = OffsetDateTime::now_utc();
         let response = self
             .http
             .get(url)
@@ -44,7 +50,6 @@ impl WynnClient {
             bail!("Wynncraft guild snapshot request failed with status {status}");
         }
 
-        let fetched_at = OffsetDateTime::now_utc();
         let raw_payload = response
             .json::<serde_json::Value>()
             .await
