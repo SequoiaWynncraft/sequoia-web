@@ -205,8 +205,22 @@ function parseGoal(value: unknown, label: string): EventGoal {
     goal.countRaid = countRaid;
   }
   if (present(raw.finalTotal)) goal.finalTotal = parseCount(raw.finalTotal, `${label} final total`, 0);
+  if (present(raw.milestoneStyle)) {
+    if (
+      raw.milestoneStyle !== "list" &&
+      raw.milestoneStyle !== "markers" &&
+      raw.milestoneStyle !== "both" &&
+      raw.milestoneStyle !== "none"
+    ) {
+      fail(`${label} milestone style must be list, markers, both, or none`);
+    }
+    goal.milestoneStyle = raw.milestoneStyle;
+  }
   return goal;
 }
+
+/** Markers sit inside the meter's width; long text would collide with neighbors. */
+const MAX_MILESTONE_LABEL = 24;
 
 function parseMilestones(raw: Record<string, unknown>, label: string): EventGoal["milestones"] {
   // Legacy shape: one target, one unlock.
@@ -228,10 +242,13 @@ function parseMilestones(raw: Record<string, unknown>, label: string): EventGoal
   const milestones = entries.map((entry, index) => {
     const name = entries.length === 1 ? `${label} milestone` : `${label} milestone ${index + 1}`;
     const milestone = asRecord(entry, name);
-    return {
+    const parsed: EventGoal["milestones"][number] = {
       at: parseCount(milestone.at, `${name} target`, 1),
       unlock: requiredText(milestone.unlock, `${name} unlock`, 120),
     };
+    const markerLabel = optionalText(milestone.label, `${name} marker label`, MAX_MILESTONE_LABEL);
+    if (markerLabel) parsed.label = markerLabel;
+    return parsed;
   });
   for (let index = 1; index < milestones.length; index++) {
     if (milestones[index].at <= milestones[index - 1].at) {

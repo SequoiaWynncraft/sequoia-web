@@ -107,11 +107,14 @@
   let nextRowId = 0;
 
   type GoalSource = "manual" | "raids" | "raidRuns" | "wars" | "playtime";
+  type MilestoneStyle = "list" | "markers" | "both" | "none";
   interface MilestoneRow {
     id: number;
     // Number inputs bind numbers (or null when cleared), not strings.
     at: string | number | null | undefined;
     unlock: string;
+    /** Short marker text under the meter; empty falls back to the target. */
+    label: string;
   }
   interface GoalRow {
     id: number;
@@ -120,12 +123,13 @@
     raid: string;
     finalTotal: string | number | null | undefined;
     milestones: MilestoneRow[];
+    milestoneStyle: MilestoneStyle;
     /** Preview slider position as a percentage of the last milestone. */
     previewPercent: number;
   }
 
   function newMilestoneRow(): MilestoneRow {
-    return { id: nextRowId++, at: "", unlock: "" };
+    return { id: nextRowId++, at: "", unlock: "", label: "" };
   }
 
   function newGoalRow(): GoalRow {
@@ -136,6 +140,7 @@
       raid: "",
       finalTotal: "",
       milestones: [newMilestoneRow()],
+      milestoneStyle: "list",
       previewPercent: 60,
     };
   }
@@ -152,7 +157,9 @@
         id: nextRowId++,
         at: milestone.at,
         unlock: milestone.unlock,
+        label: milestone.label ?? "",
       })),
+      milestoneStyle: goal.milestoneStyle ?? "list",
       previewPercent: 60,
     })) ?? [],
   );
@@ -428,8 +435,13 @@
           // Rows added but left fully empty are noise, not intent.
           milestones: row.milestones
             .filter((milestone) => hasCount(milestone.at) || milestone.unlock.trim())
-            .map((milestone) => ({ at: toCount(milestone.at), unlock: milestone.unlock })),
+            .map((milestone) => {
+              const entry: Record<string, unknown> = { at: toCount(milestone.at), unlock: milestone.unlock };
+              if (milestone.label.trim()) entry.label = milestone.label.trim();
+              return entry;
+            }),
         };
+        if (row.milestoneStyle !== "list") goal.milestoneStyle = row.milestoneStyle;
         if (row.source !== "manual") {
           goal.feed = row.source;
           if ((row.source === "raids" || row.source === "raidRuns") && row.raid) {
@@ -850,8 +862,18 @@
         finalTotal: count(record.finalTotal),
         milestones: milestonesDraft.map((milestone) => {
           const milestoneRecord = (milestone ?? {}) as Record<string, unknown>;
-          return { id: nextRowId++, at: count(milestoneRecord.at), unlock: text(milestoneRecord.unlock) };
+          return {
+            id: nextRowId++,
+            at: count(milestoneRecord.at),
+            unlock: text(milestoneRecord.unlock),
+            label: text(milestoneRecord.label),
+          };
         }),
+        milestoneStyle: (record.milestoneStyle === "markers" ||
+        record.milestoneStyle === "both" ||
+        record.milestoneStyle === "none"
+          ? record.milestoneStyle
+          : "list") as MilestoneStyle,
         previewPercent: 60,
       };
     });
@@ -1307,7 +1329,7 @@
               <div class="mg-field">
                 <span class="mg-label">Milestones</span>
                 {#each goal.milestones as milestone (milestone.id)}
-                  <div class="mg-repeat-row mg-repeat-milestone">
+                  <div class="mg-repeat-row mg-repeat-goal-milestone">
                     <input
                       class="mg-input"
                       type="number"
@@ -1323,6 +1345,13 @@
                       maxlength="120"
                       aria-label="Milestone unlock"
                     />
+                    <input
+                      class="mg-input"
+                      placeholder="Marker"
+                      bind:value={milestone.label}
+                      maxlength="24"
+                      aria-label="Milestone marker label"
+                    />
                     <button
                       type="button"
                       class="mg-remove focus-ring"
@@ -1336,6 +1365,32 @@
                   + Add milestone
                 </button>
                 <p class="mg-hint">Targets must ascend - the last one is the headline target.</p>
+              </div>
+              <div class="mg-field">
+                <span class="mg-label">Milestone display</span>
+                <div class="mg-choices" role="radiogroup" aria-label="Goal {goalIndex + 1} milestone display">
+                  <label class="mg-choice" class:mg-choice-selected={goal.milestoneStyle === "list"}>
+                    <input class="mg-choice-input" type="radio" name="goal-mstyle-{goal.id}" value="list" bind:group={goal.milestoneStyle} />
+                    <span class="mg-choice-title">List</span>
+                    <span class="mg-choice-desc">Every unlock as a ✦ line below the meter.</span>
+                  </label>
+                  <label class="mg-choice" class:mg-choice-selected={goal.milestoneStyle === "markers"}>
+                    <input class="mg-choice-input" type="radio" name="goal-mstyle-{goal.id}" value="markers" bind:group={goal.milestoneStyle} />
+                    <span class="mg-choice-title">Markers</span>
+                    <span class="mg-choice-desc">Waypoints under the bar at each target - marker text always visible, the unlock on hover or tap.</span>
+                  </label>
+                  <label class="mg-choice" class:mg-choice-selected={goal.milestoneStyle === "both"}>
+                    <input class="mg-choice-input" type="radio" name="goal-mstyle-{goal.id}" value="both" bind:group={goal.milestoneStyle} />
+                    <span class="mg-choice-title">Markers + list</span>
+                    <span class="mg-choice-desc">Waypoints under the bar and the full list below.</span>
+                  </label>
+                  <label class="mg-choice" class:mg-choice-selected={goal.milestoneStyle === "none"}>
+                    <input class="mg-choice-input" type="radio" name="goal-mstyle-{goal.id}" value="none" bind:group={goal.milestoneStyle} />
+                    <span class="mg-choice-title">Ticks only</span>
+                    <span class="mg-choice-desc">Bare notches on the track, nothing below.</span>
+                  </label>
+                </div>
+                <p class="mg-hint">Markers use each milestone's marker text; empty markers show the target count.</p>
               </div>
               <div class="mg-field">
                 <span class="mg-label">Data source</span>
@@ -2097,6 +2152,11 @@
 
   .mg-repeat-milestone {
     grid-template-columns: minmax(0, 1fr) minmax(0, 3fr) auto;
+    margin-bottom: 8px;
+  }
+
+  .mg-repeat-goal-milestone {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 3fr) minmax(0, 1fr) auto;
     margin-bottom: 8px;
   }
 
