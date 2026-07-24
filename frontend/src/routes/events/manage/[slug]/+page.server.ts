@@ -15,14 +15,15 @@ import { eventStore } from "$lib/server/eventStore";
 
 export const prerender = false;
 
-export const load: PageServerLoad = async ({ fetch, params, parent }) => {
+export const load: PageServerLoad = async ({ fetch, params, parent, url }) => {
   const { viewer } = await parent();
   const access = await checkEventManager(fetch, viewer);
-  if (access !== "manager") return { access, stored: null, context: null };
+  if (access !== "manager") return { access, stored: null, context: null, auditWarning: false };
 
   const [stored, context] = await Promise.all([eventStore.get(params.slug), eventFormContext(fetch)]);
   if (!stored) error(404, "No such event");
-  return { access, stored, context };
+  // Set by the create redirect when the audit row for it did not land.
+  return { access, stored, context, auditWarning: url.searchParams.get("audit") === "unrecorded" };
 };
 
 export const actions: Actions = {
@@ -77,7 +78,7 @@ export const actions: Actions = {
     if (newUpdatedAt === null) {
       return fail(409, { error: "This event just changed - reload and save again." });
     }
-    await recordAudit(
+    const audited = await recordAudit(
       manager,
       "event.update",
       params.slug,
@@ -85,7 +86,7 @@ export const actions: Actions = {
     );
     // The exact version this save wrote: the client adopts it as its reviewed
     // token, so a concurrent save landing during the response can't slip in.
-    return { saved: true, newUpdatedAt };
+    return { saved: true, newUpdatedAt, auditWarning: !audited };
   },
 
   delete: async ({ request, params, cookies, fetch }) => {
@@ -116,8 +117,9 @@ export const actions: Actions = {
       return fail(409, { error: "This event just changed - reload before deleting." });
     }
     // Retain the deleted payload so the event can be reconstructed from the log.
-    await recordAudit(manager, "event.delete", params.slug, JSON.stringify(stored.event));
-    redirect(303, "/events/manage");
+    const audited = await recordAudit(manager, "event.delete", params.slug, JSON.stringify(stored.event));
+    // The event is gone either way; an unrecorded deletion must not pass silently.
+    redirect(303, audited ? "/events/manage" : "/events/manage?audit=unrecorded");
   },
 
   rollRaffle: async ({ request, params, cookies, fetch }) => {
@@ -209,13 +211,20 @@ export const actions: Actions = {
     // Record who was drawn, not just where: the audit trail must show the exact
     // winner (uuid, name, ticket weight) and when the draw landed, so a roll can
     // be reconstructed from the log alone.
-    await recordAudit(
+    const audited = await recordAudit(
       manager,
       "event.rollRaffle",
       params.slug,
       `${raffleId}:${slot} → ${drawn.username} (${drawn.player_uuid}), ${drawn.tickets} tickets, ${raffle.drawnAt}`,
     );
-    return { rolled: raffleId, slot, winner: { slot, ...drawn }, drawnAt: raffle.drawnAt, newUpdatedAt };
+    return {
+      rolled: raffleId,
+      slot,
+      winner: { slot, ...drawn },
+      drawnAt: raffle.drawnAt,
+      newUpdatedAt,
+      auditWarning: !audited,
+    };
   },
 
   createTracker: createTrackerAction,

@@ -26,13 +26,14 @@ export const actions: Actions = {
     if (!(await eventStore.insert(payload.event, { published: payload.published }))) {
       return fail(400, { error: `an event already uses the slug "${payload.event.slug}"` });
     }
-    await recordAudit(
+    const audited = await recordAudit(
       manager,
       "event.create",
       payload.event.slug,
       payload.published ? "published" : "draft",
     );
-    redirect(303, `/events/manage/${payload.event.slug}`);
+    // The event exists either way; an unrecorded creation must not pass silently.
+    redirect(303, `/events/manage/${payload.event.slug}${audited ? "" : "?audit=unrecorded"}`);
   },
 
   createTracker: createTrackerAction,
