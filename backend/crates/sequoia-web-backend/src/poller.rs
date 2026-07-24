@@ -38,6 +38,12 @@ pub struct PollerHealthSnapshot {
     pub task_restarts: u32,
 }
 
+impl Default for PollerHealth {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PollerHealth {
     pub fn new() -> Self {
         Self {
