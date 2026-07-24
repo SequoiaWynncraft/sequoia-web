@@ -18,7 +18,8 @@ async fn main() -> anyhow::Result<()> {
     let wynn = config
         .wynn_access_token
         .clone()
-        .map(|token| wynn::WynnClient::new(config.wynn_api_base_url.clone(), token));
+        .map(|token| wynn::WynnClient::new(config.wynn_api_base_url.clone(), token))
+        .transpose()?;
     let tracker = poller::RaidTracker::new(db.clone(), wynn.clone(), config.guild_prefix.clone());
 
     if wynn.is_some() {

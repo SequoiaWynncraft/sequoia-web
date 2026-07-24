@@ -129,7 +129,18 @@ async fn member_raid_history(
 
 async fn poll_now(State(state): State<AppState>, headers: HeaderMap) -> Result<Response, ApiError> {
     require_internal_token(&state, &headers)?;
-    let summary = state.tracker.poll_once().await?;
+    let summary = state.tracker.poll_once().await.map_err(|error| {
+        // An upstream rate limit is the caller's signal to back off, not an
+        // internal fault.
+        if let Some(crate::wynn::WynnError::RateLimited { .. }) = error.downcast_ref() {
+            ApiError::new(
+                StatusCode::TOO_MANY_REQUESTS,
+                "Wynncraft rate limited the poll - retry later",
+            )
+        } else {
+            ApiError::from(error)
+        }
+    })?;
     Ok(Json(summary).into_response())
 }
 
