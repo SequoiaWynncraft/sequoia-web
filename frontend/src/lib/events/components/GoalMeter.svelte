@@ -79,7 +79,14 @@
           onclick={() => (pinned = pinned === milestone.at ? null : milestone.at)}
           onblur={() => (pinned = null)}
           onmouseleave={() => pinned === milestone.at && (pinned = null)}
-          onkeydown={(event) => event.key === "Escape" && (pinned = null)}
+          onkeydown={(event) => {
+            // Blur too: the focus-visible tooltip is independent of the pin,
+            // so Escape must actually dismiss what the keyboard user sees.
+            if (event.key === "Escape") {
+              pinned = null;
+              event.currentTarget.blur();
+            }
+          }}
         >
           <span class="goal-node" aria-hidden="true"></span>
           <span class="goal-marker-label">{milestone.label ?? milestone.at.toLocaleString()}</span>
