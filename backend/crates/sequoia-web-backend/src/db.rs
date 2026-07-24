@@ -55,6 +55,17 @@ impl Database {
         Ok(Self { pool })
     }
 
+    /// Bounded connectivity probe for readiness checks.
+    pub async fn ping(&self) -> anyhow::Result<()> {
+        tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            sqlx::query("SELECT 1").execute(&self.pool).await
+        })
+        .await
+        .context("database ping timed out")?
+        .context("database ping failed")?;
+        Ok(())
+    }
+
     /// Ingests a snapshot under a per-guild advisory lock. Admission is
     /// monotonic by `fetched_at`: snapshots are fetched before the lock is
     /// taken, so a stalled older fetch can insert after a newer one and would
