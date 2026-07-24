@@ -116,10 +116,11 @@ export const actions: Actions = {
 
   rollRaffle: async ({ request, params, cookies, fetch }) => {
     const manager = await requireEventManager({ cookies, fetch });
+    const formData = await request.formData();
     // rollTarget is "raffleId:slot" - a single slot is rolled at a time. Split
     // on the LAST colon so a raffle id that itself contains one (e.g. a
     // hand-edited preset) still parses the trailing slot correctly.
-    const rollTarget = String((await request.formData()).get("rollTarget") ?? "");
+    const rollTarget = String(formData.get("rollTarget") ?? "");
     const sep = rollTarget.lastIndexOf(":");
     const raffleId = sep >= 0 ? rollTarget.slice(0, sep) : rollTarget;
     const slotText = sep >= 0 ? rollTarget.slice(sep + 1) : "";
@@ -131,6 +132,12 @@ export const actions: Actions = {
     // deterministic and never depends on unsaved editor state.
     const stored = await eventStore.get(params.slug);
     if (!stored) error(404, "No such event");
+    // A roll from a stale tab would run against raffle config the manager
+    // never reviewed - and its success would advance the tab's version token
+    // past those unseen changes. Reject it like a stale save.
+    if (Number(formData.get("baseUpdatedAt")) !== stored.updatedAt) {
+      return fail(409, { error: "This event just changed - reload and roll again." });
+    }
     const event = stored.event;
     const raffle = event.raffles?.find((entry) => entry.id === raffleId);
     if (!raffle) return fail(400, { error: "Save the raffle before rolling it." });
