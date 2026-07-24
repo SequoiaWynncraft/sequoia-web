@@ -10,5 +10,6 @@
 </script>
 
 <span
-  style="display:inline-block;width:{size}px;height:{size}px;border-radius:var(--radius-full);background:{colors[tone] ?? colors.online};animation:{tone !== 'offline' ? 'seq-pulse-dot 1.5s ease-in-out infinite' : 'none'};flex-shrink:0"
+  class={tone !== "offline" ? "status-pulse" : undefined}
+  style="display:inline-block;width:{size}px;height:{size}px;border-radius:var(--radius-full);background:{colors[tone] ?? colors.online};flex-shrink:0"
 ></span>

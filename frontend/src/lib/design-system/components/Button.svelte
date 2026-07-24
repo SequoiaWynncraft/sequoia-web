@@ -27,7 +27,13 @@
 </script>
 
 {#if href}
-  <a {href} class={className} aria-disabled={disabled} style={style}>
+  <a
+    href={disabled ? undefined : href}
+    class={className}
+    aria-disabled={disabled}
+    tabindex={disabled ? -1 : undefined}
+    style={style}
+  >
     {#if icon}{@render icon()}{/if}
     {#if children}{@render children()}{/if}
   </a>

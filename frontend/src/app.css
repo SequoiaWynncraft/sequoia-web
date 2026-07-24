@@ -1451,7 +1451,10 @@ input[type="number"]::-webkit-inner-spin-button {
   .seq-hero-kicker,
   .seq-hero-chevron,
   .seq-chibi-kicker,
-  .seq-chibi-track {
+  .seq-chibi-track,
+  /* Decorative infinite animations: status pulse, loading shimmer, scroll hints. */
+  .status-pulse,
+  .seq-branchmasters-loading {
     animation: none !important;
   }
 }
