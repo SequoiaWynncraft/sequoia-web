@@ -57,6 +57,14 @@
   const seed = initial;
   // svelte-ignore state_referenced_locally
   const seedPublished = initialPublished;
+  // The version token the visible draft is based on. Every enhanced action
+  // reruns `load` and refreshes `initialUpdatedAt`, so using the live prop
+  // would adopt a concurrent manager's version after e.g. a tracker or preset
+  // action - letting this editor save or delete over content it never
+  // displayed. Seeded at mount, advanced only by this tab's own successful
+  // saves and rolls (after which the visible draft matches the store again).
+  // svelte-ignore state_referenced_locally
+  let knownUpdatedAt = $state(initialUpdatedAt);
   // svelte-ignore state_referenced_locally
   const memberChoices = context?.members ?? [];
   // svelte-ignore state_referenced_locally
@@ -584,6 +592,9 @@
         }
         rollingId = null;
         await update({ reset: false });
+        // The roll is reflected above, so the visible draft matches the store
+        // again and the refreshed token is safe to adopt.
+        if (result.type === "success") knownUpdatedAt = initialUpdatedAt;
       };
     }
     showValidation = true;
@@ -592,9 +603,12 @@
       return;
     }
     saving = true;
-    return async ({ update }) => {
+    return async ({ result, update }) => {
       saving = false;
       await update({ reset: false });
+      // The store now holds exactly what this tab submitted, so the refreshed
+      // token is this draft's version and safe to adopt.
+      if (result.type === "success") knownUpdatedAt = initialUpdatedAt;
     };
   };
 
@@ -1066,10 +1080,10 @@
 
     <form method="POST" action="?/save" use:enhance={submit}>
       <input type="hidden" name="payload" value={payload} />
-      <!-- Live prop, not the mount snapshot: a roll or save refreshes `initial`
-           via load, advancing this so the manager's own follow-up save isn't
-           rejected as stale - only a change they never saw is. -->
-      <input type="hidden" name="baseUpdatedAt" value={initialUpdatedAt ?? ""} />
+      <!-- The version the visible draft is based on (see knownUpdatedAt): own
+           saves and rolls advance it so follow-up saves aren't rejected as
+           stale, but a change this tab never displayed is. -->
+      <input type="hidden" name="baseUpdatedAt" value={knownUpdatedAt ?? ""} />
       <input type="hidden" name="trackerPayload" value={trackerPayload} />
 
       <section class="mg-section">
@@ -1799,9 +1813,9 @@
 
     {#if mode === "edit"}
       <form class="mg-danger" method="POST" action="?/delete" use:enhance>
-        <!-- Same live version token as the save form: deleting is only safe
-             against the version the manager actually reviewed. -->
-        <input type="hidden" name="baseUpdatedAt" value={initialUpdatedAt ?? ""} />
+        <!-- Same draft-pinned version token as the save form: deleting is only
+             safe against the version the manager actually reviewed. -->
+        <input type="hidden" name="baseUpdatedAt" value={knownUpdatedAt ?? ""} />
         {#if confirmingDelete}
           <span class="mg-error">This permanently removes the event.</span>
           <button type="submit" class="mg-delete focus-ring">Confirm delete</button>
