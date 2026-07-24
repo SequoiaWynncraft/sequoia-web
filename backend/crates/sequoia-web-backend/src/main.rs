@@ -21,9 +21,10 @@ async fn main() -> anyhow::Result<()> {
         .map(|token| wynn::WynnClient::new(config.wynn_api_base_url.clone(), token))
         .transpose()?;
     let tracker = poller::RaidTracker::new(db.clone(), wynn.clone(), config.guild_prefix.clone());
+    let poller_health = std::sync::Arc::new(poller::PollerHealth::new());
 
     if wynn.is_some() {
-        poller::spawn_poll_loop(tracker.clone(), config.poll_interval);
+        poller::spawn_poll_loop(tracker.clone(), config.poll_interval, poller_health.clone());
     } else {
         tracing::warn!("WYNNCRAFT_ACCESS_TOKEN is not configured; background polling disabled");
     }
@@ -39,6 +40,7 @@ async fn main() -> anyhow::Result<()> {
             config,
             db,
             tracker,
+            poller_health,
         }),
     )
     .await
