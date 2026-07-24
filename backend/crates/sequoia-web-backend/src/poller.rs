@@ -69,7 +69,9 @@ pub fn spawn_poll_loop(tracker: RaidTracker, interval: Duration) {
                         retry_after: Some(retry),
                     }) = error.downcast_ref::<WynnError>()
                     {
-                        delay = (*retry).clamp(interval, MAX_RATE_LIMIT_DELAY);
+                        // The cap yields to a longer configured interval:
+                        // clamp panics when min > max.
+                        delay = (*retry).clamp(interval, MAX_RATE_LIMIT_DELAY.max(interval));
                     }
                     tracing::warn!(%error, delay_secs = delay.as_secs(), "guild raid poll failed");
                 }
