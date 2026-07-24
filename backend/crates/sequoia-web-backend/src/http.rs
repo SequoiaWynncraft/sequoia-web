@@ -141,8 +141,13 @@ async fn ready(State(state): State<AppState>) -> Response {
         .into_response()
 }
 
+/// Polls that fail this many times in a row before ever succeeding end the
+/// startup readiness grace early.
+const STARTUP_FAILURE_LIMIT: u32 = 3;
+
 /// Pure readiness decision so every branch is unit-testable. Startup gets one
-/// stale-window of grace before "no successful poll yet" turns unready.
+/// stale-window of grace before "no successful poll yet" turns unready -
+/// unless polling is already observably failing.
 fn readiness_problems(
     db_ok: bool,
     polling_enabled: bool,
@@ -157,14 +162,24 @@ fn readiness_problems(
         let stale_after = (3 * poll_interval)
             .max(std::time::Duration::from_secs(300))
             .as_secs();
-        let age = poller
-            .last_success_age_secs
-            .unwrap_or(poller.seconds_since_start);
-        if age > stale_after {
-            problems.push(match poller.last_success_age_secs {
-                Some(age) => format!("last successful poll was {age}s ago (limit {stale_after}s)"),
-                None => format!("no successful poll within {stale_after}s of startup"),
-            });
+        match poller.last_success_age_secs {
+            Some(age) if age > stale_after => {
+                problems.push(format!(
+                    "last successful poll was {age}s ago (limit {stale_after}s)"
+                ));
+            }
+            // Startup grace holds only while polling hasn't demonstrably
+            // failed: a bad token fails on the first attempts and must not
+            // keep routing traffic for a whole grace window.
+            None if poller.seconds_since_start > stale_after
+                || poller.consecutive_failures >= STARTUP_FAILURE_LIMIT =>
+            {
+                problems.push(format!(
+                    "no successful poll yet ({} consecutive failures, {}s since start)",
+                    poller.consecutive_failures, poller.seconds_since_start
+                ));
+            }
+            _ => {}
         }
     } else {
         problems.push("polling disabled: WYNNCRAFT_ACCESS_TOKEN is not configured".to_owned());
@@ -406,29 +421,30 @@ mod tests {
     fn poller(
         last_success_age_secs: Option<u64>,
         seconds_since_start: u64,
+        consecutive_failures: u32,
     ) -> PollerHealthSnapshot {
         PollerHealthSnapshot {
             last_success_age_secs,
             seconds_since_start,
-            consecutive_failures: 0,
+            consecutive_failures,
             task_restarts: 0,
         }
     }
 
     #[test]
     fn ready_when_db_up_and_poll_recent() {
-        assert!(readiness_problems(true, true, INTERVAL, &poller(Some(10), 1000)).is_empty());
+        assert!(readiness_problems(true, true, INTERVAL, &poller(Some(10), 1000, 0)).is_empty());
     }
 
     #[test]
     fn unready_when_database_is_down() {
-        let problems = readiness_problems(false, true, INTERVAL, &poller(Some(10), 1000));
+        let problems = readiness_problems(false, true, INTERVAL, &poller(Some(10), 1000, 0));
         assert_eq!(problems, vec!["database unreachable".to_owned()]);
     }
 
     #[test]
     fn unready_when_polling_is_not_configured() {
-        let problems = readiness_problems(true, false, INTERVAL, &poller(None, 10));
+        let problems = readiness_problems(true, false, INTERVAL, &poller(None, 10, 0));
         assert_eq!(problems.len(), 1);
         assert!(problems[0].contains("WYNNCRAFT_ACCESS_TOKEN"));
     }
@@ -436,17 +452,27 @@ mod tests {
     #[test]
     fn unready_when_last_success_is_stale() {
         // Stale window for a 130s interval is max(3*130, 300) = 390s.
-        assert!(readiness_problems(true, true, INTERVAL, &poller(Some(390), 10_000)).is_empty());
-        let problems = readiness_problems(true, true, INTERVAL, &poller(Some(391), 10_000));
+        assert!(readiness_problems(true, true, INTERVAL, &poller(Some(390), 10_000, 0)).is_empty());
+        let problems = readiness_problems(true, true, INTERVAL, &poller(Some(391), 10_000, 0));
         assert_eq!(problems.len(), 1);
         assert!(problems[0].contains("last successful poll"));
     }
 
     #[test]
+    fn startup_failures_end_the_grace_early() {
+        // Two failures could still be transient; three in a row without any
+        // success means polling is observably broken (e.g. a bad token).
+        assert!(readiness_problems(true, true, INTERVAL, &poller(None, 30, 2)).is_empty());
+        let problems = readiness_problems(true, true, INTERVAL, &poller(None, 30, 3));
+        assert_eq!(problems.len(), 1);
+        assert!(problems[0].contains("no successful poll"));
+    }
+
+    #[test]
     fn startup_gets_one_stale_window_of_grace() {
         // Covers a dead poll task too: successes stop, age keeps growing.
-        assert!(readiness_problems(true, true, INTERVAL, &poller(None, 390)).is_empty());
-        let problems = readiness_problems(true, true, INTERVAL, &poller(None, 391));
+        assert!(readiness_problems(true, true, INTERVAL, &poller(None, 390, 0)).is_empty());
+        let problems = readiness_problems(true, true, INTERVAL, &poller(None, 391, 0));
         assert_eq!(problems.len(), 1);
         assert!(problems[0].contains("no successful poll"));
     }
