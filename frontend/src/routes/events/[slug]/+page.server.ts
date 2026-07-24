@@ -45,14 +45,18 @@ export const load: PageServerLoad = async ({ fetch, params, parent }) => {
   const status = eventStatus(event, now);
   const today = now.toISOString().slice(0, 10);
 
-  // Membership mirrors the raid page's trust rules: it is only ever
-  // authorized against a fresh roster.
+  // Regular membership mirrors the raid page's fresh-roster trust rules.
+  // Website administrators are already authorized by the backend.
   let membership: Membership | null = null;
-  let roster: GuildMemberStats[] = [];
+  let roster: GuildMemberStats[] | null = null;
   if (event.access === "members" || event.tracker) {
     const { viewer } = await parent();
     if (!viewer) {
       membership = "signin";
+    } else if (viewer.websiteAdmin) {
+      membership = "member";
+      const stats = await getGuildStats(fetch, { allowStale: true }).catch(() => null);
+      roster = stats?.members ?? null;
     } else {
       const stats = await getGuildStats(fetch, { allowStale: false }).catch(() => null);
       const freshRoster = stats !== null && !stats.stale ? stats.members : null;
@@ -161,12 +165,12 @@ export const load: PageServerLoad = async ({ fetch, params, parent }) => {
 async function loadTrackerStandings(
   fetchImpl: typeof fetch,
   tracker: NonNullable<GuildEvent["tracker"]>,
-  roster: GuildMemberStats[],
+  roster: GuildMemberStats[] | null,
 ): Promise<LeaderboardResult> {
   const tracked = (await loadRaidEvents(fetchImpl)).find((entry) => entry.id === tracker.eventId);
   const tracking = tracked?.tracking ?? tracker.tracking;
   if (tracking !== "mod") return loadTrackerLeaderboard(fetchImpl, tracker.eventId);
-  if (!tracked) {
+  if (!tracked || roster === null) {
     return { leaderboard: [], error: "Member contributions are temporarily unavailable." };
   }
   return loadModLeaderboard(

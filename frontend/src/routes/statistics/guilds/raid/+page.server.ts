@@ -59,11 +59,11 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
     .then(memberRanksByUuid)
     .catch(() => EMPTY_RANKS);
   const { viewer } = await parent();
-  // Signed-in viewers await a roster refresh because membership is authorized
-  // against it; anonymous visitors take the stale-tolerant fast path.
+  // Regular signed-in viewers await a roster refresh because membership is
+  // authorized against it; administrators and anonymous visitors may use stale display data.
   const [events, stats] = await Promise.all([
     loadRaidEvents(fetch),
-    getGuildStats(fetch, { allowStale: viewer === null }).catch(() => null),
+    getGuildStats(fetch, { allowStale: viewer === null || viewer.websiteAdmin }).catch(() => null),
   ]);
 
   // An event drives the board only when explicitly selected; otherwise the
@@ -117,32 +117,40 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
     };
   }
 
-  // Event contributions are member-only; the tracker trusts this check, so it
-  // must not authorize from a stale roster (stale stats are display-only).
-  // With a viewer present the roster was requested fresh, so stale here means
-  // the refresh actually failed.
+  // Regular members must be authorized from a fresh roster. Administrators are
+  // authorized independently and may use stale roster data to filter the board.
   const freshRoster = stats !== null && !stats.stale ? stats.members : null;
+  const leaderboardRoster =
+    freshRoster ?? (viewer?.websiteAdmin && stats !== null ? stats.members : null);
   const isMember =
     viewer !== null &&
-    freshRoster !== null &&
-    freshRoster.some((member) => member.uuid !== null && sameUuid(member.uuid, viewer.minecraftUuid));
-  const membershipUnverified = viewer !== null && freshRoster === null;
+    (viewer.websiteAdmin ||
+      (freshRoster !== null &&
+        freshRoster.some(
+          (member) => member.uuid !== null && sameUuid(member.uuid, viewer.minecraftUuid),
+        )));
+  const membershipUnverified = viewer !== null && !viewer.websiteAdmin && freshRoster === null;
 
   let leaderboard: RaidLeaderboardEntry[] = [];
   let leaderboardError: string | null = null;
 
   if (isMember && customWindow) {
-    const result = await loadModLeaderboard(
-      fetch,
-      { starts_at: customWindow.from, ends_at: customWindow.to, raid: selectedRaid },
-      freshRoster ?? [],
-    );
+    const result =
+      leaderboardRoster === null
+        ? unavailableLeaderboard()
+        : await loadModLeaderboard(
+            fetch,
+            { starts_at: customWindow.from, ends_at: customWindow.to, raid: selectedRaid },
+            leaderboardRoster,
+          );
     leaderboard = result.leaderboard;
     leaderboardError = result.error;
   } else if (isMember && selectedEvent) {
     const result =
       selectedEvent.tracking === "mod"
-        ? await loadModLeaderboard(fetch, selectedEvent, freshRoster ?? [])
+        ? leaderboardRoster === null
+          ? unavailableLeaderboard()
+          : await loadModLeaderboard(fetch, selectedEvent, leaderboardRoster)
         : await loadTrackerLeaderboard(fetch, selectedEvent.id);
     leaderboard = result.leaderboard;
     leaderboardError = result.error;
@@ -185,6 +193,13 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
     activity,
   };
 };
+
+function unavailableLeaderboard() {
+  return {
+    leaderboard: [] as RaidLeaderboardEntry[],
+    error: "Member contributions are temporarily unavailable.",
+  };
+}
 
 async function loadActivity(fetchImpl: typeof fetch): Promise<ActivityDay[] | null> {
   const timedFetch: typeof fetch = (input, init) =>
