@@ -84,8 +84,14 @@ export const actions: Actions = {
 
   delete: async ({ request, params, cookies, fetch }) => {
     const manager = await requireEventManager({ cookies, fetch });
-    const baseUpdatedAt = Number((await request.formData()).get("baseUpdatedAt"));
-    if (!Number.isFinite(baseUpdatedAt)) {
+    // Number(null) and Number("") are 0, so a missing token must become NaN to
+    // be rejected as malformed rather than treated as version 0.
+    const rawBaseUpdatedAt = (await request.formData()).get("baseUpdatedAt");
+    const baseUpdatedAt =
+      typeof rawBaseUpdatedAt === "string" && rawBaseUpdatedAt.trim() !== ""
+        ? Number(rawBaseUpdatedAt)
+        : Number.NaN;
+    if (!Number.isSafeInteger(baseUpdatedAt)) {
       return fail(400, { error: "Reload the page before deleting." });
     }
     const stored = await eventStore.get(params.slug);
@@ -94,10 +100,13 @@ export const actions: Actions = {
     // Guard on the version the manager reviewed: a delete from a stale tab must
     // not remove an event someone else changed since. The get above only serves
     // the audit payload; the CAS delete is the authoritative check.
-    if (
-      stored.updatedAt !== baseUpdatedAt ||
-      !(await eventStore.remove(params.slug, { ifUpdatedAt: baseUpdatedAt }))
-    ) {
+    if (stored.updatedAt !== baseUpdatedAt) {
+      return fail(409, { error: "This event just changed - reload before deleting." });
+    }
+    if (!(await eventStore.remove(params.slug, { ifUpdatedAt: baseUpdatedAt }))) {
+      // The CAS lost a race after the read above: a concurrent delete of the
+      // same version is done, a concurrent update is a conflict.
+      if (!(await eventStore.get(params.slug))) redirect(303, "/events/manage");
       return fail(409, { error: "This event just changed - reload before deleting." });
     }
     // Retain the deleted payload so the event can be reconstructed from the log.
