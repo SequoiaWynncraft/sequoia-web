@@ -1,7 +1,6 @@
 use anyhow::Context;
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
-mod auth;
 mod config;
 mod db;
 mod deltas;
@@ -16,15 +15,21 @@ async fn main() -> anyhow::Result<()> {
 
     let config = std::sync::Arc::new(config::Config::from_env()?);
     let db = std::sync::Arc::new(db::Database::connect(&config.database_url).await?);
-    let oauth = auth::OAuthClient::new(&config);
     let wynn = config
         .wynn_access_token
         .clone()
-        .map(|token| wynn::WynnClient::new(config.wynn_api_base_url.clone(), token));
-    let tracker = poller::RaidTracker::new(db.clone(), wynn.clone(), config.guild_prefix.clone());
+        .map(|token| wynn::WynnClient::new(config.wynn_api_base_url.clone(), token))
+        .transpose()?;
+    let poller_health = std::sync::Arc::new(poller::PollerHealth::new());
+    let tracker = poller::RaidTracker::new(
+        db.clone(),
+        wynn.clone(),
+        config.guild_prefix.clone(),
+        poller_health.clone(),
+    );
 
     if wynn.is_some() {
-        poller::spawn_poll_loop(tracker.clone(), config.poll_interval);
+        poller::spawn_poll_loop(tracker.clone(), config.poll_interval, poller_health.clone());
     } else {
         tracing::warn!("WYNNCRAFT_ACCESS_TOKEN is not configured; background polling disabled");
     }
@@ -40,7 +45,7 @@ async fn main() -> anyhow::Result<()> {
             config,
             db,
             tracker,
-            oauth,
+            poller_health,
         }),
     )
     .await

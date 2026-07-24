@@ -68,12 +68,20 @@ export const SECTIONS: NavSection[] = [
     placeholder: "News",
   },
   {
+    label: "Events",
+    to: "/events",
+    icon: "trophy",
+    description: "Guild events - live, upcoming, and past.",
+    kicker: "Sequoia",
+    title: "Events",
+  },
+  {
     label: "Statistics",
     to: "/statistics",
     icon: "chart",
     kicker: "Statistics",
     title: "Stats & Standings",
-    lead: "Browse player and guild statistics for Sequoia.",
+    lead: "Player, guild, and global statistics.",
     groups: [
       {
         label: "Player",
@@ -98,21 +106,11 @@ export const SECTIONS: NavSection[] = [
             label: "Activity",
             to: "/statistics/player/activity",
             icon: "online",
-            description: "Playtime and presence.",
+            description: "Presence and gains over time.",
             kicker: "Player",
             title: "Activity",
-            lead: "Playtime and presence.",
+            lead: "Presence and gains over time.",
             placeholder: "Player Activity",
-          },
-          {
-            label: "Progress",
-            to: "/statistics/player/progress",
-            icon: "chart",
-            description: "Gains over time.",
-            kicker: "Player",
-            title: "Progress",
-            lead: "Gains over time.",
-            placeholder: "Player Progress",
           },
           {
             label: "Playercard",
@@ -155,15 +153,46 @@ export const SECTIONS: NavSection[] = [
             lead: "Raid output and events.",
             placeholder: "Guild Raid",
           },
+        ],
+      },
+      {
+        label: "Global",
+        to: "/statistics/global",
+        icon: "map",
+        description: "Every guild on the server.",
+        kicker: "Statistics · Global",
+        title: "Global Statistics",
+        lead: "Every guild on the server - not just ours.",
+        items: [
           {
             label: "Rankings",
-            to: "/statistics/guilds/rankings",
+            to: "/statistics/global/rankings",
             icon: "trophy",
-            description: "Season standings.",
-            kicker: "Guilds",
+            description: "Where every guild stands.",
+            kicker: "Global",
             title: "Rankings",
-            lead: "Season standings.",
-            placeholder: "Guild Rankings",
+            lead: "Where every guild stands.",
+            placeholder: "Global Rankings",
+          },
+          {
+            label: "Guilds",
+            to: "/statistics/global/guilds",
+            icon: "territory",
+            description: "Browse or look up any guild.",
+            kicker: "Global",
+            title: "Guilds",
+            lead: "Look up any guild - or browse everything we track.",
+            placeholder: "Guild Directory",
+          },
+          {
+            label: "Players",
+            to: "/statistics/global/players",
+            icon: "users",
+            description: "Player rankings and lookup.",
+            kicker: "Global",
+            title: "Players",
+            lead: "Look up any player - or see who leads the server.",
+            placeholder: "Player Rankings",
           },
         ],
       },
@@ -276,6 +305,37 @@ export function cardsFor(path: string): NavLeaf[] {
 
 export function homepageServices(): NavLeaf[] {
   return cardsFor("/services");
+}
+
+/**
+ * The three headline statistics pages surfaced on the homepage, ordered
+ * left-to-right. These carry curated query strings (e.g. a default window) so
+ * the cards land on a ready-to-read view rather than a bare page.
+ */
+export function homepageStatistics(): NavLeaf[] {
+  return [
+    {
+      label: "Rankings",
+      to: "/statistics/global/rankings?window=1d&wwindow=1d",
+      icon: "trophy",
+      description: "Where every guild stands.",
+      cta: "View",
+    },
+    {
+      label: "Raid",
+      to: "/statistics/guilds/raid",
+      icon: "sword",
+      description: "Raid output and member contributions.",
+      cta: "View",
+    },
+    {
+      label: "Activity",
+      to: "/statistics/player/activity?range=1w",
+      icon: "online",
+      description: "Member presence and gains over time.",
+      cta: "View",
+    },
+  ];
 }
 
 export function pageView(path: string): PageView {

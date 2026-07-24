@@ -16,7 +16,6 @@ describe("site navigation registry", () => {
     expect(view.tabs.map((tab) => tab.to)).toEqual([
       "/statistics/player/raids",
       "/statistics/player/activity",
-      "/statistics/player/progress",
       "/statistics/player/playercard",
     ]);
   });
@@ -25,13 +24,16 @@ describe("site navigation registry", () => {
     expect(pageView("/statistics/player").tabs.map((tab) => tab.to)).toEqual([
       "/statistics/player/raids",
       "/statistics/player/activity",
-      "/statistics/player/progress",
       "/statistics/player/playercard",
     ]);
     expect(pageView("/statistics/guilds").tabs.map((tab) => tab.to)).toEqual([
       "/statistics/guilds/war",
       "/statistics/guilds/raid",
-      "/statistics/guilds/rankings",
+    ]);
+    expect(pageView("/statistics/global").tabs.map((tab) => tab.to)).toEqual([
+      "/statistics/global/rankings",
+      "/statistics/global/guilds",
+      "/statistics/global/players",
     ]);
   });
 
@@ -39,7 +41,6 @@ describe("site navigation registry", () => {
     expect(pageView("/statistics/player").cards.map((card) => card.to)).toEqual([
       "/statistics/player/raids",
       "/statistics/player/activity",
-      "/statistics/player/progress",
       "/statistics/player/playercard",
     ]);
   });

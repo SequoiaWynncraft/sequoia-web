@@ -15,7 +15,7 @@ This repository is the public SvelteKit web app. The backend owns data ingestion
 The public website consumes `../sequoia-backend/src/main/resources/openapi/public.yaml` through:
 
 ```sh
-pnpm api:types
+bun run api:types
 ```
 
 Generated files live under `src/lib/api/generated/` and should not be edited by hand. Handwritten clients should wrap generated types and return explicit result objects instead of throwing into route components.
@@ -27,9 +27,9 @@ Create API clients with an explicit `fetch`. In SvelteKit `load` functions, serv
 Both `sequoia-web` and `sequoia-backend` can run on the same Coolify VPS. The web app supports two public API routing modes:
 
 - `PUBLIC_SEQUOIA_API_BASE_URL=https://api.seqwawa.com` for a separate backend origin.
-- `PUBLIC_SEQUOIA_API_BASE_URL=same-origin` when the proxy routes `/public/**` from the web origin to the backend service.
+- `PUBLIC_SEQUOIA_API_BASE_URL=same-origin` when the proxy routes `/public/**` and `/auth/web/**` from the web origin to the backend service.
 
-For same-origin production deploys, configure Coolify or the front proxy to forward `/public/**` to `sequoia-backend` on its application port, typically `8081`. Keep Postgres credentials on the backend service only; the web app should reach homepage stats through `/public/homepage/stats`.
+For same-origin production deploys, configure Coolify or the front proxy to forward `/public/**` **and** `/auth/web/**` to `sequoia-backend` on its application port, typically `8081`. `/auth/web/**` carries website sign-in, the session probe (`/auth/web/me` resolves the layout `viewer`, which member-gated pages like the raid leaderboard authorize against), and logout — without it, same-origin deploys render every visitor as signed out. Keep Postgres credentials on the backend service only; the web app should reach homepage stats through `/public/homepage/stats`. No current deployment uses same-origin mode; both live frontends point at `https://api.seqwawa.com`.
 
 Player skin renders use `PUBLIC_NMSR_BASE_URL`, defaulting to the public NMSR route at `https://api.seqwawa.com/nmsr`. If the web origin also proxies `/nmsr/**`, set `PUBLIC_NMSR_BASE_URL=same-origin`; backend/container-only calls can use the internal Coolify service URL `http://nmsr:8080`.
 
@@ -42,7 +42,7 @@ Add page metadata to `src/lib/site/nav.ts`, then keep route files small by consu
 ## Adding Public API Features
 
 1. Add or update the backend endpoint and `openapi/public.yaml`.
-2. Run `pnpm api:types` in this repo.
+2. Run `bun run api:types` in this repo.
 3. Add a typed wrapper in `src/lib/api/`.
 4. Pass SvelteKit's provided `fetch` from route/load boundaries instead of relying on `globalThis.fetch`.
 5. Add unit tests around URL building, error handling, and response validation.

@@ -10,6 +10,7 @@
     showRank = true,
     highlight,
     maxHeight,
+    sortKey = $bindable(defaultSort),
   }: {
     columns: LedgerColumn<Row>[];
     rows: Row[];
@@ -19,11 +20,11 @@
     showRank?: boolean;
     highlight?: (row: Row) => boolean;
     maxHeight?: string;
+    /** Bindable active sort column, for parents that mirror the ordering. */
+    sortKey?: string;
   } = $props();
 
   // svelte-ignore state_referenced_locally — props intentionally seed the initial sort only
-  let sortKey = $state(defaultSort);
-  // svelte-ignore state_referenced_locally
   let descending = $state(defaultDescending);
 
   const sorted = $derived.by(() => {
@@ -68,9 +69,63 @@
     if (sortKey !== column.key) return undefined;
     return descending ? "descending" : "ascending";
   }
+
+  /** How long a pointer must rest on a label before its tooltip fades in. */
+  const TIP_DELAY_MS = 120;
+
+  /**
+   * The active hover label. It renders outside `.ledger-scroll` and is positioned
+   * with viewport coordinates, so the scroll container's `overflow` cannot clip it.
+   */
+  let tip = $state<{ text: string; x: number; y: number } | null>(null);
+  let tipTimer: ReturnType<typeof setTimeout> | undefined;
+
+  function hideTip() {
+    clearTimeout(tipTimer);
+    tip = null;
+  }
+
+  /**
+   * Attaches a hover/focus label to an element, replacing the native `title`
+   * so it appears far sooner. Reacts to pointer and keyboard alike.
+   */
+  function tooltip(node: HTMLElement, text: string | null) {
+    let label = text;
+
+    const show = () => {
+      clearTimeout(tipTimer);
+      // No label, no tooltip — an empty one would render as a bare bordered box.
+      if (!label) return;
+      const shown = label;
+      tipTimer = setTimeout(() => {
+        const rect = node.getBoundingClientRect();
+        tip = { text: shown, x: rect.left + rect.width / 2, y: rect.top };
+      }, TIP_DELAY_MS);
+    };
+
+    node.addEventListener("mouseenter", show);
+    node.addEventListener("focus", show);
+    node.addEventListener("mouseleave", hideTip);
+    node.addEventListener("blur", hideTip);
+
+    return {
+      update(next: string | null) {
+        label = next;
+      },
+      destroy() {
+        node.removeEventListener("mouseenter", show);
+        node.removeEventListener("focus", show);
+        node.removeEventListener("mouseleave", hideTip);
+        node.removeEventListener("blur", hideTip);
+        hideTip();
+      },
+    };
+  }
 </script>
 
-<div class="ledger-scroll" style={maxHeight ? `max-height:${maxHeight}` : ""}>
+<svelte:window on:scroll={hideTip} on:resize={hideTip} />
+
+<div class="ledger-scroll" style={maxHeight ? `max-height:${maxHeight}` : ""} onscroll={hideTip}>
   <table>
     <thead>
       <tr>
@@ -104,9 +159,21 @@
             {@const link = column.href?.(row) ?? null}
             {@const secondary = column.secondary?.(row) ?? null}
             {@const avatar = column.avatar?.(row) ?? null}
+            {@const avatarAlt = column.avatarAlt?.(row) ?? null}
             {@const icon = column.icon?.(row) ?? null}
             <td class:numeric={column.numeric} class:name-cell={column.nameStyle}>
-              {#if avatar}<img class="avatar" src={avatar} alt="" loading="lazy" width="22" height="22" />{/if}
+              {#if avatar}
+                <!-- svelte-ignore a11y_no_noninteractive_tabindex — focusable on purpose, so the label is keyboard-reachable -->
+                <span
+                  class="tip-anchor"
+                  role={avatarAlt ? "img" : undefined}
+                  aria-label={avatarAlt ?? undefined}
+                  tabindex={avatarAlt ? 0 : undefined}
+                  use:tooltip={avatarAlt}
+                >
+                  <img class="avatar" src={avatar} alt="" loading="lazy" width="22" height="22" />
+                </span>
+              {/if}
               {#if mark}<span class="mark" style="background:{mark}" aria-hidden="true"></span>{/if}
               {#if link}
                 <a href={link} class="cell-link">{column.value(row)}</a>
@@ -114,7 +181,18 @@
                 {column.value(row)}
               {/if}
               {#if secondary}<span class="secondary">{secondary}</span>{/if}
-              {#if icon}<img class="cell-icon" src={icon.src} alt={icon.alt} title={icon.alt} loading="lazy" width="16" height="16" />{/if}
+              {#if icon}
+                <!-- svelte-ignore a11y_no_noninteractive_tabindex — focusable on purpose, so the label is keyboard-reachable -->
+                <span
+                  class="tip-anchor"
+                  role={icon.alt ? "img" : undefined}
+                  aria-label={icon.alt || undefined}
+                  tabindex={icon.alt ? 0 : undefined}
+                  use:tooltip={icon.alt}
+                >
+                  <img class="cell-icon" src={icon.src} alt="" loading="lazy" width="16" height="16" />
+                </span>
+              {/if}
             </td>
           {/each}
         </tr>
@@ -122,6 +200,10 @@
     </tbody>
   </table>
 </div>
+
+{#if tip}
+  <div class="seq-tip" style="left:{tip.x}px; top:{tip.y}px" aria-hidden="true">{tip.text}</div>
+{/if}
 
 <style>
   .ledger-scroll {
@@ -237,6 +319,32 @@
     margin-right: 10px;
     vertical-align: -5px;
     image-rendering: pixelated;
+  }
+
+  .tip-anchor {
+    display: inline-block;
+  }
+
+  .tip-anchor:focus-visible {
+    outline: 2px solid rgba(245, 197, 66, 0.5);
+    outline-offset: 2px;
+  }
+
+  /* Custom hover label — replaces the native `title` so it appears far sooner.
+     Fixed positioning keeps it clear of `.ledger-scroll`'s overflow clip. */
+  .seq-tip {
+    position: fixed;
+    z-index: 3;
+    transform: translate(-50%, calc(-100% - 6px));
+    padding: 4px 8px;
+    border: 1px solid var(--color-border-subtle);
+    background: var(--color-abyss);
+    color: var(--text-heading);
+    font-family: var(--font-display);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-wide);
+    white-space: nowrap;
+    pointer-events: none;
   }
 
   .cell-icon {

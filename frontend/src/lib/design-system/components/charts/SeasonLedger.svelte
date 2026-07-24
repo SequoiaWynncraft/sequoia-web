@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ChartTip from "./ChartTip.svelte";
   import type { GuildSeasonRank } from "$lib/api/guildStats";
 
   interface LedgerColumn {
@@ -128,19 +129,19 @@
         {/each}
       </svg>
       {#if hovered}
-        <div
-          class="ledger-tip"
-          style="left:{Math.min(Math.max(hovered.x + hovered.width / 2, 70), width - 70)}px"
-          role="status"
-        >
-          <span class="tip-title">
-            Season {hovered.season}{hovered.position ? ` · #${hovered.position}` : ""}{hovered.live ? " · live" : ""}
-          </span>
-          <span class="tip-row"><span>Rating</span><span>{hovered.rating.toLocaleString()}</span></span>
-          {#if !hovered.live}
-            <span class="tip-row"><span>Final territories</span><span>{hovered.territories}</span></span>
-          {/if}
-        </div>
+        <ChartTip
+          x={hovered.x + hovered.width / 2}
+          plotWidth={width}
+          title="Season {hovered.season}{hovered.position ? ` · #${hovered.position}` : ''}{hovered.live
+            ? ' · live'
+            : ''}"
+          rows={hovered.live
+            ? [{ label: "Rating", value: hovered.rating.toLocaleString() }]
+            : [
+                { label: "Rating", value: hovered.rating.toLocaleString() },
+                { label: "Final territories", value: hovered.territories.toLocaleString() },
+              ]}
+        />
       {/if}
     {/if}
   </div>
@@ -238,42 +239,6 @@
     font-family: var(--font-display);
     font-size: 0.625rem;
     letter-spacing: 0.04em;
-  }
-
-  .ledger-tip {
-    position: absolute;
-    bottom: calc(100% - 4px);
-    transform: translateX(-50%);
-    display: grid;
-    gap: 3px;
-    min-width: 148px;
-    padding: 8px 10px;
-    border: 1px solid var(--color-border-accent);
-    background: var(--color-deep);
-    box-shadow: var(--shadow-md);
-    pointer-events: none;
-    z-index: var(--z-base);
-  }
-
-  .tip-title {
-    color: var(--color-gold);
-    font-family: var(--font-display);
-    font-size: var(--text-2xs);
-    letter-spacing: var(--tracking-wider);
-    text-transform: uppercase;
-  }
-
-  .tip-row {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    color: var(--text-body);
-    font-size: var(--text-2xs);
-  }
-
-  .tip-row span:last-child {
-    color: var(--text-heading);
-    font-family: var(--font-data);
   }
 
   .ledger-caption {

@@ -1,18 +1,17 @@
 {
   "name": "seqwebsite",
   "version": "2.0.0",
-  "description": "Sequoia — Wynncraft guild website (statistics, community, legal).",
+  "description": "Sequoia - Wynncraft guild website (statistics, community, legal).",
   "type": "module",
   "private": true,
-  "packageManager": "pnpm@11.9.0",
   "engines": {
-    "node": ">=22.12.0"
+    "bun": ">=1.3.14"
   },
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
     "preview": "vite preview",
-    "start": "node build",
+    "start": "bun ./build/index.js",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "test:unit": "svelte-kit sync && vitest run",
     "api:types": "openapi-typescript ../../sequoia-backend/openapi/public.yaml -o src/lib/api/generated/public-api.ts"

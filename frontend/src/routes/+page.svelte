@@ -9,10 +9,11 @@
   import { createSequoiaApiClient } from "$lib/api/client";
   import type { BranchmasterMember, HomepageStats } from "$lib/api/guildOverview";
   import { NMSR_BASE_URL } from "$lib/config/public";
-  import { homepageServices } from "$lib/site/nav";
+  import { homepageServices, homepageStatistics } from "$lib/site/nav";
 
   const IMG = "/assets/images/";
   const SERVICES = homepageServices();
+  const STATISTICS = homepageStatistics();
   let { data } = $props();
   let heroImage: HTMLImageElement;
   let statsSection: HTMLElement;
@@ -330,6 +331,23 @@
         href={service.to}
       >
         {#snippet icon()}{#if service.icon}<Icon name={service.icon} />{/if}{/snippet}
+      </ServiceCard>
+    {/each}
+  </div>
+</section>
+
+<!-- Statistics -->
+<section id="statistics" style="padding:0 1.5rem 5rem;max-width:72rem;margin:0 auto">
+  <SectionHeading style="margin-bottom:3rem">Statistics</SectionHeading>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.5rem">
+    {#each STATISTICS as stat}
+      <ServiceCard
+        title={stat.label}
+        description={stat.description ?? ""}
+        cta={stat.cta ?? "View"}
+        href={stat.to}
+      >
+        {#snippet icon()}{#if stat.icon}<Icon name={stat.icon} />{/if}{/snippet}
       </ServiceCard>
     {/each}
   </div>

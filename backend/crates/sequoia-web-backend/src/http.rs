@@ -2,30 +2,41 @@ use std::sync::Arc;
 
 use axum::{
     Json, Router,
-    extract::{Path, Query, State},
-    http::{HeaderMap, HeaderValue, StatusCode, header},
-    response::{IntoResponse, Redirect, Response},
-    routing::{get, post},
+    extract::{Path, State},
+    http::{HeaderMap, StatusCode},
+    response::{IntoResponse, Response},
+    routing::{get, post, put},
 };
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use tower_http::trace::TraceLayer;
 use uuid::Uuid;
 
-use crate::{auth, config::Config, db::Database, poller::RaidTracker};
+use crate::{
+    config::Config,
+    db::Database,
+    poller::{PollerHealth, PollerHealthSnapshot, RaidTracker},
+};
 
 #[derive(Clone)]
 pub struct AppState {
     pub config: Arc<Config>,
     pub db: Arc<Database>,
     pub tracker: RaidTracker,
-    pub oauth: auth::OAuthClient,
+    pub poller_health: Arc<PollerHealth>,
 }
 
 #[derive(Serialize)]
 struct HealthResponse {
     status: &'static str,
     service: &'static str,
+}
+
+#[derive(Serialize)]
+struct ReadyResponse {
+    status: &'static str,
+    problems: Vec<String>,
+    poller: PollerHealthSnapshot,
 }
 
 #[derive(Deserialize)]
@@ -36,12 +47,28 @@ struct CreateRaidEventRequest {
     starts_at: OffsetDateTime,
     #[serde(with = "time::serde::rfc3339")]
     ends_at: OffsetDateTime,
+    #[serde(default = "default_tracking")]
+    tracking: String,
+    /// Restrict a mod-tracked event to one raid; omitted means all raids.
+    #[serde(default)]
+    raid: Option<String>,
+}
+
+fn default_tracking() -> String {
+    "api".to_owned()
 }
 
 #[derive(Deserialize)]
-struct OAuthCallbackQuery {
-    code: String,
-    state: String,
+struct UpdateRaidEventRequest {
+    name: String,
+    #[serde(with = "time::serde::rfc3339")]
+    starts_at: OffsetDateTime,
+    #[serde(with = "time::serde::rfc3339")]
+    ends_at: OffsetDateTime,
+    #[serde(default = "default_tracking")]
+    tracking: String,
+    #[serde(default)]
+    raid: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -52,10 +79,7 @@ struct ErrorResponse {
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/health", get(health))
-        .route("/auth/wynn/start", get(auth_start))
-        .route("/auth/wynn/callback", get(auth_callback))
-        .route("/auth/logout", post(auth_logout))
-        .route("/v1/me", get(me))
+        .route("/ready", get(ready))
         .route("/v1/raid-events", get(list_raid_events))
         .route("/v1/raid-events/{event_id}", get(raid_event))
         .route(
@@ -68,11 +92,14 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/internal/poll-now", post(poll_now))
         .route("/internal/raid-events", post(create_raid_event))
+        .route("/internal/raid-events/{event_id}", put(update_raid_event))
         .route("/internal/anomalies", get(list_anomalies))
         .with_state(state)
         .layer(TraceLayer::new_for_http())
 }
 
+/// Liveness only: the process is up and serving HTTP. Routing decisions
+/// belong to `/ready`.
 async fn health() -> Json<HealthResponse> {
     Json(HealthResponse {
         status: "ok",
@@ -80,122 +107,89 @@ async fn health() -> Json<HealthResponse> {
     })
 }
 
+/// Readiness: the tracker's core function is operating - database reachable,
+/// polling configured, and a successful poll recent enough to trust.
+async fn ready(State(state): State<AppState>) -> Response {
+    let db_ok = match state.db.ping().await {
+        Ok(()) => true,
+        Err(error) => {
+            tracing::warn!(%error, "readiness: database ping failed");
+            false
+        }
+    };
+    let poller = state.poller_health.snapshot();
+    let problems = readiness_problems(
+        db_ok,
+        state.tracker.polling_enabled(),
+        state.config.poll_interval,
+        &poller,
+    );
+
+    let (status, label) = if problems.is_empty() {
+        (StatusCode::OK, "ready")
+    } else {
+        (StatusCode::SERVICE_UNAVAILABLE, "not_ready")
+    };
+    (
+        status,
+        Json(ReadyResponse {
+            status: label,
+            problems,
+            poller,
+        }),
+    )
+        .into_response()
+}
+
+/// Polls that fail this many times in a row before ever succeeding end the
+/// startup readiness grace early.
+const STARTUP_FAILURE_LIMIT: u32 = 3;
+
+/// Pure readiness decision so every branch is unit-testable. Startup gets one
+/// stale-window of grace before "no successful poll yet" turns unready -
+/// unless polling is already observably failing.
+fn readiness_problems(
+    db_ok: bool,
+    polling_enabled: bool,
+    poll_interval: std::time::Duration,
+    poller: &PollerHealthSnapshot,
+) -> Vec<String> {
+    let mut problems = Vec::new();
+    if !db_ok {
+        problems.push("database unreachable".to_owned());
+    }
+    if polling_enabled {
+        let stale_after = (3 * poll_interval)
+            .max(std::time::Duration::from_secs(300))
+            .as_secs();
+        match poller.last_success_age_secs {
+            Some(age) if age > stale_after => {
+                problems.push(format!(
+                    "last successful poll was {age}s ago (limit {stale_after}s)"
+                ));
+            }
+            // Startup grace holds only while polling hasn't demonstrably
+            // failed: a bad token fails on the first attempts and must not
+            // keep routing traffic for a whole grace window.
+            None if poller.seconds_since_start > stale_after
+                || poller.consecutive_failures >= STARTUP_FAILURE_LIMIT =>
+            {
+                problems.push(format!(
+                    "no successful poll yet ({} consecutive failures, {}s since start)",
+                    poller.consecutive_failures, poller.seconds_since_start
+                ));
+            }
+            _ => {}
+        }
+    } else {
+        problems.push("polling disabled: WYNNCRAFT_ACCESS_TOKEN is not configured".to_owned());
+    }
+    problems
+}
+
 async fn list_raid_events(State(state): State<AppState>) -> Result<Response, ApiError> {
     let events = state.db.list_raid_events().await?;
     Ok(Json(events).into_response())
-}
-
-async fn auth_start(State(state): State<AppState>) -> Result<Response, ApiError> {
-    let oauth_state = auth::new_opaque_token();
-    let expires_at = auth::oauth_state_expires_at();
-    state
-        .db
-        .insert_oauth_state(&oauth_state, expires_at)
-        .await?;
-    let url = state.oauth.authorization_url(&oauth_state)?;
-    let cookie = auth::oauth_state_cookie(
-        &state.config.oauth_state_cookie_name,
-        &oauth_state,
-        state.config.session_cookie_domain.as_deref(),
-        state.config.session_cookie_secure,
-        expires_at,
-    );
-
-    let mut response = Redirect::temporary(&url).into_response();
-    append_set_cookie(response.headers_mut(), cookie)?;
-    Ok(response)
-}
-
-async fn auth_callback(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Query(query): Query<OAuthCallbackQuery>,
-) -> Result<Response, ApiError> {
-    if oauth_state_from_headers(&state, &headers) != Some(query.state.as_str()) {
-        return Err(ApiError::new(
-            StatusCode::UNAUTHORIZED,
-            "invalid or expired OAuth state",
-        ));
-    }
-
-    if !state.db.consume_oauth_state(&query.state).await? {
-        return Err(ApiError::new(
-            StatusCode::UNAUTHORIZED,
-            "invalid or expired OAuth state",
-        ));
-    }
-
-    let access_token = state.oauth.exchange_code(&query.code).await?;
-    let profile = state.oauth.fetch_identity(&access_token).await?;
-    state
-        .db
-        .upsert_oauth_user(profile.player_uuid, &profile.username)
-        .await?;
-
-    if !state
-        .db
-        .is_current_member(&state.config.guild_prefix, profile.player_uuid)
-        .await?
-    {
-        return Err(ApiError::new(
-            StatusCode::FORBIDDEN,
-            "Wynncraft profile is not a current Sequoia member",
-        ));
-    }
-
-    let session_secret = require_session_secret(&state)?;
-    let session_token = auth::new_opaque_token();
-    let session_id = auth::hash_session_token(session_secret, &session_token);
-    let expires_at = auth::session_expires_at();
-    state
-        .db
-        .create_session(&session_id, profile.player_uuid, expires_at)
-        .await?;
-
-    let cookie = auth::session_cookie(
-        &state.config.session_cookie_name,
-        &session_token,
-        state.config.session_cookie_domain.as_deref(),
-        state.config.session_cookie_secure,
-        expires_at,
-    );
-
-    let expired_state_cookie = auth::expired_oauth_state_cookie(
-        &state.config.oauth_state_cookie_name,
-        state.config.session_cookie_domain.as_deref(),
-        state.config.session_cookie_secure,
-    );
-
-    let mut response = Redirect::temporary(&state.config.frontend_auth_success_url).into_response();
-    append_set_cookie(response.headers_mut(), cookie)?;
-    append_set_cookie(response.headers_mut(), expired_state_cookie)?;
-    Ok(response)
-}
-
-async fn auth_logout(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-) -> Result<Response, ApiError> {
-    if let (Some(session_secret), Some(session_token)) = (
-        state.config.session_secret.as_deref(),
-        session_token_from_headers(&state, &headers),
-    ) {
-        let session_id = auth::hash_session_token(session_secret, session_token);
-        state.db.delete_session(&session_id).await?;
-    }
-
-    let cookie = auth::expired_session_cookie(
-        &state.config.session_cookie_name,
-        state.config.session_cookie_domain.as_deref(),
-        state.config.session_cookie_secure,
-    );
-
-    Ok(([(header::SET_COOKIE, cookie)], StatusCode::NO_CONTENT).into_response())
-}
-
-async fn me(State(state): State<AppState>, headers: HeaderMap) -> Result<Response, ApiError> {
-    let user = session_user_from_headers(&state, &headers).await?;
-    Ok(Json(auth::authenticated_response(user)).into_response())
 }
 
 async fn raid_event_leaderboard(
@@ -203,7 +197,7 @@ async fn raid_event_leaderboard(
     Path(event_id): Path<Uuid>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
-    require_member_session(&state, &headers).await?;
+    require_internal_token(&state, &headers)?;
     let leaderboard = state.db.raid_event_leaderboard(event_id).await?;
     Ok(Json(leaderboard).into_response())
 }
@@ -223,15 +217,37 @@ async fn member_raid_history(
     Path(player_uuid): Path<Uuid>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
-    require_member_session(&state, &headers).await?;
+    require_internal_token(&state, &headers)?;
     let history = state.db.member_raid_history(player_uuid).await?;
     Ok(Json(history).into_response())
 }
 
 async fn poll_now(State(state): State<AppState>, headers: HeaderMap) -> Result<Response, ApiError> {
     require_internal_token(&state, &headers)?;
-    let summary = state.tracker.poll_once().await?;
-    Ok(Json(summary).into_response())
+    match state.tracker.poll_once().await {
+        Ok(summary) => Ok(Json(summary).into_response()),
+        // An upstream rate limit is the caller's signal to back off, not an
+        // internal fault; pass the reset window through so callers can honor it.
+        Err(error) => match error.downcast_ref::<crate::wynn::WynnError>() {
+            Some(crate::wynn::WynnError::RateLimited { retry_after }) => {
+                let mut response = ApiError::new(
+                    StatusCode::TOO_MANY_REQUESTS,
+                    "Wynncraft rate limited the poll - retry later",
+                )
+                .into_response();
+                if let Some(retry) = retry_after
+                    && let Ok(value) =
+                        axum::http::HeaderValue::from_str(&retry.as_secs().to_string())
+                {
+                    response
+                        .headers_mut()
+                        .insert(axum::http::header::RETRY_AFTER, value);
+                }
+                Ok(response)
+            }
+            _ => Err(ApiError::from(error)),
+        },
+    }
 }
 
 async fn create_raid_event(
@@ -240,12 +256,16 @@ async fn create_raid_event(
     Json(request): Json<CreateRaidEventRequest>,
 ) -> Result<Response, ApiError> {
     require_internal_token(&state, &headers)?;
-    if request.slug.trim().is_empty() || request.name.trim().is_empty() {
-        return Err(ApiError::bad_request("slug and name are required"));
+    if request.slug.trim().is_empty() {
+        return Err(ApiError::bad_request("slug is required"));
     }
-    if request.ends_at <= request.starts_at {
-        return Err(ApiError::bad_request("ends_at must be after starts_at"));
-    }
+    let raid = validate_event_fields(
+        &request.name,
+        request.starts_at,
+        request.ends_at,
+        &request.tracking,
+        request.raid.as_deref(),
+    )?;
 
     let event = state
         .db
@@ -254,9 +274,69 @@ async fn create_raid_event(
             request.name.trim(),
             request.starts_at,
             request.ends_at,
+            &request.tracking,
+            raid,
         )
         .await?;
     Ok((StatusCode::CREATED, Json(event)).into_response())
+}
+
+async fn update_raid_event(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(event_id): Path<Uuid>,
+    Json(request): Json<UpdateRaidEventRequest>,
+) -> Result<Response, ApiError> {
+    require_internal_token(&state, &headers)?;
+    let raid = validate_event_fields(
+        &request.name,
+        request.starts_at,
+        request.ends_at,
+        &request.tracking,
+        request.raid.as_deref(),
+    )?;
+
+    let event = state
+        .db
+        .update_raid_event(
+            event_id,
+            request.name.trim(),
+            request.starts_at,
+            request.ends_at,
+            &request.tracking,
+            raid,
+        )
+        .await?;
+    match event {
+        Some(event) => Ok(Json(event).into_response()),
+        None => Err(ApiError::new(StatusCode::NOT_FOUND, "raid event not found")),
+    }
+}
+
+/// Shared create/update validation; returns the normalized raid scope.
+fn validate_event_fields<'a>(
+    name: &str,
+    starts_at: OffsetDateTime,
+    ends_at: OffsetDateTime,
+    tracking: &str,
+    raid: Option<&'a str>,
+) -> Result<Option<&'a str>, ApiError> {
+    if name.trim().is_empty() {
+        return Err(ApiError::bad_request("name is required"));
+    }
+    if ends_at <= starts_at {
+        return Err(ApiError::bad_request("ends_at must be after starts_at"));
+    }
+    if tracking != "api" && tracking != "mod" {
+        return Err(ApiError::bad_request("tracking must be 'api' or 'mod'"));
+    }
+    let raid = raid.map(str::trim).filter(|raid| !raid.is_empty());
+    if raid.is_some() && tracking != "mod" {
+        return Err(ApiError::bad_request(
+            "raid scoping requires 'mod' tracking - API counter diffs cannot attribute per raid",
+        ));
+    }
+    Ok(raid)
 }
 
 async fn list_anomalies(
@@ -289,81 +369,6 @@ fn require_internal_token(state: &AppState, headers: &HeaderMap) -> Result<(), A
             "invalid internal API token",
         ))
     }
-}
-
-fn require_session_secret(state: &AppState) -> Result<&str, ApiError> {
-    state.config.session_secret.as_deref().ok_or_else(|| {
-        ApiError::new(
-            StatusCode::SERVICE_UNAVAILABLE,
-            "SESSION_SECRET is not configured",
-        )
-    })
-}
-
-async fn session_user_from_headers(
-    state: &AppState,
-    headers: &HeaderMap,
-) -> Result<Option<crate::model::SessionUser>, ApiError> {
-    let Some(session_secret) = state.config.session_secret.as_deref() else {
-        return Ok(None);
-    };
-    let Some(session_token) = session_token_from_headers(state, headers) else {
-        return Ok(None);
-    };
-
-    let session_id = auth::hash_session_token(session_secret, session_token);
-    let Some(user) = state.db.session_user(&session_id).await? else {
-        return Ok(None);
-    };
-    if state
-        .db
-        .is_current_member(&state.config.guild_prefix, user.player_uuid)
-        .await?
-    {
-        Ok(Some(user))
-    } else {
-        Ok(None)
-    }
-}
-
-async fn require_member_session(state: &AppState, headers: &HeaderMap) -> Result<(), ApiError> {
-    if session_user_from_headers(state, headers).await?.is_some() {
-        Ok(())
-    } else {
-        Err(ApiError::new(
-            StatusCode::UNAUTHORIZED,
-            "Sequoia member login is required",
-        ))
-    }
-}
-
-fn session_token_from_headers<'a>(state: &AppState, headers: &'a HeaderMap) -> Option<&'a str> {
-    headers
-        .get(header::COOKIE)
-        .and_then(|value| value.to_str().ok())
-        .and_then(|cookies| {
-            auth::session_token_from_cookie(cookies, &state.config.session_cookie_name)
-        })
-}
-
-fn oauth_state_from_headers<'a>(state: &AppState, headers: &'a HeaderMap) -> Option<&'a str> {
-    headers
-        .get(header::COOKIE)
-        .and_then(|value| value.to_str().ok())
-        .and_then(|cookies| {
-            auth::oauth_state_from_cookie(cookies, &state.config.oauth_state_cookie_name)
-        })
-}
-
-fn append_set_cookie(headers: &mut HeaderMap, cookie: String) -> Result<(), ApiError> {
-    let value = HeaderValue::from_str(&cookie).map_err(|_| {
-        ApiError::new(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "invalid generated cookie",
-        )
-    })?;
-    headers.append(header::SET_COOKIE, value);
-    Ok(())
 }
 
 struct ApiError {
@@ -400,5 +405,75 @@ impl IntoResponse for ApiError {
             }),
         )
             .into_response()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use crate::poller::PollerHealthSnapshot;
+
+    use super::readiness_problems;
+
+    const INTERVAL: Duration = Duration::from_secs(130);
+
+    fn poller(
+        last_success_age_secs: Option<u64>,
+        seconds_since_start: u64,
+        consecutive_failures: u32,
+    ) -> PollerHealthSnapshot {
+        PollerHealthSnapshot {
+            last_success_age_secs,
+            seconds_since_start,
+            consecutive_failures,
+            task_restarts: 0,
+        }
+    }
+
+    #[test]
+    fn ready_when_db_up_and_poll_recent() {
+        assert!(readiness_problems(true, true, INTERVAL, &poller(Some(10), 1000, 0)).is_empty());
+    }
+
+    #[test]
+    fn unready_when_database_is_down() {
+        let problems = readiness_problems(false, true, INTERVAL, &poller(Some(10), 1000, 0));
+        assert_eq!(problems, vec!["database unreachable".to_owned()]);
+    }
+
+    #[test]
+    fn unready_when_polling_is_not_configured() {
+        let problems = readiness_problems(true, false, INTERVAL, &poller(None, 10, 0));
+        assert_eq!(problems.len(), 1);
+        assert!(problems[0].contains("WYNNCRAFT_ACCESS_TOKEN"));
+    }
+
+    #[test]
+    fn unready_when_last_success_is_stale() {
+        // Stale window for a 130s interval is max(3*130, 300) = 390s.
+        assert!(readiness_problems(true, true, INTERVAL, &poller(Some(390), 10_000, 0)).is_empty());
+        let problems = readiness_problems(true, true, INTERVAL, &poller(Some(391), 10_000, 0));
+        assert_eq!(problems.len(), 1);
+        assert!(problems[0].contains("last successful poll"));
+    }
+
+    #[test]
+    fn startup_failures_end_the_grace_early() {
+        // Two failures could still be transient; three in a row without any
+        // success means polling is observably broken (e.g. a bad token).
+        assert!(readiness_problems(true, true, INTERVAL, &poller(None, 30, 2)).is_empty());
+        let problems = readiness_problems(true, true, INTERVAL, &poller(None, 30, 3));
+        assert_eq!(problems.len(), 1);
+        assert!(problems[0].contains("no successful poll"));
+    }
+
+    #[test]
+    fn startup_gets_one_stale_window_of_grace() {
+        // Covers a dead poll task too: successes stop, age keeps growing.
+        assert!(readiness_problems(true, true, INTERVAL, &poller(None, 390, 0)).is_empty());
+        let problems = readiness_problems(true, true, INTERVAL, &poller(None, 391, 0));
+        assert_eq!(problems.len(), 1);
+        assert!(problems[0].contains("no successful poll"));
     }
 }

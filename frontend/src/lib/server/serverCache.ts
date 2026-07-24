@@ -1,9 +1,6 @@
-import { mkdir } from "node:fs/promises";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import type { Client } from "@libsql/client";
 
-import { env } from "$env/dynamic/private";
-import { createClient, type Client } from "@libsql/client";
+import { database } from "./db";
 
 export interface CachedValue<T> {
   data: T;
@@ -97,10 +94,10 @@ function newestEntry<T>(first: Entry<T> | null, second: Entry<T> | null): Entry<
   return first.updatedAt >= second.updatedAt ? first : second;
 }
 
-let dbPromise: Promise<Client> | undefined;
+let cacheDbPromise: Promise<Client> | undefined;
 
 async function readCache(key: string): Promise<{ value: string; updatedAt: number } | null> {
-  const db = await database();
+  const db = await cacheDb();
   const result = await db.execute({
     sql: "SELECT value, updated_at FROM api_cache WHERE key = ?",
     args: [key],
@@ -111,50 +108,52 @@ async function readCache(key: string): Promise<{ value: string; updatedAt: numbe
 }
 
 async function writeCache(key: string, value: string, updatedAt: number) {
-  const db = await database();
+  const db = await cacheDb();
   await db.execute({
     sql: "INSERT OR REPLACE INTO api_cache (key, value, updated_at) VALUES (?, ?, ?)",
     args: [key, value, updatedAt],
   });
 }
 
-async function database(): Promise<Client> {
-  dbPromise ??= createDatabase().catch((error: unknown) => {
-    dbPromise = undefined;
+function cacheDb(): Promise<Client> {
+  cacheDbPromise ??= initCacheDb().catch((error: unknown) => {
+    cacheDbPromise = undefined;
     throw error;
   });
-  return dbPromise;
+  return cacheDbPromise;
 }
 
-async function createDatabase(): Promise<Client> {
-  const url = databaseUrl();
-  const localPath = localDatabasePath(url);
-  if (localPath) await mkdir(path.dirname(localPath), { recursive: true });
+/**
+ * Persisted rows outlive every staleMs (max 3 days today), and per-guild,
+ * per-player, and per-query keys mint new rows forever - without a sweep the
+ * table only ever grows (and version-bumped keys orphan their old rows).
+ */
+const SWEEP_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const SWEEP_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
-  const client = createClient({
-    url,
-    authToken: env.TURSO_AUTH_TOKEN?.trim() || undefined,
-    timeout: 5000,
-  });
-
-  await client.execute(`
+async function initCacheDb(): Promise<Client> {
+  const db = await database();
+  await db.execute(`
     CREATE TABLE IF NOT EXISTS api_cache (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL,
       updated_at INTEGER NOT NULL
     )
   `);
-
-  return client;
-}
-
-function databaseUrl(): string {
-  return env.TURSO_DATABASE_URL?.trim() || env.SEQUOIA_WEB_DB_URL?.trim() || "file:.data/sequoia-web.db";
-}
-
-function localDatabasePath(url: string): string | null {
-  if (!url.startsWith("file:")) return null;
-  const value = url.slice("file:".length);
-  if (value.startsWith("//")) return fileURLToPath(url);
-  return path.resolve(process.cwd(), value || ".data/sequoia-web.db");
+  const sweep = () =>
+    db
+      .execute({
+        sql: "DELETE FROM api_cache WHERE updated_at < ?",
+        args: [Date.now() - SWEEP_MAX_AGE_MS],
+      })
+      .catch((error: unknown) => {
+        // Once a day at most - a persistent failure must be visible, or the
+        // retention guarantee dies silently.
+        console.warn("api_cache sweep failed:", error);
+      });
+  void sweep();
+  const timer = setInterval(sweep, SWEEP_INTERVAL_MS);
+  // A held timer must not keep a short-lived process (tests, prerender) alive.
+  if (typeof timer === "object" && "unref" in timer) timer.unref();
+  return db;
 }

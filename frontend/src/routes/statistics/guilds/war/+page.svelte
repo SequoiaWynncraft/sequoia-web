@@ -152,12 +152,7 @@
     <SectionLabel>
       {#snippet children()}Battle history{/snippet}
     </SectionLabel>
-    <DeferredPanel title="Awaiting feed" since="July 2026">
-      {#snippet children()}
-        War-by-war records - outcomes, territories, and participants - are being collected. This
-        ledger unlocks once enough history has been recorded.
-      {/snippet}
-    </DeferredPanel>
+    <DeferredPanel title="Work in progress" />
   </section>
 {:else}
   <DeferredPanel title="Data unavailable">

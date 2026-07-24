@@ -1,0 +1,4 @@
+# Duplicated from the root bunfig.toml [run] section: root scripts delegate
+# with `bun run --cwd frontend`, and bun only reads bunfig.toml from $cwd.
+[run]
+bun = true

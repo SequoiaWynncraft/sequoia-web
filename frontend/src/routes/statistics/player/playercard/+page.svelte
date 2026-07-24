@@ -4,9 +4,12 @@
   import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
   import BarList from "$lib/design-system/components/BarList.svelte";
   import DeferredPanel from "$lib/design-system/components/DeferredPanel.svelte";
+  import ScopeChips from "$lib/design-system/components/ScopeChips.svelte";
+  import DailyBars from "$lib/design-system/components/charts/DailyBars.svelte";
   import { raidSeriesFor } from "$lib/site/raids";
   import { nmsrFullBodyIso } from "$lib/site/nmsr";
   import type { PlayerCardResponse } from "$lib/api/playerCard";
+  import type { PlayerSeriesResponse } from "$lib/api/playerSeries";
 
   let { data } = $props();
 
@@ -14,6 +17,15 @@
   let query = $state(data.player);
   $effect(() => {
     query = data.player;
+  });
+
+  /** How many names the dropdown offers — enough to be useful, never the whole roster. */
+  const MAX_SUGGESTIONS = 10;
+
+  const suggestions = $derived.by(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return [];
+    return data.memberNames.filter((name) => name.toLowerCase().includes(needle)).slice(0, MAX_SUGGESTIONS);
   });
 
   let copied = $state(false);
@@ -88,6 +100,63 @@
       copied = false;
     }
   }
+
+  // Tracking chart: one full-history series, sliced client-side per metric and range.
+  const METRICS = [
+    { key: "playtime", label: "playtime" },
+    { key: "wars", label: "wars" },
+    { key: "raids", label: "raids" },
+    { key: "war_points", label: "war points" },
+  ];
+  const METRIC_META: Record<string, { label: string; unit: string; decimals: number; since: keyof PlayerSeriesResponse["data_since"] }> = {
+    playtime: { label: "Playtime", unit: " h", decimals: 0, since: "activity" },
+    wars: { label: "Wars", unit: "", decimals: 0, since: "activity" },
+    raids: { label: "Raids", unit: "", decimals: 0, since: "raids" },
+    war_points: { label: "War points", unit: "", decimals: 1, since: "war_points" },
+  };
+  const TRACK_RANGES = [
+    { key: "1w", label: "1w" },
+    { key: "1m", label: "1m" },
+    { key: "3m", label: "3m" },
+    { key: "6m", label: "6m" },
+    { key: "all", label: "all" },
+  ];
+  const RANGE_DAYS: Record<string, number> = { "1w": 7, "1m": 30, "3m": 91, "6m": 182, all: 399 };
+
+  let metric = $state("playtime");
+  let trackRange = $state("1m");
+
+  function trackWindow(series: PlayerSeriesResponse): { from: string; to: string } {
+    const to = series.to;
+    const from = new Date(
+      Date.parse(`${to}T00:00:00Z`) - (RANGE_DAYS[trackRange] - 1) * 24 * 60 * 60 * 1000,
+    )
+      .toISOString()
+      .slice(0, 10);
+    return { from: from < series.from ? series.from : from, to };
+  }
+
+  function trackPoints(series: PlayerSeriesResponse, from: string): { day: string; value: number }[] {
+    return series.days
+      .filter((day) => day.day >= from)
+      .map((day) => ({
+        day: day.day,
+        value:
+          metric === "playtime"
+            ? day.playtime_hours
+            : metric === "wars"
+              ? day.wars
+              : metric === "raids"
+                ? day.raids
+                : day.war_points,
+      }));
+  }
+
+  function trackCaption(series: PlayerSeriesResponse, from: string): string | null {
+    const meta = METRIC_META[metric];
+    const since = series.data_since[meta.since];
+    return since > from ? `${meta.label} tracked since ${formatDate(since)}` : null;
+  }
 </script>
 
 <StatsHeader
@@ -106,7 +175,7 @@
     bind:value={query}
   />
   <datalist id="member-names">
-    {#each data.memberNames as name (name)}
+    {#each suggestions as name (name)}
       <option value={name}></option>
     {/each}
   </datalist>
@@ -204,6 +273,41 @@
             {/each}
           </div>
 
+          {#await result.series then series}
+            {#if series && series.days.length > 0}
+              {@const window = trackWindow(series)}
+              <div class="card-section">
+                <SectionLabel meta="{formatDate(window.from)} to {formatDate(window.to)}">
+                  {#snippet children()}Tracking{/snippet}
+                </SectionLabel>
+                <div class="track-controls">
+                  <ScopeChips
+                    scopes={METRICS}
+                    active={metric}
+                    onselect={(key) => (metric = key)}
+                    label="Tracked metric"
+                  />
+                  <ScopeChips
+                    scopes={TRACK_RANGES}
+                    active={trackRange}
+                    onselect={(key) => (trackRange = key)}
+                    label="Tracking range"
+                  />
+                </div>
+                <DailyBars
+                  points={trackPoints(series, window.from)}
+                  from={window.from}
+                  to={window.to}
+                  metricLabel={METRIC_META[metric].label}
+                  unit={METRIC_META[metric].unit}
+                  decimals={METRIC_META[metric].decimals}
+                  height={150}
+                  caption={trackCaption(series, window.from)}
+                />
+              </div>
+            {/if}
+          {/await}
+
           {#if honours.badges.length > 0 || honours.warHonours.length > 0}
             <div class="card-section">
               <SectionLabel meta="{honours.badges.length + honours.warHonours.length} awarded">
@@ -228,7 +332,7 @@
                   <div class="badges">
                     {#each honours.badges as badge (badge.type + badge.tier)}
                       <span class="tag tag-badge" style="--tier-color:{tierColor(badge.tier)}">
-                        <img class="badge-icon" src={badge.asset_url} alt="" loading="lazy" />
+                        <img class="badge-icon" src={badge.assetUrl} alt="" loading="lazy" />
                         {badge.type} · {badge.tier.toLowerCase()}
                       </span>
                     {/each}
@@ -557,6 +661,14 @@
 
   .card-section {
     margin-bottom: 24px;
+  }
+
+  .track-controls {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 8px 24px;
+    margin-bottom: 14px;
   }
 
   .characters {

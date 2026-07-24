@@ -56,6 +56,9 @@ pub struct RaidEvent {
     pub starts_at: OffsetDateTime,
     #[serde(with = "time::serde::rfc3339")]
     pub ends_at: OffsetDateTime,
+    pub tracking: String,
+    /// Mod-tracked events may count a single raid; None counts all of them.
+    pub raid: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -74,12 +77,6 @@ pub struct MemberRaidHistoryPoint {
     pub total_guild_raids: Option<i64>,
 }
 
-#[derive(Clone, Debug, Serialize)]
-pub struct SessionUser {
-    pub player_uuid: Uuid,
-    pub username: String,
-}
-
 #[cfg(test)]
 mod tests {
     use serde_json::json;
@@ -96,6 +93,8 @@ mod tests {
             name: "Test".to_owned(),
             starts_at: datetime!(2026-07-09 10:00 UTC),
             ends_at: datetime!(2026-07-09 12:00 UTC),
+            tracking: "api".to_owned(),
+            raid: None,
         };
 
         let value = serde_json::to_value(event)?;
@@ -108,6 +107,8 @@ mod tests {
                 "name": "Test",
                 "starts_at": "2026-07-09T10:00:00Z",
                 "ends_at": "2026-07-09T12:00:00Z",
+                "tracking": "api",
+                "raid": null,
             })
         );
         Ok(())

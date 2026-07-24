@@ -1,8 +1,12 @@
+import { redirect } from "@sveltejs/kit";
+
 import type { PageServerLoad } from "./$types";
 
 import type { PlayerCardResponse } from "$lib/api/playerCard";
+import type { PlayerSeriesResponse } from "$lib/api/playerSeries";
 import { getGuildStats } from "$lib/server/guildStats";
 import { getPlayerCard, PlayerNotFoundError } from "$lib/server/playerCard";
+import { getPlayerSeries } from "$lib/server/playerSeries";
 import { getLinkedRankProfiles, honoursForMinecraft } from "$lib/server/rankProfiles";
 import { EMPTY_HONOURS, type PlayerHonours } from "$lib/site/honours";
 
@@ -13,11 +17,28 @@ export interface PlayerCardResult {
   card: PlayerCardResponse | null;
   honours: PlayerHonours;
   error: string | null;
+  /** Full-history daily series for the tracking chart; null when unavailable. */
+  series: Promise<PlayerSeriesResponse | null>;
 }
 
-export const load: PageServerLoad = async ({ fetch, url }) => {
-  const stats = await getGuildStats(fetch, { allowStale: true }).catch(() => null);
+/** Matches the backend's 400-day span clamp. */
+const SERIES_DAYS = 399;
+
+export const load: PageServerLoad = async ({ fetch, url, parent }) => {
   const player = url.searchParams.get("player")?.trim() ?? "";
+
+  // With no player specified, default to the signed-in member's own card.
+  // Other params are carried over so shared links keep their state.
+  if (!player) {
+    const { viewer } = await parent();
+    if (viewer?.minecraftUsername) {
+      const params = new URLSearchParams(url.searchParams);
+      params.set("player", viewer.minecraftUsername);
+      redirect(307, `?${params}`);
+    }
+  }
+
+  const stats = await getGuildStats(fetch, { allowStale: true }).catch(() => null);
 
   return {
     player,
@@ -43,16 +64,21 @@ async function loadCard(fetchImpl: typeof fetch, player: string): Promise<Player
         setTimeout(resolve, HONOURS_GRACE_MS, EMPTY_HONOURS);
       }),
     ]).catch(() => EMPTY_HONOURS);
-    return { ok: true, card, honours, error: null };
+    // The series streams after the card: one full-history fetch, ranges slice client-side.
+    const to = new Date().toISOString().slice(0, 10);
+    const from = new Date(Date.now() - SERIES_DAYS * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const series = getPlayerSeries(fetchImpl, card.uuid, from, to).catch(() => null);
+    return { ok: true, card, honours, error: null, series };
   } catch (error) {
     if (error instanceof PlayerNotFoundError) {
-      return { ok: false, card: null, honours: EMPTY_HONOURS, error: error.message };
+      return { ok: false, card: null, honours: EMPTY_HONOURS, error: error.message, series: Promise.resolve(null) };
     }
     return {
       ok: false,
       card: null,
       honours: EMPTY_HONOURS,
       error: "The player profile could not be loaded right now.",
+      series: Promise.resolve(null),
     };
   }
 }

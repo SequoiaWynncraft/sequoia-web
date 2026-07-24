@@ -1,0 +1,14 @@
+# Bun toolchain config. Bun loads bunfig.toml from $cwd only (no upward
+# traversal) — frontend/bunfig.toml duplicates the [run] section.
+
+[run]
+# Shim `node` in PATH to Bun so package-script bins (vite, vitest,
+# svelte-kit, svelte-check) never fall back to Node via their shebangs.
+bun = true
+
+[install]
+# pnpm-style strict, symlinked node_modules (no phantom dependencies).
+linker = "isolated"
+# Supply-chain cooldown: only install versions published >= 1 day ago.
+# (pnpm minimumReleaseAge was 1440 minutes; bun's unit is seconds.)
+minimumReleaseAge = 86400

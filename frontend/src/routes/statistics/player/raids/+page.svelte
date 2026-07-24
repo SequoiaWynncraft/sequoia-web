@@ -5,7 +5,8 @@
   import type { LedgerColumn } from "$lib/design-system/components/ledgerTable";
   import DeferredPanel from "$lib/design-system/components/DeferredPanel.svelte";
   import { raidSeriesFor } from "$lib/site/raids";
-  import { nmsrFace, nmsrFrontBust } from "$lib/site/nmsr";
+  import { nmsrFace } from "$lib/site/nmsr";
+  import Podium from "$lib/design-system/components/Podium.svelte";
   import type { GuildMemberStats } from "$lib/api/guildStats";
 
   let { data } = $props();
@@ -25,7 +26,7 @@
   });
 
   const podium = $derived(
-    [...raiders].sort((a, b) => (b.raids_total ?? 0) - (a.raids_total ?? 0)).slice(0, 3),
+    [...raiders].sort((a, b) => (b.raids_total ?? 0) - (a.raids_total ?? 0)).slice(0, 5),
   );
 
   const columns: LedgerColumn<GuildMemberStats>[] = $derived([
@@ -63,28 +64,16 @@
 />
 
 {#if stats}
-  {#if podium.length === 3}
-    <div class="podium" aria-label="Top three raiders">
-      {#each [podium[1], podium[0], podium[2]] as member, index (member.uuid ?? member.username)}
-        {@const place = index === 1 ? 1 : index === 0 ? 2 : 3}
-        <a
-          class="podium-slot"
-          class:podium-first={place === 1}
-          href={`/statistics/player/playercard?player=${encodeURIComponent(member.username)}`}
-        >
-          <img
-            class="podium-render"
-            src={nmsrFrontBust(member.uuid ?? member.username, 120)}
-            alt="{member.username}'s skin"
-            loading="lazy"
-          />
-          <span class="podium-place">#{place}</span>
-          <span class="podium-name">{member.username}</span>
-          <span class="podium-value">{(member.raids_total ?? 0).toLocaleString()} raids</span>
-        </a>
-      {/each}
-    </div>
-  {/if}
+  <Podium
+    max={5}
+    label="Top raiders"
+    entries={podium.map((member) => ({
+      name: member.username,
+      ident: member.uuid ?? member.username,
+      value: `${(member.raids_total ?? 0).toLocaleString()} raids`,
+      href: `/statistics/player/playercard?player=${encodeURIComponent(member.username)}`,
+    }))}
+  />
 
   <section class="block" aria-label="Raid ledger">
     <SectionLabel meta="{raiders.length} raiders · sort any column">
@@ -103,12 +92,7 @@
     <SectionLabel>
       {#snippet children()}Best times & personal records{/snippet}
     </SectionLabel>
-    <DeferredPanel title="Awaiting feed" since="July 2026">
-      {#snippet children()}
-        Per-run records - completion times, party compositions, and personal bests - are being
-        collected. This ledger unlocks once enough runs have been recorded.
-      {/snippet}
-    </DeferredPanel>
+    <DeferredPanel title="Work in progress" />
   </section>
 {:else}
   <DeferredPanel title="Data unavailable">
@@ -117,91 +101,13 @@
 {/if}
 
 <style>
-  .podium {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(140px, 200px));
-    justify-content: start;
-    align-items: end;
-    gap: 12px;
-    margin-bottom: 40px;
-  }
-
-  .podium-slot {
-    display: grid;
-    justify-items: center;
-    gap: 4px;
-    padding: 18px 14px 14px;
-    border: 1px solid var(--color-border-subtle);
-    background: rgba(19, 22, 31, 0.6);
-    box-shadow: var(--bevel-slot);
-    text-decoration: none;
-    transition: border-color var(--dur-fast) ease, transform var(--dur-base) var(--ease-out-soft);
-  }
-
-  .podium-slot:hover {
-    border-color: rgba(245, 197, 66, 0.4);
-    transform: translateY(-3px);
-  }
-
-  .podium-slot:focus-visible {
-    outline: 2px solid rgba(245, 197, 66, 0.5);
-    outline-offset: 2px;
-  }
-
-  .podium-first {
-    border-color: rgba(245, 197, 66, 0.35);
-    padding-top: 26px;
-  }
-
-  .podium-render {
-    width: 96px;
-    height: auto;
-    image-rendering: pixelated;
-  }
-
-  .podium-first .podium-render {
-    width: 120px;
-  }
-
-  .podium-place {
-    margin-top: 6px;
-    color: var(--text-muted);
-    font-family: var(--font-display);
-    font-size: var(--text-xs);
-  }
-
-  .podium-first .podium-place {
-    color: var(--color-gold);
-  }
-
-  .podium-name {
-    color: var(--text-heading);
-    font-family: var(--font-display);
-    font-size: var(--text-xs);
-    letter-spacing: var(--tracking-wide);
-  }
-
-  .podium-value {
-    color: var(--text-muted);
-    font-family: var(--font-data);
-    font-size: var(--text-2xs);
-  }
-
   .block {
     margin-bottom: 40px;
   }
 
   @media (max-width: 640px) {
-    .podium {
-      grid-template-columns: repeat(3, 1fr);
     }
-  }
 
   @media (prefers-reduced-motion: reduce) {
-    .podium-slot,
-    .podium-slot:hover {
-      transition: none;
-      transform: none;
     }
-  }
 </style>

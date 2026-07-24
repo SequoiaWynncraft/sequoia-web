@@ -3,7 +3,6 @@ use sqlx::{PgPool, Row, postgres::PgPoolOptions};
 use time::OffsetDateTime;
 use uuid::Uuid;
 
-use crate::model::SessionUser;
 use crate::{
     deltas::calculate_deltas,
     model::{
@@ -19,6 +18,9 @@ pub struct Database {
 #[derive(Clone, Debug, serde::Serialize)]
 pub struct IngestSummary {
     pub inserted: bool,
+    /// True when the snapshot was fetched at or before the newest stored one
+    /// and was quarantined instead of becoming the delta baseline.
+    pub out_of_order: bool,
     pub snapshot_id: Option<i64>,
     pub member_count: usize,
     pub delta_count: usize,
@@ -53,6 +55,23 @@ impl Database {
         Ok(Self { pool })
     }
 
+    /// Bounded connectivity probe for readiness checks.
+    pub async fn ping(&self) -> anyhow::Result<()> {
+        tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            sqlx::query("SELECT 1").execute(&self.pool).await
+        })
+        .await
+        .context("database ping timed out")?
+        .context("database ping failed")?;
+        Ok(())
+    }
+
+    /// Ingests a snapshot under a per-guild advisory lock. Admission is
+    /// monotonic by `fetched_at`: snapshots are fetched before the lock is
+    /// taken, so a stalled older fetch can insert after a newer one and would
+    /// otherwise become the delta baseline, booking a spurious decrease plus a
+    /// duplicate raid on the next poll. Such snapshots are quarantined as an
+    /// anomaly instead of being stored.
     pub async fn ingest_snapshot(&self, snapshot: GuildSnapshot) -> anyhow::Result<IngestSummary> {
         let mut tx = self.pool.begin().await.context("failed to begin ingest")?;
         sqlx::query("SELECT pg_advisory_xact_lock(1845692265, hashtext($1))")
@@ -61,19 +80,31 @@ impl Database {
             .await
             .context("failed to acquire guild ingest lock")?;
 
-        let previous_snapshot_id = sqlx::query_scalar::<_, i64>(
+        let previous = sqlx::query(
             r#"
-            SELECT id
+            SELECT id, fetched_at
             FROM guild_snapshots
             WHERE guild_prefix = $1
-            ORDER BY id DESC
+            ORDER BY fetched_at DESC, id DESC
             LIMIT 1
             "#,
         )
         .bind(&snapshot.guild_prefix)
         .fetch_optional(&mut *tx)
         .await
-        .context("failed to load previous snapshot id")?;
+        .context("failed to load previous snapshot")?;
+        let previous = previous
+            .map(|row| -> anyhow::Result<(i64, OffsetDateTime)> {
+                Ok((row.try_get("id")?, row.try_get("fetched_at")?))
+            })
+            .transpose()?;
+
+        if let Some((_, previous_fetched_at)) = previous
+            && snapshot.fetched_at <= previous_fetched_at
+        {
+            return quarantine_out_of_order(tx, &snapshot, previous_fetched_at).await;
+        }
+        let previous_snapshot_id = previous.map(|(id, _)| id);
 
         let snapshot_row = sqlx::query(
             r#"
@@ -106,6 +137,7 @@ impl Database {
                 .context("failed to commit duplicate snapshot ingest")?;
             return Ok(IngestSummary {
                 inserted: false,
+                out_of_order: false,
                 snapshot_id: None,
                 member_count: snapshot.members.len(),
                 delta_count: 0,
@@ -154,6 +186,7 @@ impl Database {
                 .context("failed to commit baseline snapshot ingest")?;
             return Ok(IngestSummary {
                 inserted: true,
+                out_of_order: false,
                 snapshot_id: Some(snapshot_id),
                 member_count: snapshot.members.len(),
                 delta_count: 0,
@@ -223,6 +256,7 @@ impl Database {
 
         Ok(IngestSummary {
             inserted: true,
+            out_of_order: false,
             snapshot_id: Some(snapshot_id),
             member_count: snapshot.members.len(),
             delta_count: report.deltas.len(),
@@ -233,7 +267,7 @@ impl Database {
     pub async fn list_raid_events(&self) -> anyhow::Result<Vec<RaidEvent>> {
         let rows = sqlx::query(
             r#"
-            SELECT id, slug, name, starts_at, ends_at
+            SELECT id, slug, name, starts_at, ends_at, tracking, raid
             FROM raid_events
             ORDER BY starts_at DESC
             "#,
@@ -248,7 +282,7 @@ impl Database {
     pub async fn raid_event(&self, event_id: Uuid) -> anyhow::Result<Option<RaidEvent>> {
         let row = sqlx::query(
             r#"
-            SELECT id, slug, name, starts_at, ends_at
+            SELECT id, slug, name, starts_at, ends_at, tracking, raid
             FROM raid_events
             WHERE id = $1
             "#,
@@ -267,13 +301,15 @@ impl Database {
         name: &str,
         starts_at: OffsetDateTime,
         ends_at: OffsetDateTime,
+        tracking: &str,
+        raid: Option<&str>,
     ) -> anyhow::Result<RaidEvent> {
         let id = Uuid::new_v4();
         let row = sqlx::query(
             r#"
-            INSERT INTO raid_events (id, slug, name, starts_at, ends_at)
-            VALUES ($1, $2, $3, $4, $5)
-            RETURNING id, slug, name, starts_at, ends_at
+            INSERT INTO raid_events (id, slug, name, starts_at, ends_at, tracking, raid)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            RETURNING id, slug, name, starts_at, ends_at, tracking, raid
             "#,
         )
         .bind(id)
@@ -281,11 +317,45 @@ impl Database {
         .bind(name)
         .bind(starts_at)
         .bind(ends_at)
+        .bind(tracking)
+        .bind(raid)
         .fetch_one(&self.pool)
         .await
         .context("failed to create raid event")?;
 
         row_to_raid_event(row)
+    }
+
+    /// Full update of an event's fields; the slug is its identity and stays.
+    /// Returns None when no event has that id.
+    pub async fn update_raid_event(
+        &self,
+        event_id: Uuid,
+        name: &str,
+        starts_at: OffsetDateTime,
+        ends_at: OffsetDateTime,
+        tracking: &str,
+        raid: Option<&str>,
+    ) -> anyhow::Result<Option<RaidEvent>> {
+        let row = sqlx::query(
+            r#"
+            UPDATE raid_events
+            SET name = $2, starts_at = $3, ends_at = $4, tracking = $5, raid = $6
+            WHERE id = $1
+            RETURNING id, slug, name, starts_at, ends_at, tracking, raid
+            "#,
+        )
+        .bind(event_id)
+        .bind(name)
+        .bind(starts_at)
+        .bind(ends_at)
+        .bind(tracking)
+        .bind(raid)
+        .fetch_optional(&self.pool)
+        .await
+        .context("failed to update raid event")?;
+
+        row.map(row_to_raid_event).transpose()
     }
 
     pub async fn raid_event_leaderboard(
@@ -399,154 +469,60 @@ impl Database {
             })
             .collect()
     }
-
-    pub async fn insert_oauth_state(
-        &self,
-        state: &str,
-        expires_at: OffsetDateTime,
-    ) -> anyhow::Result<()> {
-        sqlx::query(
-            r#"
-            INSERT INTO oauth_states (state, expires_at)
-            VALUES ($1, $2)
-            "#,
-        )
-        .bind(state)
-        .bind(expires_at)
-        .execute(&self.pool)
-        .await
-        .context("failed to insert OAuth state")?;
-
-        Ok(())
-    }
-
-    pub async fn consume_oauth_state(&self, state: &str) -> anyhow::Result<bool> {
-        let row = sqlx::query(
-            r#"
-            DELETE FROM oauth_states
-            WHERE state = $1 AND expires_at > now()
-            RETURNING state
-            "#,
-        )
-        .bind(state)
-        .fetch_optional(&self.pool)
-        .await
-        .context("failed to consume OAuth state")?;
-
-        Ok(row.is_some())
-    }
-
-    pub async fn upsert_oauth_user(&self, player_uuid: Uuid, username: &str) -> anyhow::Result<()> {
-        sqlx::query(
-            r#"
-            INSERT INTO oauth_users (player_uuid, username, last_seen_at)
-            VALUES ($1, $2, now())
-            ON CONFLICT (player_uuid) DO UPDATE
-            SET username = EXCLUDED.username,
-                last_seen_at = EXCLUDED.last_seen_at
-            "#,
-        )
-        .bind(player_uuid)
-        .bind(username)
-        .execute(&self.pool)
-        .await
-        .context("failed to upsert OAuth user")?;
-
-        Ok(())
-    }
-
-    pub async fn is_current_member(
-        &self,
-        guild_prefix: &str,
-        player_uuid: Uuid,
-    ) -> anyhow::Result<bool> {
-        let is_member = sqlx::query_scalar::<_, bool>(
-            r#"
-            SELECT EXISTS (
-                SELECT 1
-                FROM member_raid_counters counters
-                WHERE counters.snapshot_id = (
-                    SELECT id
-                    FROM guild_snapshots
-                    WHERE guild_prefix = $1
-                    ORDER BY fetched_at DESC
-                    LIMIT 1
-                )
-                AND counters.player_uuid = $2
-            )
-            "#,
-        )
-        .bind(guild_prefix)
-        .bind(player_uuid)
-        .fetch_one(&self.pool)
-        .await
-        .context("failed to check current guild membership")?;
-
-        Ok(is_member)
-    }
-
-    pub async fn create_session(
-        &self,
-        session_id: &str,
-        player_uuid: Uuid,
-        expires_at: OffsetDateTime,
-    ) -> anyhow::Result<()> {
-        sqlx::query(
-            r#"
-            INSERT INTO web_sessions (session_id, player_uuid, expires_at)
-            VALUES ($1, $2, $3)
-            "#,
-        )
-        .bind(session_id)
-        .bind(player_uuid)
-        .bind(expires_at)
-        .execute(&self.pool)
-        .await
-        .context("failed to create web session")?;
-
-        Ok(())
-    }
-
-    pub async fn session_user(&self, session_id: &str) -> anyhow::Result<Option<SessionUser>> {
-        let row = sqlx::query(
-            r#"
-            SELECT users.player_uuid, users.username
-            FROM web_sessions sessions
-            JOIN oauth_users users ON users.player_uuid = sessions.player_uuid
-            WHERE sessions.session_id = $1
-                AND sessions.expires_at > now()
-            "#,
-        )
-        .bind(session_id)
-        .fetch_optional(&self.pool)
-        .await
-        .context("failed to load web session")?;
-
-        row.map(|row| {
-            Ok(SessionUser {
-                player_uuid: row.try_get("player_uuid")?,
-                username: row.try_get("username")?,
-            })
-        })
-        .transpose()
-    }
-
-    pub async fn delete_session(&self, session_id: &str) -> anyhow::Result<()> {
-        sqlx::query(
-            r#"
-            DELETE FROM web_sessions
-            WHERE session_id = $1
-            "#,
-        )
-        .bind(session_id)
-        .execute(&self.pool)
-        .await
-        .context("failed to delete web session")?;
-
-        Ok(())
-    }
 }
 
+/// Records an out-of-order snapshot as an anomaly instead of storing it, so a
+/// late-arriving older fetch can never become the delta baseline. The rejected
+/// payload's hash is kept for diagnosis; the snapshot itself is discarded.
+async fn quarantine_out_of_order(
+    mut tx: sqlx::Transaction<'_, sqlx::Postgres>,
+    snapshot: &GuildSnapshot,
+    previous_fetched_at: OffsetDateTime,
+) -> anyhow::Result<IngestSummary> {
+    let rfc3339 = time::format_description::well_known::Rfc3339;
+    sqlx::query(
+        r#"
+        INSERT INTO tracker_anomalies (snapshot_id, anomaly_type, details)
+        VALUES (NULL, 'out_of_order_snapshot', $1)
+        "#,
+    )
+    .bind(serde_json::json!({
+        "guild_prefix": snapshot.guild_prefix,
+        "fetched_at": snapshot.fetched_at.format(&rfc3339)?,
+        "newest_stored_fetched_at": previous_fetched_at.format(&rfc3339)?,
+        "payload_hash": snapshot.payload_hash,
+        "member_count": snapshot.members.len(),
+    }))
+    .execute(&mut *tx)
+    .await
+    .context("failed to record out-of-order snapshot anomaly")?;
+    tx.commit()
+        .await
+        .context("failed to commit out-of-order snapshot rejection")?;
+
+    tracing::warn!(
+        guild_prefix = %snapshot.guild_prefix,
+        fetched_at = %snapshot.fetched_at,
+        newest_stored_fetched_at = %previous_fetched_at,
+        "rejected out-of-order guild snapshot"
+    );
+    Ok(IngestSummary {
+        inserted: false,
+        out_of_order: true,
+        snapshot_id: None,
+        member_count: snapshot.members.len(),
+        delta_count: 0,
+        anomaly_count: 1,
+    })
+}
+
+/// Loads a snapshot's counters with dropout healing: the Wynncraft API sometimes
+/// reports a member's `currentGuildRaids` as 0, a stale lower value, or omits it
+/// for a few polls before restoring the real total. Diffing against the dip would
+/// book the restored amount as new raids, so each counter is raised to the highest
+/// value observed up to that snapshot within the same guild - `currentGuildRaids`
+/// only counts raids with the current guild, and it never legitimately decreases
+/// there, which makes that the true baseline.
 async fn member_counters_in_tx(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     snapshot_id: i64,
@@ -554,16 +530,26 @@ async fn member_counters_in_tx(
     let rows = sqlx::query(
         r#"
         SELECT
-            player_uuid,
-            username,
-            rank,
-            online,
-            joined_at,
-            current_guild_raids,
-            total_guild_raids,
-            captured_at
-        FROM member_raid_counters
-        WHERE snapshot_id = $1
+            counters.player_uuid,
+            counters.username,
+            counters.rank,
+            counters.online,
+            counters.joined_at,
+            GREATEST(counters.current_guild_raids, highest_prior.current_guild_raids)
+                AS current_guild_raids,
+            counters.total_guild_raids,
+            counters.captured_at
+        FROM member_raid_counters counters
+        JOIN guild_snapshots snapshot ON snapshot.id = counters.snapshot_id
+        LEFT JOIN LATERAL (
+            SELECT MAX(history.current_guild_raids) AS current_guild_raids
+            FROM member_raid_counters history
+            JOIN guild_snapshots history_snapshot ON history_snapshot.id = history.snapshot_id
+            WHERE history.player_uuid = counters.player_uuid
+              AND history.captured_at <= counters.captured_at
+              AND history_snapshot.guild_uuid = snapshot.guild_uuid
+        ) highest_prior ON true
+        WHERE counters.snapshot_id = $1
         "#,
     )
     .bind(snapshot_id)
@@ -594,5 +580,7 @@ fn row_to_raid_event(row: sqlx::postgres::PgRow) -> anyhow::Result<RaidEvent> {
         name: row.try_get("name")?,
         starts_at: row.try_get("starts_at")?,
         ends_at: row.try_get("ends_at")?,
+        tracking: row.try_get("tracking")?,
+        raid: row.try_get("raid")?,
     })
 }

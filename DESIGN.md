@@ -11,11 +11,11 @@ This document is the high-level design overview. Deeper references:
 
 ## Repository layout
 
-Monorepo combining a pnpm workspace and a Cargo workspace:
+Monorepo combining a Bun workspace and a Cargo workspace:
 
 | Path        | Contents |
 |-------------|----------|
-| `frontend/` | SvelteKit 2 (Svelte 5, TypeScript) website with a Node SSR server |
+| `frontend/` | SvelteKit 2 (Svelte 5, TypeScript) website with a Bun SSR server |
 | `backend/`  | Rust workspace with one crate: `sequoia-web-backend` (Axum service) |
 | `shared/`   | Reserved for generated API contracts (currently empty) |
 | `infra/`    | Reserved for deploy support (currently empty) |
@@ -23,16 +23,18 @@ Monorepo combining a pnpm workspace and a Cargo workspace:
 
 ## System architecture
 
-Three backends/data sources are involved — keeping them straight matters:
+Four backends/data sources are involved — keeping them straight matters:
 
 ```
 Browser
   │
   ▼
-SvelteKit SSR (Node, :3000 prod / :5173 dev)
+SvelteKit SSR (Bun, :3000 prod / :5173 dev)
   ├── /api/** server routes ─────────► sequoia-web-backend (Rust, :8080)   [this repo]
   │     cookies forwarded                 └── PostgreSQL
   ├── public stats fetches ──────────► sequoia-backend (:8081 / api.seqwawa.com)  [separate repo]
+  ├── /api/bagshop/** ───────────────► seq-bag-shop bot HTTP API (:8080 internal)  [separate repo]
+  │     session JWT forwarded as bearer
   ├── /api/branchmasters ────────────► Wynncraft API v3 (cached in local libSQL)
   └── skin renders ──────────────────► NMSR (api.seqwawa.com/nmsr)
 ```
@@ -48,13 +50,23 @@ SvelteKit SSR (Node, :3000 prod / :5173 dev)
    for reverse-proxy setups).
 3. **Wynncraft public API** (`api.wynncraft.com/v3`) is called directly by the SvelteKit
    server for branchmasters and by the Rust poller for guild snapshots.
+4. **`seq-bag-shop`** (separate repo, Java Discord bot, HTTP API on `:8080` internal) owns the
+   raid-loot-bag marketplace. The `/services/bagshop` pages proxy to it through
+   `/api/bagshop/**` (`lib/server/bagshop.ts`), **forwarding the `seq_session` cookie as a
+   bearer token** — the session cookie is itself a JWT signed with the shared `JWT_SECRET`
+   carrying `minecraft_uuid`/`minecraft_username`/`discord_id`, which the bot verifies directly.
+   Inventory reads are public; placing/listing/cancelling orders needs any signed-in viewer
+   (the order is owned by the token's Discord id, so the bot still DMs the customer on Discord);
+   staff order management and inventory edits are gated by the bot's `allowlist.json`. The bot
+   API must stay internal — customer/staff separation relies on the token + allowlist, not
+   network exposure.
 
 The web app never connects to Postgres directly — all persistence goes through the Rust
 backend's HTTP API (rule stated in `docs/architecture.md`).
 
 ## Frontend
 
-**Stack:** SvelteKit 2.67 / Svelte 5 (runes), TypeScript, Vite 8, `@sveltejs/adapter-node`.
+**Stack:** SvelteKit 2.67 / Svelte 5 (runes), TypeScript, Vite 8, `@sveltejs/adapter-node` (run under Bun 1.3).
 No CSS framework and no store library.
 
 **Routing** (`frontend/src/routes/`): file-based, `prerender = true` globally via
@@ -63,6 +75,32 @@ No CSS framework and no store library.
 - `/` — hero, live guild stat blocks, service cards, community artwork ("The Sequoian
   Tree"), and "The Branchmasters" leadership grid with 3D skin renders and online status.
 - `/news`, `/legal`, `/services{,/bagshop,/announcements,/requests,/contact}`
+- `/events` — the events hub: full-width "sky bands" grouped by status (live/upcoming/past),
+  each rendered in its event's own theme; `/events/{slug}` is the per-event page (themed
+  hero, goal meter, activity chart, member standings, prize pool, comp, rules). Events
+  live as validated JSON rows in the site database (`lib/server/eventStore.ts`, seeded
+  once from `lib/events/seed.ts`) and are managed at `/events/manage` — a dashboard with
+  a live sky preview, gated to strategist+ against a fresh roster
+  (`lib/server/eventManagers.ts`); unpublished drafts stay invisible outside manage
+  except as a manager preview. `parseGuildEvent` (`lib/events/validate.ts`) guards both
+  the form submissions and the stored rows, so the `GuildEvent` type can grow without
+  migrations; every content section is optional and the visual theme is per-event CSS
+  custom properties (`--ev-*`). Goals read a configurable live feed
+  (`lib/server/goalProgress.ts`): the raid activity feed (member participation credits,
+  all raids or one), unique runs from the guild mod's completion log
+  (`lib/server/modActivity.ts` - one count per run, so party size never inflates the
+  number, at the cost of missing runs without a mod user), or wars / playtime summed
+  from the daily stat rollups. The activity chart is independently configurable
+  (`GuildEvent.activity`; `eventChart` in `lib/events/helpers.ts`) - it follows a
+  raid-based goal by default, can chart credits or runs for any single raid, or hide;
+  wars and playtime have no per-day feed. Member standings reuse the raid tracker's event
+  leaderboards via `lib/server/raidEventBoards.ts` once a `tracker` id is set on the
+  event - the editor can pick an existing tracker event, create one inline, or edit one
+  (`?/createTracker`, `?/updateTracker` → `POST`/`PUT /internal/raid-events`), and
+  mod-tracked trackers may scope to a single raid. Member-only
+  events keep a public hero but their gated sections (goal, prizes, comp, rules, activity,
+  standings) are stripped server-side unless the signed-in viewer verifies against a fresh
+  roster - the same trust rules as the raid leaderboard.
 - `/statistics` hub → `player/{raids,activity,playercard}` and
   `guilds/{war,raid,rankings}`
 - `/statistics/guilds/raid` — the flagship dynamic page: loads raid events and, for
@@ -76,13 +114,21 @@ stay thin by calling `pageView(path)`.
 **Server API routes** (`+server.ts`) act as a backend-for-frontend:
 - `/api/branchmasters` — fetches the guild from Wynncraft, extracts leadership ranks, and
   caches results in libSQL (`@libsql/client`; local file `.data/sequoia-web.db` or Turso).
-  2-minute freshness with 3-day stale-on-error fallback.
-- `/api/guild-raids/{events,events/[id]/leaderboard,me}` — cookie-forwarding proxies to the
-  Rust backend's `/v1/**`.
-- `/api/guild-raids/auth/{start,logout}` — relay OAuth redirects and `Set-Cookie` headers.
+  2-minute freshness with 3-day stale-on-error fallback. The libSQL client is shared via
+  `lib/server/db.ts`; besides the `api_cache` table it holds `guild_events` — the events
+  are durable data, so the `.data` volume (or Turso) must persist across deploys.
+- Raid-event data is read server-side in the raid page's `load` from the Rust backend's
+  `/v1/**`; the member-only leaderboard is fetched with the internal API token after the
+  signed-in viewer's guild membership is verified.
+- `/api/bagshop/[...path]` — a thin catch-all proxy to the `seq-bag-shop` bot that forwards the
+  method/path/body with the viewer's `seq_session` cookie attached as a bearer token
+  (`lib/server/bagshop.ts`); the bot enforces customer-vs-staff authorization. The typed client
+  (`lib/api/bagshop.ts`) consumes it with the same `ApiResult` + runtime-guard discipline as the
+  stats client, and the `/services/bagshop` page (customer ordering) and `/services/bagshop/manage`
+  page (staff, gated on the bot's `GET /me` staff flag) are built on it.
 
 **API contract discipline:**
-- `pnpm api:types` generates `src/lib/api/generated/public-api.ts` from the sibling
+- `bun run api:types` generates `src/lib/api/generated/public-api.ts` from the sibling
   `sequoia-backend` repo's OpenAPI spec (requires that repo at `../../sequoia-backend`).
   Generated files are never hand-edited.
 - The handwritten client (`src/lib/api/client.ts`) returns a discriminated
@@ -142,6 +188,13 @@ online-status dots. Reusable components live under
 `src/lib/design-system/components/` (Button, Card, OfficerCard, OfficerStrip, RankBadge,
 SectionHeading, ServiceCard, StatBlock, StatusDot).
 
+**Events sub-identity:** event pages keep the Sequoia chrome (gold, pixel type, hairlines)
+but each event owns a *sky* — a themed star-speckled gradient backdrop whose accent hue
+tints that page's structure (✦ section sparks, goal-meter fill, chart marks). The events
+hub stacks those skies as full-width bands; the event page opens them into a full-bleed
+hero that runs under the translucent navbar like the homepage. Events use the
+four-pointed ✦ spark as their section marker, a deliberate sibling of the site's ◆.
+
 **The map app** (`map.seqwawa.com`, separate codebase, linked as MAP in the nav) is the
 same identity in a utility register: full-bleed live territory map with a right sidebar on
 the same abyss/gold tokens — pixel wordmark with a version chip, `/`-hinted search,
@@ -173,42 +226,43 @@ Rust 2024 edition, Axum 0.8 on Tokio, sqlx/Postgres, reqwest. Single binary; mod
   positive changes become deltas, decreases/disappearances are recorded as anomalies rather
   than guessed at. The first snapshot is a baseline only.
 - `raid_events` define scoring windows; the leaderboard aggregates deltas within a window.
+  Events carry a `tracking` source (`api` counter diffs or `mod` completions) and, for mod
+  tracking only, an optional `raid` scope - API diffs cannot attribute completions per raid.
 
-**HTTP API:** `GET /health`; OAuth flow under `/auth/wynn/*` + `POST /auth/logout`; public
-reads `GET /v1/raid-events{,/{id}}`; member-gated `GET /v1/me`,
-`/v1/raid-events/{id}/leaderboard`, `/v1/members/{uuid}/guild-raids`; and bearer-token-gated
-operations `POST /internal/poll-now`, `POST /internal/raid-events`, `GET /internal/anomalies`.
+**HTTP API:** `GET /health`; public reads `GET /v1/raid-events{,/{id}}`; and
+bearer-token-gated reads/operations `GET /v1/raid-events/{id}/leaderboard`,
+`GET /v1/members/{uuid}/guild-raids`, `POST /internal/poll-now`,
+`POST /internal/raid-events`, `GET /internal/anomalies`.
 Errors are uniform JSON `{"error": string}` via a single `ApiError` type.
 
-**Auth & sessions:** Wynncraft OAuth with the `identify` scope only — no user access tokens
-are stored. Sessions are opaque tokens stored server-side as `SHA256(secret:token)` with a
-30-day expiry, delivered as HttpOnly/SameSite=Lax/Secure cookies. OAuth state is single-use,
-DB-backed, and expires after 5 minutes. Guild membership is re-checked against the latest
-snapshot on every gated request.
+**Auth:** the tracker has no user-facing auth. Website sign-in is the sequoia-backend web
+session; the SvelteKit server checks the signed-in viewer's guild membership before reading
+member-only tracker data with the shared internal token.
 
 **Rigor:** workspace lints forbid `unsafe`, deny `unwrap`/`expect`/`todo`/`dbg!`, and clippy
 runs with `-D warnings` — error handling is explicit (`anyhow::Context` + `?`) throughout.
 
 ## Deployment
 
-Target platform is **Coolify** running three services on one network:
+Target platform is **Coolify** running four services on one network:
 
 | Service                | Image                 | Port | Notes |
 |------------------------|-----------------------|------|-------|
-| `sequoia-web-frontend` | `frontend/Dockerfile` | 3000 | Node 22 multi-stage build; `SEQUOIA_WEB_BACKEND_URL=http://sequoia-web-backend:8080` |
+| `sequoia-web-frontend` | `frontend/Dockerfile` | 3000 | Bun 1.3.14 multi-stage build; `SEQUOIA_WEB_BACKEND_URL=http://sequoia-web-backend:8080` |
 | `sequoia-web-backend`  | `backend/Dockerfile`  | 8080 | Rust multi-stage build; public route `api.seqwawa.com`; holds DB credentials |
+| `seq-bag-shop`         | (separate repo)       | 8080 | Java Discord bot + internal HTTP API; `BAGSHOP_API_URL` points the frontend at it; **not** publicly routed |
 | PostgreSQL             | —                     | 5432 | Reachable from the backend only |
 
 `PUBLIC_SEQUOIA_API_BASE_URL` / `PUBLIC_NMSR_BASE_URL` support either separate origins or
 `same-origin` mode where the reverse proxy routes `/public/**` and `/nmsr/**`. There is no
-CI pipeline; validation is manual (`pnpm check`, `pnpm test`, `pnpm clippy:backend`,
-`pnpm fmt:backend`, `pnpm build`).
+CI pipeline; validation is manual (`bun run check`, `bun run test`, `bun run clippy:backend`,
+`bun run fmt:backend`, `bun run build`).
 
 ## Running locally
 
 ```sh
-pnpm install
-pnpm dev          # frontend only, http://localhost:5173
+bun install
+bun run dev          # frontend only, http://localhost:5173
 ```
 
 The UI boots without any backend: stats fetches fail gracefully, guild-raid proxies return

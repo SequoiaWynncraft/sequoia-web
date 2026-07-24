@@ -5,7 +5,7 @@
 
   import type { ShellStats } from "./+layout.server";
 
-  let { data, children }: { data: { shell: Promise<ShellStats | null> }; children: Snippet } = $props();
+  let { data, children }: { data: { shell: ShellStats | null }; children: Snippet } = $props();
 
   const statistics = SECTIONS.find((section) => section.to === "/statistics");
   const groups = statistics?.groups ?? [];
@@ -34,14 +34,12 @@
       {/each}
     </nav>
 
-    {#await data.shell then shell}
-      {#if shell}
-        <div class="stats-side-foot">
-          <span class="stats-side-online">{shell.online_now} online</span>
-          <span class="stats-side-members">/ {shell.members_total}</span>
-        </div>
-      {/if}
-    {/await}
+    {#if data.shell}
+      <div class="stats-side-foot">
+        <span class="stats-side-online">{data.shell.online_now} online</span>
+        <span class="stats-side-members">/ {data.shell.members_total}</span>
+      </div>
+    {/if}
   </aside>
 
   <div class="stats-content">
