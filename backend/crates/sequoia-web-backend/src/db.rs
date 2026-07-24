@@ -18,6 +18,9 @@ pub struct Database {
 #[derive(Clone, Debug, serde::Serialize)]
 pub struct IngestSummary {
     pub inserted: bool,
+    /// True when the snapshot was fetched at or before the newest stored one
+    /// and was quarantined instead of becoming the delta baseline.
+    pub out_of_order: bool,
     pub snapshot_id: Option<i64>,
     pub member_count: usize,
     pub delta_count: usize,
@@ -52,6 +55,12 @@ impl Database {
         Ok(Self { pool })
     }
 
+    /// Ingests a snapshot under a per-guild advisory lock. Admission is
+    /// monotonic by `fetched_at`: snapshots are fetched before the lock is
+    /// taken, so a stalled older fetch can insert after a newer one and would
+    /// otherwise become the delta baseline, booking a spurious decrease plus a
+    /// duplicate raid on the next poll. Such snapshots are quarantined as an
+    /// anomaly instead of being stored.
     pub async fn ingest_snapshot(&self, snapshot: GuildSnapshot) -> anyhow::Result<IngestSummary> {
         let mut tx = self.pool.begin().await.context("failed to begin ingest")?;
         sqlx::query("SELECT pg_advisory_xact_lock(1845692265, hashtext($1))")
@@ -60,19 +69,31 @@ impl Database {
             .await
             .context("failed to acquire guild ingest lock")?;
 
-        let previous_snapshot_id = sqlx::query_scalar::<_, i64>(
+        let previous = sqlx::query(
             r#"
-            SELECT id
+            SELECT id, fetched_at
             FROM guild_snapshots
             WHERE guild_prefix = $1
-            ORDER BY id DESC
+            ORDER BY fetched_at DESC, id DESC
             LIMIT 1
             "#,
         )
         .bind(&snapshot.guild_prefix)
         .fetch_optional(&mut *tx)
         .await
-        .context("failed to load previous snapshot id")?;
+        .context("failed to load previous snapshot")?;
+        let previous = previous
+            .map(|row| -> anyhow::Result<(i64, OffsetDateTime)> {
+                Ok((row.try_get("id")?, row.try_get("fetched_at")?))
+            })
+            .transpose()?;
+
+        if let Some((_, previous_fetched_at)) = previous
+            && snapshot.fetched_at <= previous_fetched_at
+        {
+            return quarantine_out_of_order(tx, &snapshot, previous_fetched_at).await;
+        }
+        let previous_snapshot_id = previous.map(|(id, _)| id);
 
         let snapshot_row = sqlx::query(
             r#"
@@ -105,6 +126,7 @@ impl Database {
                 .context("failed to commit duplicate snapshot ingest")?;
             return Ok(IngestSummary {
                 inserted: false,
+                out_of_order: false,
                 snapshot_id: None,
                 member_count: snapshot.members.len(),
                 delta_count: 0,
@@ -153,6 +175,7 @@ impl Database {
                 .context("failed to commit baseline snapshot ingest")?;
             return Ok(IngestSummary {
                 inserted: true,
+                out_of_order: false,
                 snapshot_id: Some(snapshot_id),
                 member_count: snapshot.members.len(),
                 delta_count: 0,
@@ -222,6 +245,7 @@ impl Database {
 
         Ok(IngestSummary {
             inserted: true,
+            out_of_order: false,
             snapshot_id: Some(snapshot_id),
             member_count: snapshot.members.len(),
             delta_count: report.deltas.len(),
@@ -434,6 +458,51 @@ impl Database {
             })
             .collect()
     }
+}
+
+/// Records an out-of-order snapshot as an anomaly instead of storing it, so a
+/// late-arriving older fetch can never become the delta baseline. The rejected
+/// payload's hash is kept for diagnosis; the snapshot itself is discarded.
+async fn quarantine_out_of_order(
+    mut tx: sqlx::Transaction<'_, sqlx::Postgres>,
+    snapshot: &GuildSnapshot,
+    previous_fetched_at: OffsetDateTime,
+) -> anyhow::Result<IngestSummary> {
+    let rfc3339 = time::format_description::well_known::Rfc3339;
+    sqlx::query(
+        r#"
+        INSERT INTO tracker_anomalies (snapshot_id, anomaly_type, details)
+        VALUES (NULL, 'out_of_order_snapshot', $1)
+        "#,
+    )
+    .bind(serde_json::json!({
+        "guild_prefix": snapshot.guild_prefix,
+        "fetched_at": snapshot.fetched_at.format(&rfc3339)?,
+        "newest_stored_fetched_at": previous_fetched_at.format(&rfc3339)?,
+        "payload_hash": snapshot.payload_hash,
+        "member_count": snapshot.members.len(),
+    }))
+    .execute(&mut *tx)
+    .await
+    .context("failed to record out-of-order snapshot anomaly")?;
+    tx.commit()
+        .await
+        .context("failed to commit out-of-order snapshot rejection")?;
+
+    tracing::warn!(
+        guild_prefix = %snapshot.guild_prefix,
+        fetched_at = %snapshot.fetched_at,
+        newest_stored_fetched_at = %previous_fetched_at,
+        "rejected out-of-order guild snapshot"
+    );
+    Ok(IngestSummary {
+        inserted: false,
+        out_of_order: true,
+        snapshot_id: None,
+        member_count: snapshot.members.len(),
+        delta_count: 0,
+        anomaly_count: 1,
+    })
 }
 
 /// Loads a snapshot's counters with dropout healing: the Wynncraft API sometimes

@@ -46,6 +46,7 @@ pub fn spawn_poll_loop(tracker: RaidTracker, interval: Duration) {
                 Ok(summary) => {
                     tracing::info!(
                         inserted = summary.inserted,
+                        out_of_order = summary.out_of_order,
                         snapshot_id = summary.snapshot_id,
                         member_count = summary.member_count,
                         delta_count = summary.delta_count,
