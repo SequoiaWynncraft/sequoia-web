@@ -70,7 +70,11 @@ export const actions: Actions = {
     // Guard on the version we grafted from: a raffle roll (or another save)
     // landing between the read above and this write must not be silently
     // overwritten with the older snapshot.
-    if (!(await eventStore.update(regrafted.event, { published: payload.published, ifUpdatedAt: stored.updatedAt }))) {
+    const newUpdatedAt = await eventStore.update(regrafted.event, {
+      published: payload.published,
+      ifUpdatedAt: stored.updatedAt,
+    });
+    if (newUpdatedAt === null) {
       return fail(409, { error: "This event just changed - reload and save again." });
     }
     await recordAudit(
@@ -79,7 +83,9 @@ export const actions: Actions = {
       params.slug,
       payload.published ? "published" : "draft",
     );
-    return { saved: true };
+    // The exact version this save wrote: the client adopts it as its reviewed
+    // token, so a concurrent save landing during the response can't slip in.
+    return { saved: true, newUpdatedAt };
   },
 
   delete: async ({ request, params, cookies, fetch }) => {
@@ -193,7 +199,11 @@ export const actions: Actions = {
     // Guard on the version we read: if another roll (or save) landed in the
     // meantime, this write loses rather than clobbering that winner, and the
     // manager is told to retry against the fresh state.
-    if (!(await eventStore.update(event, { published: stored.published, ifUpdatedAt: stored.updatedAt }))) {
+    const newUpdatedAt = await eventStore.update(event, {
+      published: stored.published,
+      ifUpdatedAt: stored.updatedAt,
+    });
+    if (newUpdatedAt === null) {
       return fail(409, { error: "This event just changed - reload and roll again." });
     }
     // Record who was drawn, not just where: the audit trail must show the exact
@@ -205,7 +215,7 @@ export const actions: Actions = {
       params.slug,
       `${raffleId}:${slot} → ${drawn.username} (${drawn.player_uuid}), ${drawn.tickets} tickets, ${raffle.drawnAt}`,
     );
-    return { rolled: raffleId, slot, winner: { slot, ...drawn }, drawnAt: raffle.drawnAt };
+    return { rolled: raffleId, slot, winner: { slot, ...drawn }, drawnAt: raffle.drawnAt, newUpdatedAt };
   },
 
   createTracker: createTrackerAction,

@@ -580,21 +580,28 @@
       return async ({ result, update }) => {
         if (result.type === "success") {
           const data = result.data as
-            | { rolled?: string; slot?: number; winner?: RaffleWinner; drawnAt?: string }
+            | {
+                rolled?: string;
+                slot?: number;
+                winner?: RaffleWinner;
+                drawnAt?: string;
+                newUpdatedAt?: number;
+              }
             | undefined;
           const row = raffles.find((entry) => entry.id === data?.rolled);
           if (row && data?.winner && typeof data.slot === "number") {
             row.winners = [...row.winners.filter((entry) => entry.slot !== data.slot), data.winner];
             row.drawnAt = data.drawnAt ?? new Date().toISOString();
           }
+          // Adopt exactly the version this roll wrote (reflected above) - not
+          // the reloaded page data, which may already contain someone else's
+          // later save.
+          knownUpdatedAt = data?.newUpdatedAt ?? knownUpdatedAt;
         } else if (result.type === "failure") {
           rollError = (result.data as { error?: string } | undefined)?.error ?? "The roll failed.";
         }
         rollingId = null;
         await update({ reset: false });
-        // The roll is reflected above, so the visible draft matches the store
-        // again and the refreshed token is safe to adopt.
-        if (result.type === "success") knownUpdatedAt = initialUpdatedAt;
       };
     }
     showValidation = true;
@@ -605,10 +612,13 @@
     saving = true;
     return async ({ result, update }) => {
       saving = false;
+      // Adopt exactly the version this save wrote - not the reloaded page
+      // data, which may already contain someone else's later save.
+      if (result.type === "success") {
+        const data = result.data as { newUpdatedAt?: number } | undefined;
+        knownUpdatedAt = data?.newUpdatedAt ?? knownUpdatedAt;
+      }
       await update({ reset: false });
-      // The store now holds exactly what this tab submitted, so the refreshed
-      // token is this draft's version and safe to adopt.
-      if (result.type === "success") knownUpdatedAt = initialUpdatedAt;
     };
   };
 

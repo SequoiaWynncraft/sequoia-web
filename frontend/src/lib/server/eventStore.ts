@@ -21,12 +21,17 @@ export interface EventStore {
   /** Atomic create - returns false when the slug is already taken. */
   insert(event: GuildEvent, options: { published: boolean }): Promise<boolean>;
   /**
-   * Atomic update - returns false when no event has that slug. When
-   * `ifUpdatedAt` is given, the write only lands if the row still carries that
-   * `updatedAt`, so a concurrent read-modify-write (e.g. two raffle rolls)
-   * loses instead of silently clobbering; the loser gets false.
+   * Atomic update - returns the row's new `updatedAt` on success so callers
+   * can hand the exact written version back to the client, or null when no
+   * event has that slug. When `ifUpdatedAt` is given, the write only lands if
+   * the row still carries that `updatedAt`, so a concurrent read-modify-write
+   * (e.g. two raffle rolls) loses instead of silently clobbering; the loser
+   * gets null.
    */
-  update(event: GuildEvent, options: { published: boolean; ifUpdatedAt?: number }): Promise<boolean>;
+  update(
+    event: GuildEvent,
+    options: { published: boolean; ifUpdatedAt?: number },
+  ): Promise<number | null>;
   /**
    * Returns false when no event had that slug. When `ifUpdatedAt` is given,
    * the delete only lands if the row still carries that `updatedAt`, so a
@@ -142,7 +147,7 @@ export function createEventStore(getClient: () => Promise<Client>): EventStore {
       const args = [JSON.stringify(event), options.published ? 1 : 0, now, event.slug];
       if (options.ifUpdatedAt !== undefined) args.push(options.ifUpdatedAt);
       const result = await db.execute({ sql, args });
-      return result.rowsAffected > 0;
+      return result.rowsAffected > 0 ? now : null;
     },
 
     async remove(slug, options = {}) {
