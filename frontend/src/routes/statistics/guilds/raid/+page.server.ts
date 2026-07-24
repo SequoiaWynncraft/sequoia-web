@@ -117,11 +117,11 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
     };
   }
 
-  // Event contributions are member-only; the tracker trusts this check, so it
-  // must not authorize from a stale roster (stale stats are display-only).
-  // With a viewer present the roster was requested fresh, so stale here means
-  // the refresh actually failed.
+  // Regular members must be authorized from a fresh roster. Administrators are
+  // authorized independently and may use stale roster data to filter the board.
   const freshRoster = stats !== null && !stats.stale ? stats.members : null;
+  const leaderboardRoster =
+    freshRoster ?? (viewer?.websiteAdmin && stats !== null ? stats.members : []);
   const isMember =
     viewer !== null &&
     (viewer.websiteAdmin ||
@@ -138,14 +138,14 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
     const result = await loadModLeaderboard(
       fetch,
       { starts_at: customWindow.from, ends_at: customWindow.to, raid: selectedRaid },
-      freshRoster ?? [],
+      leaderboardRoster,
     );
     leaderboard = result.leaderboard;
     leaderboardError = result.error;
   } else if (isMember && selectedEvent) {
     const result =
       selectedEvent.tracking === "mod"
-        ? await loadModLeaderboard(fetch, selectedEvent, freshRoster ?? [])
+        ? await loadModLeaderboard(fetch, selectedEvent, leaderboardRoster)
         : await loadTrackerLeaderboard(fetch, selectedEvent.id);
     leaderboard = result.leaderboard;
     leaderboardError = result.error;
