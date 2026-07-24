@@ -191,6 +191,44 @@ describe("parseGuildEvent", () => {
     expect(result.event.goals?.[0].milestones.length).toBe(2);
   });
 
+  it("round-trips milestone marker labels and display style", () => {
+    const result = parseGuildEvent({
+      ...VALID,
+      goals: [
+        {
+          metricLabel: "raids",
+          milestoneStyle: "markers",
+          milestones: [
+            { at: 1000, unlock: "1.3x payout", label: "1.3x" },
+            { at: 2500, unlock: "Rank raffle" },
+          ],
+        },
+      ],
+    });
+    if (!result.ok) throw new Error(result.error);
+    expect(result.event.goals?.[0].milestoneStyle).toBe("markers");
+    expect(result.event.goals?.[0].milestones[0].label).toBe("1.3x");
+    // Absent label and style stay absent - old events keep validating unchanged.
+    expect(result.event.goals?.[0].milestones[1].label).toBeUndefined();
+
+    expectError(
+      {
+        ...VALID,
+        goals: [{ metricLabel: "raids", milestoneStyle: "bars", milestones: [{ at: 5, unlock: "A" }] }],
+      },
+      "milestone style",
+    );
+    expectError(
+      {
+        ...VALID,
+        goals: [
+          { metricLabel: "raids", milestones: [{ at: 5, unlock: "A", label: "x".repeat(25) }] },
+        ],
+      },
+      "marker label",
+    );
+  });
+
   it("rejects out-of-order or duplicate milestone targets", () => {
     expectError(
       {

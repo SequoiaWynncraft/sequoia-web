@@ -29,6 +29,11 @@ export interface GoalMilestone {
   at: number;
   /** What reaching it unlocks, e.g. "Rank Up Raffle". */
   unlock: string;
+  /**
+   * Short text shown at this milestone's position under the meter when the
+   * goal renders markers, e.g. "1.3x". Absent falls back to the target count.
+   */
+  label?: string;
 }
 
 /**
@@ -65,6 +70,16 @@ export interface EventGoal {
   countRaid?: string;
   /** Frozen total for ended events - live events read the activity feed. */
   finalTotal?: number;
+  /**
+   * How milestones annotate the full-size meter (the band strip always keeps
+   * its one-line summary):
+   * - "list" (default): the ✦ unlock list below the meter
+   * - "markers": waypoint nodes under the track at each milestone's position,
+   *   short labels always visible, full unlock text on hover/focus/tap
+   * - "both": markers and the list
+   * - "none": bare ticks only
+   */
+  milestoneStyle?: "list" | "markers" | "both" | "none";
 }
 
 export interface PrizeEntry {
