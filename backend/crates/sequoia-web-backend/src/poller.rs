@@ -82,6 +82,7 @@ pub struct RaidTracker {
     db: Arc<crate::db::Database>,
     wynn: Option<WynnClient>,
     guild_prefix: String,
+    health: Arc<PollerHealth>,
 }
 
 impl RaidTracker {
@@ -89,17 +90,30 @@ impl RaidTracker {
         db: Arc<crate::db::Database>,
         wynn: Option<WynnClient>,
         guild_prefix: String,
+        health: Arc<PollerHealth>,
     ) -> Self {
         Self {
             db,
             wynn,
             guild_prefix,
+            health,
         }
     }
 
+    /// Health is recorded here rather than in the poll loop so a successful
+    /// manual `/internal/poll-now` also refreshes readiness - fresh data is
+    /// fresh regardless of who fetched it.
     pub async fn poll_once(&self) -> anyhow::Result<IngestSummary> {
-        let snapshot = self.fetch_snapshot().await?;
-        self.db.ingest_snapshot(snapshot).await
+        let result = async {
+            let snapshot = self.fetch_snapshot().await?;
+            self.db.ingest_snapshot(snapshot).await
+        }
+        .await;
+        match &result {
+            Ok(_) => self.health.record_success(),
+            Err(_) => self.health.record_failure(),
+        }
+        result
     }
 
     /// Whether a Wynncraft token is configured, i.e. polling can run at all.
@@ -122,7 +136,7 @@ impl RaidTracker {
 pub fn spawn_poll_loop(tracker: RaidTracker, interval: Duration, health: Arc<PollerHealth>) {
     tokio::spawn(async move {
         loop {
-            let run = tokio::spawn(poll_loop(tracker.clone(), interval, health.clone()));
+            let run = tokio::spawn(poll_loop(tracker.clone(), interval));
             if let Err(error) = run.await {
                 health.record_restart();
                 tracing::error!(%error, "guild raid poll task died; restarting");
@@ -132,12 +146,11 @@ pub fn spawn_poll_loop(tracker: RaidTracker, interval: Duration, health: Arc<Pol
     });
 }
 
-async fn poll_loop(tracker: RaidTracker, interval: Duration, health: Arc<PollerHealth>) {
+async fn poll_loop(tracker: RaidTracker, interval: Duration) {
     loop {
         let mut delay = interval;
         match tracker.poll_once().await {
             Ok(summary) => {
-                health.record_success();
                 tracing::info!(
                     inserted = summary.inserted,
                     out_of_order = summary.out_of_order,
@@ -149,7 +162,6 @@ async fn poll_loop(tracker: RaidTracker, interval: Duration, health: Arc<PollerH
                 );
             }
             Err(error) => {
-                health.record_failure();
                 // A rate-limited poll waits out the upstream's reset window
                 // instead of hammering it again on the normal cadence.
                 if let Some(WynnError::RateLimited {

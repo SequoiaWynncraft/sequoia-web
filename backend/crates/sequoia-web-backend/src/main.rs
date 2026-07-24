@@ -20,8 +20,13 @@ async fn main() -> anyhow::Result<()> {
         .clone()
         .map(|token| wynn::WynnClient::new(config.wynn_api_base_url.clone(), token))
         .transpose()?;
-    let tracker = poller::RaidTracker::new(db.clone(), wynn.clone(), config.guild_prefix.clone());
     let poller_health = std::sync::Arc::new(poller::PollerHealth::new());
+    let tracker = poller::RaidTracker::new(
+        db.clone(),
+        wynn.clone(),
+        config.guild_prefix.clone(),
+        poller_health.clone(),
+    );
 
     if wynn.is_some() {
         poller::spawn_poll_loop(tracker.clone(), config.poll_interval, poller_health.clone());
