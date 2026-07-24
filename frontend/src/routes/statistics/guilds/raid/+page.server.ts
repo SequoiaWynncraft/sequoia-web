@@ -121,7 +121,7 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
   // authorized independently and may use stale roster data to filter the board.
   const freshRoster = stats !== null && !stats.stale ? stats.members : null;
   const leaderboardRoster =
-    freshRoster ?? (viewer?.websiteAdmin && stats !== null ? stats.members : []);
+    freshRoster ?? (viewer?.websiteAdmin && stats !== null ? stats.members : null);
   const isMember =
     viewer !== null &&
     (viewer.websiteAdmin ||
@@ -135,17 +135,22 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
   let leaderboardError: string | null = null;
 
   if (isMember && customWindow) {
-    const result = await loadModLeaderboard(
-      fetch,
-      { starts_at: customWindow.from, ends_at: customWindow.to, raid: selectedRaid },
-      leaderboardRoster,
-    );
+    const result =
+      leaderboardRoster === null
+        ? unavailableLeaderboard()
+        : await loadModLeaderboard(
+            fetch,
+            { starts_at: customWindow.from, ends_at: customWindow.to, raid: selectedRaid },
+            leaderboardRoster,
+          );
     leaderboard = result.leaderboard;
     leaderboardError = result.error;
   } else if (isMember && selectedEvent) {
     const result =
       selectedEvent.tracking === "mod"
-        ? await loadModLeaderboard(fetch, selectedEvent, leaderboardRoster)
+        ? leaderboardRoster === null
+          ? unavailableLeaderboard()
+          : await loadModLeaderboard(fetch, selectedEvent, leaderboardRoster)
         : await loadTrackerLeaderboard(fetch, selectedEvent.id);
     leaderboard = result.leaderboard;
     leaderboardError = result.error;
@@ -188,6 +193,13 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
     activity,
   };
 };
+
+function unavailableLeaderboard() {
+  return {
+    leaderboard: [] as RaidLeaderboardEntry[],
+    error: "Member contributions are temporarily unavailable.",
+  };
+}
 
 async function loadActivity(fetchImpl: typeof fetch): Promise<ActivityDay[] | null> {
   const timedFetch: typeof fetch = (input, init) =>
