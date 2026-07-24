@@ -14,14 +14,15 @@ export const MANAGER_RANKS: readonly GuildRankName[] = ["owner", "chief", "strat
 export type ManagerAccess = "manager" | "signin" | "unverified" | "denied";
 
 /**
- * Same trust rules as the member gates: management is only ever authorized
- * against a fresh roster. A stale or missing roster fails closed.
+ * Website administrators are authorized by the backend. Guild leadership is
+ * only authorized against a fresh roster, and a stale or missing roster fails closed.
  */
 export async function checkEventManager(
   fetchImpl: typeof fetch,
   viewer: Viewer | null,
 ): Promise<ManagerAccess> {
   if (!viewer) return "signin";
+  if (viewer.websiteAdmin) return "manager";
   const stats = await getGuildStats(fetchImpl, { allowStale: false }).catch(() => null);
   if (stats === null || stats.stale) return "unverified";
   const member = stats.members.find(

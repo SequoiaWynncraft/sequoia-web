@@ -45,14 +45,18 @@ export const load: PageServerLoad = async ({ fetch, params, parent }) => {
   const status = eventStatus(event, now);
   const today = now.toISOString().slice(0, 10);
 
-  // Membership mirrors the raid page's trust rules: it is only ever
-  // authorized against a fresh roster.
+  // Regular membership mirrors the raid page's fresh-roster trust rules.
+  // Website administrators are already authorized by the backend.
   let membership: Membership | null = null;
   let roster: GuildMemberStats[] = [];
   if (event.access === "members" || event.tracker) {
     const { viewer } = await parent();
     if (!viewer) {
       membership = "signin";
+    } else if (viewer.websiteAdmin) {
+      membership = "member";
+      const stats = await getGuildStats(fetch, { allowStale: true }).catch(() => null);
+      roster = stats?.members ?? [];
     } else {
       const stats = await getGuildStats(fetch, { allowStale: false }).catch(() => null);
       const freshRoster = stats !== null && !stats.stale ? stats.members : null;

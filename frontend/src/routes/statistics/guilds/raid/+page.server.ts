@@ -59,11 +59,11 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
     .then(memberRanksByUuid)
     .catch(() => EMPTY_RANKS);
   const { viewer } = await parent();
-  // Signed-in viewers await a roster refresh because membership is authorized
-  // against it; anonymous visitors take the stale-tolerant fast path.
+  // Regular signed-in viewers await a roster refresh because membership is
+  // authorized against it; administrators and anonymous visitors may use stale display data.
   const [events, stats] = await Promise.all([
     loadRaidEvents(fetch),
-    getGuildStats(fetch, { allowStale: viewer === null }).catch(() => null),
+    getGuildStats(fetch, { allowStale: viewer === null || viewer.websiteAdmin }).catch(() => null),
   ]);
 
   // An event drives the board only when explicitly selected; otherwise the
@@ -124,9 +124,12 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
   const freshRoster = stats !== null && !stats.stale ? stats.members : null;
   const isMember =
     viewer !== null &&
-    freshRoster !== null &&
-    freshRoster.some((member) => member.uuid !== null && sameUuid(member.uuid, viewer.minecraftUuid));
-  const membershipUnverified = viewer !== null && freshRoster === null;
+    (viewer.websiteAdmin ||
+      (freshRoster !== null &&
+        freshRoster.some(
+          (member) => member.uuid !== null && sameUuid(member.uuid, viewer.minecraftUuid),
+        )));
+  const membershipUnverified = viewer !== null && !viewer.websiteAdmin && freshRoster === null;
 
   let leaderboard: RaidLeaderboardEntry[] = [];
   let leaderboardError: string | null = null;
