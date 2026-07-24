@@ -33,7 +33,7 @@
         trackerUpdated={form?.trackerUpdated ?? null}
         trackerError={form?.trackerError ?? null}
         presetError={form?.presetError ?? null}
-        auditWarning={(form?.auditWarning ?? false) || data.auditWarning}
+        auditWarning={form ? (form.auditWarning ?? false) : data.auditWarning}
       />
     {/key}
   {/if}
