@@ -129,19 +129,30 @@ async fn member_raid_history(
 
 async fn poll_now(State(state): State<AppState>, headers: HeaderMap) -> Result<Response, ApiError> {
     require_internal_token(&state, &headers)?;
-    let summary = state.tracker.poll_once().await.map_err(|error| {
+    match state.tracker.poll_once().await {
+        Ok(summary) => Ok(Json(summary).into_response()),
         // An upstream rate limit is the caller's signal to back off, not an
-        // internal fault.
-        if let Some(crate::wynn::WynnError::RateLimited { .. }) = error.downcast_ref() {
-            ApiError::new(
-                StatusCode::TOO_MANY_REQUESTS,
-                "Wynncraft rate limited the poll - retry later",
-            )
-        } else {
-            ApiError::from(error)
-        }
-    })?;
-    Ok(Json(summary).into_response())
+        // internal fault; pass the reset window through so callers can honor it.
+        Err(error) => match error.downcast_ref::<crate::wynn::WynnError>() {
+            Some(crate::wynn::WynnError::RateLimited { retry_after }) => {
+                let mut response = ApiError::new(
+                    StatusCode::TOO_MANY_REQUESTS,
+                    "Wynncraft rate limited the poll - retry later",
+                )
+                .into_response();
+                if let Some(retry) = retry_after
+                    && let Ok(value) =
+                        axum::http::HeaderValue::from_str(&retry.as_secs().to_string())
+                {
+                    response
+                        .headers_mut()
+                        .insert(axum::http::header::RETRY_AFTER, value);
+                }
+                Ok(response)
+            }
+            _ => Err(ApiError::from(error)),
+        },
+    }
 }
 
 async fn create_raid_event(
