@@ -241,8 +241,9 @@ function linkedProfile(branch: string, level: "member" | "trainee") {
 /**
  * The activity page's entry point, over the real announcement cache: the gate
  * must deny before any tracker read, and one build must serve every later
- * viewer. Order matters - the unavailable-tracker case runs while the cache is
- * still empty, and the cache-hit case relies on the build before it.
+ * viewer. The module-level announcement cache is shared across these cases, so
+ * each warms what it needs; only the unavailable-tracker case depends on running
+ * before any build, since a warm cache would stand in for the failed read.
  */
 describe("loadWeeklyRaidAnnouncement", () => {
   const VIEWER = {
@@ -281,7 +282,7 @@ describe("loadWeeklyRaidAnnouncement", () => {
   });
 
   it("serves the composed announcement to an eligible viewer", async () => {
-    const spy = stubModLeaderboard();
+    stubModLeaderboard();
     const announcement = await loadWeeklyRaidAnnouncement(fetch, VIEWER);
     expect(announcement).not.toBeNull();
     expect(announcement!.current.completions).toBe(438);
@@ -292,13 +293,16 @@ describe("loadWeeklyRaidAnnouncement", () => {
       "TNA",
       "TWP",
     ]);
-    expect(spy).toHaveBeenCalled();
   });
 
   it("serves the fresh cached build to the next viewer without re-reading the tracker", async () => {
     const spy = stubModLeaderboard();
+    // Warm the cache in-test: whether or not an earlier case already built this
+    // week, one load leaves it fresh, so the next must add no tracker reads.
+    expect(await loadWeeklyRaidAnnouncement(fetch, VIEWER)).not.toBeNull();
+    const reads = spy.mock.calls.length;
     const announcement = await loadWeeklyRaidAnnouncement(fetch, VIEWER);
     expect(announcement!.current.completions).toBe(438);
-    expect(spy).not.toHaveBeenCalled();
+    expect(spy.mock.calls.length).toBe(reads);
   });
 });
