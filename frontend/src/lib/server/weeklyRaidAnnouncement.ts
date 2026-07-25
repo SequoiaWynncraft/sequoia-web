@@ -209,7 +209,10 @@ export async function loadWeeklyRaidAnnouncement(
     if (!isAnnouncementViewer(profiles, stats.members, viewer)) return null;
     const cache = announcementCacheFor(weekWindows(Date.now()).current.start);
     return (await cache.get(fetchImpl, { allowStale: true })).data;
-  } catch {
+  } catch (error) {
+    // The section is dropped silently for the viewer; without this line an
+    // outage of the gate reads or the tracker looks identical to ineligibility.
+    console.warn("weekly raid announcement unavailable:", error);
     return null;
   }
 }
@@ -272,14 +275,20 @@ function isWeeklyRaidRank(value: unknown): value is WeeklyRaidRank {
 export async function buildWeeklyRaidAnnouncement(
   fetchImpl: typeof fetch,
 ): Promise<WeeklyRaidAnnouncement | null> {
-  const stats = await getGuildStats(fetchImpl, { allowStale: true }).catch(() => null);
+  const stats = await getGuildStats(fetchImpl, { allowStale: true }).catch((error: unknown) => {
+    console.warn("weekly raid announcement: guild roster read failed:", error);
+    return null;
+  });
   if (!stats) return null;
   const { current, previous } = weekWindows(Date.now());
   const [currentWeek, previousWeek] = await Promise.all([
     buildWeek(fetchImpl, current, stats.members),
     buildWeek(fetchImpl, previous, stats.members),
   ]);
-  if (!currentWeek) return null;
+  if (!currentWeek) {
+    console.warn("weekly raid announcement: current week unavailable", current);
+    return null;
+  }
   return { current: currentWeek, previous: previousWeek };
 }
 

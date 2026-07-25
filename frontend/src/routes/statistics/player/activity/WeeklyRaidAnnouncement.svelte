@@ -8,12 +8,12 @@
   const MEDALS = ["🥇", "🥈", "🥉"];
   const PLACES = ["1st place", "2nd place", "3rd place"];
 
-  let view = $state<"current" | "previous">("current");
-  // The previous week is absent when its read failed - fall back to the current
-  // one so the board never renders empty.
-  const week = $derived(
-    view === "previous" && announcement.previous ? announcement.previous : announcement.current,
-  );
+  let requested = $state<"current" | "previous">("current");
+  // The previous week is absent when its read failed, and can vanish under a
+  // selection an announcement refresh ago. Deriving the shown week collapses the
+  // selection back to "current" so the tabs never claim a week that isn't shown.
+  const view = $derived(requested === "previous" && announcement.previous ? "previous" : "current");
+  const week = $derived(view === "previous" ? announcement.previous! : announcement.current);
 
   let copied = $state(false);
   let copyTimer: ReturnType<typeof setTimeout> | undefined;
@@ -40,7 +40,7 @@
 
   /** Switches weeks, dropping any "Copied" state left from the other week. */
   function show(next: "current" | "previous") {
-    view = next;
+    requested = next;
     copied = false;
     clearTimeout(copyTimer);
   }

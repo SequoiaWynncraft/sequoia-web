@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import type { Client } from "@libsql/client";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const H = vi.hoisted(() => ({
   players: [
@@ -8,6 +9,9 @@ const H = vi.hoisted(() => ({
     { username: "Dris", uuid: "44444444-4444-4444-4444-444444444444", count: 70 },
     { username: "Eir", uuid: "55555555-5555-5555-5555-555555555555", count: 70 },
   ],
+  /** Linked profiles the gate reads; individual tests swap this in. */
+  profiles: { profiles: [] } as { profiles: unknown[] },
+  db: null as Client | null,
 }));
 
 vi.mock("$lib/server/sequoiaBackend", () => ({
@@ -28,33 +32,49 @@ vi.mock("$lib/server/guildStats", () => ({
   }),
 }));
 
+vi.mock("$lib/server/rankProfiles", () => ({
+  getLinkedRankProfiles: async () => H.profiles,
+}));
+// The announcement cache persists through the shared libsql client; an in-memory
+// one keeps the cached-build tests off the developer's .data database file.
+vi.mock("$lib/server/db", () => ({
+  database: async () => {
+    const { createClient } = await import("@libsql/client");
+    H.db ??= createClient({ url: ":memory:" });
+    return H.db;
+  },
+}));
+
 // Imported after the mocks so the module binds the stubbed backends.
-const { buildWeeklyRaidAnnouncement, isAnnouncementViewer, weekWindows } = await import(
-  "$lib/server/weeklyRaidAnnouncement"
-);
+const {
+  buildWeeklyRaidAnnouncement,
+  isAnnouncementViewer,
+  loadWeeklyRaidAnnouncement,
+  weekWindows,
+} = await import("$lib/server/weeklyRaidAnnouncement");
 
 afterEach(() => {
   vi.unstubAllGlobals();
 });
 
 /** Routes the mod leaderboard: NOTG (and the unfiltered total) carry the sample
- * roster; every other raid comes back empty. */
+ * roster; every other raid comes back empty. Returns the spy so callers can
+ * assert how much of the tracker a request actually touched. */
 function stubModLeaderboard() {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (input: string | URL) => {
-      const url = new URL(input.toString());
-      const raid = url.searchParams.get("raid");
-      const entries =
-        raid === null || raid === "Nest of the Grootslangs"
-          ? H.players.map((p) => ({ player_uuid: p.uuid, username: p.username, raids: p.count }))
-          : [];
-      return new Response(JSON.stringify({ entries }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      });
-    }),
-  );
+  const spy = vi.fn(async (input: string | URL) => {
+    const url = new URL(input.toString());
+    const raid = url.searchParams.get("raid");
+    const entries =
+      raid === null || raid === "Nest of the Grootslangs"
+        ? H.players.map((p) => ({ player_uuid: p.uuid, username: p.username, raids: p.count }))
+        : [];
+    return new Response(JSON.stringify({ entries }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  });
+  vi.stubGlobal("fetch", spy);
+  return spy;
 }
 
 /** Routes the mod leaderboard as above, but fails every read in the previous
@@ -203,5 +223,82 @@ describe("isAnnouncementViewer", () => {
   it("denies a roster member with no linked rank profile", () => {
     const other = H.players[1].uuid;
     expect(isAnnouncementViewer(profilesWith(other, [DEV]), rosterWith(UUID), viewer)).toBe(false);
+  });
+});
+
+/** One linked profile for the sample viewer, standing in one branch. */
+function linkedProfile(branch: string, level: "member" | "trainee") {
+  return {
+    profiles: [
+      {
+        minecraft: { uuid: H.players[0].uuid, username: H.players[0].username },
+        summary: { branches: [{ key: `branch.${branch}`, branch, level }] },
+      },
+    ],
+  };
+}
+
+/**
+ * The activity page's entry point, over the real announcement cache: the gate
+ * must deny before any tracker read, and one build must serve every later
+ * viewer. Order matters - the unavailable-tracker case runs while the cache is
+ * still empty, and the cache-hit case relies on the build before it.
+ */
+describe("loadWeeklyRaidAnnouncement", () => {
+  const VIEWER = {
+    discordId: "1",
+    discordUsername: null,
+    minecraftUuid: H.players[0].uuid,
+    minecraftUsername: null,
+  };
+
+  beforeEach(() => {
+    H.profiles = linkedProfile("development", "member");
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("denies anonymous viewers without reading anything", async () => {
+    const spy = stubModLeaderboard();
+    await expect(loadWeeklyRaidAnnouncement(fetch, null)).resolves.toBeNull();
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("denies an ineligible viewer before any tracker read", async () => {
+    H.profiles = linkedProfile("military", "member");
+    const spy = stubModLeaderboard();
+    await expect(loadWeeklyRaidAnnouncement(fetch, VIEWER)).resolves.toBeNull();
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("returns null and logs when the tracker is unavailable", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("nope", { status: 503 })));
+    await expect(loadWeeklyRaidAnnouncement(fetch, VIEWER)).resolves.toBeNull();
+    expect(console.warn).toHaveBeenCalled();
+  });
+
+  it("serves the composed announcement to an eligible viewer", async () => {
+    const spy = stubModLeaderboard();
+    const announcement = await loadWeeklyRaidAnnouncement(fetch, VIEWER);
+    expect(announcement).not.toBeNull();
+    expect(announcement!.current.completions).toBe(438);
+    expect(announcement!.current.raids.map((raid) => raid.short)).toEqual([
+      "NOTG",
+      "NOL",
+      "TCC",
+      "TNA",
+      "TWP",
+    ]);
+    expect(spy).toHaveBeenCalled();
+  });
+
+  it("serves the fresh cached build to the next viewer without re-reading the tracker", async () => {
+    const spy = stubModLeaderboard();
+    const announcement = await loadWeeklyRaidAnnouncement(fetch, VIEWER);
+    expect(announcement!.current.completions).toBe(438);
+    expect(spy).not.toHaveBeenCalled();
   });
 });
