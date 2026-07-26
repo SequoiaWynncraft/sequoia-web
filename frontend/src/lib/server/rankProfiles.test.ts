@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import type { RankProfilesResponse } from "$lib/api/client";
-import { honoursForMinecraft, memberRanksByUuid } from "$lib/server/rankProfiles";
+import {
+  honoursForMinecraft,
+  inGameRankLadder,
+  memberRanksByUuid,
+} from "$lib/server/rankProfiles";
 
 const MEMBER = "11111111-1111-1111-1111-111111111111";
 const RETIRED = "33333333-3333-3333-3333-333333333333";
@@ -50,6 +54,8 @@ const response: RankProfilesResponse = {
       role("rank.treant", "Treant", "progression_rank", { position: 105 }),
       role("rank.spriggan", "Spriggan", "progression_rank", { legacy: true, position: 104 }),
       role("rank.verdant", "Verdant", "progression_rank", { legacy: true }),
+      role("rank.dryad", "Dryad", "progression_rank", { position: 94 }),
+      role("rank.leafkin", "Leafkin", "progression_rank", { position: 86 }),
       role("insignia.gold", "Gold Insignia", "insignia", {
         source_guild: "branchmasters",
         tier: "gold",
@@ -179,6 +185,18 @@ describe("honoursForMinecraft", () => {
         honours: 4,
       },
       [RETIRED]: { rank: "Treant", rankOrder: 105, insignia: null, insigniaUrl: null, honours: 0 },
+    });
+  });
+
+  it("sorts in-game ranks just below the lowest org rank they can stand for", () => {
+    // Ranks whose org equivalent is missing from the catalog sort last, not first.
+    expect(inGameRankLadder(response)).toEqual({
+      owner: null,
+      chief: 104.5,
+      strategist: 93.5,
+      captain: null,
+      recruiter: null,
+      recruit: 85.5,
     });
   });
 

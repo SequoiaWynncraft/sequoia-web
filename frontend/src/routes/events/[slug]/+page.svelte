@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { guildRankLabel } from "$lib/api/guildStats";
   import { webAuthStartUrl } from "$lib/site/webAuth";
   import Button from "$lib/design-system/components/Button.svelte";
   import DailyBars from "$lib/design-system/components/charts/DailyBars.svelte";
@@ -31,15 +32,6 @@
     if (status === "upcoming") return 0;
     return data.progress?.[index] ?? null;
   });
-
-  const rankLabels: Record<string, string> = {
-    owner: "Owner",
-    chief: "Chief",
-    strategist: "Strategist",
-    captain: "Captain",
-    recruiter: "Recruiter",
-    recruit: "Recruit",
-  };
 
   // One row per winner slot across every raffle, mirroring the manage table:
   // a raffle with three winners shows three rows sharing its prize.
@@ -79,7 +71,7 @@
       nameStyle: true,
       value: (entry) => entry.username,
       sortValue: (entry) => entry.username.toLowerCase(),
-      secondary: (entry) => rankLabels[entry.rank] ?? entry.rank,
+      secondary: (entry) => guildRankLabel(entry.rank),
       avatar: (entry) => nmsrFace(entry.player_uuid, 22),
       href: (entry) => `/statistics/player/playercard?player=${encodeURIComponent(entry.username)}`,
     },

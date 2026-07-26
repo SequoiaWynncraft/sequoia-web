@@ -1,4 +1,5 @@
 import { createSequoiaApiClient, type RankProfilesResponse } from "$lib/api/client";
+import { GUILD_RANKS, type GuildRankName } from "$lib/api/guildStats";
 import { SEQUOIA_API_BASE_URL } from "$lib/config/public";
 import { createCachedResource, type CachedValue } from "$lib/server/serverCache";
 import {
@@ -16,6 +17,21 @@ const STALE_MS = 30 * 60 * 1000;
 const LEGACY_RANK_EQUIVALENTS: Record<string, string> = {
   "rank.spriggan": "rank.treant",
   "rank.alseid": "rank.druid",
+};
+
+/**
+ * In-game rank -> the lowest org rank it can stand for. Members whose Minecraft
+ * account is not linked to a rank profile sort at this position, so they land at
+ * the bottom of the org rank their in-game rank maps to instead of dropping out
+ * of the ladder entirely.
+ */
+const IN_GAME_RANK_EQUIVALENTS: Record<GuildRankName, string> = {
+  owner: "rank.yggdrasil",
+  chief: "rank.treant", // Spriggan is legacy and folds into Treant.
+  strategist: "rank.dryad", // Dryad < Upper Strategist < Druid - take the lowest.
+  captain: "rank.sprite",
+  recruiter: "rank.sapling",
+  recruit: "rank.leafkin",
 };
 
 const linkedProfiles = createCachedResource<RankProfilesResponse>({
@@ -106,6 +122,24 @@ export function memberRanksByUuid(
     };
   }
   return entries;
+}
+
+/** Ladder position each in-game rank sorts at; null when the catalog lacks its org equivalent. */
+export type InGameRankLadder = Record<GuildRankName, number | null>;
+
+/**
+ * The ladder positions unlinked members sort at, so their in-game rank interleaves
+ * with the org ranks of members who do have a profile. Half a step below the org
+ * rank itself, so a bare "Chief" sits under the Treants rather than among them.
+ */
+export function inGameRankLadder(response: RankProfilesResponse): InGameRankLadder {
+  const roles = new Map(response.catalog.roles.map((role) => [role.key, role]));
+  const ladder = {} as InGameRankLadder;
+  for (const rank of GUILD_RANKS) {
+    const position = resolveRankRole(roles, IN_GAME_RANK_EQUIVALENTS[rank])?.position;
+    ladder[rank] = position === undefined ? null : position - 0.5;
+  }
+  return ladder;
 }
 
 type Catalog = RankProfilesResponse["catalog"];
