@@ -11,6 +11,9 @@ const H = vi.hoisted(() => ({
   ],
   /** Linked profiles the gate reads; individual tests swap this in. */
   profiles: { profiles: [] } as { profiles: unknown[] },
+  /** Staleness the two gate reads report back; the fail-closed cases set these. */
+  rosterStale: false,
+  profilesStale: false,
   db: null as Client | null,
 }));
 
@@ -24,6 +27,7 @@ vi.mock("$lib/server/sequoiaWebBackend", () => ({
 }));
 vi.mock("$lib/server/guildStats", () => ({
   getGuildStats: async () => ({
+    stale: H.rosterStale,
     members: H.players.map((player) => ({
       username: player.username,
       uuid: player.uuid,
@@ -34,6 +38,11 @@ vi.mock("$lib/server/guildStats", () => ({
 
 vi.mock("$lib/server/rankProfiles", () => ({
   getLinkedRankProfiles: async () => H.profiles,
+  getLinkedRankProfilesResult: async () => ({
+    data: H.profiles,
+    stale: H.profilesStale,
+    updatedAt: Date.now(),
+  }),
 }));
 // The announcement cache persists through the shared libsql client; an in-memory
 // one keeps the cached-build tests off the developer's .data database file.
@@ -255,6 +264,8 @@ describe("loadWeeklyRaidAnnouncement", () => {
 
   beforeEach(() => {
     H.profiles = linkedProfile("development", "member");
+    H.rosterStale = false;
+    H.profilesStale = false;
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
   });
 
@@ -270,6 +281,22 @@ describe("loadWeeklyRaidAnnouncement", () => {
 
   it("denies an ineligible viewer before any tracker read", async () => {
     H.profiles = linkedProfile("military", "member");
+    const spy = stubModLeaderboard();
+    await expect(loadWeeklyRaidAnnouncement(fetch, VIEWER)).resolves.toBeNull();
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  // A revoked membership or branch role outlives its revocation in either cache,
+  // so an otherwise-eligible viewer must be denied while a gate read is stale.
+  it("denies an eligible viewer while the roster is stale", async () => {
+    H.rosterStale = true;
+    const spy = stubModLeaderboard();
+    await expect(loadWeeklyRaidAnnouncement(fetch, VIEWER)).resolves.toBeNull();
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("denies an eligible viewer while the rank profiles are stale", async () => {
+    H.profilesStale = true;
     const spy = stubModLeaderboard();
     await expect(loadWeeklyRaidAnnouncement(fetch, VIEWER)).resolves.toBeNull();
     expect(spy).not.toHaveBeenCalled();

@@ -6,7 +6,7 @@ import {
   sameUuid,
   type RaidLeaderboardEntry,
 } from "$lib/server/raidEventBoards";
-import { getLinkedRankProfiles } from "$lib/server/rankProfiles";
+import { getLinkedRankProfilesResult } from "$lib/server/rankProfiles";
 import { createCachedResource, type CachedResource } from "$lib/server/serverCache";
 import { KNOWN_RAIDS } from "$lib/site/raids";
 import type { Viewer } from "$lib/site/viewer";
@@ -195,6 +195,12 @@ function announcementCacheFor(weekStart: string): CachedResource<WeeklyRaidAnnou
  * Resolves the announcement for one viewer: denies ineligible and anonymous
  * viewers before any board data is read, then serves the shared cached build.
  * Returns null on any failure, so the section is simply absent.
+ *
+ * Both halves of the gate are read fresh and fail closed when they come back
+ * stale, matching the member-only raid page. A cached roster or profile outlives
+ * the revocation that removed the viewer from the guild or their branch - by up
+ * to three days and 30 minutes respectively - so authorizing from one would keep
+ * serving them per-member tracker data through an upstream outage.
  */
 export async function loadWeeklyRaidAnnouncement(
   fetchImpl: typeof fetch,
@@ -203,10 +209,14 @@ export async function loadWeeklyRaidAnnouncement(
   if (!viewer) return null;
   try {
     const [stats, profiles] = await Promise.all([
-      getGuildStats(fetchImpl, { allowStale: true }),
-      getLinkedRankProfiles(fetchImpl),
+      getGuildStats(fetchImpl, { allowStale: false }),
+      getLinkedRankProfilesResult(fetchImpl, { allowStale: false }),
     ]);
-    if (!isAnnouncementViewer(profiles, stats.members, viewer)) return null;
+    if (stats.stale || profiles.stale) {
+      console.warn("weekly raid announcement: gate reads are stale, denying");
+      return null;
+    }
+    if (!isAnnouncementViewer(profiles.data, stats.members, viewer)) return null;
     const cache = announcementCacheFor(weekWindows(Date.now()).current.start);
     return (await cache.get(fetchImpl, { allowStale: true })).data;
   } catch (error) {
