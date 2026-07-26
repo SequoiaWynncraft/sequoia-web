@@ -7,6 +7,7 @@
   import ScopeChips from "$lib/design-system/components/ScopeChips.svelte";
   import { nmsrFace } from "$lib/site/nmsr";
   import Podium from "$lib/design-system/components/Podium.svelte";
+  import WeeklyRaidAnnouncement from "./WeeklyRaidAnnouncement.svelte";
   import type { GuildMemberStats } from "$lib/api/guildStats";
   import type { MemberProgressEntry } from "$lib/api/memberProgress";
 
@@ -354,6 +355,15 @@
     {#snippet children()}Player statistics are temporarily unavailable - try again shortly.{/snippet}
   </DeferredPanel>
 {/if}
+
+{#await data.raidAnnouncement then announcement}
+  {#if announcement}
+    <div class="divider-gold"></div>
+    <section class="block" aria-label="Weekly raid announcement">
+      <WeeklyRaidAnnouncement {announcement} />
+    </section>
+  {/if}
+{/await}
 
 <style>
   .scope-row {

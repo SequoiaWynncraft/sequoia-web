@@ -1,6 +1,6 @@
 import { createSequoiaApiClient, type RankProfilesResponse } from "$lib/api/client";
 import { SEQUOIA_API_BASE_URL } from "$lib/config/public";
-import { createCachedResource } from "$lib/server/serverCache";
+import { createCachedResource, type CachedValue } from "$lib/server/serverCache";
 import {
   EMPTY_HONOURS,
   type BadgeTier,
@@ -30,6 +30,19 @@ export async function getLinkedRankProfiles(
   fetchImpl: typeof fetch,
 ): Promise<RankProfilesResponse> {
   return (await linkedProfiles.get(fetchImpl, { allowStale: true })).data;
+}
+
+/**
+ * The linked profiles with their staleness attached. Callers that authorize on a
+ * profile's roles - rather than merely displaying them - must ask with
+ * `allowStale: false` and refuse a result that still comes back `stale`, since a
+ * revoked role lives on in the cache for up to `STALE_MS` after the revocation.
+ */
+export async function getLinkedRankProfilesResult(
+  fetchImpl: typeof fetch,
+  options: { allowStale?: boolean } = {},
+): Promise<CachedValue<RankProfilesResponse>> {
+  return linkedProfiles.get(fetchImpl, { allowStale: options.allowStale ?? true });
 }
 
 export function honoursForMinecraft(

@@ -7,6 +7,7 @@ import {
   memberRanksByUuid,
   type MemberRankEntry,
 } from "$lib/server/rankProfiles";
+import { loadWeeklyRaidAnnouncement } from "$lib/server/weeklyRaidAnnouncement";
 
 export const prerender = false;
 
@@ -20,13 +21,21 @@ const PRESET_DAYS: Record<string, number> = { "1d": 1, "3d": 3, "1w": 7, "1m": 3
 /** Matches the backend's 400-day span clamp. */
 const ALL_DAYS = 399;
 
-export const load: PageServerLoad = async ({ fetch, url }) => {
+export const load: PageServerLoad = async ({ fetch, url, parent }) => {
   const requested = url.searchParams.get("range") ?? "now";
   const range =
     requested in PRESET_DAYS || requested === "ytd" || requested === "all" ? requested : "now";
 
+  // The Weekly Raid Announcement is for full Development/Community members only.
+  // Streamed, never awaited: the gate reads the rank API, and holding the ledger
+  // behind it would forfeit the grace race below. Ineligible viewers resolve to
+  // null, so nothing about the announcement reaches the client.
+  const raidAnnouncement = parent()
+    .then(({ viewer }) => loadWeeklyRaidAnnouncement(fetch, viewer))
+    .catch(() => null);
+
   if (range === "now") {
-    return { view: "now" as const, range, ...(await loadRoster(fetch)) };
+    return { view: "now" as const, range, raidAnnouncement, ...(await loadRoster(fetch)) };
   }
 
   const { from, to } = resolveRange(range);
@@ -35,6 +44,7 @@ export const load: PageServerLoad = async ({ fetch, url }) => {
     range,
     from,
     to,
+    raidAnnouncement,
     progress: await getMemberProgress(fetch, from, to).catch(() => null),
   };
 };
