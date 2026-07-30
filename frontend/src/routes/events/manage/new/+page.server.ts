@@ -19,8 +19,8 @@ export const load: PageServerLoad = async ({ fetch, parent }) => {
 };
 
 export const actions: Actions = {
-  save: async ({ request, cookies, fetch }) => {
-    const manager = await requireEventManager({ cookies, fetch });
+  save: async ({ request, cookies, fetch, locals }) => {
+    const manager = await requireEventManager({ cookies, fetch, locals });
     const payload = parseEventPayload(await request.formData());
     if ("error" in payload) return fail(400, { error: payload.error });
     if (!(await eventStore.insert(payload.event, { published: payload.published }))) {

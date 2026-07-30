@@ -29,7 +29,7 @@ export const load: PageServerLoad = async ({ fetch, locals, params, parent, url 
 
 export const actions: Actions = {
   save: async ({ request, params, cookies, fetch, locals }) => {
-    const manager = await requireEventManager({ cookies, fetch });
+    const manager = await requireEventManager({ cookies, fetch, locals });
     const formData = await request.formData();
     const payload = parseEventPayload(formData);
     if ("error" in payload) return fail(400, { error: payload.error });
@@ -90,8 +90,8 @@ export const actions: Actions = {
     return { saved: true, newUpdatedAt, auditWarning: !audited };
   },
 
-  delete: async ({ request, params, cookies, fetch }) => {
-    const manager = await requireEventManager({ cookies, fetch });
+  delete: async ({ request, params, cookies, fetch, locals }) => {
+    const manager = await requireEventManager({ cookies, fetch, locals });
     // Number(null) and Number("") are 0, so a missing token must become NaN to
     // be rejected as malformed rather than treated as version 0.
     const rawBaseUpdatedAt = (await request.formData()).get("baseUpdatedAt");
@@ -124,7 +124,7 @@ export const actions: Actions = {
   },
 
   rollRaffle: async ({ request, params, cookies, fetch, locals }) => {
-    const manager = await requireEventManager({ cookies, fetch });
+    const manager = await requireEventManager({ cookies, fetch, locals });
     const formData = await request.formData();
     // rollTarget is "raffleId:slot" - a single slot is rolled at a time. Split
     // on the LAST colon so a raffle id that itself contains one (e.g. a
