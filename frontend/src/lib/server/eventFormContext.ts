@@ -16,9 +16,15 @@ export interface TrackerOption {
   raid: string | null;
 }
 
+/** A roster member for editor pickers; raffle identity needs the uuid. */
+export interface MemberOption {
+  username: string;
+  uuid: string | null;
+}
+
 export interface EventFormContext {
-  /** Roster usernames for the donor picker, alphabetical. */
-  members: string[];
+  /** Roster members for the donor and raffle pickers, alphabetical. */
+  members: MemberOption[];
   /** Backend tracker events for the standings picker. */
   trackerEvents: TrackerOption[];
   /** Saved editor presets, alphabetical. */
@@ -34,8 +40,8 @@ export async function eventFormContext(fetchImpl: typeof fetch): Promise<EventFo
   ]);
   return {
     members: (stats?.members ?? [])
-      .map((member) => member.username)
-      .sort((a, b) => a.localeCompare(b)),
+      .map((member) => ({ username: member.username, uuid: member.uuid }))
+      .sort((a, b) => a.username.localeCompare(b.username)),
     trackerEvents: raidEvents.map(trackerOption),
     presets,
   };

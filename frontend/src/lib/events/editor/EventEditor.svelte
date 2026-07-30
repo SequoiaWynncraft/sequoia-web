@@ -253,8 +253,8 @@
 
     {#if draft.memberChoices.length > 0}
       <datalist id="evf-member-list">
-        {#each draft.memberChoices as member (member)}
-          <option value={member}></option>
+        {#each draft.memberChoices as member (member.username)}
+          <option value={member.username}></option>
         {/each}
       </datalist>
     {/if}
