@@ -29,6 +29,39 @@ describe("server request diagnostics", () => {
     expect(event.locals.requestId).toBe(requestId);
   });
 
+  it.each([
+    ["/account/settings", "text/html; charset=utf-8"],
+    ["/account/settings/__data.json", "application/json"],
+  ])("prevents browsers from storing page response %s", async (path, contentType) => {
+    const response = await handle({
+      event: requestEvent(path),
+      resolve: async () =>
+        new Response("page", {
+          headers: {
+            "cache-control": "public, max-age=300",
+            "content-type": contentType,
+          },
+        }),
+    });
+
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+  });
+
+  it("preserves explicit caching for public API responses", async () => {
+    const response = await handle({
+      event: requestEvent("/api/guild-overview"),
+      resolve: async () =>
+        Response.json(
+          {},
+          {
+            headers: { "cache-control": "public, max-age=60" },
+          },
+        ),
+    });
+
+    expect(response.headers.get("cache-control")).toBe("public, max-age=60");
+  });
+
   it("logs error responses without query parameters", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const event = requestEvent();
@@ -70,5 +103,21 @@ describe("server request diagnostics", () => {
         status: 500,
       }),
     );
+  });
+
+  it("does not emit a stack trace for an ordinary missing route", () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const event = requestEvent();
+    event.locals.requestId = "request-404";
+
+    expect(
+      handleError({
+        error: new Error("not found"),
+        event,
+        status: 404,
+        message: "Not Found",
+      }),
+    ).toEqual({ message: "Not Found", requestId: "request-404" });
+    expect(error).not.toHaveBeenCalled();
   });
 });
