@@ -5,7 +5,7 @@
   import { errorCopy } from "$lib/site/errorCopy";
 
   const copy = $derived(errorCopy(page.status));
-  const requestId = $derived(page.error?.requestId ?? page.data.requestId);
+  const requestId = $derived(page.error?.requestId);
 </script>
 
 <svelte:head>

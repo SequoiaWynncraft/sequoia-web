@@ -1,4 +1,3 @@
-import { error } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
 
 import { eventChart, eventStatus } from "$lib/events/helpers";
@@ -9,6 +8,7 @@ import { eventStore } from "$lib/server/eventStore";
 import { loadEventRaidCounts, sumCounts, type EventDayCount } from "$lib/server/eventActivity";
 import { loadGoalProgress } from "$lib/server/goalProgress";
 import { loadModRunCounts } from "$lib/server/modActivity";
+import { requestError } from "$lib/server/requestError";
 import {
   loadModLeaderboard,
   loadRaidEvents,
@@ -30,15 +30,17 @@ export type Standings =
   | { state: "notMember" }
   | { state: "board"; leaderboard: RaidLeaderboardEntry[]; error: string | null };
 
-export const load: PageServerLoad = async ({ fetch, params, parent }) => {
+export const load: PageServerLoad = async ({ fetch, locals, params, parent }) => {
   const stored = await eventStore.get(params.slug);
-  if (!stored) error(404, "No such event");
+  if (!stored) requestError(locals, 404, "No such event");
   const event = stored.event;
 
   // Unpublished events stay invisible except as a manager preview.
   if (!stored.published) {
     const { viewer } = await parent();
-    if ((await checkEventManager(fetch, viewer)) !== "manager") error(404, "No such event");
+    if ((await checkEventManager(fetch, viewer)) !== "manager") {
+      requestError(locals, 404, "No such event");
+    }
   }
 
   const now = new Date();

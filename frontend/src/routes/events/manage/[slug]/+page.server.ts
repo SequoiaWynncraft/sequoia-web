@@ -1,4 +1,4 @@
-import { error, fail, redirect } from "@sveltejs/kit";
+import { fail, redirect } from "@sveltejs/kit";
 import type { Actions, PageServerLoad } from "./$types";
 
 import { recordAudit } from "$lib/server/auditLog";
@@ -12,22 +12,23 @@ import { createTrackerAction, updateTrackerAction } from "$lib/server/trackerAdm
 import { parseEventPayload } from "$lib/server/eventPayload";
 import { deletePresetAction, savePresetAction } from "$lib/server/eventPresets";
 import { eventStore } from "$lib/server/eventStore";
+import { requestError } from "$lib/server/requestError";
 
 export const prerender = false;
 
-export const load: PageServerLoad = async ({ fetch, params, parent, url }) => {
+export const load: PageServerLoad = async ({ fetch, locals, params, parent, url }) => {
   const { viewer } = await parent();
   const access = await checkEventManager(fetch, viewer);
   if (access !== "manager") return { access, stored: null, context: null, auditWarning: false };
 
   const [stored, context] = await Promise.all([eventStore.get(params.slug), eventFormContext(fetch)]);
-  if (!stored) error(404, "No such event");
+  if (!stored) requestError(locals, 404, "No such event");
   // Set by the create redirect when the audit row for it did not land.
   return { access, stored, context, auditWarning: url.searchParams.get("audit") === "unrecorded" };
 };
 
 export const actions: Actions = {
-  save: async ({ request, params, cookies, fetch }) => {
+  save: async ({ request, params, cookies, fetch, locals }) => {
     const manager = await requireEventManager({ cookies, fetch });
     const formData = await request.formData();
     const payload = parseEventPayload(formData);
@@ -37,7 +38,7 @@ export const actions: Actions = {
     // stored winners onto the payload so a stale form can't revert a roll that
     // landed after it loaded; drop slots the save shrinks past.
     const stored = await eventStore.get(params.slug);
-    if (!stored) error(404, "No such event");
+    if (!stored) requestError(locals, 404, "No such event");
     // Optimistic-concurrency check against the version the form loaded from: if
     // the stored event moved on since (another manager saved, or a roll landed),
     // the draft is stale and would silently clobber that change even though the
@@ -122,7 +123,7 @@ export const actions: Actions = {
     redirect(303, audited ? "/events/manage" : "/events/manage?audit=unrecorded");
   },
 
-  rollRaffle: async ({ request, params, cookies, fetch }) => {
+  rollRaffle: async ({ request, params, cookies, fetch, locals }) => {
     const manager = await requireEventManager({ cookies, fetch });
     const formData = await request.formData();
     // rollTarget is "raffleId:slot" - a single slot is rolled at a time. Split
@@ -139,7 +140,7 @@ export const actions: Actions = {
     // Roll against the saved event, not the submitted draft, so a re-roll is
     // deterministic and never depends on unsaved editor state.
     const stored = await eventStore.get(params.slug);
-    if (!stored) error(404, "No such event");
+    if (!stored) requestError(locals, 404, "No such event");
     // A roll from a stale tab would run against raffle config the manager
     // never reviewed - and its success would advance the tab's version token
     // past those unseen changes. Reject it like a stale save. Same strict
