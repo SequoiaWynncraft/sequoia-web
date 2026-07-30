@@ -2,22 +2,20 @@
   import { invalidateAll } from "$app/navigation";
   import { SvelteSet } from "svelte/reactivity";
 
-  import PageScaffold from "$lib/components/PageScaffold.svelte";
-  import PageHeader from "$lib/components/PageHeader.svelte";
   import Button from "$lib/design-system/components/Button.svelte";
   import Card from "$lib/design-system/components/Card.svelte";
   import SectionHeading from "$lib/design-system/components/SectionHeading.svelte";
   import { createBagshopClient, RARITIES, type Order } from "$lib/api/bagshop";
+  import ManageGate from "$lib/manage/ManageGate.svelte";
+  import ManageHeader from "$lib/manage/ManageHeader.svelte";
   import { groupInventoryByRaid } from "$lib/site/bagshop";
-  import { pageView } from "$lib/site/nav";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
 
-  const view = pageView("/services/bagshop");
   const client = createBagshopClient({ fetch });
 
-  const groups = $derived(groupInventoryByRaid(data.inventory));
+  const groups = $derived(groupInventoryByRaid(data.inventory ?? []));
 
   // Message/inventory IDs with an action in flight — a Set so concurrent Fill/Decline/Save
   // actions keep independent pending state rather than clobbering one another.
@@ -113,10 +111,29 @@
   }
 </script>
 
-<PageScaffold crumbs={[...view.crumbs, { label: "Manage" }]} width="xl">
-  {#snippet children()}
-    <PageHeader kicker="Bag shop · Staff" title="Manage" lead="Claim, fill and decline orders, and edit stock, prices and caps." />
+<svelte:head>
+  <title>Manage bag shop - Sequoia</title>
+  <meta name="robots" content="noindex" />
+</svelte:head>
 
+<div class="mg-page">
+  <ManageHeader
+    area="Bag shop"
+    title="Orders & stock"
+    lead="Claim, fill and decline orders, and edit stock, prices and caps."
+  />
+
+  {#if data.access !== "granted"}
+    <ManageGate
+      access={data.access}
+      returnTo="/manage/bagshop"
+      title="Shop staff only"
+      signinText="Sign in to manage the bag shop."
+      deniedText="The bag shop panel is restricted to shop staff."
+      backHref="/services/bagshop"
+      backLabel="Back to the shop"
+    />
+  {:else}
     {#if actionError}
       <p class="mg-error">{actionError}</p>
     {/if}
@@ -245,10 +262,13 @@
         </table>
       </div>
     </section>
-  {/snippet}
-</PageScaffold>
+  {/if}
+</div>
 
 <style>
+  .mg-page {
+    padding-bottom: 48px;
+  }
   .mg-section {
     margin-top: 2.5rem;
   }

@@ -1,11 +1,11 @@
 <script lang="ts">
-  import PageHeader from "$lib/components/PageHeader.svelte";
   import Button from "$lib/design-system/components/Button.svelte";
   import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
   import { formatWindow } from "$lib/events/format";
   import { raidIconUrl } from "$lib/events/raidIcons";
   import type { EventStatus } from "$lib/events/types";
-  import ManageGate from "./ManageGate.svelte";
+  import ManageHeader from "$lib/manage/ManageHeader.svelte";
+  import EventsGate from "./EventsGate.svelte";
 
   let { data } = $props();
 
@@ -23,10 +23,10 @@
 </svelte:head>
 
 <div class="mg-page">
-  <PageHeader kicker="Events" title="Manage" />
+  <ManageHeader area="Events" title="Events" />
 
-  {#if data.access !== "manager"}
-    <ManageGate access={data.access} returnTo="/events/manage" />
+  {#if data.access !== "granted"}
+    <EventsGate access={data.access} returnTo="/manage/events" />
   {:else if data.entries}
     {#if data.auditWarning}
       <p class="mg-audit-warning" role="alert">
@@ -36,15 +36,15 @@
     <SectionLabel meta={String(data.entries.length)}>
       {#snippet children()}All events{/snippet}
       {#snippet actions()}
-        <Button size="sm" variant="ghost" href="/events/manage/audit">Audit log</Button>
-        <Button size="sm" href="/events/manage/new">New event</Button>
+        <Button size="sm" variant="ghost" href="/manage/events/audit">Audit log</Button>
+        <Button size="sm" href="/manage/events/new">New event</Button>
       {/snippet}
     </SectionLabel>
 
     <ul class="mg-list">
       {#each data.entries as entry (entry.event.slug)}
         <li>
-          <a class="mg-row focus-ring" href={`/events/manage/${entry.event.slug}`}>
+          <a class="mg-row focus-ring" href={`/manage/events/${entry.event.slug}`}>
             <span
               class="mg-swatch"
               aria-hidden="true"
