@@ -1,10 +1,13 @@
 import type { SubmitFunction } from "@sveltejs/kit";
 
+import type { GuildRankName } from "$lib/api/guildStats";
 import type {
   CompRole,
+  EligibilityRule,
   EventIconPlacement,
   EventTheme,
   GuildEvent,
+  ManualEntrant,
   PrizeEntry,
   RaffleEligibility,
   RaffleWinner,
@@ -48,6 +51,35 @@ export interface PersonalMilestoneRow {
   unlock: string;
 }
 
+export type RuleType = "guildRank" | "seqRank" | "stat" | "milestone";
+export type StatKind = "raids" | "playtime" | "wars";
+
+/** One eligibility rule under construction; incomplete rows drop at serialize. */
+export interface RuleRow {
+  /** Local list key. */
+  key: number;
+  type: RuleType;
+  /** Selected rank names, for guildRank/seqRank rules. */
+  ranks: string[];
+  stat: StatKind;
+  min: string | number | null | undefined;
+  windowFrom: string;
+  windowTo: string;
+  /** Original window instants, so an untouched field keeps its seconds. */
+  seedWindowFrom: string;
+  seedWindowTo: string;
+  milestoneId: string;
+}
+
+/** A hand-picked include/exclude entry; tickets only matter on includes. */
+export interface ManualRow {
+  /** Local list key. */
+  key: number;
+  username: string;
+  player_uuid: string;
+  tickets: string | number | null | undefined;
+}
+
 export interface RaffleRow {
   /** Stable id that persists in the event JSON and targets rolls. */
   id: string;
@@ -55,21 +87,34 @@ export interface RaffleRow {
   key: number;
   prize: string;
   winnerCount: string | number | null | undefined;
-  perTicket: string | number | null | undefined;
+  /** Ticket weighting; windowFrom/To below is the weight's counting window. */
+  weightMode: "flat" | "perRaid" | "perStat";
+  weightStat: StatKind;
+  /** perTicket (perRaid) or per (perStat). */
+  weightPer: string | number | null | undefined;
   windowFrom: string;
   windowTo: string;
   /** Original window instants, so an untouched field keeps its seconds. */
   seedWindowFrom: string;
   seedWindowTo: string;
+  rules: RuleRow[];
+  include: ManualRow[];
+  exclude: ManualRow[];
   /** Frozen roll results, edited only by rolling - passed through on save. */
   winners: RaffleWinner[];
   drawnAt: string;
-  /** PersonalMilestone id required to enter, or "" for no gate. */
-  requiresMilestone: string;
-  /**
-   * Composable pool config, carried opaquely until the rule builder lands:
-   * the editor must round-trip it so a save can't silently strip it.
-   */
+}
+
+/** The lenient raffle shape both seeding paths (typed event, snapshot) share. */
+interface RaffleSeed {
+  id: string;
+  prize: string;
+  winnerCount: string | number | null | undefined;
+  perTicket: string | number | null | undefined;
+  window?: { from: string; to: string };
+  winners?: RaffleWinner[];
+  drawnAt?: string;
+  requiresMilestone?: string;
   eligibility?: RaffleEligibility;
 }
 
@@ -167,6 +212,8 @@ export class EventDraft {
   knownUpdatedAt = $state<number | null>(null);
 
   readonly memberChoices: MemberOption[];
+  /** Org ladder labels for the eligibility picker, most senior first. */
+  readonly seqRankChoices: string[];
   trackerChoices = $state<TrackerOption[]>([]);
 
   name = $state("");
@@ -261,6 +308,7 @@ export class EventDraft {
     this.liveInitial = initial;
     this.knownUpdatedAt = seed.initialUpdatedAt ?? null;
     this.memberChoices = seed.context?.members ?? [];
+    this.seqRankChoices = seed.context?.seqRanks ?? [];
     this.trackerChoices = seed.context?.trackerEvents ?? [];
     this.presetChoices = seed.context?.presets ?? [];
 
@@ -337,22 +385,7 @@ export class EventDraft {
         !this.trackerChoices.some((option) => option.id === initial.tracker?.eventId));
 
     this.raffleExcludeWinners = initial?.raffleExcludeWinners ?? false;
-    this.raffles =
-      initial?.raffles?.map((raffle) => ({
-        id: raffle.id,
-        key: this.nextRowId++,
-        prize: raffle.prize,
-        winnerCount: raffle.winnerCount,
-        perTicket: raffle.perTicket,
-        windowFrom: toInput(raffle.window?.from),
-        windowTo: toInput(raffle.window?.to),
-        seedWindowFrom: raffle.window?.from ?? "",
-        seedWindowTo: raffle.window?.to ?? "",
-        winners: raffle.winners ?? [],
-        drawnAt: raffle.drawnAt ?? "",
-        requiresMilestone: raffle.requiresMilestone ?? "",
-        eligibility: raffle.eligibility,
-      })) ?? [];
+    this.raffles = initial?.raffles?.map((raffle) => this.seedRaffleRow(raffle)) ?? [];
 
     this.lastCaptured = this.payload;
   }
@@ -386,19 +419,199 @@ export class EventDraft {
       key: this.nextRowId++,
       prize: "",
       winnerCount: 1,
-      perTicket: 5,
+      weightMode: "perRaid",
+      weightStat: "raids",
+      weightPer: 5,
       windowFrom: "",
       windowTo: "",
       seedWindowFrom: "",
       seedWindowTo: "",
+      rules: [],
+      include: [],
+      exclude: [],
       winners: [],
       drawnAt: "",
-      requiresMilestone: "",
     };
+  }
+
+  newRuleRow(type: RuleType): RuleRow {
+    return {
+      key: this.nextRowId++,
+      type,
+      ranks: [],
+      stat: "raids",
+      min: "",
+      windowFrom: "",
+      windowTo: "",
+      seedWindowFrom: "",
+      seedWindowTo: "",
+      milestoneId: "",
+    };
+  }
+
+  newManualRow(username: string, uuid: string): ManualRow {
+    return { key: this.nextRowId++, username, player_uuid: uuid, tickets: "" };
   }
 
   newRowId(): number {
     return this.nextRowId++;
+  }
+
+  /** Builds a builder row from a stored raffle - or, absent an eligibility
+   * block, from the legacy fields, so opening any raffle lands in the same
+   * builder (the first save then writes the eligibility it shows). */
+  private seedRaffleRow(seed: RaffleSeed): RaffleRow {
+    const weight = seed.eligibility?.weight;
+    const window = weight
+      ? weight.mode === "flat"
+        ? undefined
+        : weight.window
+      : seed.window;
+    const rules = (seed.eligibility?.rules ?? []).map((rule) => this.seedRuleRow(rule));
+    // The legacy milestone gate reads as a milestone rule in the builder.
+    if (!seed.eligibility && seed.requiresMilestone) {
+      const rule = this.newRuleRow("milestone");
+      rule.milestoneId = seed.requiresMilestone;
+      rules.push(rule);
+    }
+    return {
+      id: seed.id,
+      key: this.nextRowId++,
+      prize: seed.prize,
+      winnerCount: seed.winnerCount,
+      weightMode: weight?.mode ?? "perRaid",
+      weightStat: weight?.mode === "perStat" ? weight.stat : "raids",
+      weightPer: weight
+        ? weight.mode === "perRaid"
+          ? weight.perTicket
+          : weight.mode === "perStat"
+            ? weight.per
+            : 1
+        : seed.perTicket,
+      windowFrom: toInput(window?.from),
+      windowTo: toInput(window?.to),
+      seedWindowFrom: window?.from ?? "",
+      seedWindowTo: window?.to ?? "",
+      rules,
+      include: (seed.eligibility?.include ?? []).map((entry) => ({
+        key: this.nextRowId++,
+        username: entry.username,
+        player_uuid: entry.player_uuid,
+        tickets: entry.tickets ?? 1,
+      })),
+      exclude: (seed.eligibility?.exclude ?? []).map((entry) => ({
+        key: this.nextRowId++,
+        username: entry.username,
+        player_uuid: entry.player_uuid,
+        tickets: "",
+      })),
+      winners: seed.winners ?? [],
+      drawnAt: seed.drawnAt ?? "",
+    };
+  }
+
+  private seedRuleRow(rule: EligibilityRule): RuleRow {
+    const row = this.newRuleRow(rule.type);
+    switch (rule.type) {
+      case "guildRank":
+      case "seqRank":
+        row.ranks = [...rule.ranks];
+        break;
+      case "stat":
+        row.stat = rule.stat;
+        row.min = rule.min;
+        row.windowFrom = toInput(rule.window.from);
+        row.windowTo = toInput(rule.window.to);
+        row.seedWindowFrom = rule.window.from;
+        row.seedWindowTo = rule.window.to;
+        break;
+      case "milestone":
+        row.milestoneId = rule.milestoneId;
+        break;
+    }
+    return row;
+  }
+
+  /**
+   * The eligibility block a row serializes to. Incomplete rule rows and
+   * unresolved manual picks drop, like every other empty repeater row; a
+   * milestone rule only survives while its milestone does.
+   */
+  rowEligibility(row: RaffleRow, milestoneIds: Set<string>): RaffleEligibility {
+    const eligibility: RaffleEligibility = {};
+    const include = row.include
+      .filter((entry) => entry.player_uuid && entry.username)
+      .map((entry) => {
+        const manual: ManualEntrant = {
+          player_uuid: entry.player_uuid,
+          username: entry.username,
+        };
+        const tickets = toCount(entry.tickets);
+        if (Number.isFinite(tickets) && tickets > 1) manual.tickets = tickets;
+        return manual;
+      });
+    if (include.length > 0) eligibility.include = include;
+    const exclude = row.exclude
+      .filter((entry) => entry.player_uuid && entry.username)
+      .map((entry) => ({ player_uuid: entry.player_uuid, username: entry.username }));
+    if (exclude.length > 0) eligibility.exclude = exclude;
+    const rules = row.rules.flatMap((rule): EligibilityRule[] => {
+      switch (rule.type) {
+        case "guildRank":
+          return rule.ranks.length > 0
+            ? [{ type: "guildRank", ranks: rule.ranks as GuildRankName[] }]
+            : [];
+        case "seqRank":
+          return rule.ranks.length > 0 ? [{ type: "seqRank", ranks: [...rule.ranks] }] : [];
+        case "stat":
+          if (!hasCount(rule.min) || !rule.windowFrom || !rule.windowTo) return [];
+          return [
+            {
+              type: "stat",
+              stat: rule.stat,
+              min: toCount(rule.min),
+              window: {
+                from: keepInstant(rule.windowFrom, rule.seedWindowFrom),
+                to: keepInstant(rule.windowTo, rule.seedWindowTo),
+              },
+            },
+          ];
+        case "milestone":
+          return rule.milestoneId && milestoneIds.has(rule.milestoneId)
+            ? [{ type: "milestone", milestoneId: rule.milestoneId }]
+            : [];
+      }
+    });
+    if (rules.length > 0) eligibility.rules = rules;
+    if (row.weightMode === "flat") {
+      eligibility.weight = { mode: "flat" };
+    } else if (row.weightMode === "perStat") {
+      const weight: RaffleEligibility["weight"] = {
+        mode: "perStat",
+        stat: row.weightStat,
+        per: toCount(row.weightPer),
+        window: {
+          from: keepInstant(row.windowFrom, row.seedWindowFrom),
+          to: keepInstant(row.windowTo, row.seedWindowTo),
+        },
+      };
+      eligibility.weight = weight;
+    } else {
+      const weight: RaffleEligibility["weight"] = {
+        mode: "perRaid",
+        perTicket: toCount(row.weightPer),
+      };
+      // Either bound present serializes, so a one-sided window reaches the
+      // validator instead of silently vanishing.
+      if (row.windowFrom || row.windowTo) {
+        weight.window = {
+          from: keepInstant(row.windowFrom, row.seedWindowFrom),
+          to: keepInstant(row.windowTo, row.seedWindowTo),
+        };
+      }
+      eligibility.weight = weight;
+    }
+    return eligibility;
   }
 
   // ── Derived views ───────────────────────────────────────────────────
@@ -423,28 +636,35 @@ export class EventDraft {
       this.trackerEventId === (initial?.tracker?.eventId ?? "") &&
       this.trackerTracking === (initial?.tracker?.tracking ?? "api") &&
       this.raffleExcludeWinners === (initial?.raffleExcludeWinners ?? false);
-    // The roll resolves this raffle's gate to the *stored* milestone target, so
-    // both the gate choice and (when gated) the referenced milestone's target
-    // must match what the server holds - an unsaved edit to either would draw
-    // against a stale threshold.
-    const gate = row.requiresMilestone || "";
-    const savedGate = saved.requiresMilestone ?? "";
-    const gateTargetUnchanged =
-      gate === "" ||
-      toCount(this.personalMilestones.find((entry) => entry.id === gate)?.at) ===
-        initial?.personalMilestones?.find((entry) => entry.id === gate)?.at;
+    // The roll resolves milestone rules to the *stored* targets, so every
+    // referenced milestone's target must match what the server holds - an
+    // unsaved edit to one would draw against a stale threshold.
+    const milestoneTargetsUnchanged = row.rules.every((rule) => {
+      if (rule.type !== "milestone" || !rule.milestoneId) return true;
+      return (
+        toCount(this.personalMilestones.find((entry) => entry.id === rule.milestoneId)?.at) ===
+        initial?.personalMilestones?.find((entry) => entry.id === rule.milestoneId)?.at
+      );
+    });
+    // The whole pool definition is draw-affecting. Compare through the same
+    // serializer both sides, so a stored legacy raffle (no eligibility yet)
+    // compares against its own builder equivalent and stays rollable until
+    // actually edited.
+    const savedMilestoneIds = new Set(
+      (initial?.personalMilestones ?? []).map((milestone) => milestone.id),
+    );
+    const currentMilestoneIds = new Set(
+      this.personalMilestones.filter((entry) => hasCount(entry.at) || entry.unlock.trim()).map((entry) => entry.id),
+    );
+    const eligibilityUnchanged =
+      JSON.stringify(this.rowEligibility(row, currentMilestoneIds)) ===
+      JSON.stringify(this.rowEligibility(this.seedRaffleRow(saved), savedMilestoneIds));
     return (
       eventConfigUnchanged &&
-      gate === savedGate &&
-      gateTargetUnchanged &&
+      milestoneTargetsUnchanged &&
+      eligibilityUnchanged &&
       row.prize.trim() === saved.prize &&
-      toCount(row.winnerCount) === saved.winnerCount &&
-      toCount(row.perTicket) === saved.perTicket &&
-      row.windowFrom === toInput(saved.window?.from) &&
-      row.windowTo === toInput(saved.window?.to) &&
-      // The composable pool config is draw-affecting too: an unsaved edit to
-      // it would draw against rules the server doesn't hold yet.
-      JSON.stringify(row.eligibility ?? null) === JSON.stringify(saved.eligibility ?? null)
+      toCount(row.winnerCount) === saved.winnerCount
     );
   }
 
@@ -575,26 +795,42 @@ export class EventDraft {
     }
     // Rows added but left fully empty are noise; drop them so an untouched
     // "+ Add raffle" click never fails the save on a missing prize. The
-    // winner-count/raids-per-ticket defaults are always present, so they can't
-    // signal intent - a row counts only once it has a prize, a window, or
-    // frozen winners (the last keeps a save from ever wiping a rolled result).
+    // winner-count/weight defaults are always present, so they can't signal
+    // intent - a row counts once it has a prize, a window, rules, manual
+    // picks, or frozen winners (the last keeps a save from ever wiping a
+    // rolled result).
+    const filledMilestoneIds = new Set(filledMilestones.map((entry) => entry.id));
     const filledRaffles = this.raffles
-      .filter((row) => row.prize.trim() || row.windowFrom || row.windowTo || row.winners.length > 0)
+      .filter(
+        (row) =>
+          row.prize.trim() ||
+          row.windowFrom ||
+          row.windowTo ||
+          row.rules.length > 0 ||
+          row.include.length > 0 ||
+          row.exclude.length > 0 ||
+          row.winners.length > 0,
+      )
       .map((row) => {
+        const eligibility = this.rowEligibility(row, filledMilestoneIds);
         const raffle: Record<string, unknown> = {
           id: row.id,
           prize: row.prize,
           winnerCount: toCount(row.winnerCount),
-          perTicket: toCount(row.perTicket),
+          // Rollback mirror: old code ignores `eligibility` and reads these
+          // legacy fields, so a per-raid raffle degrades to its exact legacy
+          // equivalent instead of vanishing or drawing everyone.
+          perTicket: row.weightMode === "perRaid" ? toCount(row.weightPer) : 1,
         };
-        // Serialize the window when either bound is set, not only both, so a
-        // one-sided window reaches the validator (which rejects the empty bound)
-        // instead of silently vanishing.
-        if (row.windowFrom || row.windowTo) {
+        if (row.weightMode === "perRaid" && (row.windowFrom || row.windowTo)) {
           raffle.window = {
             from: keepInstant(row.windowFrom, row.seedWindowFrom),
             to: keepInstant(row.windowTo, row.seedWindowTo),
           };
+        }
+        const firstMilestoneRule = eligibility.rules?.find((rule) => rule.type === "milestone");
+        if (firstMilestoneRule && firstMilestoneRule.type === "milestone") {
+          raffle.requiresMilestone = firstMilestoneRule.milestoneId;
         }
         // Shrinking the winner count drops the now-orphaned slots' winners.
         const winnerCount = toCount(row.winnerCount);
@@ -603,15 +839,7 @@ export class EventDraft {
         );
         if (keptWinners.length > 0) raffle.winners = keptWinners;
         if (keptWinners.length > 0 && row.drawnAt) raffle.drawnAt = row.drawnAt;
-        // Only emit a gate that still points at a live milestone - a milestone
-        // deleted after being picked would otherwise fail validation as dangling.
-        if (
-          row.requiresMilestone &&
-          filledMilestones.some((entry) => entry.id === row.requiresMilestone)
-        ) {
-          raffle.requiresMilestone = row.requiresMilestone;
-        }
-        if (row.eligibility) raffle.eligibility = row.eligibility;
+        raffle.eligibility = eligibility;
         return raffle;
       });
     if (filledRaffles.length > 0) event.raffles = filledRaffles;
@@ -902,40 +1130,36 @@ export class EventDraft {
     this.raffles = rafflesDraft.map((entry) => {
       const record = (entry ?? {}) as Record<string, unknown>;
       const windowRecord = (record.window ?? null) as Record<string, unknown> | null;
-      const from = windowRecord ? text(windowRecord.from) : "";
-      const to = windowRecord ? text(windowRecord.to) : "";
       const winnersDraft = Array.isArray(record.winners) ? record.winners : [];
-      return {
+      return this.seedRaffleRow({
         // A snapshot missing an id (hand-edited preset) still needs a stable one.
         id: text(record.id) || crypto.randomUUID(),
-        key: this.nextRowId++,
         prize: text(record.prize),
         winnerCount: count(record.winnerCount),
         perTicket: count(record.perTicket),
-        windowFrom: from.slice(0, 16),
-        windowTo: to.slice(0, 16),
-        seedWindowFrom: from,
-        seedWindowTo: to,
+        window: windowRecord
+          ? { from: text(windowRecord.from), to: text(windowRecord.to) }
+          : undefined,
         winners: winnersDraft.map((winner) => {
           const winnerRecord = (winner ?? {}) as Record<string, unknown>;
-          const entry: RaffleWinner = {
+          const frozen: RaffleWinner = {
             slot: typeof winnerRecord.slot === "number" ? winnerRecord.slot : 0,
             username: text(winnerRecord.username),
             player_uuid: text(winnerRecord.player_uuid),
             tickets: typeof winnerRecord.tickets === "number" ? winnerRecord.tickets : 0,
           };
-          if (winnerRecord.source === "manual") entry.source = "manual";
-          return entry;
+          if (winnerRecord.source === "manual") frozen.source = "manual";
+          return frozen;
         }),
-        drawnAt: text(record.drawnAt),
-        requiresMilestone: text(record.requiresMilestone),
-        // Opaque until the rule builder lands - the server validator is the
-        // authority on its shape, the editor only round-trips it.
+        drawnAt: text(record.drawnAt) || undefined,
+        requiresMilestone: text(record.requiresMilestone) || undefined,
+        // Snapshots come from this editor's own serialization; a hand-edited
+        // preset still lands in the server validator on save.
         eligibility:
           record.eligibility && typeof record.eligibility === "object"
             ? (record.eligibility as RaffleEligibility)
             : undefined,
-      };
+      });
     });
     this.raffleExcludeWinners = draft.raffleExcludeWinners === true;
   }

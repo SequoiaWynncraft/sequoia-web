@@ -94,16 +94,27 @@ export function sectionIssues(draft: EventDraft): Partial<Record<SectionId, stri
 
   for (const raffle of draft.raffles) {
     const filled =
-      raffle.prize.trim() || raffle.windowFrom || raffle.windowTo || raffle.winners.length > 0;
+      raffle.prize.trim() ||
+      raffle.windowFrom ||
+      raffle.windowTo ||
+      raffle.rules.length > 0 ||
+      raffle.include.length > 0 ||
+      raffle.exclude.length > 0 ||
+      raffle.winners.length > 0;
     if (!filled) continue;
     if (!raffle.prize.trim()) add("raffles", "A raffle needs a prize");
     const winnerCount = toCount(raffle.winnerCount);
     if (!Number.isInteger(winnerCount) || winnerCount < 1) add("raffles", "Winners must be at least 1");
-    const perTicket = toCount(raffle.perTicket);
-    if (!Number.isInteger(perTicket) || perTicket < 1) {
-      add("raffles", "Raids per ticket must be at least 1");
+    if (raffle.weightMode !== "flat") {
+      const per = toCount(raffle.weightPer);
+      if (!Number.isInteger(per) || per < 1) {
+        add("raffles", raffle.weightMode === "perRaid" ? "Raids per ticket must be at least 1" : "Per-stat divisor must be at least 1");
+      }
     }
-    if ((raffle.windowFrom === "") !== (raffle.windowTo === "")) {
+    const windowRequired = raffle.weightMode === "perStat";
+    if (windowRequired && (!raffle.windowFrom || !raffle.windowTo)) {
+      add("raffles", "A per-stat weight needs a counting window");
+    } else if ((raffle.windowFrom === "") !== (raffle.windowTo === "")) {
       add("raffles", "A window needs both bounds");
     } else if (invalidInstant(raffle.windowFrom) || invalidInstant(raffle.windowTo)) {
       add("raffles", "Window times must be valid HH:MM");
@@ -113,6 +124,24 @@ export function sectionIssues(draft: EventDraft): Partial<Record<SectionId, stri
       Date.parse(toInstant(raffle.windowFrom)) >= Date.parse(toInstant(raffle.windowTo))
     ) {
       add("raffles", "The window must end after it starts");
+    }
+    for (const rule of raffle.rules) {
+      if ((rule.type === "guildRank" || rule.type === "seqRank") && rule.ranks.length === 0) {
+        add("raffles", "A rank rule needs at least one rank");
+      }
+      if (rule.type === "stat") {
+        if (!hasCount(rule.min)) add("raffles", "A stat rule needs a minimum");
+        if (!rule.windowFrom || !rule.windowTo) add("raffles", "A stat rule needs a window");
+      }
+      if (rule.type === "milestone" && !rule.milestoneId) {
+        add("raffles", "A milestone rule needs a milestone");
+      }
+    }
+    for (const entry of [...raffle.include, ...raffle.exclude]) {
+      if (!entry.player_uuid) {
+        add("raffles", "Pick members from the roster list");
+        break;
+      }
     }
   }
 

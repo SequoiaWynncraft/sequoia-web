@@ -3,6 +3,7 @@ import { formatWindow } from "$lib/events/format";
 import { listPresets, type EventPreset } from "./eventPresets";
 import { getGuildStats } from "./guildStats";
 import { loadRaidEvents } from "./raidEventBoards";
+import { getLinkedRankProfiles, progressionRankLabels } from "./rankProfiles";
 
 export interface TrackerOption {
   id: string;
@@ -29,14 +30,17 @@ export interface EventFormContext {
   trackerEvents: TrackerOption[];
   /** Saved editor presets, alphabetical. */
   presets: EventPreset[];
+  /** Org ladder labels for the eligibility picker, most senior first. */
+  seqRanks: string[];
 }
 
 /** Picker data for the event editor - lookup helpers, not authorization. */
 export async function eventFormContext(fetchImpl: typeof fetch): Promise<EventFormContext> {
-  const [stats, raidEvents, presets] = await Promise.all([
+  const [stats, raidEvents, presets, profiles] = await Promise.all([
     getGuildStats(fetchImpl, { allowStale: true }).catch(() => null),
     loadRaidEvents(fetchImpl),
     listPresets().catch(() => [] as EventPreset[]),
+    getLinkedRankProfiles(fetchImpl).catch(() => null),
   ]);
   return {
     members: (stats?.members ?? [])
@@ -44,6 +48,7 @@ export async function eventFormContext(fetchImpl: typeof fetch): Promise<EventFo
       .sort((a, b) => a.username.localeCompare(b.username)),
     trackerEvents: raidEvents.map(trackerOption),
     presets,
+    seqRanks: profiles ? progressionRankLabels(profiles) : [],
   };
 }
 
