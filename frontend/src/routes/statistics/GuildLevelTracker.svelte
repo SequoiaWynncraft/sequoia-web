@@ -36,7 +36,11 @@
   const stale = $derived(now !== null && now - observedAtMs > STALE_AFTER_MS);
   // The bar is a share of one level, so a payload over 100 cannot overflow it.
   const xpWidth = $derived(Math.min(100, Math.max(0, tracker.current.xpPercent)));
-  const canCopy = $derived(tracker.history.length >= 2);
+  // The second-newest row is the window's start. When it carries no `fromLevel`
+  // it is only the oldest observation the backend holds, not a level-up, so the
+  // span back to it is not a level's worth of raids and must not be offered.
+  const canCopyCommand = $derived(tracker.history[1]?.fromLevel != null);
+  const canCopyPayout = $derived(tracker.payoutText !== null);
 
   /** Formats an ISO instant as "dd/MM/yyyy, HH:mm:ss" in the resolved timezone. */
   function stamp(iso: string): string {
@@ -87,7 +91,7 @@
 
   function copyCommand() {
     const [last, previous] = tracker.history;
-    if (!last || !previous) return;
+    if (!last || !previous || previous.fromLevel === null) return;
     copy(`-graids -g SEQ -r ${daysAgo(previous.reachedAt)} ${daysAgo(last.reachedAt)}`, "command");
   }
 
@@ -128,10 +132,10 @@
     <div class="history-head">
       <h3 class="history-title">Level-up History</h3>
       <div class="actions">
-        <button type="button" onclick={copyCommand} disabled={!canCopy}>
+        <button type="button" onclick={copyCommand} disabled={!canCopyCommand}>
           {copied === "command" ? "Copied" : "Copy ano command"}
         </button>
-        <button type="button" onclick={copyPayout} disabled={!canCopy}>
+        <button type="button" onclick={copyPayout} disabled={!canCopyPayout}>
           {copied === "payout" ? "Copied" : "Copy Raid Payout Message"}
         </button>
       </div>
