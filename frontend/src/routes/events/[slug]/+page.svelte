@@ -125,7 +125,7 @@
     {#if data.draft}
       <p class="ev-draft-note ev-enter" style="--enter: 3">
         Draft preview - hidden from the hub until it is listed.
-        <a class="focus-ring" href={`/events/manage/${event.slug}`}>Edit</a>
+        <a class="focus-ring" href={`/manage/events/${event.slug}`}>Edit</a>
       </p>
     {/if}
     {#if event.about}

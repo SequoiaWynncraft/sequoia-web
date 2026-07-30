@@ -1,28 +1,45 @@
 <script lang="ts">
   import Button from "$lib/design-system/components/Button.svelte";
-  import type { ManagerAccess } from "$lib/server/eventManagers";
   import { webAuthStartUrl } from "$lib/site/webAuth";
+  import type { AreaAccess } from "./types";
 
-  let { access, returnTo }: { access: Exclude<ManagerAccess, "manager">; returnTo: string } =
-    $props();
+  let {
+    access,
+    returnTo,
+    title = "Restricted",
+    signinText = "Sign in to continue.",
+    deniedText = "You don't have access to this area.",
+    backHref,
+    backLabel = "Back",
+  }: {
+    access: Exclude<AreaAccess, "granted">;
+    returnTo: string;
+    title?: string;
+    signinText?: string;
+    deniedText?: string;
+    backHref?: string;
+    backLabel?: string;
+  } = $props();
 </script>
 
-<div class="mg-gate">
-  <span class="mg-gate-diamond" aria-hidden="true">◆</span>
-  <h2 class="mg-gate-title">Guild leadership only</h2>
+<div class="gate">
+  <span class="gate-diamond" aria-hidden="true">◆</span>
+  <h2 class="gate-title">{title}</h2>
   {#if access === "signin"}
-    <p class="mg-gate-text">Sign in to manage guild events.</p>
+    <p class="gate-text">{signinText}</p>
     <Button href={webAuthStartUrl(returnTo)}>Sign in</Button>
   {:else if access === "unverified"}
-    <p class="mg-gate-text">Membership can't be verified right now - try again shortly.</p>
+    <p class="gate-text">Access can't be verified right now - try again shortly.</p>
   {:else}
-    <p class="mg-gate-text">Events are managed by strategists and above.</p>
-    <Button variant="ghost" href="/events">Back to events</Button>
+    <p class="gate-text">{deniedText}</p>
+    {#if backHref}
+      <Button variant="ghost" href={backHref}>{backLabel}</Button>
+    {/if}
   {/if}
 </div>
 
 <style>
-  .mg-gate {
+  .gate {
     display: grid;
     justify-items: center;
     gap: 12px;
@@ -34,12 +51,12 @@
     text-align: center;
   }
 
-  .mg-gate-diamond {
+  .gate-diamond {
     color: var(--color-gold);
     font-size: var(--text-lg);
   }
 
-  .mg-gate-title {
+  .gate-title {
     margin: 0;
     color: var(--text-heading);
     font-family: var(--font-display);
@@ -49,7 +66,7 @@
     text-transform: uppercase;
   }
 
-  .mg-gate-text {
+  .gate-text {
     margin: 0 0 6px;
     color: var(--text-muted);
     font-size: var(--text-sm);

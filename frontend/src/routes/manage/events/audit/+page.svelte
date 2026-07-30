@@ -1,11 +1,11 @@
 <script lang="ts">
-  import PageHeader from "$lib/components/PageHeader.svelte";
+  import ManageHeader from "$lib/manage/ManageHeader.svelte";
   import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
   import LedgerTable from "$lib/design-system/components/LedgerTable.svelte";
   import type { LedgerColumn } from "$lib/design-system/components/ledgerTable";
   import type { AuditEntry } from "$lib/server/auditLog";
   import { nmsrFace } from "$lib/site/nmsr";
-  import ManageGate from "../ManageGate.svelte";
+  import EventsGate from "../EventsGate.svelte";
 
   let { data } = $props();
 
@@ -67,10 +67,10 @@
 </svelte:head>
 
 <div class="mg-page">
-  <PageHeader kicker="Events · Manage" title="Audit log" />
+  <ManageHeader area="Events" title="Audit log" />
 
-  {#if data.access !== "manager"}
-    <ManageGate access={data.access} returnTo="/events/manage/audit" />
+  {#if data.access !== "granted"}
+    <EventsGate access={data.access} returnTo="/manage/events/audit" />
   {:else if data.entries === null}
     <p class="mg-muted" role="alert">
       The audit log is unavailable right now - actions may be recorded that cannot be shown. Reload to retry.
