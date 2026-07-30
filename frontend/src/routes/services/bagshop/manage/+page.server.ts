@@ -1,7 +1,8 @@
-import { error, redirect } from "@sveltejs/kit";
+import { redirect } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
 
 import { createBagshopClient, type InventoryItem, type Order } from "$lib/api/bagshop";
+import { requestError } from "$lib/server/requestError";
 
 export const prerender = false;
 
@@ -9,7 +10,7 @@ export const prerender = false;
  * Loads the staff-only manage panel: redirects signed-out viewers to the public page,
  * returns 403 for non-staff, then fetches open orders and inventory for the dashboard.
  */
-export const load: PageServerLoad = async ({ fetch, parent }) => {
+export const load: PageServerLoad = async ({ fetch, locals, parent }) => {
   const { viewer } = await parent();
   if (!viewer) throw redirect(302, "/services/bagshop");
 
@@ -18,10 +19,10 @@ export const load: PageServerLoad = async ({ fetch, parent }) => {
   if (!me.ok) {
     // A failed identity check (bot down, transient error) is not a permission problem —
     // don't tell a possibly-legitimate staff member they're restricted.
-    throw error(503, "The bag shop is unavailable right now. Please try again shortly.");
+    requestError(locals, 503, "The bag shop is unavailable right now. Please try again shortly.");
   }
   if (!me.data.staff) {
-    throw error(403, "The bag shop manage panel is restricted to shop staff.");
+    requestError(locals, 403, "The bag shop manage panel is restricted to shop staff.");
   }
 
   const [ordersResult, inventoryResult] = await Promise.all([client.getOpenOrders(), client.getInventory()]);

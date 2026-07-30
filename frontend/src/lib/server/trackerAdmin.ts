@@ -20,7 +20,12 @@ interface TrackerRequest {
   raid?: string;
 }
 
-type ManageRequest = { request: Request; cookies: Cookies; fetch: typeof fetch };
+type ManageRequest = {
+  request: Request;
+  cookies: Cookies;
+  fetch: typeof fetch;
+  locals: App.Locals;
+};
 
 /**
  * Shared ?/createTracker form action for the event editor: creates a raid

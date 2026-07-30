@@ -1,10 +1,11 @@
 <script lang="ts">
-  import { page } from "$app/stores";
+  import { page } from "$app/state";
   import Container from "$lib/components/Container.svelte";
   import Button from "$lib/design-system/components/Button.svelte";
   import { errorCopy } from "$lib/site/errorCopy";
 
-  const copy = $derived(errorCopy($page.status));
+  const copy = $derived(errorCopy(page.status));
+  const requestId = $derived(page.error?.requestId);
 </script>
 
 <svelte:head>
@@ -16,5 +17,10 @@
     {copy.heading}
   </div>
   <p style="color:var(--color-text-secondary);margin:1rem 0 1.75rem">{copy.message}</p>
+  {#if requestId}
+    <p style="color:var(--color-text-dim);font-size:0.78rem;margin:-0.75rem 0 1.75rem">
+      Reference: <code>{requestId}</code>
+    </p>
+  {/if}
   <Button href="/">Back home</Button>
 </Container>

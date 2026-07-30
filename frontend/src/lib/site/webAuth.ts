@@ -18,7 +18,12 @@ export function webAuthStartUrl(returnTo?: string): string {
   return `${AUTH_BASE}/start?return_to=${encodeURIComponent(absoluteReturnTo(returnTo))}`;
 }
 
-/** Clears the website session and returns to the given page (default: the current one). */
-export function webAuthLogoutUrl(returnTo?: string): string {
+/**
+ * Clears the website session and returns to a public page.
+ *
+ * Returning to the current page is unsafe because it may only exist for the
+ * signed-in viewer (for example, an unpublished event preview).
+ */
+export function webAuthLogoutUrl(returnTo = "/"): string {
   return `${AUTH_BASE}/logout?return_to=${encodeURIComponent(absoluteReturnTo(returnTo))}`;
 }

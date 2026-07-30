@@ -1,8 +1,8 @@
-import { error } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
 
 import { getGuildStatsByName, loadGuildRaidActivity } from "$lib/server/globalGuild";
 import { getGuildStats } from "$lib/server/guildStats";
+import { requestError } from "$lib/server/requestError";
 import {
   getLinkedRankProfiles,
   inGameRankLadder,
@@ -26,7 +26,7 @@ interface OrgRanks {
 
 const NO_ORG_RANKS: OrgRanks = { ranks: null, rankLadder: null };
 
-export const load: PageServerLoad = async ({ fetch, params }) => {
+export const load: PageServerLoad = async ({ fetch, locals, params }) => {
   // Org ranks only mean something for our own guild. Kicked off before the stats
   // fetch so the two overlap.
   const wantsOrgRanks = params.name.toLowerCase() === "sequoia";
@@ -43,9 +43,9 @@ export const load: PageServerLoad = async ({ fetch, params }) => {
   try {
     stats = await getGuildStatsByName(fetch, params.name);
   } catch {
-    error(503, "Guild statistics are temporarily unavailable.");
+    requestError(locals, 503, "Guild statistics are temporarily unavailable.");
   }
-  if (stats === null) error(404, "No such guild.");
+  if (stats === null) requestError(locals, 404, "No such guild.");
 
   // The globally live season comes from Sequoia's own (cached) stats - the
   // viewed guild's last recorded season may just be its last active one.
