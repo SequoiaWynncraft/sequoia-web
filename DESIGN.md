@@ -69,18 +69,19 @@ backend's HTTP API (rule stated in `docs/architecture.md`).
 **Stack:** SvelteKit 2.67 / Svelte 5 (runes), TypeScript, Vite 8, `@sveltejs/adapter-node` (run under Bun 1.3).
 No CSS framework and no store library.
 
-**Routing** (`frontend/src/routes/`): file-based, `prerender = true` globally via
-`+layout.ts`; dynamic pages opt out. Public pages:
+**Routing** (`frontend/src/routes/`): file-based, `prerender = false` globally via
+`+layout.ts`. Public pages:
 
 - `/` — hero, live guild stat blocks, service cards, community artwork ("The Sequoian
   Tree"), and "The Branchmasters" leadership grid with 3D skin renders and online status.
 - `/news`, `/legal`, `/services{,/bagshop,/announcements,/requests,/contact}`
 - `/events` — the events hub: full-width "sky bands" grouped by status (live/upcoming/past),
   each rendered in its event's own theme; `/events/{slug}` is the per-event page (themed
-  hero, goal meter, activity chart, member standings, prize pool, comp, rules). Events
+  hero, goal meter, activity chart, member standings, prize pool, comp, rules), and
+  `/events/{slug}/raffle` is the live raffle stage (below). Events
   live as validated JSON rows in the site database (`lib/server/eventStore.ts`, seeded
-  once from `lib/events/seed.ts`) and are managed at `/events/manage` — a dashboard with
-  a live sky preview, gated to strategist+ against a fresh roster
+  once from `lib/events/seed.ts`) and are managed at `/manage/events` — part of the
+  management console, gated to strategist+ against a fresh roster
   (`lib/server/eventManagers.ts`); unpublished drafts stay invisible outside manage
   except as a manager preview. `parseGuildEvent` (`lib/events/validate.ts`) guards both
   the form submissions and the stored rows, so the `GuildEvent` type can grow without
@@ -106,6 +107,38 @@ No CSS framework and no store library.
 - `/statistics/guilds/raid` — the flagship dynamic page: loads raid events and, for
   authenticated guild members, the contribution leaderboard (`+page.server.ts`).
 
+**Management console** (`/manage/**`): every management surface lives under one
+permission-gated shell — a sticky sidebar of areas the viewer can access, driven by a
+registry (`lib/manage/registry.ts`; a new area is one entry plus one capability key).
+`routes/manage/+layout.server.ts` resolves a `ManageCapabilities` object once per request
+(`lib/server/manageCapabilities.ts`) with one access vocabulary
+(`granted/signin/unverified/denied`) across areas: events authorize via
+`checkEventManager` (strategist+ against a fresh roster, admins bypass), the bag shop via
+the bot's staff flag (memoized, failures never cached). The navbar's Manage entry uses a
+cheap stale-tolerant variant — display-only, the routes re-check strictly. Legacy URLs
+(`/events/manage/**`, `/services/bagshop/manage`) 308-redirect via a pure map
+(`lib/manage/redirects.ts`). The event editor (`lib/events/editor/`) is one form split
+into section components sharing an `EventDraft` runes class over context (one payload,
+one undo history, one version token), with a scrollspy rail, per-section issue badges,
+and shared form primitives (`lib/design-system/components/forms/`, skinned by the global
+`seq-input` in `app.css`).
+
+**Raffles**: a raffle's pool is defined by composable eligibility
+(`EventRaffle.eligibility` — AND-composed rules over the fresh roster: guild rank,
+Sequoia ladder rank, windowed stat thresholds from the daily rollups, personal
+milestones; manual include/exclude; flat, per-raid, or per-stat ticket weights), resolved
+server-side in `lib/server/raffleEligibility.ts` (fail-closed; legacy raffles without the
+block keep their exact original semantics). The editor previews the exact pool via
+`POST /api/manage/raffle-preview`. Rolling draws with the same resolver, grafts the
+winner into the event JSON under the whole-event CAS (still the sole contention arbiter),
+then records the draw in `raffle_rolls` (`lib/server/raffleRolls.ts`: entrant snapshot,
+winner index, spin choreography) and broadcasts it over in-process pub/sub
+(`lib/server/liveRolls.ts`, single-replica by design) to
+`GET /events/{slug}/raffle/stream` (native SSE, heartbeats, access mirrors the event
+page). The stage page renders a deterministic SVG wheel (`lib/events/stage/`): every
+viewer computes the same landing from the same roll data, late joiners enter the same
+animation mid-flight, and reduced motion renders the parked result.
+
 Several statistics subpages (`rankings`, `playercard`, `player/raids`, `news`) are
 scaffolded placeholders rendered from shared metadata; `frontend/src/lib/site/nav.ts` is the
 single source of truth for navigation, breadcrumbs, tabs, and placeholder copy — route files
@@ -124,8 +157,9 @@ stay thin by calling `pageView(path)`.
   method/path/body with the viewer's `seq_session` cookie attached as a bearer token
   (`lib/server/bagshop.ts`); the bot enforces customer-vs-staff authorization. The typed client
   (`lib/api/bagshop.ts`) consumes it with the same `ApiResult` + runtime-guard discipline as the
-  stats client, and the `/services/bagshop` page (customer ordering) and `/services/bagshop/manage`
-  page (staff, gated on the bot's `GET /me` staff flag) are built on it.
+  stats client, and the `/services/bagshop` page (customer ordering) and `/manage/bagshop`
+  panel (staff, gated on the bot's `GET /me` staff flag via the console's capabilities) are
+  built on it.
 
 **API contract discipline:**
 - `bun run api:types` generates `src/lib/api/generated/public-api.ts` from the sibling
