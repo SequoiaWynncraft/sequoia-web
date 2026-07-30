@@ -6,6 +6,8 @@
   import { pageView } from "$lib/site/nav";
   import type { GuildMemberStats } from "$lib/api/guildStats";
 
+  import GuildLevelTracker from "./GuildLevelTracker.svelte";
+
   let { data } = $props();
 
   const page = pageView("/statistics");
@@ -179,6 +181,17 @@
   <p class="stale-note">Live statistics are temporarily unavailable.</p>
 {/if}
 
+<!-- Outside the `stats` branch on purpose: the loader returns `levelTracker` even
+     when the guild read fails, and the tracker reads none of `stats`, so an
+     eligible member still gets their section during a Wynncraft outage. -->
+{#await data.levelTracker then tracker}
+  {#if tracker}
+    <section class="level-tracker" aria-label="Level tracker">
+      <GuildLevelTracker {tracker} />
+    </section>
+  {/if}
+{/await}
+
 <style>
   .vitals-strip {
     margin-bottom: 44px;
@@ -196,6 +209,12 @@
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 24px 48px;
     margin-bottom: 44px;
+  }
+
+  .level-tracker {
+    margin-top: 44px;
+    padding-top: 24px;
+    border-top: 1px solid var(--color-border-subtle);
   }
 
   .records-title {
