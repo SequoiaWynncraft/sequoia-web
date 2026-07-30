@@ -6,6 +6,7 @@
 
   import type { GuildEvent } from "$lib/events/types";
   import type { EventFormContext, TrackerOption } from "$lib/server/eventFormContext";
+  import type { RaffleRoll as RaffleRollRecord } from "$lib/server/raffleRolls";
 
   import { EDITOR_KEY, EventDraft } from "./draft.svelte";
   import PreviewPane from "./PreviewPane.svelte";
@@ -30,6 +31,7 @@
     initialPublished = false,
     initialUpdatedAt = null,
     context = null,
+    rollHistory = null,
     error = null,
     saved = false,
     trackerCreated = null,
@@ -46,6 +48,8 @@
     initialUpdatedAt?: number | null;
     /** Picker data (roster, tracker events); the form degrades without it. */
     context?: EventFormContext | null;
+    /** Persisted draw records for the raffle history, newest first. */
+    rollHistory?: RaffleRollRecord[] | null;
     /** Rejection from the last server submission. */
     error?: string | null;
     saved?: boolean;
@@ -82,6 +86,10 @@
     draft.serverSaved = saved;
     draft.serverError = error;
     draft.serverAuditWarning = auditWarning;
+  });
+
+  $effect.pre(() => {
+    draft.rollHistory = rollHistory ?? [];
   });
 
   // History capture after a quiet period. Replayed snapshots need no

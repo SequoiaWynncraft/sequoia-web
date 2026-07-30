@@ -95,6 +95,16 @@
     pendingReroll?.form?.requestSubmit(pendingReroll);
     pendingReroll = null;
   }
+
+  function historyWhen(at: number): string {
+    return new Date(at).toLocaleString("en-GB", {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: "UTC",
+    });
+  }
 </script>
 
 <FormSection id="raffles" title="Raffles">
@@ -337,6 +347,19 @@
   </button>
 
   {#if draft.raffleSlots.length > 0}
+    {#if draft.mode === "edit"}
+      <p class="evf-hint">
+        <a
+          class="evf-inline-link evf-inline-link-solo focus-ring"
+          href={`/events/${draft.slug}/raffle`}
+          target="_blank"
+          rel="noreferrer"
+        >
+          ✦ Open the stage
+        </a>
+        Every open stage page watches each roll land live.
+      </p>
+    {/if}
     <div class="evf-raffle-results" role="table" aria-label="Raffle winners">
       <div class="evf-raffle-result evf-raffle-result-head" role="row">
         <span role="columnheader">Winner</span>
@@ -375,6 +398,27 @@
   {/if}
   {#if draft.rollError}
     <span class="evf-error" role="alert">{draft.rollError}</span>
+  {/if}
+
+  {#if draft.rollHistory.length > 0}
+    <details class="evf-roll-history">
+      <summary class="evf-roll-history-summary">Roll history ({draft.rollHistory.length})</summary>
+      <ul class="evf-roll-history-list">
+        {#each draft.rollHistory as roll (roll.rollId)}
+          <li class="evf-roll-history-row">
+            <span class="evf-roll-history-when">{historyWhen(roll.startedAt)}</span>
+            <span class="evf-roll-history-what">
+              {roll.prize || "—"} · slot {roll.slot + 1} → {roll.winner.username}
+              ({roll.winner.tickets} {roll.winner.tickets === 1 ? "ticket" : "tickets"},
+              {roll.entrants.length} entrants)
+            </span>
+            {#if roll.superseded}
+              <span class="evf-roll-history-superseded">re-rolled</span>
+            {/if}
+          </li>
+        {/each}
+      </ul>
+    </details>
   {/if}
 
   <ConfirmDialog

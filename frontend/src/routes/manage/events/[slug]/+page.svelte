@@ -27,6 +27,7 @@
         initialPublished={data.stored.published}
         initialUpdatedAt={data.stored.updatedAt}
         context={data.context}
+        rollHistory={data.rollHistory}
         error={form?.error ?? null}
         saved={form?.saved ?? false}
         trackerCreated={form?.trackerCreated ?? null}

@@ -45,6 +45,21 @@
     ),
   );
 
+  // The most recent draw across the event's raffles, for the meta line.
+  const lastDrawnAt = $derived.by(() => {
+    const times = (event.raffles ?? [])
+      .map((raffle) => (raffle.drawnAt ? Date.parse(raffle.drawnAt) : Number.NaN))
+      .filter((time) => Number.isFinite(time));
+    if (times.length === 0) return null;
+    return new Date(Math.max(...times)).toLocaleString("en-GB", {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: "UTC",
+    });
+  });
+
   // Personal milestones are ascending by target (enforced by the validator), so
   // the last one a member has cleared is their highest tier.
   const personalMilestones = $derived(event.personalMilestones ?? []);
@@ -293,11 +308,16 @@
 
     {#if raffleRows.length > 0}
       <section class="ev-section" aria-label="Raffles">
-        <h2 class="ev-label">
-          <span class="ev-spark" aria-hidden="true">✦</span>{event.raffles && event.raffles.length === 1
-            ? "Raffle"
-            : "Raffles"}
-        </h2>
+        <div class="ev-raffle-heading">
+          <h2 class="ev-label">
+            <span class="ev-spark" aria-hidden="true">✦</span>{event.raffles && event.raffles.length === 1
+              ? "Raffle"
+              : "Raffles"}
+          </h2>
+          <a class="ev-stage-link focus-ring" href={`/events/${event.slug}/raffle`}>
+            <span aria-hidden="true">✦</span> Watch the stage
+          </a>
+        </div>
         <div class="ev-raffles" role="table" aria-label="Raffle winners">
           <div class="ev-raffle-row ev-raffle-head" role="row">
             <span role="columnheader">Winner</span>
@@ -321,6 +341,9 @@
             </div>
           {/each}
         </div>
+        {#if lastDrawnAt}
+          <p class="ev-raffle-drawn">Last drawn {lastDrawnAt} UTC</p>
+        {/if}
       </section>
     {/if}
 
@@ -697,6 +720,34 @@
     border-bottom: 1px solid var(--color-border-subtle);
     color: var(--text-body);
     font-size: var(--text-sm);
+  }
+
+  .ev-raffle-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 14px;
+  }
+
+  .ev-stage-link {
+    color: var(--ev-accent, var(--color-gold));
+    font-family: var(--font-display);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-wider);
+    text-decoration: none;
+    text-transform: uppercase;
+    transition: color var(--dur-fast) ease;
+  }
+
+  .ev-stage-link:hover {
+    color: var(--text-heading);
+  }
+
+  .ev-raffle-drawn {
+    margin: 10px 0 0;
+    color: var(--text-muted);
+    font-family: var(--font-data);
+    font-size: var(--text-xs);
   }
 
   .ev-raffles {

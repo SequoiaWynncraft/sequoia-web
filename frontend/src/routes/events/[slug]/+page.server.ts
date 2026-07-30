@@ -2,8 +2,8 @@ import type { PageServerLoad } from "./$types";
 
 import { eventChart, eventStatus } from "$lib/events/helpers";
 import type { GuildEvent } from "$lib/events/types";
-import { getGuildStats } from "$lib/server/guildStats";
 import { checkEventManager } from "$lib/server/eventManagers";
+import { checkEventMembership, type Membership } from "$lib/server/eventMembership";
 import { eventStore } from "$lib/server/eventStore";
 import { loadEventRaidCounts, sumCounts, type EventDayCount } from "$lib/server/eventActivity";
 import { loadGoalProgress } from "$lib/server/goalProgress";
@@ -20,9 +20,6 @@ import {
 import type { GuildMemberStats } from "$lib/api/guildStats";
 
 export const prerender = false;
-
-/** Non-members never receive a member event's gated sections. */
-type Membership = "member" | "signin" | "unverified" | "notMember";
 
 export type Standings =
   | { state: "signin" }
@@ -47,32 +44,13 @@ export const load: PageServerLoad = async ({ fetch, locals, params, parent }) =>
   const status = eventStatus(event, now);
   const today = now.toISOString().slice(0, 10);
 
-  // Regular membership mirrors the raid page's fresh-roster trust rules.
-  // Website administrators are already authorized by the backend.
   let membership: Membership | null = null;
   let roster: GuildMemberStats[] | null = null;
   if (event.access === "members" || event.tracker) {
     const { viewer } = await parent();
-    if (!viewer) {
-      membership = "signin";
-    } else if (viewer.websiteAdmin) {
-      membership = "member";
-      const stats = await getGuildStats(fetch, { allowStale: true }).catch(() => null);
-      roster = stats?.members ?? null;
-    } else {
-      const stats = await getGuildStats(fetch, { allowStale: false }).catch(() => null);
-      const freshRoster = stats !== null && !stats.stale ? stats.members : null;
-      if (freshRoster === null) {
-        membership = "unverified";
-      } else {
-        roster = freshRoster;
-        membership = freshRoster.some(
-          (member) => member.uuid !== null && sameUuid(member.uuid, viewer.minecraftUuid),
-        )
-          ? "member"
-          : "notMember";
-      }
-    }
+    const result = await checkEventMembership(fetch, viewer);
+    membership = result.membership;
+    roster = result.roster;
   }
 
   // Member events keep a public hero; everything below it is stripped

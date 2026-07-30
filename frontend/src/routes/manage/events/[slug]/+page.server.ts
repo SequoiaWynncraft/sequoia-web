@@ -8,7 +8,10 @@ import { parseGuildEvent } from "$lib/events/validate";
 import { eventFormContext } from "$lib/server/eventFormContext";
 import { requireEventManager } from "$lib/server/eventManagers";
 import { getGuildStats } from "$lib/server/guildStats";
+import { publish } from "$lib/server/liveRolls";
 import { resolveEligibility } from "$lib/server/raffleEligibility";
+import { normalizeUuid, sameUuid } from "$lib/server/raidEventBoards";
+import { raffleRollStore } from "$lib/server/raffleRolls";
 import { createTrackerAction, updateTrackerAction } from "$lib/server/trackerAdmin";
 import { parseEventPayload } from "$lib/server/eventPayload";
 import { deletePresetAction, savePresetAction } from "$lib/server/eventPresets";
@@ -24,10 +27,20 @@ export const load: PageServerLoad = async ({ fetch, locals, params, parent, url 
   const access = await pageAreaAccess(fetch, viewer, "events");
   if (access !== "granted") return { access, stored: null, context: null, auditWarning: false };
 
-  const [stored, context] = await Promise.all([eventStore.get(params.slug), eventFormContext(fetch)]);
+  const [stored, context, rollHistory] = await Promise.all([
+    eventStore.get(params.slug),
+    eventFormContext(fetch),
+    raffleRollStore.listForEvent(params.slug, 25).catch(() => []),
+  ]);
   if (!stored) requestError(locals, 404, "No such event");
   // Set by the create redirect when the audit row for it did not land.
-  return { access, stored, context, auditWarning: url.searchParams.get("audit") === "unrecorded" };
+  return {
+    access,
+    stored,
+    context,
+    rollHistory,
+    auditWarning: url.searchParams.get("audit") === "unrecorded",
+  };
 };
 
 export const actions: Actions = {
@@ -88,6 +101,8 @@ export const actions: Actions = {
       params.slug,
       payload.published ? "published" : "draft",
     );
+    // Open stages refetch their raffle config off the fresh event.
+    publish(params.slug, { type: "event-updated" });
     // The exact version this save wrote: the client adopts it as its reviewed
     // token, so a concurrent save landing during the response can't slip in.
     return { saved: true, newUpdatedAt, auditWarning: !audited };
@@ -208,6 +223,57 @@ export const actions: Actions = {
     if (newUpdatedAt === null) {
       return fail(409, { error: "This event just changed - reload and roll again." });
     }
+
+    // The winner in the event JSON is authoritative from here on. The roll
+    // row and broadcast below power the live stage: they replay the exact
+    // drawable pool the draw ran over (drawWinners' own filter, mirrored),
+    // so every open stage animates the same wheel to the same wedge. A
+    // failed row is a degraded animation, never a lost winner.
+    const excluded = new Set(exclude.map(normalizeUuid));
+    const seen = new Set<string>();
+    const wheelPool = pool.entrants.flatMap((entrant) => {
+      const key = normalizeUuid(entrant.player_uuid);
+      if (entrant.tickets <= 0 || excluded.has(key) || seen.has(key)) return [];
+      seen.add(key);
+      return [
+        { player_uuid: entrant.player_uuid, username: entrant.username, tickets: entrant.tickets },
+      ];
+    });
+    const startedAt = Date.now();
+    const roll = {
+      rollId: crypto.randomUUID(),
+      eventSlug: params.slug,
+      raffleId,
+      slot,
+      prize: raffle.prize,
+      entrants: wheelPool,
+      winnerIndex: wheelPool.findIndex((entrant) =>
+        sameUuid(entrant.player_uuid, drawn.player_uuid),
+      ),
+      winner: drawn,
+      spin: { turns: 4 + Math.floor(secureRng() * 3), durationMs: 9000 },
+      state: "spinning" as const,
+      startedAt,
+      settlesAt: startedAt + 9000,
+    };
+    let rollRecorded = true;
+    try {
+      await raffleRollStore.markSuperseded(params.slug, raffleId, slot);
+      await raffleRollStore.insert({ ...roll, createdBy: manager.discordId, superseded: false });
+      publish(params.slug, { type: "roll", roll });
+      const settleTimer = setTimeout(() => {
+        raffleRollStore
+          .markSettled(roll.rollId)
+          .catch((error: unknown) => console.warn("raffle roll settle failed:", error));
+        publish(params.slug, { type: "settled", rollId: roll.rollId, raffleId, slot });
+      }, roll.spin.durationMs);
+      // A held timer must not keep a short-lived process (tests) alive.
+      if (typeof settleTimer === "object" && "unref" in settleTimer) settleTimer.unref();
+    } catch (error) {
+      console.warn("raffle roll record failed:", error);
+      rollRecorded = false;
+    }
+
     // Record who was drawn, not just where: the audit trail must show the exact
     // winner (uuid, name, ticket weight) and when the draw landed, so a roll can
     // be reconstructed from the log alone.
@@ -215,7 +281,7 @@ export const actions: Actions = {
       manager,
       "event.rollRaffle",
       params.slug,
-      `${raffleId}:${slot} → ${drawn.username} (${drawn.player_uuid}), ${drawn.tickets} tickets, ${raffle.drawnAt}`,
+      `${raffleId}:${slot} → ${drawn.username} (${drawn.player_uuid}), ${drawn.tickets} tickets, ${raffle.drawnAt}, roll ${roll.rollId}`,
     );
     return {
       rolled: raffleId,
@@ -223,7 +289,7 @@ export const actions: Actions = {
       winner: { slot, ...drawn },
       drawnAt: raffle.drawnAt,
       newUpdatedAt,
-      auditWarning: !audited,
+      auditWarning: !audited || !rollRecorded,
     };
   },
 
