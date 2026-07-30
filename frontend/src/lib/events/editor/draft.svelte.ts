@@ -6,10 +6,11 @@ import type {
   EventTheme,
   GuildEvent,
   PrizeEntry,
+  RaffleEligibility,
   RaffleWinner,
 } from "$lib/events/types";
 import { parseGuildEvent } from "$lib/events/validate";
-import type { EventFormContext, TrackerOption } from "$lib/server/eventFormContext";
+import type { EventFormContext, MemberOption, TrackerOption } from "$lib/server/eventFormContext";
 
 /** Context key the editor shell shares its EventDraft under. */
 export const EDITOR_KEY = Symbol("event-draft");
@@ -65,6 +66,11 @@ export interface RaffleRow {
   drawnAt: string;
   /** PersonalMilestone id required to enter, or "" for no gate. */
   requiresMilestone: string;
+  /**
+   * Composable pool config, carried opaquely until the rule builder lands:
+   * the editor must round-trip it so a save can't silently strip it.
+   */
+  eligibility?: RaffleEligibility;
 }
 
 // Placements serialize in this fixed order, so click order never churns
@@ -160,7 +166,7 @@ export class EventDraft {
    */
   knownUpdatedAt = $state<number | null>(null);
 
-  readonly memberChoices: string[];
+  readonly memberChoices: MemberOption[];
   trackerChoices = $state<TrackerOption[]>([]);
 
   name = $state("");
@@ -345,6 +351,7 @@ export class EventDraft {
         winners: raffle.winners ?? [],
         drawnAt: raffle.drawnAt ?? "",
         requiresMilestone: raffle.requiresMilestone ?? "",
+        eligibility: raffle.eligibility,
       })) ?? [];
 
     this.lastCaptured = this.payload;
@@ -434,7 +441,10 @@ export class EventDraft {
       toCount(row.winnerCount) === saved.winnerCount &&
       toCount(row.perTicket) === saved.perTicket &&
       row.windowFrom === toInput(saved.window?.from) &&
-      row.windowTo === toInput(saved.window?.to)
+      row.windowTo === toInput(saved.window?.to) &&
+      // The composable pool config is draw-affecting too: an unsaved edit to
+      // it would draw against rules the server doesn't hold yet.
+      JSON.stringify(row.eligibility ?? null) === JSON.stringify(saved.eligibility ?? null)
     );
   }
 
@@ -601,6 +611,7 @@ export class EventDraft {
         ) {
           raffle.requiresMilestone = row.requiresMilestone;
         }
+        if (row.eligibility) raffle.eligibility = row.eligibility;
         return raffle;
       });
     if (filledRaffles.length > 0) event.raffles = filledRaffles;
@@ -907,15 +918,23 @@ export class EventDraft {
         seedWindowTo: to,
         winners: winnersDraft.map((winner) => {
           const winnerRecord = (winner ?? {}) as Record<string, unknown>;
-          return {
+          const entry: RaffleWinner = {
             slot: typeof winnerRecord.slot === "number" ? winnerRecord.slot : 0,
             username: text(winnerRecord.username),
             player_uuid: text(winnerRecord.player_uuid),
             tickets: typeof winnerRecord.tickets === "number" ? winnerRecord.tickets : 0,
           };
+          if (winnerRecord.source === "manual") entry.source = "manual";
+          return entry;
         }),
         drawnAt: text(record.drawnAt),
         requiresMilestone: text(record.requiresMilestone),
+        // Opaque until the rule builder lands - the server validator is the
+        // authority on its shape, the editor only round-trips it.
+        eligibility:
+          record.eligibility && typeof record.eligibility === "object"
+            ? (record.eligibility as RaffleEligibility)
+            : undefined,
       };
     });
     this.raffleExcludeWinners = draft.raffleExcludeWinners === true;
