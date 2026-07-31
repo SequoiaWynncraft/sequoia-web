@@ -188,7 +188,7 @@
     {#if data.me?.staff}
       <div class="bag-staff-banner">
         <span>You have staff access to the bag shop.</span>
-        <Button href="/services/bagshop/manage" variant="secondary" size="sm">Open manage panel</Button>
+        <Button href="/manage/bagshop" variant="secondary" size="sm">Open manage panel</Button>
       </div>
     {/if}
 

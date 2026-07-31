@@ -31,7 +31,7 @@
 <div class="ev-hub">
   <PageHeader kicker="Sequoia" title="Events" />
   {#if data.manager}
-    <a class="ev-manage-link focus-ring" href="/events/manage">◆ Manage</a>
+    <a class="ev-manage-link focus-ring" href="/manage/events">◆ Manage</a>
   {/if}
 
   {#each shelves as shelf (shelf.status)}

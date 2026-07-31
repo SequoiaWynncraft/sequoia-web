@@ -1,11 +1,12 @@
 import { fail, redirect } from "@sveltejs/kit";
 import type { Actions, PageServerLoad } from "./$types";
 
+import { pageAreaAccess } from "$lib/server/manageCapabilities";
 import { recordAudit } from "$lib/server/auditLog";
 import { drawWinners, secureRng } from "$lib/events/raffle";
 import { parseGuildEvent } from "$lib/events/validate";
 import { eventFormContext } from "$lib/server/eventFormContext";
-import { checkEventManager, requireEventManager } from "$lib/server/eventManagers";
+import { requireEventManager } from "$lib/server/eventManagers";
 import { getGuildStats } from "$lib/server/guildStats";
 import { loadRaffleEligible } from "$lib/server/raidEventBoards";
 import { createTrackerAction, updateTrackerAction } from "$lib/server/trackerAdmin";
@@ -18,8 +19,10 @@ export const prerender = false;
 
 export const load: PageServerLoad = async ({ fetch, locals, params, parent, url }) => {
   const { viewer } = await parent();
-  const access = await checkEventManager(fetch, viewer);
-  if (access !== "manager") return { access, stored: null, context: null, auditWarning: false };
+  // Re-resolved per page load: the console layout's capabilities are cached
+  // across child navigations, so they must not gate protected data here.
+  const access = await pageAreaAccess(fetch, viewer, "events");
+  if (access !== "granted") return { access, stored: null, context: null, auditWarning: false };
 
   const [stored, context] = await Promise.all([eventStore.get(params.slug), eventFormContext(fetch)]);
   if (!stored) requestError(locals, 404, "No such event");
@@ -104,7 +107,7 @@ export const actions: Actions = {
     }
     const stored = await eventStore.get(params.slug);
     // Already gone (e.g. the other tab won): deletion is done, not a conflict.
-    if (!stored) redirect(303, "/events/manage");
+    if (!stored) redirect(303, "/manage/events");
     // Guard on the version the manager reviewed: a delete from a stale tab must
     // not remove an event someone else changed since. The get above only serves
     // the audit payload; the CAS delete is the authoritative check.
@@ -114,13 +117,13 @@ export const actions: Actions = {
     if (!(await eventStore.remove(params.slug, { ifUpdatedAt: baseUpdatedAt }))) {
       // The CAS lost a race after the read above: a concurrent delete of the
       // same version is done, a concurrent update is a conflict.
-      if (!(await eventStore.get(params.slug))) redirect(303, "/events/manage");
+      if (!(await eventStore.get(params.slug))) redirect(303, "/manage/events");
       return fail(409, { error: "This event just changed - reload before deleting." });
     }
     // Retain the deleted payload so the event can be reconstructed from the log.
     const audited = await recordAudit(manager, "event.delete", params.slug, JSON.stringify(stored.event));
     // The event is gone either way; an unrecorded deletion must not pass silently.
-    redirect(303, audited ? "/events/manage" : "/events/manage?audit=unrecorded");
+    redirect(303, audited ? "/manage/events" : "/manage/events?audit=unrecorded");
   },
 
   rollRaffle: async ({ request, params, cookies, fetch, locals }) => {

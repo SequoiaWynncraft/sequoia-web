@@ -1,7 +1,7 @@
 <script lang="ts">
-  import PageHeader from "$lib/components/PageHeader.svelte";
+  import ManageHeader from "$lib/manage/ManageHeader.svelte";
   import EventForm from "../EventForm.svelte";
-  import ManageGate from "../ManageGate.svelte";
+  import EventsGate from "../EventsGate.svelte";
 
   let { data, form } = $props();
 </script>
@@ -12,10 +12,10 @@
 </svelte:head>
 
 <div class="mg-page">
-  <PageHeader kicker="Events" title="New event" />
+  <ManageHeader area="Events" title="New event" />
 
-  {#if data.access !== "manager"}
-    <ManageGate access={data.access} returnTo="/events/manage/new" />
+  {#if data.access !== "granted"}
+    <EventsGate access={data.access} returnTo="/manage/events/new" />
   {:else}
     <EventForm
       mode="create"

@@ -1,9 +1,10 @@
 import { fail, redirect } from "@sveltejs/kit";
 import type { Actions, PageServerLoad } from "./$types";
 
+import { pageAreaAccess } from "$lib/server/manageCapabilities";
 import { recordAudit } from "$lib/server/auditLog";
 import { eventFormContext } from "$lib/server/eventFormContext";
-import { checkEventManager, requireEventManager } from "$lib/server/eventManagers";
+import { requireEventManager } from "$lib/server/eventManagers";
 import { parseEventPayload } from "$lib/server/eventPayload";
 import { deletePresetAction, savePresetAction } from "$lib/server/eventPresets";
 import { eventStore } from "$lib/server/eventStore";
@@ -13,8 +14,10 @@ export const prerender = false;
 
 export const load: PageServerLoad = async ({ fetch, parent }) => {
   const { viewer } = await parent();
-  const access = await checkEventManager(fetch, viewer);
-  if (access !== "manager") return { access, context: null };
+  // Re-resolved per page load: the console layout's capabilities are cached
+  // across child navigations, so they must not gate protected data here.
+  const access = await pageAreaAccess(fetch, viewer, "events");
+  if (access !== "granted") return { access, context: null };
   return { access, context: await eventFormContext(fetch) };
 };
 
@@ -33,7 +36,7 @@ export const actions: Actions = {
       payload.published ? "published" : "draft",
     );
     // The event exists either way; an unrecorded creation must not pass silently.
-    redirect(303, `/events/manage/${payload.event.slug}${audited ? "" : "?audit=unrecorded"}`);
+    redirect(303, `/manage/events/${payload.event.slug}${audited ? "" : "?audit=unrecorded"}`);
   },
 
   createTracker: createTrackerAction,

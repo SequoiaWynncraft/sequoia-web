@@ -16,6 +16,50 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+describe("legacy management POST forwarding", () => {
+  it("re-dispatches a legacy action POST at its console home with the body intact", async () => {
+    const url = new URL("https://dev.seqwawa.com/events/manage/summer-raid?/save");
+    const forwarded: Request[] = [];
+    const event = {
+      locals: {},
+      url,
+      request: new Request(url, {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded", cookie: "seq_session=s" },
+        body: "payload=x",
+      }),
+      fetch: async (request: Request) => {
+        forwarded.push(request);
+        return new Response("action result");
+      },
+    } as unknown as RequestEvent;
+
+    const resolve = vi.fn();
+    const response = await handle({ event, resolve });
+
+    expect(resolve).not.toHaveBeenCalled();
+    expect(await response.text()).toBe("action result");
+    expect(response.headers.get("x-request-id")).toBe(event.locals.requestId);
+    expect(forwarded).toHaveLength(1);
+    expect(forwarded[0].method).toBe("POST");
+    expect(forwarded[0].url).toBe("https://dev.seqwawa.com/manage/events/summer-raid?/save");
+    expect(forwarded[0].headers.get("cookie")).toBe("seq_session=s");
+    expect(await forwarded[0].text()).toBe("payload=x");
+  });
+
+  it("leaves non-legacy POSTs and legacy GETs to normal resolution", async () => {
+    for (const request of [
+      new Request("https://dev.seqwawa.com/manage/events/x?/save", { method: "POST", body: "p=1" }),
+      new Request("https://dev.seqwawa.com/events/manage/x"),
+    ]) {
+      const url = new URL(request.url);
+      const event = { locals: {}, url, request, fetch: vi.fn() } as unknown as RequestEvent;
+      await handle({ event, resolve: async () => new Response("resolved") });
+      expect(event.fetch).not.toHaveBeenCalled();
+    }
+  });
+});
+
 describe("server request diagnostics", () => {
   it("correlates the request, response, and server locals", async () => {
     const event = requestEvent();

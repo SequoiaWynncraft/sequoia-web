@@ -1,8 +1,8 @@
 import type { PageServerLoad } from "./$types";
 
+import { pageAreaAccess } from "$lib/server/manageCapabilities";
 import { eventStatus } from "$lib/events/helpers";
 import type { EventStatus, GuildEvent } from "$lib/events/types";
-import { checkEventManager, type ManagerAccess } from "$lib/server/eventManagers";
 import { eventStore } from "$lib/server/eventStore";
 
 export const prerender = false;
@@ -17,10 +17,12 @@ const STATUS_ORDER: Record<EventStatus, number> = { live: 0, upcoming: 1, tba: 2
 
 export const load: PageServerLoad = async ({ fetch, parent, url }) => {
   const { viewer } = await parent();
-  const access: ManagerAccess = await checkEventManager(fetch, viewer);
+  // Re-resolved per page load: the console layout's capabilities are cached
+  // across child navigations, so they must not gate protected data here.
+  const access = await pageAreaAccess(fetch, viewer, "events");
   // Set by the delete redirect when the audit row for it did not land.
   const auditWarning = url.searchParams.get("audit") === "unrecorded";
-  if (access !== "manager") return { access, entries: null, auditWarning };
+  if (access !== "granted") return { access, entries: null, auditWarning };
 
   const now = new Date();
   const entries: ManageEntry[] = (await eventStore.list()).map(({ event, published }) => ({
