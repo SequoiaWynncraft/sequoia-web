@@ -39,8 +39,14 @@
   }
 
   function setIds(el: Element, ids: string[]) {
-    if (ids.length > 0) el.setAttribute("aria-describedby", ids.join(" "));
-    else el.removeAttribute("aria-describedby");
+    // Idempotent on purpose: the observer below watches this attribute, so a
+    // write that changes nothing must not happen at all - it would loop.
+    const value = ids.join(" ");
+    if (ids.length === 0) {
+      if (el.hasAttribute("aria-describedby")) el.removeAttribute("aria-describedby");
+    } else if (el.getAttribute("aria-describedby") !== value) {
+      el.setAttribute("aria-describedby", value);
+    }
   }
 
   function associate() {
@@ -58,10 +64,16 @@
     if (!main) return;
     associate();
     // The snippet may swap its control (input -> select) without any prop
-    // changing; only the DOM knows. Attribute writes above don't retrigger
-    // this - it watches structure alone.
+    // changing, and Svelte may rewrite the control's aria-describedby from
+    // its own props - either way the merged id is lost and only the DOM
+    // knows. setIds' no-op guard keeps our own writes from retriggering.
     const observer = new MutationObserver(associate);
-    observer.observe(main, { childList: true, subtree: true });
+    observer.observe(main, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["aria-describedby"],
+    });
     return () => observer.disconnect();
   });
 </script>
