@@ -37,7 +37,9 @@
 {/snippet}
 
 {#if link}
-  <a class="pn focus-ring" href={playercardUrl(player ?? username)}>{@render inner()}</a>
+  <!-- uuid-first like the face: the playercard resolves roster uuids, and a
+       stored username may be stale after a rename. -->
+  <a class="pn focus-ring" href={playercardUrl(player ?? uuid ?? username)}>{@render inner()}</a>
 {:else}
   <span class="pn">{@render inner()}</span>
 {/if}
