@@ -562,7 +562,7 @@ function parseTicketWeight(value: unknown, label: string): TicketWeight {
  * serves at most 400 inclusive days, so longer windows must fail before save.
  */
 function parseDayWindow(value: unknown, label: string): NonNullable<EventRaffle["window"]> {
-  const window = parseRaffleWindow(value, label);
+  const window = parseRaffleWindow(value, label, true);
   for (const bound of [window.from, window.to]) {
     if (!bound.endsWith("T00:00:00.000Z")) {
       fail(`${label} window counts whole UTC days - both bounds must be UTC midnight`);
@@ -573,11 +573,18 @@ function parseDayWindow(value: unknown, label: string): NonNullable<EventRaffle[
   return window;
 }
 
-function parseRaffleWindow(value: unknown, label: string): NonNullable<EventRaffle["window"]> {
+function parseRaffleWindow(
+  value: unknown,
+  label: string,
+  allowEqual = false,
+): NonNullable<EventRaffle["window"]> {
   const raw = asRecord(value, `${label} window`);
   const from = parseInstant(raw.from, `${label} window start`);
   const to = parseInstant(raw.to, `${label} window end`);
-  if (Date.parse(from) >= Date.parse(to)) fail(`${label} window must end after it starts`);
+  const invalidOrder = allowEqual ? Date.parse(from) > Date.parse(to) : Date.parse(from) >= Date.parse(to);
+  if (invalidOrder) {
+    fail(`${label} window must end after it starts`);
+  }
   return { from, to };
 }
 
