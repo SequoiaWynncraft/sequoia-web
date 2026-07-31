@@ -146,8 +146,11 @@ judged at CONNECT time — an open stream is not re-checked mid-flight, but ever
 visibility change that matters (deletion, unpublishing, public→members) tears the room
 down server-side, and the browser's reconnect lands back in the connect-time check. The
 stage page renders a deterministic SVG wheel (`lib/events/stage/`): every
-viewer computes the same landing from the same roll data, late joiners enter the same
-animation mid-flight, and reduced motion renders the parked result.
+viewer computes the same landing from the same roll data, and reduced motion renders the
+parked result. Late joiners enter the animation mid-flight by comparing the server's
+`startedAt` against their own wall clock, so cross-viewer sync is best-effort: a skewed
+client clock shifts where in the spin that viewer enters (or parks it immediately), but
+never changes the winner it lands on.
 
 Several statistics subpages (`rankings`, `playercard`, `player/raids`, `news`) are
 scaffolded placeholders rendered from shared metadata; `frontend/src/lib/site/nav.ts` is the
