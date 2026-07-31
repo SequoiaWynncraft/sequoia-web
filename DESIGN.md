@@ -109,16 +109,19 @@ No CSS framework and no store library.
 
 **Management console** (`/manage/**`): every management surface lives under one
 permission-gated shell — a sticky sidebar of areas the viewer can access, driven by a
-registry (`lib/manage/registry.ts`). Adding an area takes a registry entry, a capability
-key, its resolution in `resolveManageCapabilities`, and — when a new privilege is
-involved — a stale-tolerant check in `navManageVisible`, which hard-codes the event and
-bag-shop privileges rather than deriving from the registry.
-`routes/manage/+layout.server.ts` resolves a `ManageCapabilities` object once per request
+registry (`lib/manage/registry.ts`). Adding an area takes a registry entry and a
+`ManageCapabilities` key, a bounded display-only result in `peekManageCapabilities` for
+the sidebar, and a strict branch in `pageAreaAccess` that every page in the area calls
+before reading protected data. If the area introduces a new privilege, add its bounded
+display check to `navManageVisible` for the navbar too; navbar and sidebar results never
+authorize a page.
+`routes/manage/+layout.server.ts` calls `peekManageCapabilities` once per request
 (`lib/server/manageCapabilities.ts`) with one access vocabulary
 (`granted/signin/unverified/denied`) across areas: events authorize via
 `checkEventManager` (strategist+ against a fresh roster, admins bypass), the bag shop via
 the bot's staff flag (memoized, failures never cached). The navbar's Manage entry uses a
-cheap stale-tolerant variant — display-only, the routes re-check strictly. Legacy URLs
+cheap stale-tolerant variant, while `pageAreaAccess` resolves only the requested area's
+strict authority. Legacy URLs
 (`/events/manage/**`, `/services/bagshop/manage`) 308-redirect via a pure map
 (`lib/manage/redirects.ts`). The event editor (`lib/events/editor/`) is one form split
 into section components sharing an `EventDraft` runes class over context (one payload,
