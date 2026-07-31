@@ -173,7 +173,9 @@ export const actions: Actions = {
     }
     // One resolution path for both raffle generations: legacy fields or the
     // composable eligibility block, always against the fresh roster.
-    const pool = await resolveEligibility(fetch, event, raffle, stats.members);
+    // Strict: a draw is irreversible, so stale rank or stat caches fail the
+    // roll instead of deciding who can win.
+    const pool = await resolveEligibility(fetch, event, raffle, stats.members, { strict: true });
     if (pool.error) return fail(503, { error: pool.error });
 
     // Nobody already holding a slot can win this one: every other slot of this
