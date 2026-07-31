@@ -78,6 +78,19 @@
     >
       {draft.mode === "create" ? "Create event" : "Save changes"}
     </button>
+    <!-- The footer renders the same outcome, but it sits below thirteen
+         sections - a rejected save must be visible where the button is. -->
+    {#if draft.showValidation && draft.liveError}
+      <span class="rail-status rail-status-error" role="alert">{draft.liveError}</span>
+    {:else if draft.serverError}
+      <span class="rail-status rail-status-error" role="alert">{draft.serverError}</span>
+    {:else if draft.serverAuditWarning}
+      <span class="rail-status rail-status-error" role="alert">
+        Done, but not recorded in the audit log.
+      </span>
+    {:else if draft.serverSaved}
+      <span class="rail-status rail-status-saved">Saved</span>
+    {/if}
     <div class="rail-history" role="group" aria-label="Edit history">
       <button
         type="button"
@@ -163,6 +176,19 @@
   .rail-history {
     display: flex;
     gap: 6px;
+  }
+
+  .rail-status {
+    max-width: 300px;
+    font-size: var(--text-xs);
+  }
+
+  .rail-status-error {
+    color: var(--status-error);
+  }
+
+  .rail-status-saved {
+    color: var(--color-gold);
   }
 
   @media (max-width: 1000px) {

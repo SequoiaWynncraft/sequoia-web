@@ -232,6 +232,11 @@ export class EventDraft {
   trackerAttempted = $state(false);
   /** The last ?/createTracker or ?/updateTracker rejection, synced from props. */
   serverTrackerError = $state<string | null>(null);
+  // The last save's outcome, synced from props so the rail can show it next
+  // to its sticky save button - the footer alone scrolls out of view.
+  serverSaved = $state(false);
+  serverError = $state<string | null>(null);
+  serverAuditWarning = $state(false);
   newTrackerName = $state("");
   newTrackerStarts = $state("");
   newTrackerEnds = $state("");

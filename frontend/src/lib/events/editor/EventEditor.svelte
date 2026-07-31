@@ -78,6 +78,12 @@
     draft.serverTrackerError = trackerError;
   });
 
+  $effect.pre(() => {
+    draft.serverSaved = saved;
+    draft.serverError = error;
+    draft.serverAuditWarning = auditWarning;
+  });
+
   // History capture after a quiet period. Replayed snapshots need no
   // suppression flag: applySnapshot re-points lastCaptured at the applied
   // state, so the debounced capture no-ops on equality, while a real edit
