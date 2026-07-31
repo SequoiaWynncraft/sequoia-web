@@ -8,6 +8,7 @@ import { parseGuildEvent } from "$lib/events/validate";
 import { eventFormContext } from "$lib/server/eventFormContext";
 import { requireEventManager } from "$lib/server/eventManagers";
 import { getGuildStats } from "$lib/server/guildStats";
+import { withEventLock } from "$lib/server/eventLocks";
 import { endRoom, publish } from "$lib/server/liveRolls";
 import { resolveEligibility } from "$lib/server/raffleEligibility";
 import { raffleRollStore } from "$lib/server/raffleRolls";
@@ -158,13 +159,24 @@ export const actions: Actions = {
     // in place is recoverable, orphaned entrant snapshots under a reusable
     // slug are not. (Purged-but-not-deleted, the rare CAS-loss below, only
     // costs the stage its replay; winners live in the event JSON.)
-    try {
-      await raffleRollStore.removeForEvent(params.slug);
-    } catch (error) {
-      console.warn("raffle roll purge failed:", error);
+    // The lock closes the last hole: a roll whose winner already committed
+    // inserts its record under the same lock, so it can never land between
+    // this purge and the removal.
+    const removal = await withEventLock(params.slug, async () => {
+      try {
+        await raffleRollStore.removeForEvent(params.slug);
+      } catch (error) {
+        console.warn("raffle roll purge failed:", error);
+        return "purgeFailed" as const;
+      }
+      return (await eventStore.remove(params.slug, { ifUpdatedAt: baseUpdatedAt }))
+        ? ("removed" as const)
+        : ("lost" as const);
+    });
+    if (removal === "purgeFailed") {
       return fail(503, { error: "Could not clear the raffle records - try again shortly." });
     }
-    if (!(await eventStore.remove(params.slug, { ifUpdatedAt: baseUpdatedAt }))) {
+    if (removal === "lost") {
       // The CAS lost a race after the read above: a concurrent delete of the
       // same version is done, a concurrent update is a conflict.
       if (!(await eventStore.get(params.slug))) redirect(303, "/manage/events");
@@ -318,9 +330,21 @@ export const actions: Actions = {
       startedAt,
       settlesAt: startedAt + 9000,
     };
-    let rollRecorded = true;
+    let rollRecorded = false;
     try {
-      await raffleRollStore.insert({ ...roll, createdBy: manager.discordId, superseded: false });
+      // Same lock as deletion: the purge-then-remove sequence can never
+      // interleave with this existence check + insert, so a slug whose event
+      // vanished while we awaited records nothing instead of orphaning a row
+      // a later event on this slug would replay.
+      rollRecorded = await withEventLock(params.slug, async () => {
+        if (!(await eventStore.get(params.slug))) return false;
+        await raffleRollStore.insert({ ...roll, createdBy: manager.discordId, superseded: false });
+        return true;
+      });
+    } catch (error) {
+      console.warn("raffle roll record failed:", error);
+    }
+    if (rollRecorded) {
       publish(params.slug, { type: "roll", roll });
       const settleTimer = setTimeout(() => {
         raffleRollStore
@@ -330,9 +354,7 @@ export const actions: Actions = {
       }, roll.spin.durationMs);
       // A held timer must not keep a short-lived process (tests) alive.
       if (typeof settleTimer === "object" && "unref" in settleTimer) settleTimer.unref();
-    } catch (error) {
-      console.warn("raffle roll record failed:", error);
-      rollRecorded = false;
+    } else {
       // Connected stages still hold the (already superseded) previous roll
       // in memory - retire exactly THAT roll on the wire and refresh, so the
       // event JSON's committed winner takes over instead of a replaced one
