@@ -151,10 +151,11 @@ visibility change that matters (deletion, unpublishing, public→members) tears 
 down server-side, and the browser's reconnect lands back in the connect-time check. The
 stage page renders a deterministic SVG wheel (`lib/events/stage/`): every
 viewer computes the same landing from the same roll data, and reduced motion renders the
-parked result. Late joiners enter the animation mid-flight by comparing the server's
-`startedAt` against their own wall clock, so cross-viewer sync is best-effort: a skewed
-client clock shifts where in the spin that viewer enters (or parks it immediately), but
-never changes the winner it lands on.
+parked result. Timed SSE messages carry the server's `now`; `StageFeed` derives the
+client-to-server clock offset when each message arrives, and `RaffleWheel` subtracts it
+when comparing local time with the server's `startedAt` and `settlesAt`. Absolute client
+clock skew therefore cancels. Only message transit latency leaves a small timing offset
+between viewers, and it never changes the winner the wheel lands on.
 
 Several statistics subpages (`rankings`, `playercard`, `player/raids`, `news`) are
 scaffolded placeholders rendered from shared metadata; `frontend/src/lib/site/nav.ts` is the
