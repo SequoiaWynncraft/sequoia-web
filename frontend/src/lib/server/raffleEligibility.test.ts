@@ -54,12 +54,15 @@ function raffle(overrides: Partial<EventRaffle> = {}): EventRaffle {
   return { id: "r1", prize: "Mythic", winnerCount: 1, perTicket: 5, ...overrides };
 }
 
-function progressWith(entries: [string, { raids?: number; wars?: number; playtime?: number }][]) {
+function progressWith(
+  entries: [string, { raids?: number; wars?: number; playtime?: number }][],
+  dataSince: { activity?: string; raids?: string } = {},
+) {
   mockProgress.mockResolvedValue({
     generated_at: "",
     from: "",
     to: "",
-    data_since: { activity: "", raids: "", war_points: "" },
+    data_since: { activity: dataSince.activity ?? "", raids: dataSince.raids ?? "", war_points: "" },
     members: entries.map(([uuid, gains]) => ({
       player_uuid: uuid,
       player_name: uuid,
@@ -238,6 +241,41 @@ describe("resolveEligibility", () => {
     const alice = result.entrants.find((entrant) => entrant.username === "Alice");
     expect(alice).toMatchObject({ tickets: 5, source: "roster" });
     expect(result.entrants).toHaveLength(3);
+  });
+
+  it("fails stat windows closed when they start before the rollup history", async () => {
+    progressWith([["uuid-a", { raids: 12 }]], { raids: "2026-07-05" });
+    const rule = await resolveEligibility(
+      fetch,
+      event(),
+      raffle({ eligibility: { rules: [{ type: "stat", stat: "raids", min: 1, window: WINDOW }] } }),
+      ROSTER,
+    );
+    expect(rule.error).toContain("2026-07-05");
+    expect(rule.entrants).toEqual([]);
+
+    // Wars and playtime read the activity rollups' start, not the raid feed's.
+    progressWith([["uuid-a", { playtime: 9 }]], { activity: "2026-07-03" });
+    const weight = await resolveEligibility(
+      fetch,
+      event(),
+      raffle({
+        eligibility: { weight: { mode: "perStat", stat: "playtime", per: 2, window: WINDOW } },
+      }),
+      ROSTER,
+    );
+    expect(weight.error).toContain("2026-07-03");
+
+    // A window starting on or after the history start resolves normally.
+    progressWith([["uuid-a", { raids: 12 }]], { raids: "2026-07-01" });
+    const fine = await resolveEligibility(
+      fetch,
+      event(),
+      raffle({ eligibility: { rules: [{ type: "stat", stat: "raids", min: 1, window: WINDOW }] } }),
+      ROSTER,
+    );
+    expect(fine.error).toBeNull();
+    expect(fine.entrants.map((entrant) => entrant.username)).toEqual(["Alice"]);
   });
 
   it("fails closed when a data source is unavailable", async () => {
