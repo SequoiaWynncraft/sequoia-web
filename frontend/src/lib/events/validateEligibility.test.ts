@@ -195,3 +195,39 @@ describe("raffle eligibility parsing", () => {
     if (result.ok) expect(result.event.raffles?.[0]).toEqual(stored.raffles[0]);
   });
 });
+
+describe("round-five hardening", () => {
+  it("requires UTC-midnight bounds on stat windows", () => {
+    expectError(
+      withEligibility({
+        rules: [
+          {
+            type: "stat",
+            stat: "raids",
+            min: 1,
+            window: { from: "2026-07-01T12:00:00Z", to: "2026-07-15T00:00:00Z" },
+          },
+        ],
+      }),
+      "UTC midnight",
+    );
+    expectError(
+      withEligibility({
+        weight: {
+          mode: "perStat",
+          stat: "wars",
+          per: 1,
+          window: { from: "2026-07-01T00:00:00Z", to: "2026-07-15T18:30:00Z" },
+        },
+      }),
+      "UTC midnight",
+    );
+  });
+
+  it("caps manual ticket floors below overflow territory", () => {
+    expectError(
+      withEligibility({ include: [{ player_uuid: "uuid-a", username: "Alice", tickets: 1e308 }] }),
+      "at most",
+    );
+  });
+});

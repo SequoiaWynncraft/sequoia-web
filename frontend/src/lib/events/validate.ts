@@ -426,6 +426,7 @@ function parseRaffle(value: unknown, label: string): EventRaffle {
 }
 
 const MAX_MANUAL_ENTRANTS = 150;
+const MAX_MANUAL_TICKETS = 1_000_000;
 const MAX_ELIGIBILITY_RULES = 20;
 const ELIGIBILITY_STATS = new Set(["raids", "playtime", "wars"]);
 
@@ -466,6 +467,11 @@ function parseManualEntrants(value: unknown, label: string): ManualEntrant[] | u
     seen.add(key);
     if (present(raw.tickets)) {
       entrant.tickets = parseCount(raw.tickets, `${label} entry tickets`, 1);
+      // Huge floors pass Number.isInteger (1e308 is "an integer") and would
+      // overflow the draw's ticket sum to Infinity, breaking the weighting.
+      if (entrant.tickets > MAX_MANUAL_TICKETS) {
+        fail(`${label} entry tickets must be at most ${MAX_MANUAL_TICKETS}`);
+      }
     }
     return entrant;
   });
@@ -493,7 +499,7 @@ function parseEligibilityRule(value: unknown, label: string): EligibilityRule {
         type: "stat",
         stat: raw.stat as "raids" | "playtime" | "wars",
         min: parseCount(raw.min, `${label} stat rule minimum`, 1),
-        window: parseRaffleWindow(raw.window, `${label} stat rule`),
+        window: parseDayWindow(raw.window, `${label} stat rule`),
       };
     }
     case "milestone":
@@ -541,12 +547,27 @@ function parseTicketWeight(value: unknown, label: string): TicketWeight {
         mode: "perStat",
         stat: raw.stat as "raids" | "playtime" | "wars",
         per: parseCount(raw.per, `${label} per-stat divisor`, 1),
-        window: parseRaffleWindow(raw.window, `${label} weight`),
+        window: parseDayWindow(raw.window, `${label} weight`),
       };
     }
     default:
       fail(`${label} has a weight of unknown mode`);
   }
+}
+
+/**
+ * Stat windows read the daily rollups, which only exist in whole UTC days: a
+ * partial-day bound would silently expand to the full days it touches, so
+ * both bounds must sit exactly on UTC midnight.
+ */
+function parseDayWindow(value: unknown, label: string): NonNullable<EventRaffle["window"]> {
+  const window = parseRaffleWindow(value, label);
+  for (const bound of [window.from, window.to]) {
+    if (!bound.endsWith("T00:00:00.000Z")) {
+      fail(`${label} window counts whole UTC days - both bounds must be UTC midnight`);
+    }
+  }
+  return window;
 }
 
 function parseRaffleWindow(value: unknown, label: string): NonNullable<EventRaffle["window"]> {
