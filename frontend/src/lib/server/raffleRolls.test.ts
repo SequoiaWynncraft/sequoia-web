@@ -144,10 +144,11 @@ describe("pending rolls", () => {
     await store.insert(record);
     const [read] = await store.latestForEvent("test-event");
     expect(read.pending).toBe(true);
-    await store.markLive(record.rollId);
+    expect(await store.markLive(record.rollId)).toBe(true);
     const [live] = await store.latestForEvent("test-event");
     expect(live.pending).toBe(false);
     expect(live.state).toBe("spinning");
+    expect(await store.markLive(record.rollId)).toBe(false);
   });
 
   it("an expired pending row is invisible and never shadows the slot's real roll", async () => {
@@ -165,7 +166,7 @@ describe("pending rolls", () => {
     const record = roll({ pending: true });
     await store.insert(record);
     await store.markSupersededById(record.rollId);
-    await store.markLive(record.rollId);
+    expect(await store.markLive(record.rollId)).toBe(false);
     expect(await store.latestForEvent("test-event")).toHaveLength(0);
   });
 });

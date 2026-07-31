@@ -1,15 +1,14 @@
 import type { LayoutServerLoad } from "./$types";
 
-import { resolveManageCapabilities } from "$lib/server/manageCapabilities";
+import { peekManageCapabilities } from "$lib/server/manageCapabilities";
 
 export const prerender = false;
 
 /**
- * One strict, fail-closed access resolution for the whole console: pages
- * consume `capabilities` from `parent()` instead of re-checking. Form
- * actions still guard themselves - layout loads do not run for actions.
+ * Bounded, stale-tolerant capability peeks for sidebar display. Protected
+ * pages resolve their own area's authority strictly before consuming data.
  */
 export const load: LayoutServerLoad = async ({ fetch, parent }) => {
   const { viewer } = await parent();
-  return { capabilities: await resolveManageCapabilities(fetch, viewer) };
+  return { capabilities: await peekManageCapabilities(fetch, viewer) };
 };

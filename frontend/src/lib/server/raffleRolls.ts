@@ -49,8 +49,9 @@ export interface RaffleRollStore {
   /** Every roll of an event, newest first - the manage-side history. */
   listForEvent(eventSlug: string, limit?: number): Promise<RaffleRoll[]>;
   markSettled(id: string): Promise<void>;
-  /** Flips a pending row live once its winner's event commit lands. */
-  markLive(id: string): Promise<void>;
+  /** Flips a pending row live once its winner's event commit lands. Returns
+   * false when the row was already retired or otherwise lost the transition. */
+  markLive(id: string): Promise<boolean>;
   /** Re-rolling a slot retires its previous roll from the stage snapshot. */
   markSuperseded(eventSlug: string, raffleId: string, slot: number): Promise<void>;
   /** Retires exactly one observed roll - concurrent draws must never blanket
@@ -166,10 +167,11 @@ export function createRaffleRollStore(getClient: () => Promise<Client>): RaffleR
 
     async markLive(id) {
       const db = await ready();
-      await db.execute({
+      const result = await db.execute({
         sql: "UPDATE raffle_rolls SET state = 'spinning' WHERE id = ? AND state = 'pending'",
         args: [id],
       });
+      return result.rowsAffected > 0;
     },
 
     async markSettled(id) {
