@@ -264,8 +264,9 @@
 
   .wheel-label {
     fill: var(--text-body);
-    font-family: var(--font-data);
-    font-size: 15px;
+    font-family: var(--font-display);
+    font-size: 14px;
+    letter-spacing: 0.04em;
     dominant-baseline: middle;
     text-anchor: middle;
     pointer-events: none;
@@ -323,8 +324,9 @@
     overflow: hidden;
     max-width: 100%;
     color: var(--text-heading);
-    font-family: var(--font-data);
+    font-family: var(--font-display);
     font-size: var(--text-sm);
+    letter-spacing: 0.04em;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
