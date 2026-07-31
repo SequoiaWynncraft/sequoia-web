@@ -251,6 +251,17 @@ export const actions: Actions = {
 
     raffle.winners = [...others, { slot, ...drawn }];
     raffle.drawnAt = new Date().toISOString();
+    // Retire the slot's previous roll BEFORE committing its replacement, and
+    // abort if that fails: a committed new winner alongside a live old roll
+    // would let recovered snapshots replay the old winner over the real one.
+    // The reverse loss (retired old roll, CAS below fails) only costs the
+    // stage its replay - the slot's winner is unchanged in the event JSON.
+    try {
+      await raffleRollStore.markSuperseded(params.slug, raffleId, slot);
+    } catch (error) {
+      console.warn("raffle roll supersede failed:", error);
+      return fail(503, { error: "Could not clear the previous roll - try again shortly." });
+    }
     // Guard on the version we read: if another roll (or save) landed in the
     // meantime, this write loses rather than clobbering that winner, and the
     // manager is told to retry against the fresh state.
@@ -292,7 +303,6 @@ export const actions: Actions = {
     };
     let rollRecorded = true;
     try {
-      await raffleRollStore.markSuperseded(params.slug, raffleId, slot);
       await raffleRollStore.insert({ ...roll, createdBy: manager.discordId, superseded: false });
       publish(params.slug, { type: "roll", roll });
       const settleTimer = setTimeout(() => {
