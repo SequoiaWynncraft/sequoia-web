@@ -786,3 +786,42 @@
     justify-self: start;
   }
 }
+
+/* ── Wide viewports ──
+   The console must use a big monitor, not center a phone column on it: the
+   compact "setup" sections pair two across, while the program sections
+   (goals, milestones, prizes, comp, standings, raffles - repeaters and
+   boards) keep the full line. Still ONE form; only the layout changes. */
+@media (min-width: 1500px) {
+  .evf-form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 56px;
+  }
+
+  .evf-form > * {
+    grid-column: 1 / -1;
+    min-width: 0;
+  }
+
+  .evf-form > #identity,
+  .evf-form > #schedule,
+  .evf-form > #sky,
+  .evf-form > #icon,
+  .evf-form > #about,
+  .evf-form > #rules,
+  .evf-form > #activity {
+    grid-column: auto;
+  }
+
+  /* Paired cells stretch to the row, so their bottom hairlines align; the
+     fields inside stay top-anchored. */
+  .evf-form > .form-section {
+    align-content: start;
+  }
+
+  .evf-form > #identity,
+  .evf-form > #schedule {
+    padding-top: 0;
+  }
+}
