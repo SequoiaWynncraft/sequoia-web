@@ -29,6 +29,13 @@
     return `${row.key}:${list}`;
   }
 
+  /** Uuid identity tolerates spelling (case, hyphens): a stored pick and the
+   * roster can format the same player differently, and a raw-equality dup
+   * check would add both - which the validator then rejects as a duplicate. */
+  function canonicalUuid(uuid: string): string {
+    return uuid.replaceAll("-", "").toLowerCase();
+  }
+
   function addManual(row: RaffleRow, list: "include" | "exclude") {
     const key = manualKey(row, list);
     const name = (manualDrafts[key] ?? "").trim();
@@ -36,12 +43,13 @@
       (choice) => choice.username.toLowerCase() === name.toLowerCase(),
     );
     if (!member?.uuid) return;
+    const uuid = member.uuid;
     const target = list === "include" ? row.include : row.exclude;
-    if (target.some((entry) => entry.player_uuid === member.uuid)) {
+    if (target.some((entry) => canonicalUuid(entry.player_uuid) === canonicalUuid(uuid))) {
       manualDrafts[key] = "";
       return;
     }
-    target.push(draft.newManualRow(member.username, member.uuid));
+    target.push(draft.newManualRow(member.username, uuid));
     manualDrafts[key] = "";
   }
 

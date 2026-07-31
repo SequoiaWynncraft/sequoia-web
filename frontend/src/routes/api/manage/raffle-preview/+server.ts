@@ -4,6 +4,7 @@ import type { RequestHandler } from "./$types";
 import type { RafflePreviewResponse } from "$lib/events/rafflePreview";
 import { parseGuildEvent } from "$lib/events/validate";
 import { requireEventManager } from "$lib/server/eventManagers";
+import { eventStore } from "$lib/server/eventStore";
 import { getGuildStats } from "$lib/server/guildStats";
 import { resolveEligibility } from "$lib/server/raffleEligibility";
 import { normalizeUuid } from "$lib/server/raidEventBoards";
@@ -43,17 +44,21 @@ export const POST: RequestHandler = async ({ request, cookies, fetch, locals }) 
   if (pool.error) return json(unavailable(pool.error));
   // Mirror the roll's exclusions: a slot already drawn in THIS raffle bars
   // its winner from the remaining slots, and with the event-wide flag on,
-  // another raffle's frozen winner can never win here either. Listing them
-  // (or counting their tickets into the odds) would misstate the pool.
+  // another raffle's frozen winner can never win here either. Winners are
+  // SERVER-owned - the draft's copy can be missing after an undo or a
+  // preset load - so the persisted event is the authority here, exactly as
+  // it is for the roll itself.
+  const stored = await eventStore.get(parsed.event.slug).catch(() => null);
+  const winnersOf = (source: { raffles?: typeof parsed.event.raffles }) => [
+    ...(source.raffles?.find((entry) => entry.id === raffle.id)?.winners ?? []),
+    ...(parsed.event.raffleExcludeWinners
+      ? (source.raffles ?? [])
+          .filter((entry) => entry.id !== raffle.id)
+          .flatMap((entry) => entry.winners ?? [])
+      : []),
+  ];
   const barred = new Set(
-    [
-      ...(raffle.winners ?? []),
-      ...(parsed.event.raffleExcludeWinners
-        ? (parsed.event.raffles ?? [])
-            .filter((entry) => entry.id !== raffle.id)
-            .flatMap((entry) => entry.winners ?? [])
-        : []),
-    ].map((winner) => normalizeUuid(winner.player_uuid)),
+    winnersOf(stored?.event ?? parsed.event).map((winner) => normalizeUuid(winner.player_uuid)),
   );
   const eligible = pool.entrants.filter(
     (entrant) => !barred.has(normalizeUuid(entrant.player_uuid)),

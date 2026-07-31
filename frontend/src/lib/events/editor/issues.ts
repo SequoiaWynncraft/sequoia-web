@@ -114,6 +114,11 @@ export function sectionIssues(draft: EventDraft): Partial<Record<SectionId, stri
     const windowRequired = raffle.weightMode === "perStat";
     if (windowRequired && (!raffle.windowFrom || !raffle.windowTo)) {
       add("raffles", "A per-stat weight needs a counting window");
+    } else if (
+      windowRequired &&
+      (!raffle.windowFrom.endsWith("T00:00") || !raffle.windowTo.endsWith("T00:00"))
+    ) {
+      add("raffles", "Per-stat windows count whole UTC days - use 00:00 bounds");
     } else if ((raffle.windowFrom === "") !== (raffle.windowTo === "")) {
       add("raffles", "A window needs both bounds");
     } else if (invalidInstant(raffle.windowFrom) || invalidInstant(raffle.windowTo)) {
@@ -132,6 +137,9 @@ export function sectionIssues(draft: EventDraft): Partial<Record<SectionId, stri
       if (rule.type === "stat") {
         if (!hasCount(rule.min)) add("raffles", "A stat rule needs a minimum");
         if (!rule.windowFrom || !rule.windowTo) add("raffles", "A stat rule needs a window");
+        else if (!rule.windowFrom.endsWith("T00:00") || !rule.windowTo.endsWith("T00:00")) {
+          add("raffles", "Stat windows count whole UTC days - use 00:00 bounds");
+        }
       }
       if (rule.type === "milestone" && !rule.milestoneId) {
         add("raffles", "A milestone rule needs a milestone");
