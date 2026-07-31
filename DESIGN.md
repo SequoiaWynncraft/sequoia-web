@@ -109,7 +109,10 @@ No CSS framework and no store library.
 
 **Management console** (`/manage/**`): every management surface lives under one
 permission-gated shell — a sticky sidebar of areas the viewer can access, driven by a
-registry (`lib/manage/registry.ts`; a new area is one entry plus one capability key).
+registry (`lib/manage/registry.ts`). Adding an area takes a registry entry, a capability
+key, its resolution in `resolveManageCapabilities`, and — when a new privilege is
+involved — a stale-tolerant check in `navManageVisible`, which hard-codes the event and
+bag-shop privileges rather than deriving from the registry.
 `routes/manage/+layout.server.ts` resolves a `ManageCapabilities` object once per request
 (`lib/server/manageCapabilities.ts`) with one access vocabulary
 (`granted/signin/unverified/denied`) across areas: events authorize via
@@ -136,8 +139,11 @@ winner into the event JSON under the whole-event CAS (still the sole contention 
 then records the draw in `raffle_rolls` (`lib/server/raffleRolls.ts`: entrant snapshot,
 winner index, spin choreography) and broadcasts it over in-process pub/sub
 (`lib/server/liveRolls.ts`, single-replica by design) to
-`GET /events/{slug}/raffle/stream` (native SSE, heartbeats, access mirrors the event
-page). The stage page renders a deterministic SVG wheel (`lib/events/stage/`): every
+`GET /events/{slug}/raffle/stream` (native SSE, heartbeats). The stream and stage gate
+harder than the event page: a member-only event still serves non-members its public
+hero, but their stream and stage requests are denied outright — entrant names never
+leave the membership boundary. The stage page renders a deterministic SVG wheel
+(`lib/events/stage/`): every
 viewer computes the same landing from the same roll data, late joiners enter the same
 animation mid-flight, and reduced motion renders the parked result.
 
