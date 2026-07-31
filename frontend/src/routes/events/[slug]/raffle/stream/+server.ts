@@ -55,7 +55,14 @@ export const GET: RequestHandler = async ({ params, cookies, fetch, locals }) =>
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       const send = (message: StageMessage) => {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify(message)}\n\n`));
+        // Stamp at the actual enqueue, not just publication: a roll buffered
+        // behind the initial snapshot must not make queue time look like
+        // client clock skew.
+        const outgoing =
+          message.type === "snapshot" || message.type === "roll"
+            ? { ...message, now: Date.now() }
+            : message;
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(outgoing)}\n\n`));
       };
       // Subscribe BEFORE reading the snapshot: a roll landing between the
       // two would otherwise be in neither (published with no listener yet,
@@ -90,12 +97,14 @@ export const GET: RequestHandler = async ({ params, cookies, fetch, locals }) =>
         return;
       }
       try {
+        const rolls = (await raffleRollStore.latestForEvent(params.slug))
+          // A pending row's winner has not committed yet - not stage material.
+          .filter((roll) => !roll.pending)
+          .map(toStageRoll);
         send({
           type: "snapshot",
-          rolls: (await raffleRollStore.latestForEvent(params.slug))
-            // A pending row's winner has not committed yet - not stage material.
-            .filter((roll) => !roll.pending)
-            .map(toStageRoll),
+          now: Date.now(),
+          rolls,
         });
       } catch (error) {
         // A failed snapshot must not leave a dead subscriber behind - the
