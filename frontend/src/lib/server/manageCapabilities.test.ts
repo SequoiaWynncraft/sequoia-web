@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { navManageVisible, resolveManageCapabilities } from "./manageCapabilities";
+import {
+  navManageVisible,
+  pageAreaAccess,
+  peekManageCapabilities,
+} from "./manageCapabilities";
 import { createBagshopClient } from "$lib/api/bagshop";
 import { getGuildStats } from "./guildStats";
 import type { Viewer } from "$lib/site/viewer";
@@ -55,9 +59,9 @@ beforeEach(() => {
   bagshopMe({ ok: true, staff: false });
 });
 
-describe("resolveManageCapabilities", () => {
+describe("peekManageCapabilities", () => {
   it("is signin everywhere without a session, with zero upstream calls", async () => {
-    expect(await resolveManageCapabilities(noFetch, null)).toEqual({
+    expect(await peekManageCapabilities(noFetch, null)).toEqual({
       events: "signin",
       bagshop: "signin",
     });
@@ -67,7 +71,7 @@ describe("resolveManageCapabilities", () => {
 
   it("grants events to a strategist and denies a non-staff member the bagshop", async () => {
     rosterWith("strategist");
-    expect(await resolveManageCapabilities(fetch, viewer())).toEqual({
+    expect(await peekManageCapabilities(fetch, viewer())).toEqual({
       events: "granted",
       bagshop: "denied",
     });
@@ -75,38 +79,62 @@ describe("resolveManageCapabilities", () => {
 
   it("grants events to a website admin without consulting the roster rank", async () => {
     bagshopMe({ ok: true, staff: true });
-    expect(await resolveManageCapabilities(fetch, viewer({ websiteAdmin: true }))).toEqual({
+    expect(await peekManageCapabilities(fetch, viewer({ websiteAdmin: true }))).toEqual({
       events: "granted",
       bagshop: "granted",
     });
   });
 
-  it("fails events closed to unverified on a stale roster", async () => {
+  it("uses a stale roster for display-only navigation", async () => {
     rosterWith("strategist", true);
-    const caps = await resolveManageCapabilities(fetch, viewer());
-    expect(caps.events).toBe("unverified");
+    const caps = await peekManageCapabilities(fetch, viewer());
+    expect(caps.events).toBe("granted");
   });
 
   it("maps an unreachable bagshop to unverified and retries next time", async () => {
     bagshopMe({ ok: false });
     const who = viewer();
-    expect((await resolveManageCapabilities(fetch, who)).bagshop).toBe("unverified");
+    expect((await peekManageCapabilities(fetch, who)).bagshop).toBe("unverified");
     // Failure evicted: the next resolution asks the bot again.
     bagshopMe({ ok: true, staff: true });
-    expect((await resolveManageCapabilities(fetch, who)).bagshop).toBe("granted");
+    expect((await peekManageCapabilities(fetch, who)).bagshop).toBe("granted");
   });
 
   it("asks the bot fresh for gates while the navbar rides the memo", async () => {
     const who = viewer();
     // Strict resolutions never reuse a cached staff answer - an allowlist
     // change applies on the next navigation, not after a TTL.
-    await resolveManageCapabilities(fetch, who);
-    await resolveManageCapabilities(fetch, who);
+    await pageAreaAccess(fetch, who, "bagshop");
+    await pageAreaAccess(fetch, who, "bagshop");
     expect(mockClient).toHaveBeenCalledTimes(2);
     // The display-only navbar peek reuses the settled answer.
     mockClient.mockClear();
     await navManageVisible(fetch, who);
     expect(mockClient).not.toHaveBeenCalled();
+  });
+
+  it("shares an in-flight sidebar staff peek with the strict bagshop gate", async () => {
+    let resolveMe!: (value: {
+      ok: true;
+      data: { minecraftUuid: string; staff: boolean };
+    }) => void;
+    mockClient.mockReturnValue({
+      getMe: () => new Promise((resolve) => (resolveMe = resolve)),
+    } as never);
+    const who = viewer();
+
+    const sidebar = peekManageCapabilities(fetch, who);
+    const gate = pageAreaAccess(fetch, who, "bagshop");
+    expect(mockClient).toHaveBeenCalledTimes(1);
+
+    resolveMe({ ok: true, data: { minecraftUuid: UUID, staff: true } });
+    await expect(gate).resolves.toBe("granted");
+    await expect(sidebar).resolves.toMatchObject({ bagshop: "granted" });
+  });
+
+  it("keeps stale roster data out of the strict events gate", async () => {
+    rosterWith("strategist", true);
+    expect(await pageAreaAccess(fetch, viewer(), "events")).toBe("unverified");
   });
 });
 
@@ -136,18 +164,24 @@ describe("navManageVisible", () => {
     expect(Date.now() - startedAt).toBeLessThan(1000);
   });
 
-  it("stays quiet when the roster read fails and the viewer is not staff", async () => {
+  it("stays quiet when both display authorities reject the viewer", async () => {
     mockStats.mockRejectedValue(new Error("wynn down"));
     expect(await navManageVisible(fetch, viewer())).toBe(false);
   });
 
-  it("hides promptly when the roster read hangs", async () => {
+  it("still shows settled bagshop staff when the roster read fails", async () => {
+    mockStats.mockRejectedValue(new Error("wynn down"));
+    bagshopMe({ ok: true, staff: true });
+    expect(await navManageVisible(fetch, viewer())).toBe(true);
+  });
+
+  it("checks bagshop independently when the roster read hangs", async () => {
     mockStats.mockReturnValue(new Promise(() => undefined));
     bagshopMe({ ok: true, staff: true });
 
     const startedAt = Date.now();
-    expect(await navManageVisible(fetch, viewer())).toBe(false);
+    expect(await navManageVisible(fetch, viewer())).toBe(true);
     expect(Date.now() - startedAt).toBeLessThan(1000);
-    expect(mockClient).not.toHaveBeenCalled();
+    expect(mockClient).toHaveBeenCalledTimes(1);
   });
 });
