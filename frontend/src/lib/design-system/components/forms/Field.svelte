@@ -19,20 +19,37 @@
     element?: "label" | "div";
     children: Snippet;
   } = $props();
+
+  const descriptionId = $props.id();
+  let main = $state<HTMLElement | null>(null);
+
+  // The children snippet takes no parameters (call sites stay plain), so the
+  // hint/error association is wired onto the rendered control directly: the
+  // first form control inside the field is described by whichever text is
+  // showing. Composite fields (color pairs, instant pairs) describe their
+  // first control - the pair reads as one field.
+  $effect(() => {
+    const showing = Boolean(error || hint);
+    const control = main?.querySelector("input, select, textarea");
+    if (!control) return;
+    if (showing) control.setAttribute("aria-describedby", descriptionId);
+    else control.removeAttribute("aria-describedby");
+  });
 </script>
 
 <!-- The hint/error sits OUTSIDE the label element: a label's descendants
      become part of the control's accessible NAME, so an appearing error
-     would rename the focused field to screen readers. -->
+     would rename the focused field to screen readers. It participates as
+     the control's DESCRIPTION via aria-describedby instead. -->
 <div class="field" class:field-tight={tight}>
-  <svelte:element this={element} class="field-main">
+  <svelte:element this={element} class="field-main" bind:this={main}>
     <span class="field-label">{label}</span>
     {@render children()}
   </svelte:element>
   {#if error}
-    <span class="field-error" role="alert">{error}</span>
+    <span class="field-error" id={descriptionId} role="alert">{error}</span>
   {:else if hint}
-    <span class="field-hint">{hint}</span>
+    <span class="field-hint" id={descriptionId}>{hint}</span>
   {/if}
 </div>
 
