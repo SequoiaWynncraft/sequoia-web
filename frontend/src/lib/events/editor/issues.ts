@@ -2,19 +2,19 @@ import { hasCount, toCount, toInstant, type EventDraft } from "./draft.svelte";
 
 /** Editor sections in page order; ids double as the anchor fragments. */
 export const EDITOR_SECTIONS = [
-  { id: "identity", label: "Identity" },
-  { id: "schedule", label: "Schedule" },
-  { id: "sky", label: "Sky" },
-  { id: "icon", label: "Icon" },
-  { id: "about", label: "About" },
-  { id: "rules", label: "Rules" },
-  { id: "activity", label: "Activity chart" },
-  { id: "goals", label: "Goals" },
-  { id: "milestones", label: "Personal milestones" },
-  { id: "prizes", label: "Prizes" },
-  { id: "comp", label: "Suggested comp" },
-  { id: "standings", label: "Standings" },
-  { id: "raffles", label: "Raffles" },
+  { id: "identity", label: "Identity", category: "Setup" },
+  { id: "schedule", label: "Schedule", category: "Setup" },
+  { id: "sky", label: "Sky", category: "Design" },
+  { id: "icon", label: "Icon", category: "Design" },
+  { id: "about", label: "About", category: "Copy" },
+  { id: "rules", label: "Rules", category: "Copy" },
+  { id: "activity", label: "Activity chart", category: "Progress" },
+  { id: "goals", label: "Goals", category: "Progress" },
+  { id: "milestones", label: "Personal milestones", category: "Progress" },
+  { id: "standings", label: "Standings", category: "Progress" },
+  { id: "prizes", label: "Prizes", category: "Rewards" },
+  { id: "comp", label: "Suggested comp", category: "Rewards" },
+  { id: "raffles", label: "Raffles", category: "Rewards" },
 ] as const;
 
 export type SectionId = (typeof EDITOR_SECTIONS)[number]["id"];

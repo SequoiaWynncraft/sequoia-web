@@ -240,9 +240,9 @@
       <ActivitySection />
       <GoalsSection />
       <MilestonesSection />
+      <StandingsSection />
       <PrizesSection />
       <CompSection />
-      <StandingsSection />
       <RafflesSection />
 
       <div class="evf-footer">

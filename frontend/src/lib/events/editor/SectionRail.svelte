@@ -51,8 +51,11 @@
 
 <nav class="rail" aria-label="Editor sections">
   <ul class="rail-list">
-    {#each EDITOR_SECTIONS as section (section.id)}
+    {#each EDITOR_SECTIONS as section, index (section.id)}
       {@const count = issues[section.id]?.length ?? 0}
+      {#if index === 0 || EDITOR_SECTIONS[index - 1].category !== section.category}
+        <li class="rail-cat" aria-hidden="true">{section.category}</li>
+      {/if}
       <li>
         <a
           href="#{section.id}"
