@@ -11,6 +11,9 @@
   const issues = $derived(sectionIssues(draft));
 
   let active = $state<string>(EDITOR_SECTIONS[0].id);
+  /** Click target whose smooth scroll is still traveling; observer holds. */
+  let navigatingTo: string | null = null;
+  let navigationTimer: ReturnType<typeof setTimeout> | undefined;
 
   // Scrollspy: the topmost section intersecting the upper viewport band wins.
   // One observer over the stable section anchors; sections never unmount.
@@ -26,17 +29,30 @@
           if (entry.isIntersecting) visible.add(entry.target.id);
           else visible.delete(entry.target.id);
         }
+        // A click's smooth scroll crosses every section between here and the
+        // target - the observer must not fight the explicit choice while the
+        // scroll is still traveling.
+        if (navigatingTo !== null) return;
         // Side-by-side sections share the top of their grid row, so both can
         // sit in the band at once. Sticky tie-break: if the CURRENT active
         // section is still a candidate, keep it - this is what lets a click
         // on the right-hand section survive the observer's next callback.
         if (visible.has(active)) return;
-        for (const section of EDITOR_SECTIONS) {
-          if (visible.has(section.id)) {
-            active = section.id;
-            return;
+        // Hand off to the NEAREST candidate in section order rather than the
+        // first: leaving a tall left-hand section while scrolling up should
+        // activate its right-hand pair (one step away), not jump past it.
+        const activeIndex = EDITOR_SECTIONS.findIndex((section) => section.id === active);
+        let best: string | null = null;
+        let bestDistance = Number.POSITIVE_INFINITY;
+        EDITOR_SECTIONS.forEach((section, index) => {
+          if (!visible.has(section.id)) return;
+          const distance = activeIndex < 0 ? index : Math.abs(index - activeIndex);
+          if (distance < bestDistance) {
+            bestDistance = distance;
+            best = section.id;
           }
-        }
+        });
+        if (best !== null) active = best;
       },
       { rootMargin: "-15% 0px -70% 0px" },
     );
@@ -49,8 +65,22 @@
     const target = document.getElementById(id);
     if (!target) return;
     // Explicit intent beats the observer: side-by-side sections can share a
-    // scroll interval, and the click must win the tie.
+    // scroll interval, and the click must win the tie. The suppression lifts
+    // when the scroll settles (scrollend where supported, a timer where not).
     active = id;
+    navigatingTo = id;
+    clearTimeout(navigationTimer);
+    const settle = () => {
+      navigatingTo = null;
+      window.removeEventListener("scrollend", settle);
+    };
+    if ("onscrollend" in window) {
+      window.addEventListener("scrollend", settle, { once: true });
+      // A no-op scroll (target already in view) never fires scrollend.
+      navigationTimer = setTimeout(settle, 1200);
+    } else {
+      navigationTimer = setTimeout(settle, 900);
+    }
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     target.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
     history.replaceState(history.state, "", `#${id}`);
