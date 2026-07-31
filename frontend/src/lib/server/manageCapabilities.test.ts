@@ -140,4 +140,14 @@ describe("navManageVisible", () => {
     mockStats.mockRejectedValue(new Error("wynn down"));
     expect(await navManageVisible(fetch, viewer())).toBe(false);
   });
+
+  it("hides promptly when the roster read hangs", async () => {
+    mockStats.mockReturnValue(new Promise(() => undefined));
+    bagshopMe({ ok: true, staff: true });
+
+    const startedAt = Date.now();
+    expect(await navManageVisible(fetch, viewer())).toBe(false);
+    expect(Date.now() - startedAt).toBeLessThan(1000);
+    expect(mockClient).not.toHaveBeenCalled();
+  });
 });

@@ -152,7 +152,11 @@ export async function navManageVisible(
 ): Promise<boolean> {
   if (!viewer) return false;
   if (viewer.websiteAdmin) return true;
-  const stats = await getGuildStats(fetchImpl, { allowStale: true }).catch(() => null);
+  const stats = await Promise.race([
+    getGuildStats(fetchImpl, { allowStale: true }).catch(() => null),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), PEEK_WAIT_MS)),
+  ]);
+  if (!stats) return false;
   const member = stats?.members.find(
     (entry) => entry.uuid !== null && sameUuid(entry.uuid, viewer.minecraftUuid),
   );
