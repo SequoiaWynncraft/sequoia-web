@@ -238,7 +238,8 @@ export const actions: Actions = {
     try {
       priorRollId =
         (await raffleRollStore.latestForEvent(params.slug)).find(
-          (entry) => entry.raffleId === raffleId && entry.slot === slot,
+          (entry) =>
+            entry.raffleId === raffleId && entry.slot === slot && !entry.pending,
         )?.rollId ?? null;
     } catch (error) {
       console.warn("raffle roll lookup failed:", error);
@@ -387,7 +388,7 @@ export const actions: Actions = {
         // committed event instead of announcing a roll snapshots cannot replay.
         if (rollRecorded) {
           try {
-            await raffleRollStore.markLive(roll.rollId);
+            rollRecorded = await raffleRollStore.markLive(roll.rollId);
           } catch (error) {
             console.warn("raffle roll flip failed:", error);
             rollRecorded = false;
