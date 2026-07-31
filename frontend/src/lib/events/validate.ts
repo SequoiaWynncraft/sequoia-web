@@ -112,6 +112,91 @@ function parseEvent(value: unknown): GuildEvent {
         across.add(winner.player_uuid);
       }
     }
+    for (const raffle of raffles ?? []) {
+      const eligibility = raffle.eligibility;
+      if (!eligibility?.whitelistOnly) continue;
+      const excluded = new Set([
+        ...(eligibility.exclude ?? []).map((entry) =>
+          entry.player_uuid.replaceAll("-", "").toLowerCase(),
+        ),
+        ...(raffles ?? [])
+          .filter((entry) => entry.id !== raffle.id)
+          .flatMap((entry) => entry.winners ?? [])
+          .map((winner) => winner.player_uuid.replaceAll("-", "").toLowerCase()),
+      ]);
+      const drawable = new Set(
+        (eligibility.include ?? [])
+          .map((entry) => entry.player_uuid.replaceAll("-", "").toLowerCase())
+          .filter((uuid) => !excluded.has(uuid)),
+      ).size;
+      if (drawable < raffle.winnerCount - (raffle.winners?.length ?? 0)) {
+        fail(
+          `raffle "${raffle.prize}" is whitelist-only but has too few eligible members after excluding other raffle winners`,
+        );
+      }
+    }
+    // Per-raffle counts miss OVERLAP: two undrawn one-slot whitelists sharing
+    // their only member both pass above, yet whichever rolls second must
+    // fail. Joint feasibility is a bipartite matching question - every
+    // remaining whitelist slot must be fillable by a distinct member.
+    const jointRaffles = (raffles ?? []).filter((raffle) => raffle.eligibility?.whitelistOnly);
+    const wonAnywhere = new Set(
+      (raffles ?? [])
+        .flatMap((entry) => entry.winners ?? [])
+        .map((winner) => winner.player_uuid.replaceAll("-", "").toLowerCase()),
+    );
+    const pools = jointRaffles.map((raffle) => {
+      const excluded = new Set(
+        (raffle.eligibility?.exclude ?? []).map((entry) =>
+          entry.player_uuid.replaceAll("-", "").toLowerCase(),
+        ),
+      );
+      return {
+        raffle,
+        slots: raffle.winnerCount - (raffle.winners?.length ?? 0),
+        members: (raffle.eligibility?.include ?? [])
+          .map((entry) => entry.player_uuid.replaceAll("-", "").toLowerCase())
+          .filter((uuid) => !excluded.has(uuid) && !wonAnywhere.has(uuid)),
+      };
+    });
+    // Augmenting-path matching, member -> slot. Sizes are bounded by the
+    // manual-entrant and winner caps, so the quadratic walk stays tiny.
+    const slotOwners: (string | null)[] = [];
+    const slotPool: number[] = [];
+    pools.forEach((pool, poolIndex) => {
+      for (let slot = 0; slot < pool.slots; slot++) slotPool.push(poolIndex);
+    });
+    for (let index = 0; index < slotPool.length; index++) slotOwners.push(null);
+    const tryAssign = (uuid: string, allowed: Set<number>, visited: Set<number>): boolean => {
+      for (let slot = 0; slot < slotPool.length; slot++) {
+        if (!allowed.has(slotPool[slot]) || visited.has(slot)) continue;
+        visited.add(slot);
+        const owner = slotOwners[slot];
+        if (owner === null || tryAssign(owner, memberPools.get(owner) ?? new Set(), visited)) {
+          slotOwners[slot] = uuid;
+          return true;
+        }
+      }
+      return false;
+    };
+    const memberPools = new Map<string, Set<number>>();
+    pools.forEach((pool, poolIndex) => {
+      for (const uuid of pool.members) {
+        const entry = memberPools.get(uuid) ?? new Set<number>();
+        entry.add(poolIndex);
+        memberPools.set(uuid, entry);
+      }
+    });
+    let matched = 0;
+    for (const [uuid, allowed] of memberPools) {
+      if (tryAssign(uuid, allowed, new Set())) matched += 1;
+      if (matched >= slotPool.length) break;
+    }
+    if (matched < slotPool.length) {
+      fail(
+        "whitelist raffles overlap too much - there are not enough distinct members to fill every winner slot",
+      );
+    }
   }
   return event;
 }
@@ -425,7 +510,13 @@ function parseRaffle(value: unknown, label: string): EventRaffle {
   const requiresMilestone = optionalText(raw.requiresMilestone, `${label} milestone gate`, 64);
   // The referenced id is cross-checked against personalMilestones in parseEvent.
   if (requiresMilestone) raffle.requiresMilestone = requiresMilestone;
-  if (present(raw.eligibility)) raffle.eligibility = parseEligibility(raw.eligibility, label);
+  if (present(raw.eligibility)) {
+    raffle.eligibility = parseEligibility(
+      raw.eligibility,
+      label,
+      raffle.winnerCount - (raffle.winners?.length ?? 0),
+    );
+  }
   return raffle;
 }
 
@@ -434,13 +525,30 @@ const MAX_MANUAL_TICKETS = 1_000_000;
 const MAX_ELIGIBILITY_RULES = 20;
 const ELIGIBILITY_STATS = new Set(["raids", "playtime", "wars"]);
 
-function parseEligibility(value: unknown, label: string): RaffleEligibility {
+function parseEligibility(value: unknown, label: string, winnerCount: number): RaffleEligibility {
   const raw = asRecord(value, `${label} eligibility`);
   const eligibility: RaffleEligibility = {};
+  if (raw.whitelistOnly === true) eligibility.whitelistOnly = true;
   const include = parseManualEntrants(raw.include, `${label} include list`);
   if (include) eligibility.include = include;
   const exclude = parseManualEntrants(raw.exclude, `${label} exclude list`);
   if (exclude) eligibility.exclude = exclude;
+  // A whitelist raffle without enough distinct entrants left after exclusions
+  // can only ever roll into an error. Catch the mistake at save time, where the
+  // manager can fix it.
+  if (eligibility.whitelistOnly) {
+    const excluded = new Set(
+      (eligibility.exclude ?? []).map((entry) => entry.player_uuid.replaceAll("-", "").toLowerCase()),
+    );
+    const drawable = new Set(
+      (eligibility.include ?? [])
+        .map((entry) => entry.player_uuid.replaceAll("-", "").toLowerCase())
+        .filter((uuid) => !excluded.has(uuid)),
+    ).size;
+    if (drawable < winnerCount) {
+      fail(`${label} is whitelist-only but has more winners than surviving include-list members`);
+    }
+  }
   if (present(raw.rules)) {
     if (!Array.isArray(raw.rules)) fail(`${label} rules must be a list`);
     if (raw.rules.length > MAX_ELIGIBILITY_RULES) {

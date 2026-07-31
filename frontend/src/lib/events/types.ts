@@ -153,6 +153,9 @@ export type TicketWeight =
  * semantics driven by `perTicket`/`window`/`requiresMilestone`.
  */
 export interface RaffleEligibility {
+  /** The include list IS the pool: rules and the roster base don't apply,
+   * only whitelisted members enter (weighted as usual, excludes still win). */
+  whitelistOnly?: boolean;
   include?: ManualEntrant[];
   exclude?: ManualEntrant[];
   rules?: EligibilityRule[];

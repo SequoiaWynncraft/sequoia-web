@@ -100,6 +100,8 @@ export interface RaffleRow {
   /** Original window instants, so an untouched field keeps its seconds. */
   seedWindowFrom: string;
   seedWindowTo: string;
+  /** Only the include list can enter; rules are ignored. */
+  whitelistOnly: boolean;
   rules: RuleRow[];
   include: ManualRow[];
   exclude: ManualRow[];
@@ -446,6 +448,7 @@ export class EventDraft {
       windowTo: "",
       seedWindowFrom: "",
       seedWindowTo: "",
+      whitelistOnly: false,
       rules: [],
       include: [],
       exclude: [],
@@ -498,6 +501,7 @@ export class EventDraft {
     return {
       id: seed.id,
       key: this.nextRowId++,
+      whitelistOnly: seed.eligibility?.whitelistOnly === true,
       prize: seed.prize,
       icon: seed.icon ?? "",
       winnerCount: seed.winnerCount,
@@ -566,6 +570,7 @@ export class EventDraft {
    */
   rowEligibility(row: RaffleRow): RaffleEligibility {
     const eligibility: RaffleEligibility = {};
+    if (row.whitelistOnly) eligibility.whitelistOnly = true;
     const include = row.include
       .filter((entry) => entry.player_uuid && entry.username)
       .map((entry) => {
@@ -609,7 +614,9 @@ export class EventDraft {
           return { type: "milestone", milestoneId: rule.milestoneId };
       }
     });
-    if (rules.length > 0) eligibility.rules = rules;
+    // Whitelist mode ignores rules outright - serializing hidden rule rows
+    // would let an invisible incomplete rule block the save.
+    if (rules.length > 0 && !row.whitelistOnly) eligibility.rules = rules;
     if (row.weightMode === "flat") {
       eligibility.weight = { mode: "flat" };
     } else if (row.weightMode === "perStat") {

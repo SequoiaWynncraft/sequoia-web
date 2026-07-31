@@ -170,6 +170,242 @@ describe("parseGuildEvent", () => {
     }
   });
 
+  it("round-trips a whitelist-only raffle and rejects an empty whitelist", () => {
+    const parsed = parseGuildEvent({
+      ...VALID,
+      raffles: [
+        {
+          id: "r1", prize: "LE", winnerCount: 1, perTicket: 1,
+          eligibility: { whitelistOnly: true, include: [{ player_uuid: "u1", username: "Zed" }] },
+        },
+      ],
+    });
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) expect(parsed.event.raffles?.[0].eligibility?.whitelistOnly).toBe(true);
+    expectError(
+      {
+        ...VALID,
+        raffles: [
+          { id: "r1", prize: "LE", winnerCount: 1, perTicket: 1, eligibility: { whitelistOnly: true } },
+        ],
+      },
+      "whitelist-only but has more winners than surviving include-list members",
+    );
+    // Fully excluded whitelist: saves would only ever roll into an error.
+    expectError(
+      {
+        ...VALID,
+        raffles: [
+          {
+            id: "r1", prize: "LE", winnerCount: 1, perTicket: 1,
+            eligibility: {
+              whitelistOnly: true,
+              include: [{ player_uuid: "AA-bb", username: "Zed" }],
+              exclude: [{ player_uuid: "aabb", username: "Zed" }],
+            },
+          },
+        ],
+      },
+      "more winners than surviving include-list members",
+    );
+    // A partially excluded whitelist with fewer surviving members than winner
+    // slots would fail deterministically after drawing every survivor.
+    expectError(
+      {
+        ...VALID,
+        raffles: [
+          {
+            id: "r1", prize: "LE", winnerCount: 3, perTicket: 1,
+            eligibility: {
+              whitelistOnly: true,
+              include: [
+                { player_uuid: "u1", username: "Zed" },
+                { player_uuid: "u2", username: "Yara" },
+                { player_uuid: "u3", username: "Xena" },
+              ],
+              exclude: [{ player_uuid: "u1", username: "Zed" }],
+            },
+          },
+        ],
+      },
+      "more winners than surviving include-list members",
+    );
+    // Partially excluded is fine when the surviving member count exactly
+    // matches the winner count.
+    const partial = parseGuildEvent({
+      ...VALID,
+      raffles: [
+        {
+          id: "r1", prize: "LE", winnerCount: 2, perTicket: 1,
+          eligibility: {
+            whitelistOnly: true,
+            include: [
+              { player_uuid: "u1", username: "Zed" },
+              { player_uuid: "u2", username: "Yara" },
+              { player_uuid: "u3", username: "Xena" },
+            ],
+            exclude: [{ player_uuid: "u1", username: "Zed" }],
+          },
+        },
+      ],
+    });
+    expect(partial.ok).toBe(true);
+
+    // Having more survivors than winner slots remains valid.
+    const extra = parseGuildEvent({
+      ...VALID,
+      raffles: [
+        {
+          id: "r1", prize: "LE", winnerCount: 2, perTicket: 1,
+          eligibility: {
+            whitelistOnly: true,
+            include: [
+              { player_uuid: "u1", username: "Zed" },
+              { player_uuid: "u2", username: "Yara" },
+              { player_uuid: "u3", username: "Xena" },
+            ],
+          },
+        },
+      ],
+    });
+    expect(extra.ok).toBe(true);
+
+    // Frozen winners already occupy slots, so only the remaining slots need
+    // surviving whitelist members.
+    const partiallyDrawn = parseGuildEvent({
+      ...VALID,
+      raffles: [
+        {
+          id: "r1", prize: "LE", winnerCount: 3, perTicket: 1,
+          winners: [
+            { slot: 0, username: "Zed", player_uuid: "u1", tickets: 1 },
+            { slot: 1, username: "Yara", player_uuid: "u2", tickets: 1 },
+          ],
+          eligibility: {
+            whitelistOnly: true,
+            include: [{ player_uuid: "u3", username: "Xena" }],
+          },
+        },
+      ],
+    });
+    expect(partiallyDrawn.ok).toBe(true);
+
+    // One frozen winner leaves two slots, which one survivor cannot fill.
+    expectError(
+      {
+        ...VALID,
+        raffles: [
+          {
+            id: "r1", prize: "LE", winnerCount: 3, perTicket: 1,
+            winners: [{ slot: 0, username: "Zed", player_uuid: "u1", tickets: 1 }],
+            eligibility: {
+              whitelistOnly: true,
+              include: [{ player_uuid: "u2", username: "Yara" }],
+            },
+          },
+        ],
+      },
+      "more winners than surviving include-list members",
+    );
+  });
+
+  it("rejects overlapping whitelists that cannot fill every slot jointly", () => {
+    const zed = { player_uuid: "u1", username: "Zed" };
+    const yara = { player_uuid: "u2", username: "Yara" };
+    const shared = (include: (typeof zed)[]) => ({ whitelistOnly: true, include });
+    // Two one-slot whitelists sharing their ONLY member: each passes alone,
+    // but whichever rolls second must fail - reject at save.
+    expectError(
+      {
+        ...VALID,
+        raffleExcludeWinners: true,
+        raffles: [
+          { id: "r1", prize: "A", winnerCount: 1, perTicket: 1, eligibility: shared([zed]) },
+          { id: "r2", prize: "B", winnerCount: 1, perTicket: 1, eligibility: shared([zed]) },
+        ],
+      },
+      "whitelist raffles overlap too much",
+    );
+    // Two members cover two slots even when both lists overlap fully.
+    const feasible = parseGuildEvent({
+      ...VALID,
+      raffleExcludeWinners: true,
+      raffles: [
+        { id: "r1", prize: "A", winnerCount: 1, perTicket: 1, eligibility: shared([zed, yara]) },
+        { id: "r2", prize: "B", winnerCount: 1, perTicket: 1, eligibility: shared([zed, yara]) },
+      ],
+    });
+    expect(feasible.ok).toBe(true);
+    // Without event-wide exclusion the pools are independent - no joint check.
+    const independent = parseGuildEvent({
+      ...VALID,
+      raffles: [
+        { id: "r1", prize: "A", winnerCount: 1, perTicket: 1, eligibility: shared([zed]) },
+        { id: "r2", prize: "B", winnerCount: 1, perTicket: 1, eligibility: shared([zed]) },
+      ],
+    });
+    expect(independent.ok).toBe(true);
+  });
+
+  it("counts other raffle winners as whitelist exclusions only when enabled", () => {
+    const raffles = [
+      {
+        id: "r1",
+        prize: "LE",
+        winnerCount: 1,
+        perTicket: 1,
+        winners: [{ slot: 0, username: "Zed", player_uuid: "AA-bb", tickets: 1 }],
+      },
+      {
+        id: "r2",
+        prize: "Mythic",
+        winnerCount: 1,
+        perTicket: 1,
+        eligibility: {
+          whitelistOnly: true,
+          include: [{ player_uuid: "aabb", username: "Zed" }],
+        },
+      },
+    ];
+
+    expectError(
+      { ...VALID, raffleExcludeWinners: true, raffles },
+      "too few eligible members after excluding other raffle winners",
+    );
+    expect(parseGuildEvent({ ...VALID, raffleExcludeWinners: false, raffles }).ok).toBe(true);
+    expect(parseGuildEvent({ ...VALID, raffles }).ok).toBe(true);
+
+    const partiallyDrawn = {
+      id: "r2",
+      prize: "Mythic",
+      winnerCount: 3,
+      perTicket: 1,
+      winners: [
+        { slot: 0, username: "Yara", player_uuid: "u2", tickets: 1 },
+        { slot: 1, username: "Xena", player_uuid: "u3", tickets: 1 },
+      ],
+      eligibility: {
+        whitelistOnly: true,
+        include: [
+          { player_uuid: "aabb", username: "Zed" },
+          { player_uuid: "u4", username: "Willow" },
+        ],
+      },
+    };
+    expect(
+      parseGuildEvent({ ...VALID, raffleExcludeWinners: true, raffles: [raffles[0], partiallyDrawn] }).ok,
+    ).toBe(true);
+    expectError(
+      {
+        ...VALID,
+        raffleExcludeWinners: true,
+        raffles: [raffles[0], { ...partiallyDrawn, winnerCount: 4 }],
+      },
+      "too few eligible members after excluding other raffle winners",
+    );
+  });
+
+
   it("normalizes the legacy single goal into a one-milestone goals list", () => {
     const result = parseGuildEvent({
       ...VALID,

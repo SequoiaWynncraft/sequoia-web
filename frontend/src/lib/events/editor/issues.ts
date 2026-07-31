@@ -2,19 +2,19 @@ import { hasCount, toCount, toInstant, type EventDraft } from "./draft.svelte";
 
 /** Editor sections in page order; ids double as the anchor fragments. */
 export const EDITOR_SECTIONS = [
-  { id: "identity", label: "Identity" },
-  { id: "schedule", label: "Schedule" },
-  { id: "sky", label: "Sky" },
-  { id: "icon", label: "Icon" },
-  { id: "about", label: "About" },
-  { id: "goals", label: "Goals" },
-  { id: "milestones", label: "Personal milestones" },
-  { id: "activity", label: "Activity chart" },
-  { id: "prizes", label: "Prizes" },
-  { id: "comp", label: "Suggested comp" },
-  { id: "rules", label: "Rules" },
-  { id: "standings", label: "Standings" },
-  { id: "raffles", label: "Raffles" },
+  { id: "identity", label: "Identity", category: "Setup" },
+  { id: "schedule", label: "Schedule", category: "Setup" },
+  { id: "sky", label: "Sky", category: "Design" },
+  { id: "icon", label: "Icon", category: "Design" },
+  { id: "about", label: "About", category: "Copy" },
+  { id: "rules", label: "Rules", category: "Copy" },
+  { id: "activity", label: "Activity chart", category: "Progress" },
+  { id: "goals", label: "Goals", category: "Progress" },
+  { id: "milestones", label: "Personal milestones", category: "Progress" },
+  { id: "standings", label: "Standings", category: "Progress" },
+  { id: "prizes", label: "Prizes", category: "Rewards" },
+  { id: "comp", label: "Suggested comp", category: "Rewards" },
+  { id: "raffles", label: "Raffles", category: "Rewards" },
 ] as const;
 
 export type SectionId = (typeof EDITOR_SECTIONS)[number]["id"];
@@ -103,6 +103,9 @@ export function sectionIssues(draft: EventDraft): Partial<Record<SectionId, stri
       raffle.winners.length > 0;
     if (!filled) continue;
     if (!raffle.prize.trim()) add("raffles", "A raffle needs a prize");
+    if (raffle.whitelistOnly && raffle.include.length === 0) {
+      add("raffles", "A whitelist raffle needs members on its include list");
+    }
     const winnerCount = toCount(raffle.winnerCount);
     if (!Number.isInteger(winnerCount) || winnerCount < 1) add("raffles", "Winners must be at least 1");
     if (raffle.weightMode !== "flat") {
@@ -130,19 +133,21 @@ export function sectionIssues(draft: EventDraft): Partial<Record<SectionId, stri
     ) {
       add("raffles", "The window must end after it starts");
     }
-    for (const rule of raffle.rules) {
-      if ((rule.type === "guildRank" || rule.type === "seqRank") && rule.ranks.length === 0) {
-        add("raffles", "A rank rule needs at least one rank");
-      }
-      if (rule.type === "stat") {
-        if (!hasCount(rule.min)) add("raffles", "A stat rule needs a minimum");
-        if (!rule.windowFrom || !rule.windowTo) add("raffles", "A stat rule needs a window");
-        else if (!rule.windowFrom.endsWith("T00:00") || !rule.windowTo.endsWith("T00:00")) {
-          add("raffles", "Stat windows count whole UTC days - use 00:00 bounds");
+    if (!raffle.whitelistOnly) {
+      for (const rule of raffle.rules) {
+        if ((rule.type === "guildRank" || rule.type === "seqRank") && rule.ranks.length === 0) {
+          add("raffles", "A rank rule needs at least one rank");
         }
-      }
-      if (rule.type === "milestone" && !rule.milestoneId) {
-        add("raffles", "A milestone rule needs a milestone");
+        if (rule.type === "stat") {
+          if (!hasCount(rule.min)) add("raffles", "A stat rule needs a minimum");
+          if (!rule.windowFrom || !rule.windowTo) add("raffles", "A stat rule needs a window");
+          else if (!rule.windowFrom.endsWith("T00:00") || !rule.windowTo.endsWith("T00:00")) {
+            add("raffles", "Stat windows count whole UTC days - use 00:00 bounds");
+          }
+        }
+        if (rule.type === "milestone" && !rule.milestoneId) {
+          add("raffles", "A milestone rule needs a milestone");
+        }
       }
     }
     for (const entry of [...raffle.include, ...raffle.exclude]) {

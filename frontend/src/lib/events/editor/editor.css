@@ -13,6 +13,7 @@
 /* The rail reads first in DOM order (keyboard users reach navigation before
    the thirteen sections); the grid pins it to the right column on desktop. */
 .evf-main {
+  container: evf-main / inline-size;
   grid-column: 1;
   grid-row: 1;
   min-width: 0;
@@ -791,3 +792,68 @@
 .evf-prize-icons .evf-icon-option img {
   image-rendering: pixelated;
 }
+
+/* ── Wide viewports ──
+   The console must use a big monitor, not center a phone column on it: the
+   compact "setup" sections pair two across, while the program sections
+   (goals, milestones, prizes, comp, standings, raffles - repeaters and
+   boards) keep the full line. Still ONE form; only the layout changes. */
+/* The editor main column measures itself: media queries can't see how much
+   width survives the management rail + preview column, so the two-column
+   split keys off the form's actual container. ~1080px gives two ~510px
+   columns - below that, pairs would crush nested field grids. */
+@container evf-main (min-width: 1080px) {
+  .evf-form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 56px;
+  }
+
+  .evf-form > * {
+    grid-column: 1 / -1;
+    min-width: 0;
+  }
+
+  .evf-form > #identity,
+  .evf-form > #schedule,
+  .evf-form > #sky,
+  .evf-form > #icon,
+  .evf-form > #about,
+  .evf-form > #rules,
+  .evf-form > #activity {
+    grid-column: auto;
+  }
+
+  /* Pairs keep their natural heights: identical stretched rows would give
+     both sections the same scroll interval, and the rail could never
+     activate the right-hand one. A ragged hairline is the cheaper cost. */
+  .evf-form {
+    align-items: start;
+  }
+
+  .evf-form > .form-section {
+    align-content: start;
+  }
+
+  .evf-form > #identity,
+  .evf-form > #schedule {
+    padding-top: 0;
+  }
+}
+
+/* Rail category headings: quiet dividers, not navigation. */
+.rail-cat {
+  margin-top: 14px;
+  padding: 0 0 4px 10px;
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-size: 0.55rem;
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+.rail-cat:first-child {
+  margin-top: 0;
+}
+

@@ -63,7 +63,7 @@
   .manage-shell {
     display: grid;
     grid-template-columns: 224px minmax(0, 1fr);
-    width: min(1280px, 100% - 3rem);
+    width: min(1840px, 100% - 3rem);
     margin: 0 auto;
   }
 

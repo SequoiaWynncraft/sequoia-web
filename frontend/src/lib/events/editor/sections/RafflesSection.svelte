@@ -214,6 +214,14 @@
       {/if}
 
       <Field label="Who can enter" element="div">
+        <Toggle
+          bind:checked={raffle.whitelistOnly}
+          label="Whitelist only"
+          hint="Only the Always include list can enter - rules and the roster are ignored."
+        />
+        {#if raffle.whitelistOnly}
+          <p class="evf-hint">Add everyone who may enter under Always include below.</p>
+        {:else}
         {#if raffle.rules.length === 0}
           <p class="evf-hint">Everyone on the roster. Add rules to narrow it.</p>
         {/if}
@@ -302,6 +310,7 @@
             </button>
           {/each}
         </div>
+        {/if}
       </Field>
 
       <div class="evf-grid-2">
