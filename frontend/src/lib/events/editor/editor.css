@@ -10,7 +10,17 @@
   align-items: start;
 }
 
+/* The rail reads first in DOM order (keyboard users reach navigation before
+   the thirteen sections); the grid pins it to the right column on desktop. */
+.evf-main {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+}
+
 .evf-side {
+  grid-column: 2;
+  grid-row: 1;
   position: sticky;
   top: calc(3.5rem + 20px);
   display: grid;
@@ -554,10 +564,15 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .evf-main,
+  .evf-side {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
   .evf-side {
     position: static;
     max-height: none;
-    order: -1;
   }
 }
 
