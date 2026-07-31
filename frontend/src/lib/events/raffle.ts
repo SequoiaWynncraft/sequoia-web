@@ -20,14 +20,6 @@ export interface DrawOptions {
   rng?: () => number;
 }
 
-/**
- * Draws up to `count` distinct winners from `pool`, weighting each entrant by
- * their ticket count (more tickets, higher odds). Selection is without
- * replacement, so nobody wins twice in one draw; excluded UUIDs and
- * zero-ticket entrants are dropped first. Returns fewer than `count` winners
- * only when the eligible pool is smaller. Ticket counts are frozen onto each
- * returned winner; the caller assigns each one a slot.
- */
 /** Uuid identity tolerates spelling differences (case, hyphens): stored
  * winners, manual includes, and roster entries do not all share a format. */
 function canonicalUuid(uuid: string): string {
@@ -56,6 +48,14 @@ export function drawablePool(
   });
 }
 
+/**
+ * Draws up to `count` distinct winners from `pool`, weighting each entrant by
+ * their ticket count (more tickets, higher odds). Selection is without
+ * replacement, so nobody wins twice in one draw; excluded UUIDs and
+ * zero-ticket entrants are dropped first. Returns fewer than `count` winners
+ * only when the eligible pool is smaller. Ticket counts are frozen onto each
+ * returned winner; the caller assigns each one a slot.
+ */
 export function drawWinners(
   pool: RaffleEntrant[],
   count: number,

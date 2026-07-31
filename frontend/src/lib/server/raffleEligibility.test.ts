@@ -210,6 +210,28 @@ describe("resolveEligibility", () => {
     ]);
   });
 
+  it("weights an included roster member who fails the rules before applying the floor", async () => {
+    mockBoard.mockResolvedValue({
+      leaderboard: [{ player_uuid: "uuid-c", username: "Cara", raids: 50, rank: "recruit" }],
+      error: null,
+    });
+    const result = await resolveEligibility(
+      fetch,
+      event(),
+      raffle({
+        eligibility: {
+          rules: [{ type: "guildRank", ranks: ["chief"] }],
+          weight: { mode: "perRaid", perTicket: 5 },
+          include: [{ player_uuid: "uuid-c", username: "Cara", tickets: 3 }],
+        },
+      }),
+      ROSTER,
+    );
+    expect(result.entrants).toEqual([
+      { player_uuid: "uuid-c", username: "Cara", tickets: 10, source: "roster" },
+    ]);
+  });
+
   it("pins includes past the rules and lets excludes beat everything", async () => {
     const result = await resolveEligibility(
       fetch,
