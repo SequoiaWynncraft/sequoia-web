@@ -2,13 +2,13 @@
   import type { HTMLTextareaAttributes } from "svelte/elements";
 
   let {
-    value = $bindable(""),
+    value = $bindable(),
     invalid = false,
     class: extraClass = "",
     "aria-invalid": ariaInvalid,
     ...rest
   }: {
-    value?: string;
+    value?: string | undefined;
     invalid?: boolean;
   } & Omit<HTMLTextareaAttributes, "value"> = $props();
 </script>

@@ -3,14 +3,14 @@
   import type { HTMLSelectAttributes } from "svelte/elements";
 
   let {
-    value = $bindable(""),
+    value = $bindable(),
     invalid = false,
     class: extraClass = "",
     "aria-invalid": ariaInvalid,
     children,
     ...rest
   }: {
-    value?: string;
+    value?: string | undefined;
     invalid?: boolean;
     children: Snippet;
     // `multiple` is excluded: it would bind string[] behind a string contract.

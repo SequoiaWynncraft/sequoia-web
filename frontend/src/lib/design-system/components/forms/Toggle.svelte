@@ -2,12 +2,12 @@
   import type { HTMLInputAttributes } from "svelte/elements";
 
   let {
-    checked = $bindable(false),
+    checked = $bindable(),
     label,
     hint,
     ...rest
   }: {
-    checked?: boolean;
+    checked?: boolean | undefined;
     label: string;
     hint?: string;
   } & Omit<HTMLInputAttributes, "checked" | "type"> = $props();
