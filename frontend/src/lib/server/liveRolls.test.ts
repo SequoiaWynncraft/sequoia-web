@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { StageMessage } from "$lib/events/stageProtocol";
 
-import { publish, subscribe, subscriberCount } from "./liveRolls";
+import { endRoom, publish, subscribe, subscriberCount } from "./liveRolls";
 
 const MESSAGE: StageMessage = { type: "event-updated" };
 
@@ -40,5 +40,23 @@ describe("live roll fan-out", () => {
     expect(good).toHaveBeenCalledWith(MESSAGE);
     unsubBad();
     unsubGood();
+  });
+});
+
+describe("room teardown", () => {
+  it("ends every subscriber's stream and empties the room", () => {
+    const listener = vi.fn();
+    const endHere = vi.fn();
+    const endThere = vi.fn(() => {
+      throw new Error("already closed");
+    });
+    subscribe("event-e", listener, endHere);
+    subscribe("event-e", listener, endThere);
+    endRoom("event-e");
+    expect(endHere).toHaveBeenCalledOnce();
+    expect(endThere).toHaveBeenCalledOnce();
+    expect(subscriberCount("event-e")).toBe(0);
+    publish("event-e", MESSAGE);
+    expect(listener).not.toHaveBeenCalled();
   });
 });

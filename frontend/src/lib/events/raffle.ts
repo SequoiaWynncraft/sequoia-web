@@ -28,6 +28,12 @@ export interface DrawOptions {
  * only when the eligible pool is smaller. Ticket counts are frozen onto each
  * returned winner; the caller assigns each one a slot.
  */
+/** Uuid identity tolerates spelling differences (case, hyphens): stored
+ * winners, manual includes, and roster entries do not all share a format. */
+function canonicalUuid(uuid: string): string {
+  return uuid.replaceAll("-", "").toLowerCase();
+}
+
 /**
  * The exact candidate list a draw runs over: excluded UUIDs and zero-ticket
  * entrants dropped, duplicate UUIDs deduped on first sighting (two
@@ -38,13 +44,14 @@ export function drawablePool(
   pool: RaffleEntrant[],
   exclude?: Iterable<string>,
 ): RaffleEntrant[] {
-  const excluded = new Set(exclude ?? []);
+  const excluded = new Set([...(exclude ?? [])].map(canonicalUuid));
   const seen = new Set<string>();
   return pool.filter((entry) => {
-    if (entry.tickets <= 0 || excluded.has(entry.player_uuid) || seen.has(entry.player_uuid)) {
+    const key = canonicalUuid(entry.player_uuid);
+    if (entry.tickets <= 0 || excluded.has(key) || seen.has(key)) {
       return false;
     }
-    seen.add(entry.player_uuid);
+    seen.add(key);
     return true;
   });
 }

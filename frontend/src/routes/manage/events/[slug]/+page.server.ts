@@ -8,7 +8,7 @@ import { parseGuildEvent } from "$lib/events/validate";
 import { eventFormContext } from "$lib/server/eventFormContext";
 import { requireEventManager } from "$lib/server/eventManagers";
 import { getGuildStats } from "$lib/server/guildStats";
-import { publish } from "$lib/server/liveRolls";
+import { endRoom, publish } from "$lib/server/liveRolls";
 import { resolveEligibility } from "$lib/server/raffleEligibility";
 import { raffleRollStore } from "$lib/server/raffleRolls";
 import { createTrackerAction, updateTrackerAction } from "$lib/server/trackerAdmin";
@@ -136,10 +136,13 @@ export const actions: Actions = {
     }
     // A later event reusing this slug must not inherit the old rolls - the
     // stage would replay the previous event's wheel and entrant names. Purge
-    // best-effort; the audit row above retains the winners.
+    // best-effort; the audit row below retains the winners. Open stage
+    // streams end with the event: their reconnect re-runs the access check
+    // against whatever lives at the slug next.
     await raffleRollStore
       .removeForEvent(params.slug)
       .catch((error: unknown) => console.warn("raffle roll purge failed:", error));
+    endRoom(params.slug);
     // Retain the deleted payload so the event can be reconstructed from the log.
     const audited = await recordAudit(manager, "event.delete", params.slug, JSON.stringify(stored.event));
     // The event is gone either way; an unrecorded deletion must not pass silently.

@@ -12,6 +12,28 @@ export interface RaffleRoll extends StageRoll {
   superseded: boolean;
 }
 
+/**
+ * Projects a persisted roll onto the public wire shape. Structural typing
+ * would happily serialize the extra fields - `createdBy` is a manager's
+ * Discord id and must never reach a viewer - so everything the stage sends
+ * or returns goes through this explicit pick.
+ */
+export function toStageRoll(roll: RaffleRoll): StageRoll {
+  return {
+    rollId: roll.rollId,
+    raffleId: roll.raffleId,
+    slot: roll.slot,
+    prize: roll.prize,
+    entrants: roll.entrants,
+    winnerIndex: roll.winnerIndex,
+    winner: roll.winner,
+    spin: roll.spin,
+    state: roll.state,
+    startedAt: roll.startedAt,
+    settlesAt: roll.settlesAt,
+  };
+}
+
 export interface RaffleRollStore {
   insert(roll: RaffleRoll): Promise<void>;
   /**

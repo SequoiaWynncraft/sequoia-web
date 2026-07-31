@@ -5,7 +5,7 @@ import { checkEventManager } from "$lib/server/eventManagers";
 import { checkEventMembership } from "$lib/server/eventMembership";
 import { eventStore } from "$lib/server/eventStore";
 import { subscribe } from "$lib/server/liveRolls";
-import { raffleRollStore } from "$lib/server/raffleRolls";
+import { raffleRollStore, toStageRoll } from "$lib/server/raffleRolls";
 import { requestError } from "$lib/server/requestError";
 import { loadViewer } from "$lib/server/viewerSession";
 
@@ -50,11 +50,28 @@ export const GET: RequestHandler = async ({ params, cookies, fetch, locals }) =>
       // after the snapshot; the client's apply is idempotent per rollId, so
       // a roll that made both is harmless.
       let buffered: StageMessage[] | null = [];
-      unsubscribe = subscribe(params.slug, (message) => {
-        if (buffered) buffered.push(message);
-        else send(message);
+      unsubscribe = subscribe(
+        params.slug,
+        (message) => {
+          if (buffered) buffered.push(message);
+          else send(message);
+        },
+        // Room teardown (event deleted): end the stream. The browser's
+        // EventSource reconnects into the connect-time access check, which
+        // judges whatever now lives at this slug afresh.
+        () => {
+          clearInterval(heartbeat);
+          try {
+            controller.close();
+          } catch {
+            // Already closed by the client.
+          }
+        },
+      );
+      send({
+        type: "snapshot",
+        rolls: (await raffleRollStore.latestForEvent(params.slug)).map(toStageRoll),
       });
-      send({ type: "snapshot", rolls: await raffleRollStore.latestForEvent(params.slug) });
       const backlog = buffered;
       buffered = null;
       for (const message of backlog) send(message);

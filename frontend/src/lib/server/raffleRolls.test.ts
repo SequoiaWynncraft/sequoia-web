@@ -1,7 +1,7 @@
 import { createClient } from "@libsql/client";
 import { describe, expect, it } from "vitest";
 
-import { createRaffleRollStore, type RaffleRoll } from "./raffleRolls";
+import { createRaffleRollStore, toStageRoll, type RaffleRoll } from "./raffleRolls";
 
 function memoryStore() {
   const client = createClient({ url: ":memory:" });
@@ -104,5 +104,18 @@ describe("raffle roll store", () => {
     expect(await store.listForEvent("test-event")).toHaveLength(0);
     expect(await store.latestForEvent("test-event")).toHaveLength(0);
     expect(await store.listForEvent("other-event")).toHaveLength(1);
+  });
+});
+
+describe("wire projection", () => {
+  it("strips persistence-only fields off the public shape", () => {
+    const record = roll();
+    const wire = toStageRoll(record);
+    expect(wire).not.toHaveProperty("createdBy");
+    expect(wire).not.toHaveProperty("eventSlug");
+    expect(wire).not.toHaveProperty("superseded");
+    expect(wire.rollId).toBe(record.rollId);
+    expect(wire.entrants).toEqual(record.entrants);
+    expect(wire.winnerIndex).toBe(record.winnerIndex);
   });
 });

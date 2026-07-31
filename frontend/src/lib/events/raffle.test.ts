@@ -84,3 +84,19 @@ describe("drawWinners", () => {
     expect(POOL).toEqual(snapshot);
   });
 });
+
+describe("uuid spelling tolerance", () => {
+  it("excludes and dedupes across case and hyphen differences", () => {
+    const pool: RaffleEntrant[] = [
+      { player_uuid: "AA-BB-CC", username: "Alice", tickets: 3 },
+      { player_uuid: "aabbcc", username: "Alice2", tickets: 2 },
+      { player_uuid: "dd-ee", username: "Dana", tickets: 1 },
+    ];
+    // Exclusion spelled differently still bars the entrant; the duplicate
+    // spelling of the same uuid never re-enters the pool.
+    const barred = drawWinners(pool, 3, { exclude: ["aabbcc"], rng: () => 0 });
+    expect(barred.map((winner) => winner.username)).toEqual(["Dana"]);
+    const deduped = drawWinners(pool, 3, { rng: () => 0 });
+    expect(deduped.map((winner) => winner.username)).toEqual(["Alice", "Dana"]);
+  });
+});

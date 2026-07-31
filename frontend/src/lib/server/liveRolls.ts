@@ -13,14 +13,20 @@ import type { StageMessage } from "$lib/events/stageProtocol";
 
 type Send = (message: StageMessage) => void;
 
-const rooms = new Map<string, Set<Send>>();
+interface Subscriber {
+  send: Send;
+  /** Called when the room is torn down (event deleted): close the stream. */
+  end?: () => void;
+}
+
+const rooms = new Map<string, Set<Subscriber>>();
 
 export function publish(eventSlug: string, message: StageMessage): void {
   const room = rooms.get(eventSlug);
   if (!room) return;
-  for (const send of room) {
+  for (const subscriber of room) {
     try {
-      send(message);
+      subscriber.send(message);
     } catch {
       // A dead stream must not stop the fan-out; its own cancel cleans it up.
     }
@@ -28,17 +34,38 @@ export function publish(eventSlug: string, message: StageMessage): void {
 }
 
 /** Registers a stage listener; the returned function removes it. */
-export function subscribe(eventSlug: string, send: Send): () => void {
+export function subscribe(eventSlug: string, send: Send, end?: () => void): () => void {
   let room = rooms.get(eventSlug);
   if (!room) {
     room = new Set();
     rooms.set(eventSlug, room);
   }
-  room.add(send);
+  const subscriber: Subscriber = { send, end };
+  room.add(subscriber);
   return () => {
-    room.delete(send);
+    room.delete(subscriber);
     if (room.size === 0) rooms.delete(eventSlug);
   };
+}
+
+/**
+ * Tears the room down, closing every open stream. Deleting an event calls
+ * this: an authorization decision belongs to the connect-time check, and a
+ * closed EventSource reconnects into that check - where a deleted (or
+ * recreated, differently-gated) event is judged afresh instead of an old
+ * subscriber silently receiving the successor's rolls.
+ */
+export function endRoom(eventSlug: string): void {
+  const room = rooms.get(eventSlug);
+  if (!room) return;
+  rooms.delete(eventSlug);
+  for (const subscriber of room) {
+    try {
+      subscriber.end?.();
+    } catch {
+      // Best-effort: one broken stream must not keep others open.
+    }
+  }
 }
 
 /** Test hook: the number of live listeners for an event's stage. */

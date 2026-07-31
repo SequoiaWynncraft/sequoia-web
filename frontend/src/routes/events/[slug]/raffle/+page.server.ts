@@ -4,7 +4,7 @@ import { eventStatus } from "$lib/events/helpers";
 import { checkEventManager } from "$lib/server/eventManagers";
 import { checkEventMembership } from "$lib/server/eventMembership";
 import { eventStore } from "$lib/server/eventStore";
-import { raffleRollStore } from "$lib/server/raffleRolls";
+import { raffleRollStore, toStageRoll } from "$lib/server/raffleRolls";
 import { requestError } from "$lib/server/requestError";
 
 export const prerender = false;
@@ -27,6 +27,7 @@ export const load: PageServerLoad = async ({ fetch, locals, params, parent }) =>
   return {
     event,
     status: eventStatus(event, new Date()),
-    rolls: await raffleRollStore.latestForEvent(params.slug),
+    // Projected: the persisted rows carry manager identifiers the wire must not.
+    rolls: (await raffleRollStore.latestForEvent(params.slug)).map(toStageRoll),
   };
 };
