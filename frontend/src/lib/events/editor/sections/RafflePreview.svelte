@@ -15,7 +15,9 @@
   let result = $state<RafflePreviewResponse | null>(null);
 
   const hasWinners = $derived(
-    (draft.raffles.find((row) => row.id === raffleId)?.winners.length ?? 0) > 0,
+    (draft.liveInitial?.raffles ?? []).some(
+      (raffle) => raffle.id === raffleId && raffle.winners.length > 0,
+    ),
   );
 
   // Debounced re-resolve while open: any draft change re-runs this effect via
