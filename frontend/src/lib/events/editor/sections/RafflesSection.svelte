@@ -65,8 +65,19 @@
   let confirmReroll = $state<ConfirmDialog | null>(null);
   let pendingReroll: HTMLButtonElement | null = null;
 
-  function maybeConfirmReroll(event: MouseEvent, hasWinner: boolean) {
-    if (!hasWinner) return;
+  /** The server's winner decides whether this is a re-roll: an undo can
+   * clear the local row's copy while the stored slot is still won, and a
+   * roll click must not silently replace that winner unconfirmed. */
+  function slotHasStoredWinner(raffleId: string, slot: number): boolean {
+    return (draft.liveInitial?.raffles ?? []).some(
+      (raffle) =>
+        raffle.id === raffleId &&
+        (raffle.winners ?? []).some((winner) => winner.slot === slot),
+    );
+  }
+
+  function maybeConfirmReroll(event: MouseEvent, raffleId: string, slot: number) {
+    if (!slotHasStoredWinner(raffleId, slot)) return;
     event.preventDefault();
     pendingReroll = event.currentTarget as HTMLButtonElement;
     confirmReroll?.open();
@@ -342,7 +353,7 @@
                 value={`${row.raffleId}:${row.slot}`}
                 class="evf-roll-btn focus-ring"
                 disabled={draft.rollingId !== null}
-                onclick={(event) => maybeConfirmReroll(event, row.winner !== null)}
+                onclick={(event) => maybeConfirmReroll(event, row.raffleId, row.slot)}
                 aria-label={row.winner ? "Re-roll this winner" : "Roll this winner"}
                 title={row.winner ? "Re-roll" : "Roll"}
               >↺</button>
