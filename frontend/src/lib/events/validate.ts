@@ -1,6 +1,7 @@
 import { GUILD_RANKS, type GuildRankName } from "$lib/api/guildStats";
 
 import { RAID_ICONS } from "./raidIcons";
+import { isPrizeIconFile } from "./prizeIcons";
 import type {
   CompRole,
   EligibilityRule,
@@ -396,6 +397,9 @@ function parseRaffle(value: unknown, label: string): EventRaffle {
   if (raffle.winnerCount > MAX_RAFFLE_WINNERS) {
     fail(`${label} has too many winners (max ${MAX_RAFFLE_WINNERS})`);
   }
+  // Cosmetic and tolerant on purpose: an icon outside the current catalog is
+  // dropped, never a reason to invalidate a stored event row.
+  if (typeof raw.icon === "string" && isPrizeIconFile(raw.icon)) raffle.icon = raw.icon;
   if (present(raw.window)) raffle.window = parseRaffleWindow(raw.window, label);
   if (present(raw.winners)) {
     const winners = parseList(raw.winners, `${label} winners`, (entry) =>

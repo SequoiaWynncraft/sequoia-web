@@ -87,6 +87,8 @@ export interface RaffleRow {
   /** Local list key, distinct from the persisted id. */
   key: number;
   prize: string;
+  /** Curated prize art file, "" for none; display-only. */
+  icon: string;
   winnerCount: string | number | null | undefined;
   /** Ticket weighting; windowFrom/To below is the weight's counting window. */
   weightMode: "flat" | "perRaid" | "perStat";
@@ -110,6 +112,7 @@ export interface RaffleRow {
 interface RaffleSeed {
   id: string;
   prize: string;
+  icon?: string;
   winnerCount: string | number | null | undefined;
   perTicket: string | number | null | undefined;
   window?: { from: string; to: string };
@@ -434,6 +437,7 @@ export class EventDraft {
       id: crypto.randomUUID(),
       key: this.nextRowId++,
       prize: "",
+      icon: "",
       winnerCount: 1,
       weightMode: "perRaid",
       weightStat: "raids",
@@ -495,6 +499,7 @@ export class EventDraft {
       id: seed.id,
       key: this.nextRowId++,
       prize: seed.prize,
+      icon: seed.icon ?? "",
       winnerCount: seed.winnerCount,
       weightMode: mode,
       weightStat: weight?.mode === "perStat" ? weight.stat : "raids",
@@ -847,6 +852,7 @@ export class EventDraft {
           id: row.id,
           prize: row.prize,
           winnerCount: toCount(row.winnerCount),
+          ...(row.icon ? { icon: row.icon } : {}),
           // Rollback mirror: old code ignores `eligibility` and reads these
           // legacy fields, so a per-raid raffle degrades to its exact legacy
           // equivalent instead of vanishing or drawing everyone.

@@ -786,3 +786,8 @@
     justify-self: start;
   }
 }
+
+/* Prize art picker: the event-icon grid vocabulary at raffle-card scale. */
+.evf-prize-icons .evf-icon-option img {
+  image-rendering: pixelated;
+}

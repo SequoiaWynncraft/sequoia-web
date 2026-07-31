@@ -171,6 +171,8 @@ export interface EventRaffle {
   prize: string;
   /** How many distinct winners to draw. */
   winnerCount: number;
+  /** Curated prize art (file from PRIZE_ICONS); display-only. */
+  icon?: string;
   /** Raids per ticket: entrants earn floor(raids / perTicket) weighted tickets. */
   perTicket: number;
   /** Ticket-earning window (RFC3339); absent uses the tracker's full window. */

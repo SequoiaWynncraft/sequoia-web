@@ -3,6 +3,7 @@
 
   import { GUILD_RANKS } from "$lib/api/guildStats";
   import PlayerName from "$lib/design-system/components/PlayerName.svelte";
+  import { PRIZE_ICONS, prizeIconUrl } from "$lib/events/prizeIcons";
   import ConfirmDialog from "$lib/design-system/components/forms/ConfirmDialog.svelte";
   import Field from "$lib/design-system/components/forms/Field.svelte";
   import FormSection from "$lib/design-system/components/forms/FormSection.svelte";
@@ -141,6 +142,33 @@
           aria-label="Remove raffle"
         >✕</button>
       </div>
+
+      <Field label="Prize art" element="div">
+        <div class="evf-icon-grid evf-prize-icons" role="group" aria-label="Prize art">
+          <button
+            type="button"
+            class="evf-icon-option focus-ring"
+            class:evf-icon-option-selected={raffle.icon === ""}
+            aria-pressed={raffle.icon === ""}
+            onclick={() => (raffle.icon = "")}
+          >
+            <span class="evf-icon-none" aria-hidden="true">✕</span>
+            <span class="evf-icon-label">None</span>
+          </button>
+          {#each PRIZE_ICONS as icon (icon.file)}
+            <button
+              type="button"
+              class="evf-icon-option focus-ring"
+              class:evf-icon-option-selected={raffle.icon === icon.file}
+              aria-pressed={raffle.icon === icon.file}
+              onclick={() => (raffle.icon = icon.file)}
+            >
+              <img src={prizeIconUrl(icon.file)} alt="" loading="lazy" />
+              <span class="evf-icon-label">{icon.label}</span>
+            </button>
+          {/each}
+        </div>
+      </Field>
 
       <Field label="Tickets" element="div">
         <div class="evf-weight-row">
