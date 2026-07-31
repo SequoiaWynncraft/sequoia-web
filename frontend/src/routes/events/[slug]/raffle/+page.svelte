@@ -93,7 +93,12 @@
           {@const currentStyle =
             (data.event.raffles ?? []).find((entry) => entry.id === current.raffleId)?.wheelStyle ??
             "heads"}
-          <RaffleWheel roll={current} clockOffset={feed?.clockOffset ?? null} wheelStyle={currentStyle} />
+          <RaffleWheel
+            roll={current}
+            clockOffset={feed?.clockOffset ?? null}
+            wheelStyle={currentStyle}
+            viewerUuid={data.viewer?.minecraftUuid ?? null}
+          />
         {/key}
         <aside class="stage-side" aria-label="This draw">
           {#if current.prize}
