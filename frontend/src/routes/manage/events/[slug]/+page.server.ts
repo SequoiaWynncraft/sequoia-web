@@ -110,16 +110,22 @@ export const actions: Actions = {
       payload.published ? "published" : "draft",
     );
     // A save that removes a raffle or shrinks its winner count strands the
-    // slot's persisted roll: retire it, or the stage keeps replaying a wheel
-    // for configuration that no longer exists.
-    const validCounts = new Map(
-      (regrafted.event.raffles ?? []).map((raffle) => [raffle.id, raffle.winnerCount]),
-    );
+    // slot's persisted roll. Snapshot the candidate rows first, then bind the
+    // cleanup to the version this save wrote. If a newer save landed, its
+    // current configuration and rolls belong to that save alone. Targeting
+    // observed ids also keeps a roll inserted after the version re-read safe.
     try {
-      for (const roll of await raffleRollStore.latestForEvent(params.slug)) {
-        const winnerCount = validCounts.get(roll.raffleId);
-        if (winnerCount === undefined || roll.slot >= winnerCount) {
-          await raffleRollStore.markSuperseded(params.slug, roll.raffleId, roll.slot);
+      const rolls = await raffleRollStore.latestForEvent(params.slug);
+      const current = await eventStore.get(params.slug);
+      if (current?.updatedAt === newUpdatedAt) {
+        const validCounts = new Map(
+          (current.event.raffles ?? []).map((raffle) => [raffle.id, raffle.winnerCount]),
+        );
+        for (const roll of rolls) {
+          const winnerCount = validCounts.get(roll.raffleId);
+          if (winnerCount === undefined || roll.slot >= winnerCount) {
+            await raffleRollStore.markSupersededById(roll.rollId);
+          }
         }
       }
     } catch (error) {
