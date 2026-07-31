@@ -4,6 +4,7 @@
   let {
     value = $bindable(""),
     invalid = false,
+    class: extraClass = "",
     ...rest
   }: {
     value?: string;
@@ -11,4 +12,4 @@
   } & Omit<HTMLTextareaAttributes, "value"> = $props();
 </script>
 
-<textarea {...rest} class="seq-input" aria-invalid={invalid || undefined} bind:value></textarea>
+<textarea {...rest} class="seq-input {extraClass}" aria-invalid={invalid || undefined} bind:value></textarea>

@@ -5,6 +5,7 @@
     value = $bindable(""),
     mono = false,
     invalid = false,
+    class: extraClass = "",
     ...rest
   }: {
     value?: string;
@@ -17,7 +18,7 @@
 <input
   {...rest}
   type="text"
-  class="seq-input"
+  class="seq-input {extraClass}"
   class:seq-input-mono={mono}
   aria-invalid={invalid || undefined}
   bind:value

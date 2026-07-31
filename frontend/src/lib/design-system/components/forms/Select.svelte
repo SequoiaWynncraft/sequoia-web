@@ -5,15 +5,17 @@
   let {
     value = $bindable(""),
     invalid = false,
+    class: extraClass = "",
     children,
     ...rest
   }: {
     value?: string;
     invalid?: boolean;
     children: Snippet;
-  } & Omit<HTMLSelectAttributes, "value"> = $props();
+    // `multiple` is excluded: it would bind string[] behind a string contract.
+  } & Omit<HTMLSelectAttributes, "value" | "multiple"> = $props();
 </script>
 
-<select {...rest} class="seq-input" aria-invalid={invalid || undefined} bind:value>
+<select {...rest} class="seq-input {extraClass}" aria-invalid={invalid || undefined} bind:value>
   {@render children()}
 </select>
