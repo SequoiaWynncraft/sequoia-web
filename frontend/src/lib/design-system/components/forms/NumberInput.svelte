@@ -2,7 +2,7 @@
   import type { HTMLInputAttributes } from "svelte/elements";
 
   let {
-    value = $bindable(null),
+    value = $bindable(),
     invalid = false,
     class: extraClass = "",
     "aria-invalid": ariaInvalid,
@@ -18,7 +18,7 @@
 <input
   {...rest}
   type="number"
-  class="seq-input seq-input-mono {extraClass}"
+  class={["seq-input", "seq-input-mono", extraClass]}
   aria-invalid={invalid ? true : ariaInvalid}
   bind:value
 />

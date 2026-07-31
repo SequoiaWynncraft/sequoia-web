@@ -1,11 +1,7 @@
-import type { RankProfilesResponse } from "$lib/api/client";
 import type { GuildMemberStats } from "$lib/api/guildStats";
+import { isBranchMemberViewer } from "$lib/server/branchGate";
 import { getGuildStats } from "$lib/server/guildStats";
-import {
-  loadModLeaderboard,
-  sameUuid,
-  type RaidLeaderboardEntry,
-} from "$lib/server/raidEventBoards";
+import { loadModLeaderboard, type RaidLeaderboardEntry } from "$lib/server/raidEventBoards";
 import { getLinkedRankProfilesResult } from "$lib/server/rankProfiles";
 import { createCachedResource, type CachedResource } from "$lib/server/serverCache";
 import { KNOWN_RAIDS } from "$lib/site/raids";
@@ -32,11 +28,6 @@ const PLACE_TOKENS = ["first_place", "second_place", "third_place"] as const;
 /** Closing lines reproduced verbatim from the reference announcement. */
 const CLOSING_LINE = "_Please message me for your role color_";
 const SOURCE_NOTE = "-# Raid data taken from seqmod-raids tracker and may be inaccurate";
-
-/** Branch ids (`RankSummary.branches[].branch`) whose full members may see the
- * announcement. These are stable backend ids, not Discord display labels, so
- * renaming a role cannot open or close the gate. Trainees are excluded. */
-const GATED_BRANCHES = ["development", "community"];
 
 /** One raid tracked in the weekly announcement, resolved from KNOWN_RAIDS so the
  * mod-leaderboard `raid` filter always matches the site's canonical raid names. */
@@ -130,31 +121,11 @@ export function weekWindows(nowMs: number): { current: Window; previous: Window 
 }
 
 /**
- * Returns whether the viewer may see the announcement: a full member (not a
- * trainee) of the Development or Community branch who is also still on the
- * guild roster. The roster half matters - the announcement carries per-member
- * data from the internal mod-raids tracker, and a Discord branch role outlives
- * leaving the guild. Anonymous viewers are denied.
+ * Returns whether the viewer may see the announcement. The announcement shares
+ * its audience with every other gated management section, so the rule itself
+ * lives in `branchGate`; this alias keeps the announcement's own vocabulary.
  */
-export function isAnnouncementViewer(
-  profiles: RankProfilesResponse,
-  roster: GuildMemberStats[],
-  viewer: Viewer | null,
-): boolean {
-  if (!viewer) return false;
-  const onRoster = roster.some(
-    (member) => member.uuid !== null && sameUuid(member.uuid, viewer.minecraftUuid),
-  );
-  if (!onRoster) return false;
-  const profile = profiles.profiles.find(
-    (candidate) => candidate.minecraft?.uuid.toLowerCase() === viewer.minecraftUuid.toLowerCase(),
-  );
-  return (
-    profile?.summary.branches.some(
-      (entry) => entry.level === "member" && GATED_BRANCHES.includes(entry.branch),
-    ) ?? false
-  );
-}
+export const isAnnouncementViewer = isBranchMemberViewer;
 
 /** How long a built announcement serves before a refresh, and how long a stale
  * one may still stand in. The boards move on the order of minutes. */
@@ -304,9 +275,13 @@ export async function buildWeeklyRaidAnnouncement(
 
 /**
  * Builds one week: the total completions, each raid's grouped top-three board,
- * and the Discord text. Returns null when the whole-window read fails (the
- * signal that the tracker is unavailable); a single raid failing just yields an
- * empty board for that raid.
+ * and the Discord text. Returns null when any of the seven reads fails - the
+ * whole-window total or any single raid.
+ *
+ * A failed raid read is not survivable here: `loadModLeaderboard` reports it as
+ * an empty leaderboard, which renders identically to "nobody completed this
+ * raid" and is baked verbatim into `discordText` that staff paste and pay out
+ * against. Losing the week is the honest outcome.
  */
 async function buildWeek(
   fetchImpl: typeof fetch,
@@ -320,7 +295,11 @@ async function buildWeek(
       loadModLeaderboard(fetchImpl, { ...base, raid: raid.full }, roster),
     ),
   ]);
-  if (total.error) return null;
+  const failed = [total, ...perRaid].find((board) => board.error);
+  if (failed) {
+    console.warn("weekly raid announcement: leaderboard read failed:", failed.error);
+    return null;
+  }
   const completions = total.leaderboard.reduce((sum, entry) => sum + entry.raids, 0);
   const raids: WeeklyRaidBoard[] = ANNOUNCEMENT_RAIDS.map((raid, index) => ({
     full: raid.full,
