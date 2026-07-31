@@ -28,6 +28,7 @@ function roll(overrides: Partial<RaffleRoll> = {}): RaffleRoll {
     spin: { turns: 5, durationMs: 9000 },
     state: "spinning",
     superseded: false,
+    pending: false,
     startedAt: Date.now() + sequence,
     settlesAt: Date.now() + 60_000,
     createdBy: "manager-1",
@@ -133,5 +134,38 @@ describe("targeted supersede", () => {
     const history = await store.listForEvent("test-event");
     expect(history.find((entry) => entry.rollId === observed.rollId)?.superseded).toBe(true);
     expect(history.find((entry) => entry.rollId === rival.rollId)?.superseded).toBe(false);
+  });
+});
+
+describe("pending rolls", () => {
+  it("keeps a live pending row visible and flips it live on markLive", async () => {
+    const store = memoryStore();
+    const record = roll({ pending: true });
+    await store.insert(record);
+    const [read] = await store.latestForEvent("test-event");
+    expect(read.pending).toBe(true);
+    await store.markLive(record.rollId);
+    const [live] = await store.latestForEvent("test-event");
+    expect(live.pending).toBe(false);
+    expect(live.state).toBe("spinning");
+  });
+
+  it("an expired pending row is invisible and never shadows the slot's real roll", async () => {
+    const store = memoryStore();
+    const settled = roll({ startedAt: 1000, settlesAt: 2000 });
+    await store.insert(settled);
+    const abandoned = roll({ pending: true, startedAt: 3000, settlesAt: Date.now() - 1 });
+    await store.insert(abandoned);
+    const latest = await store.latestForEvent("test-event");
+    expect(latest.map((entry) => entry.rollId)).toEqual([settled.rollId]);
+  });
+
+  it("markLive does not resurrect a superseded row", async () => {
+    const store = memoryStore();
+    const record = roll({ pending: true });
+    await store.insert(record);
+    await store.markSupersededById(record.rollId);
+    await store.markLive(record.rollId);
+    expect(await store.latestForEvent("test-event")).toHaveLength(0);
   });
 });

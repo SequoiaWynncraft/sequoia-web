@@ -149,10 +149,29 @@ export function inGameRankLadder(response: RankProfilesResponse): InGameRankLadd
   const roles = new Map(response.catalog.roles.map((role) => [role.key, role]));
   const ladder = {} as InGameRankLadder;
   for (const rank of GUILD_RANKS) {
-    const position = resolveRankRole(roles, IN_GAME_RANK_EQUIVALENTS[rank])?.position;
-    ladder[rank] = position === undefined ? null : position - 0.5;
+    const key = IN_GAME_RANK_EQUIVALENTS[rank];
+    // `?? null` rather than a bare `?.position`: the response validator checks
+    // only that `catalog.roles` is an array, and a null position would otherwise
+    // become -0.5 and sort those members above everyone in ascending order.
+    const position = resolveRankRole(roles, key)?.position ?? null;
+    if (position === null) warnUnresolvedRankKey(rank, key);
+    ladder[rank] = position === null ? null : position - 0.5;
   }
   return ladder;
+}
+
+/** Rank keys already reported, so a per-request lookup does not spam the log. */
+const warnedRankKeys = new Set<string>();
+
+/**
+ * Reports an in-game rank whose org equivalent the catalog does not resolve.
+ * Worth a line: the only other symptom is every unlinked member of that rank
+ * quietly sorting to the bottom of the Rank column.
+ */
+function warnUnresolvedRankKey(rank: GuildRankName, key: string): void {
+  if (warnedRankKeys.has(key)) return;
+  warnedRankKeys.add(key);
+  console.warn(`rank profiles: catalog has no role "${key}" for in-game rank "${rank}"`);
 }
 
 type Catalog = RankProfilesResponse["catalog"];

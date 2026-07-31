@@ -10,6 +10,10 @@ export interface RaffleRoll extends StageRoll {
   createdBy: string;
   /** A later re-roll of the same slot retired this record. */
   superseded: boolean;
+  /** Inserted ahead of its winner's event commit and not yet made live: the
+   * public page masks the slot, the stage ignores it entirely. A pending row
+   * past its settle time is a failed compensation - invisible everywhere. */
+  pending: boolean;
 }
 
 /**
@@ -45,6 +49,8 @@ export interface RaffleRollStore {
   /** Every roll of an event, newest first - the manage-side history. */
   listForEvent(eventSlug: string, limit?: number): Promise<RaffleRoll[]>;
   markSettled(id: string): Promise<void>;
+  /** Flips a pending row live once its winner's event commit lands. */
+  markLive(id: string): Promise<void>;
   /** Re-rolling a slot retires its previous roll from the stage snapshot. */
   markSuperseded(eventSlug: string, raffleId: string, slot: number): Promise<void>;
   /** Retires exactly one observed roll - concurrent draws must never blanket
@@ -117,7 +123,7 @@ export function createRaffleRollStore(getClient: () => Promise<Client>): RaffleR
           JSON.stringify(roll.entrants),
           roll.winnerIndex,
           JSON.stringify(roll.spin),
-          roll.state,
+          roll.pending ? "pending" : roll.state,
           roll.startedAt,
           roll.settlesAt,
           roll.createdBy,
@@ -139,6 +145,10 @@ export function createRaffleRollStore(getClient: () => Promise<Client>): RaffleR
       for (const row of result.rows) {
         const roll = rowToRoll(row);
         if (!roll) continue;
+        // An expired pending row is a roll whose commit never landed and
+        // whose cleanup also failed - it must not shadow the slot's real
+        // latest roll, nor mask anything.
+        if (roll.pending && Date.now() >= roll.settlesAt) continue;
         const key = `${roll.raffleId}:${roll.slot}`;
         if (!latest.has(key)) latest.set(key, roll);
       }
@@ -152,6 +162,14 @@ export function createRaffleRollStore(getClient: () => Promise<Client>): RaffleR
         args: [eventSlug, limit],
       });
       return result.rows.map(rowToRoll).filter((roll) => roll !== null);
+    },
+
+    async markLive(id) {
+      const db = await ready();
+      await db.execute({
+        sql: "UPDATE raffle_rolls SET state = 'spinning' WHERE id = ? AND state = 'pending'",
+        args: [id],
+      });
     },
 
     async markSettled(id) {
@@ -211,6 +229,7 @@ function rowToRoll(row: Row): RaffleRoll | null {
       // durable authority on whether a spin has finished.
       state: row.state === "spinning" && Date.now() < settlesAt ? "spinning" : "settled",
       superseded: row.state === "superseded",
+      pending: row.state === "pending",
       startedAt: Number(row.started_at),
       settlesAt,
       createdBy: String(row.created_by),

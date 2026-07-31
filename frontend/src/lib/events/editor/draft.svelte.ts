@@ -141,6 +141,17 @@ export function keepInstant(value: string, original: string): string {
   return original && value === toInput(original) ? original : toInstant(value);
 }
 
+/**
+ * The validator canonicalizes instants (".000Z" millis and all); emitting
+ * the same spelling keeps serialized-vs-stored comparisons honest - a fresh
+ * "T00:00:00Z" must not read as different from the saved "T00:00:00.000Z".
+ * Invalid strings pass through so the validator can still name them.
+ */
+export function canonInstant(value: string): string {
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? value : new Date(parsed).toISOString();
+}
+
 export function slugify(value: string): string {
   return value
     .toLowerCase()
@@ -505,7 +516,10 @@ export class EventDraft {
         key: this.nextRowId++,
         username: entry.username,
         player_uuid: entry.player_uuid,
-        tickets: entry.tickets ?? 1,
+        // An omitted floor stays omitted: seeding an explicit 1 would make
+        // the reloaded row serialize differently from the local one and
+        // wrongly lock every roll button on "Save first" after a save.
+        tickets: entry.tickets ?? "",
       })),
       exclude: (seed.eligibility?.exclude ?? []).map((entry) => ({
         key: this.nextRowId++,
@@ -545,7 +559,7 @@ export class EventDraft {
    * unresolved manual picks drop, like every other empty repeater row; a
    * milestone rule only survives while its milestone does.
    */
-  rowEligibility(row: RaffleRow, milestoneIds: Set<string>): RaffleEligibility {
+  rowEligibility(row: RaffleRow): RaffleEligibility {
     const eligibility: RaffleEligibility = {};
     const include = row.include
       .filter((entry) => entry.player_uuid && entry.username)
@@ -554,8 +568,11 @@ export class EventDraft {
           player_uuid: entry.player_uuid,
           username: entry.username,
         };
-        const tickets = toCount(entry.tickets);
-        if (Number.isFinite(tickets) && tickets > 1) manual.tickets = tickets;
+        // Anything the manager typed reaches the validator: silently
+        // defaulting a 0, negative, or fractional floor to one ticket would
+        // draw with odds the builder never showed. Only an untouched field
+        // means "the default".
+        if (hasCount(entry.tickets)) manual.tickets = toCount(entry.tickets);
         return manual;
       });
     if (include.length > 0) eligibility.include = include;
@@ -563,31 +580,28 @@ export class EventDraft {
       .filter((entry) => entry.player_uuid && entry.username)
       .map((entry) => ({ player_uuid: entry.player_uuid, username: entry.username }));
     if (exclude.length > 0) eligibility.exclude = exclude;
-    const rules = row.rules.flatMap((rule): EligibilityRule[] => {
+    // Incomplete rule rows serialize AS-IS: the server validator then
+    // rejects the save with a named error. Silently dropping them would let
+    // a save (and a roll) proceed WITHOUT a restriction the builder visibly
+    // shows - drawing from a broader pool than the manager configured.
+    const rules = row.rules.map((rule): EligibilityRule => {
       switch (rule.type) {
         case "guildRank":
-          return rule.ranks.length > 0
-            ? [{ type: "guildRank", ranks: rule.ranks as GuildRankName[] }]
-            : [];
+          return { type: "guildRank", ranks: rule.ranks as GuildRankName[] };
         case "seqRank":
-          return rule.ranks.length > 0 ? [{ type: "seqRank", ranks: [...rule.ranks] }] : [];
+          return { type: "seqRank", ranks: [...rule.ranks] };
         case "stat":
-          if (!hasCount(rule.min) || !rule.windowFrom || !rule.windowTo) return [];
-          return [
-            {
-              type: "stat",
-              stat: rule.stat,
-              min: toCount(rule.min),
-              window: {
-                from: keepInstant(rule.windowFrom, rule.seedWindowFrom),
-                to: keepInstant(rule.windowTo, rule.seedWindowTo),
-              },
+          return {
+            type: "stat",
+            stat: rule.stat,
+            min: toCount(rule.min),
+            window: {
+              from: canonInstant(keepInstant(rule.windowFrom, rule.seedWindowFrom)),
+              to: canonInstant(keepInstant(rule.windowTo, rule.seedWindowTo)),
             },
-          ];
+          };
         case "milestone":
-          return rule.milestoneId && milestoneIds.has(rule.milestoneId)
-            ? [{ type: "milestone", milestoneId: rule.milestoneId }]
-            : [];
+          return { type: "milestone", milestoneId: rule.milestoneId };
       }
     });
     if (rules.length > 0) eligibility.rules = rules;
@@ -599,8 +613,8 @@ export class EventDraft {
         stat: row.weightStat,
         per: toCount(row.weightPer),
         window: {
-          from: keepInstant(row.windowFrom, row.seedWindowFrom),
-          to: keepInstant(row.windowTo, row.seedWindowTo),
+          from: canonInstant(keepInstant(row.windowFrom, row.seedWindowFrom)),
+          to: canonInstant(keepInstant(row.windowTo, row.seedWindowTo)),
         },
       };
       eligibility.weight = weight;
@@ -613,8 +627,8 @@ export class EventDraft {
       // validator instead of silently vanishing.
       if (row.windowFrom || row.windowTo) {
         weight.window = {
-          from: keepInstant(row.windowFrom, row.seedWindowFrom),
-          to: keepInstant(row.windowTo, row.seedWindowTo),
+          from: canonInstant(keepInstant(row.windowFrom, row.seedWindowFrom)),
+          to: canonInstant(keepInstant(row.windowTo, row.seedWindowTo)),
         };
       }
       eligibility.weight = weight;
@@ -658,19 +672,28 @@ export class EventDraft {
     // serializer both sides, so a stored legacy raffle (no eligibility yet)
     // compares against its own builder equivalent and stays rollable until
     // actually edited.
-    const savedMilestoneIds = new Set(
-      (initial?.personalMilestones ?? []).map((milestone) => milestone.id),
-    );
-    const currentMilestoneIds = new Set(
-      this.personalMilestones.filter((entry) => hasCount(entry.at) || entry.unlock.trim()).map((entry) => entry.id),
-    );
     const eligibilityUnchanged =
-      JSON.stringify(this.rowEligibility(row, currentMilestoneIds)) ===
-      JSON.stringify(this.rowEligibility(this.seedRaffleRow(saved), savedMilestoneIds));
+      JSON.stringify(this.rowEligibility(row)) ===
+      JSON.stringify(this.rowEligibility(this.seedRaffleRow(saved)));
+    // With winner exclusion on, every OTHER raffle's stored winners are part
+    // of this row's exclusions - and the roll reads them from the STORED
+    // event. Deleting such a raffle or shrinking it past a filled slot
+    // re-admits its winner in the preview only; gate the roll until the save
+    // makes that real.
+    const crossExclusionsUnchanged =
+      !this.raffleExcludeWinners ||
+      (initial?.raffles ?? []).every((entry) => {
+        if (entry.id === row.id) return true;
+        const draftRow = this.raffles.find((candidate) => candidate.id === entry.id);
+        return (entry.winners ?? []).every(
+          (winner) => draftRow !== undefined && winner.slot < toCount(draftRow.winnerCount),
+        );
+      });
     return (
       eventConfigUnchanged &&
       milestoneTargetsUnchanged &&
       eligibilityUnchanged &&
+      crossExclusionsUnchanged &&
       row.prize.trim() === saved.prize &&
       toCount(row.winnerCount) === saved.winnerCount
     );
@@ -807,7 +830,6 @@ export class EventDraft {
     // intent - a row counts once it has a prize, a window, rules, manual
     // picks, or frozen winners (the last keeps a save from ever wiping a
     // rolled result).
-    const filledMilestoneIds = new Set(filledMilestones.map((entry) => entry.id));
     const filledRaffles = this.raffles
       .filter(
         (row) =>
@@ -820,7 +842,7 @@ export class EventDraft {
           row.winners.length > 0,
       )
       .map((row) => {
-        const eligibility = this.rowEligibility(row, filledMilestoneIds);
+        const eligibility = this.rowEligibility(row);
         const raffle: Record<string, unknown> = {
           id: row.id,
           prize: row.prize,

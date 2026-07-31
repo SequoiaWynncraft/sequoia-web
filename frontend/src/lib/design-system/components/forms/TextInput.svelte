@@ -2,14 +2,14 @@
   import type { HTMLInputAttributes } from "svelte/elements";
 
   let {
-    value = $bindable(""),
+    value = $bindable(),
     mono = false,
     invalid = false,
     class: extraClass = "",
     "aria-invalid": ariaInvalid,
     ...rest
   }: {
-    value?: string;
+    value?: string | undefined;
     /** Tabular numerals for slugs, hex colors and other codes. */
     mono?: boolean;
     invalid?: boolean;
@@ -19,7 +19,7 @@
 <input
   {...rest}
   type="text"
-  class="seq-input {extraClass}"
+  class={["seq-input", extraClass]}
   class:seq-input-mono={mono}
   aria-invalid={invalid ? true : ariaInvalid}
   bind:value

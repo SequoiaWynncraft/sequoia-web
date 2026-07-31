@@ -8,6 +8,7 @@ import { parseGuildEvent } from "$lib/events/validate";
 import { eventFormContext } from "$lib/server/eventFormContext";
 import { requireEventManager } from "$lib/server/eventManagers";
 import { getGuildStats } from "$lib/server/guildStats";
+import { withEventLock } from "$lib/server/eventLocks";
 import { endRoom, publish } from "$lib/server/liveRolls";
 import { resolveEligibility } from "$lib/server/raffleEligibility";
 import { raffleRollStore } from "$lib/server/raffleRolls";
@@ -158,13 +159,24 @@ export const actions: Actions = {
     // in place is recoverable, orphaned entrant snapshots under a reusable
     // slug are not. (Purged-but-not-deleted, the rare CAS-loss below, only
     // costs the stage its replay; winners live in the event JSON.)
-    try {
-      await raffleRollStore.removeForEvent(params.slug);
-    } catch (error) {
-      console.warn("raffle roll purge failed:", error);
+    // The lock closes the last hole: a roll whose winner already committed
+    // inserts its record under the same lock, so it can never land between
+    // this purge and the removal.
+    const removal = await withEventLock(params.slug, async () => {
+      try {
+        await raffleRollStore.removeForEvent(params.slug);
+      } catch (error) {
+        console.warn("raffle roll purge failed:", error);
+        return "purgeFailed" as const;
+      }
+      return (await eventStore.remove(params.slug, { ifUpdatedAt: baseUpdatedAt }))
+        ? ("removed" as const)
+        : ("lost" as const);
+    });
+    if (removal === "purgeFailed") {
       return fail(503, { error: "Could not clear the raffle records - try again shortly." });
     }
-    if (!(await eventStore.remove(params.slug, { ifUpdatedAt: baseUpdatedAt }))) {
+    if (removal === "lost") {
       // The CAS lost a race after the read above: a concurrent delete of the
       // same version is done, a concurrent update is a conflict.
       if (!(await eventStore.get(params.slug))) redirect(303, "/manage/events");
@@ -218,6 +230,30 @@ export const actions: Actions = {
     if (!Number.isInteger(slot) || slot < 0 || slot >= raffle.winnerCount) {
       return fail(400, { error: "That winner slot no longer exists - save and try again." });
     }
+    // Capture the slot's current roll NOW, while whatever is recorded still
+    // belongs to the version this request just checked. Observed any later -
+    // after the eligibility awaits - it could be a rival request's fresh
+    // record, and retiring that right before our own CAS loses would erase a
+    // valid draw.
+    let priorRollId: string | null = null;
+    try {
+      priorRollId =
+        (await raffleRollStore.latestForEvent(params.slug)).find(
+          (entry) => entry.raffleId === raffleId && entry.slot === slot,
+        )?.rollId ?? null;
+    } catch (error) {
+      console.warn("raffle roll lookup failed:", error);
+      return fail(503, { error: "Could not clear the previous roll - try again shortly." });
+    }
+    // Read-validate the capture against the version: a rival that read the
+    // same version could commit AND record between our version check and the
+    // lookup above, making the captured id its fresh record. If the version
+    // moved during the lookup the capture is unbindable - bail exactly like
+    // any stale roll. A version still intact here proves every record the
+    // lookup saw predates whatever commits next.
+    if ((await eventStore.get(params.slug))?.updatedAt !== stored.updatedAt) {
+      return fail(409, { error: "This event just changed - reload and roll again." });
+    }
     // Membership trust mirrors the public standings board: only a fresh
     // roster is authoritative for who is eligible.
     const stats = await getGuildStats(fetch, { allowStale: false }).catch(() => null);
@@ -251,43 +287,24 @@ export const actions: Actions = {
 
     raffle.winners = [...others, { slot, ...drawn }];
     raffle.drawnAt = new Date().toISOString();
-    // Retire the slot's previous roll BEFORE committing its replacement, and
-    // abort if that fails: a committed new winner alongside a live old roll
-    // would let recovered snapshots replay the old winner over the real one.
-    // Only the roll THIS request observed is retired - a blanket slot-wide
-    // supersede could take a concurrent rival's fresh record down before our
-    // own CAS loses. The reverse loss (retired old roll, CAS below fails)
-    // only costs the stage its replay - the slot's winner is unchanged.
-    let priorRollId: string | null = null;
+    // Retire the version-bound roll captured above BEFORE committing its
+    // replacement, and abort if that fails: a committed new winner alongside
+    // a live old roll would let recovered snapshots replay the old winner
+    // over the real one. If a rival raced us here, it retired the same
+    // captured roll (idempotent) and exactly one of us survives the CAS
+    // below. The reverse loss (retired old roll, CAS fails) only costs the
+    // stage its replay - the slot's winner is unchanged.
     try {
-      const prior = (await raffleRollStore.latestForEvent(params.slug)).find(
-        (entry) => entry.raffleId === raffleId && entry.slot === slot,
-      );
-      if (prior) {
-        priorRollId = prior.rollId;
-        await raffleRollStore.markSupersededById(prior.rollId);
-      }
+      if (priorRollId) await raffleRollStore.markSupersededById(priorRollId);
     } catch (error) {
       console.warn("raffle roll supersede failed:", error);
       return fail(503, { error: "Could not clear the previous roll - try again shortly." });
     }
-    // Guard on the version we read: if another roll (or save) landed in the
-    // meantime, this write loses rather than clobbering that winner, and the
-    // manager is told to retry against the fresh state.
-    const newUpdatedAt = await eventStore.update(event, {
-      published: stored.published,
-      ifUpdatedAt: stored.updatedAt,
-    });
-    if (newUpdatedAt === null) {
-      return fail(409, { error: "This event just changed - reload and roll again." });
-    }
-
-    // The winner in the event JSON is authoritative from here on. The roll
-    // row and broadcast below power the live stage: they replay the exact
-    // drawable pool the draw ran over (drawWinners' own exported filter, so
-    // the semantics can never drift), and every open stage animates the same
-    // wheel to the same wedge. A failed row is a degraded animation, never a
-    // lost winner.
+    // The roll record replays the exact drawable pool the draw ran over
+    // (drawWinners' own exported filter, so the semantics can never drift),
+    // and every open stage animates the same wheel to the same wedge. A
+    // failed record is a degraded animation, never a lost winner - the event
+    // JSON committed below stays authoritative.
     const wheelPool = drawablePool(pool.entrants, exclude).map((entrant) => ({
       player_uuid: entrant.player_uuid,
       username: entrant.username,
@@ -310,9 +327,62 @@ export const actions: Actions = {
       startedAt,
       settlesAt: startedAt + 9000,
     };
-    let rollRecorded = true;
+    // The record lands BEFORE the winner commits, as a pending row: the
+    // public event page masks a slot with a pending record, so there is no
+    // instant where the committed winner is readable with no mask persisted
+    // yet. The stage ignores pending rows until the flip below. Same lock as
+    // deletion: the purge-then-remove sequence can never interleave with
+    // this existence check + insert, so a slug whose event vanished while we
+    // awaited records nothing instead of orphaning a row a later event on
+    // this slug would replay.
+    let rollRecorded = false;
     try {
-      await raffleRollStore.insert({ ...roll, createdBy: manager.discordId, superseded: false });
+      rollRecorded = await withEventLock(params.slug, async () => {
+        if (!(await eventStore.get(params.slug))) return false;
+        await raffleRollStore.insert({
+          ...roll,
+          createdBy: manager.discordId,
+          superseded: false,
+          pending: true,
+        });
+        return true;
+      });
+    } catch (error) {
+      console.warn("raffle roll record failed:", error);
+    }
+
+    // Guard on the version we read: if another roll (or save) landed in the
+    // meantime, this write loses rather than clobbering that winner, and the
+    // manager is told to retry against the fresh state.
+    const newUpdatedAt = await eventStore.update(event, {
+      published: stored.published,
+      ifUpdatedAt: stored.updatedAt,
+    });
+    if (newUpdatedAt === null) {
+      // The commit this record was pending on never happened - take it back
+      // out. If even that fails, the row expires with its settle time and
+      // every reader ignores it from then on.
+      if (rollRecorded) {
+        await raffleRollStore
+          .markSupersededById(roll.rollId)
+          .catch((error: unknown) => console.warn("pending roll cleanup failed:", error));
+      }
+      return fail(409, { error: "This event just changed - reload and roll again." });
+    }
+
+    // Committed - the pending record goes live and the wheel starts. A
+    // failed flip leaves the row pending (masked until it expires, never
+    // animated): degrade to the no-record path rather than announce off a
+    // record the snapshot won't serve.
+    if (rollRecorded) {
+      try {
+        await raffleRollStore.markLive(roll.rollId);
+      } catch (error) {
+        console.warn("raffle roll flip failed:", error);
+        rollRecorded = false;
+      }
+    }
+    if (rollRecorded) {
       publish(params.slug, { type: "roll", roll });
       const settleTimer = setTimeout(() => {
         raffleRollStore
@@ -322,9 +392,7 @@ export const actions: Actions = {
       }, roll.spin.durationMs);
       // A held timer must not keep a short-lived process (tests) alive.
       if (typeof settleTimer === "object" && "unref" in settleTimer) settleTimer.unref();
-    } catch (error) {
-      console.warn("raffle roll record failed:", error);
-      rollRecorded = false;
+    } else {
       // Connected stages still hold the (already superseded) previous roll
       // in memory - retire exactly THAT roll on the wire and refresh, so the
       // event JSON's committed winner takes over instead of a replaced one
