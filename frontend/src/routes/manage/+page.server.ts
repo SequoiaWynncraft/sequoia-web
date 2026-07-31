@@ -12,8 +12,11 @@ export const load: PageServerLoad = async ({ fetch, parent }) => {
   const { viewer } = await parent();
   const capabilities = {} as ManageCapabilities;
 
-  for (const area of MANAGE_AREAS) {
-    const access = await pageAreaAccess(fetch, viewer, area.id);
+  const checks = await Promise.all(
+    MANAGE_AREAS.map(async (area) => [area, await pageAreaAccess(fetch, viewer, area.id)] as const),
+  );
+
+  for (const [area, access] of checks) {
     capabilities[area.id] = access;
     if (access === "granted") redirect(307, area.href);
   }
