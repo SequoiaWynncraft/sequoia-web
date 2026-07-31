@@ -66,6 +66,7 @@
     }
 
     landed = false;
+    let frame = 0;
     const settleTimer = setTimeout(() => {
       setStatic(element, finalDeg);
       landed = true;
@@ -102,7 +103,6 @@
     // it can never drift from what the viewer sees. It lives exactly as long
     // as the spin: once landed, the hub shows the winner and polling a
     // static page would only burn battery.
-    let frame = 0;
     const tick = () => {
       if (landed) return;
       const matrix = new DOMMatrixReadOnly(getComputedStyle(element).transform);
