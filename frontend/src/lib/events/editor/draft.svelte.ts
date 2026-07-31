@@ -560,8 +560,11 @@ export class EventDraft {
           player_uuid: entry.player_uuid,
           username: entry.username,
         };
-        const tickets = toCount(entry.tickets);
-        if (Number.isFinite(tickets) && tickets > 1) manual.tickets = tickets;
+        // Anything the manager typed reaches the validator: silently
+        // defaulting a 0, negative, or fractional floor to one ticket would
+        // draw with odds the builder never showed. Only an untouched field
+        // means "the default".
+        if (hasCount(entry.tickets)) manual.tickets = toCount(entry.tickets);
         return manual;
       });
     if (include.length > 0) eligibility.include = include;
