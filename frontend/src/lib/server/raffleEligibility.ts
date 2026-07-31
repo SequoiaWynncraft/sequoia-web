@@ -54,10 +54,10 @@ function settled(entrants: ResolvedEntrant[]): EligibilityResult {
  * Resolves a raffle's entrant pool - one code path for both generations of
  * config. Raffles without `eligibility` keep the exact legacy semantics
  * (tracker board tickets via perTicket/window/requiresMilestone). Raffles
- * with it start from the fresh roster, AND-apply the rules, union the
- * include list (rules bypassed, ticket floor 1), subtract the exclude list,
- * then weight the survivors (default: one flat ticket each). Zero-ticket
- * entrants drop, mirroring the draw's invariant that every entrant can win.
+ * with it start from the fresh roster, AND-apply the rules, restore included
+ * roster members before weighting, union non-roster includes at their ticket
+ * floor, then subtract excludes. Zero-ticket entrants drop, mirroring the
+ * draw's invariant that every entrant can win.
  */
 export async function resolveEligibility(
   fetchImpl: typeof fetch,
@@ -72,9 +72,10 @@ export async function resolveEligibility(
 
   // Only identified members can hold tickets - identity (exclusion, faces,
   // audit) is uuid-keyed everywhere.
-  let pool = roster.filter((member): member is GuildMemberStats & { uuid: string } =>
+  const identifiedRoster = roster.filter((member): member is GuildMemberStats & { uuid: string } =>
     Boolean(member.uuid),
   );
+  let pool = identifiedRoster;
 
   const boards = new TrackerBoards(fetchImpl, event, roster);
 
@@ -128,7 +129,21 @@ export async function resolveEligibility(
     }
   }
 
-  // Weigh the rule survivors into tickets.
+  // A current member restored by include bypasses rules, not weighting.
+  const rosterByUuid = new Map(
+    identifiedRoster.map((member) => [normalizeUuid(member.uuid), member]),
+  );
+  const weightedKeys = new Set(pool.map((member) => normalizeUuid(member.uuid)));
+  for (const entry of eligibility.include ?? []) {
+    const key = normalizeUuid(entry.player_uuid);
+    const member = rosterByUuid.get(key);
+    if (member && !weightedKeys.has(key)) {
+      pool.push(member);
+      weightedKeys.add(key);
+    }
+  }
+
+  // Weigh the rule survivors and restored roster members into tickets.
   const weight: TicketWeight = eligibility.weight ?? { mode: "flat" };
   const weighted = new Map<string, ResolvedEntrant>();
   if (weight.mode === "flat") {
@@ -167,11 +182,12 @@ export async function resolveEligibility(
     const floor = Math.max(1, entry.tickets ?? 1);
     if (existing) existing.tickets = Math.max(existing.tickets, floor);
     else {
+      const member = rosterByUuid.get(key);
       weighted.set(key, {
-        player_uuid: entry.player_uuid,
-        username: entry.username,
+        player_uuid: member?.uuid ?? entry.player_uuid,
+        username: member?.username ?? entry.username,
         tickets: floor,
-        source: "include",
+        source: member ? "roster" : "include",
       });
     }
   }
