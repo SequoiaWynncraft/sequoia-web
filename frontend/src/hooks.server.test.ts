@@ -39,6 +39,7 @@ describe("legacy management POST forwarding", () => {
 
     expect(resolve).not.toHaveBeenCalled();
     expect(await response.text()).toBe("action result");
+    expect(response.headers.get("x-request-id")).toBe(event.locals.requestId);
     expect(forwarded).toHaveLength(1);
     expect(forwarded[0].method).toBe("POST");
     expect(forwarded[0].url).toBe("https://dev.seqwawa.com/manage/events/summer-raid?/save");
