@@ -35,6 +35,7 @@
         trackerError={form?.trackerError ?? null}
         presetError={form?.presetError ?? null}
         auditWarning={form ? (form.auditWarning ?? false) : data.auditWarning}
+        rollWarning={form?.rollWarning ?? false}
       />
     {/key}
   {/if}

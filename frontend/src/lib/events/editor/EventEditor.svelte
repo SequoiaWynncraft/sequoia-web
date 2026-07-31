@@ -39,6 +39,7 @@
     trackerError = null,
     presetError = null,
     auditWarning = false,
+    rollWarning = false,
   }: {
     mode: "create" | "edit";
     initial?: GuildEvent | null;
@@ -61,6 +62,8 @@
     presetError?: string | null;
     /** The last action succeeded but its audit row did not land. */
     auditWarning?: boolean;
+    /** The last roll landed but its stage replay record did not. */
+    rollWarning?: boolean;
   } = $props();
 
   const FORM_ID = "event-editor-form";
@@ -86,6 +89,7 @@
     draft.serverSaved = saved;
     draft.serverError = error;
     draft.serverAuditWarning = auditWarning;
+    draft.serverRollWarning = rollWarning;
   });
 
   $effect.pre(() => {
@@ -257,6 +261,11 @@
         {/if}
         {#if auditWarning}
           <span class="evf-error" role="alert">Done, but not recorded in the audit log.</span>
+        {/if}
+        {#if rollWarning}
+          <span class="evf-error" role="alert">
+            Rolled, but the stage replay was not recorded - viewers see the winner without a spin.
+          </span>
         {/if}
       </div>
     </form>

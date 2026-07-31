@@ -344,7 +344,9 @@ export const actions: Actions = {
       winner: { slot, ...drawn },
       drawnAt: raffle.drawnAt,
       newUpdatedAt,
-      auditWarning: !audited || !rollRecorded,
+      auditWarning: !audited,
+      // Distinct from the audit trail: only the live-stage replay was lost.
+      rollWarning: !rollRecorded,
     };
   },
 

@@ -88,6 +88,10 @@
       <span class="rail-status rail-status-error" role="alert">
         Done, but not recorded in the audit log.
       </span>
+    {:else if draft.serverRollWarning}
+      <span class="rail-status rail-status-error" role="alert">
+        Rolled, but the stage replay was not recorded.
+      </span>
     {:else if draft.serverSaved}
       <span class="rail-status rail-status-saved">Saved</span>
     {/if}
