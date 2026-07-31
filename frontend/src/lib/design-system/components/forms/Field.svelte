@@ -28,18 +28,41 @@
   // first form control inside the field is described by whichever text is
   // showing. Composite fields (color pairs, instant pairs) describe their
   // first control - the pair reads as one field.
-  $effect(() => {
-    const showing = Boolean(error || hint);
-    const control = main?.querySelector("input, select, textarea");
-    if (!control) return;
-    // Merge, never clobber: a control may carry its own external
-    // descriptions - only this field's generated id is added and removed.
-    const existing = (control.getAttribute("aria-describedby") ?? "")
+  // Merge, never clobber: a control may carry its own external descriptions -
+  // only this field's generated id is ever added or removed.
+  let tagged: Element | null = null;
+
+  function withoutOwnId(el: Element): string[] {
+    return (el.getAttribute("aria-describedby") ?? "")
       .split(/\s+/)
       .filter((id) => id !== "" && id !== descriptionId);
-    const ids = showing ? [...existing, descriptionId] : existing;
-    if (ids.length > 0) control.setAttribute("aria-describedby", ids.join(" "));
-    else control.removeAttribute("aria-describedby");
+  }
+
+  function setIds(el: Element, ids: string[]) {
+    if (ids.length > 0) el.setAttribute("aria-describedby", ids.join(" "));
+    else el.removeAttribute("aria-describedby");
+  }
+
+  function associate() {
+    const control = main?.querySelector("input, select, textarea") ?? null;
+    if (tagged && tagged !== control) setIds(tagged, withoutOwnId(tagged));
+    tagged = control;
+    if (!control) return;
+    const existing = withoutOwnId(control);
+    setIds(control, error || hint ? [...existing, descriptionId] : existing);
+  }
+
+  $effect(() => {
+    void error;
+    void hint;
+    if (!main) return;
+    associate();
+    // The snippet may swap its control (input -> select) without any prop
+    // changing; only the DOM knows. Attribute writes above don't retrigger
+    // this - it watches structure alone.
+    const observer = new MutationObserver(associate);
+    observer.observe(main, { childList: true, subtree: true });
+    return () => observer.disconnect();
   });
 </script>
 

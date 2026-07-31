@@ -5,6 +5,7 @@
     checked = $bindable(),
     label,
     hint,
+    "aria-describedby": describedBy,
     ...rest
   }: {
     checked?: boolean | undefined;
@@ -13,6 +14,10 @@
   } & Omit<HTMLInputAttributes, "checked" | "type"> = $props();
 
   const hintId = $props.id();
+  // A caller's own description ids stay alongside the hint's, never under it.
+  const description = $derived(
+    [describedBy, hint ? hintId : undefined].filter(Boolean).join(" ") || undefined,
+  );
 </script>
 
 <!-- The hint sits OUTSIDE the label (a label's descendants become part of
@@ -23,7 +28,7 @@
       {...rest}
       type="checkbox"
       bind:checked
-      aria-describedby={hint ? hintId : undefined}
+      aria-describedby={description}
     />
     <span>{label}</span>
   </label>
