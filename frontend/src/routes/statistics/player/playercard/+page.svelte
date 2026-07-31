@@ -7,6 +7,7 @@
   import ScopeChips from "$lib/design-system/components/ScopeChips.svelte";
   import DailyBars from "$lib/design-system/components/charts/DailyBars.svelte";
   import { raidSeriesFor } from "$lib/site/raids";
+  import { tierColor } from "$lib/site/rankColors";
   import { nmsrFullBodyIso } from "$lib/site/nmsr";
   import type { PlayerCardResponse } from "$lib/api/playerCard";
   import type { PlayerSeriesResponse } from "$lib/api/playerSeries";
@@ -45,16 +46,6 @@
     }));
   }
 
-  const TIER_COLORS: Record<string, string> = {
-    DIAMOND: "var(--color-diamond)",
-    GOLD: "var(--color-gold)",
-    SILVER: "#aeb4c4",
-    BRONZE: "#c2894f",
-  };
-
-  function tierColor(tier: string): string {
-    return TIER_COLORS[tier] ?? "var(--text-muted)";
-  }
 
   const CLASS_LABELS: Record<string, string> = {
     WARRIOR: "Warrior",

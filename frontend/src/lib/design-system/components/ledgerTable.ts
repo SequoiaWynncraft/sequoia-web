@@ -11,6 +11,8 @@ export interface LedgerColumn<Row> {
   sortValue?: (row: Row) => number | string | null;
   color?: (row: Row) => string | null;
   secondary?: (row: Row) => string | null;
+  /** CSS color for the secondary text - rank-aware labels pass rankColor(). */
+  secondaryColor?: (row: Row) => string | null;
   href?: (row: Row) => string | null;
   /** Image URL rendered as a small avatar before the cell text. */
   avatar?: (row: Row) => string | null;

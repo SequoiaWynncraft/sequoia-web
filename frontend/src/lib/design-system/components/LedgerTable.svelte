@@ -158,6 +158,7 @@
             {@const mark = column.color?.(row) ?? null}
             {@const link = column.href?.(row) ?? null}
             {@const secondary = column.secondary?.(row) ?? null}
+            {@const secondaryColor = column.secondaryColor?.(row) ?? null}
             {@const avatar = column.avatar?.(row) ?? null}
             {@const avatarAlt = column.avatarAlt?.(row) ?? null}
             {@const icon = column.icon?.(row) ?? null}
@@ -180,7 +181,10 @@
               {:else}
                 {column.value(row)}
               {/if}
-              {#if secondary}<span class="secondary">{secondary}</span>{/if}
+              {#if secondary}<span
+                  class="secondary"
+                  style={secondaryColor ? `color:${secondaryColor}` : undefined}>{secondary}</span
+                >{/if}
               {#if icon}
                 <!-- svelte-ignore a11y_no_noninteractive_tabindex — focusable on purpose, so the label is keyboard-reachable -->
                 <span

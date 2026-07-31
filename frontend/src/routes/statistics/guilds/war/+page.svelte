@@ -6,6 +6,7 @@
   import StackedColumns from "$lib/design-system/components/charts/StackedColumns.svelte";
   import DeferredPanel from "$lib/design-system/components/DeferredPanel.svelte";
   import { guildRankLabel, type GuildMemberStats } from "$lib/api/guildStats";
+  import { rankColor } from "$lib/site/rankColors";
 
   let { data } = $props();
 
@@ -26,6 +27,7 @@
       value: (member) => member.username,
       sortValue: (member) => member.username.toLowerCase(),
       secondary: (member) => guildRankLabel(member.rank),
+      secondaryColor: (member) => rankColor(member.rank),
       href: (member) => `/statistics/player/playercard?player=${encodeURIComponent(member.username)}`,
     },
     {

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PlayerName from "$lib/design-system/components/PlayerName.svelte";
   import type { StageRoll } from "$lib/events/stageProtocol";
 
   import { finalRotationDeg, point, wedgePath, wheelWedges } from "./wheelMath";
@@ -108,7 +109,7 @@
     {#if showWinner}
       <span class="wheel-winner">
         <span class="wheel-winner-spark" aria-hidden="true">✦</span>
-        {roll.winner.username}
+        <PlayerName username={roll.winner.username} uuid={roll.winner.player_uuid} size={26} />
       </span>
       <span class="wheel-winner-meta">
         wins {roll.prize || "the prize"} · {roll.winner.tickets}
@@ -181,6 +182,9 @@
   }
 
   .wheel-winner {
+    display: inline-flex;
+    gap: 12px;
+    align-items: center;
     padding: 8px 22px;
     border: 1px solid var(--color-gold);
     color: var(--text-heading);
