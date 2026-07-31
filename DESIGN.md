@@ -137,7 +137,9 @@ roster where the roll insists on a fresh one), so its entrants and odds are a gu
 the authoritative draw. Rolling draws with the same resolver, grafts the
 winner into the event JSON under the whole-event CAS (still the sole contention arbiter),
 then records the draw in `raffle_rolls` (`lib/server/raffleRolls.ts`: entrant snapshot,
-winner index, spin choreography) and broadcasts it over in-process pub/sub
+winner index, spin choreography) and broadcasts it over in-process pub/sub — best-effort:
+the committed winner is authoritative, and a failed record or broadcast degrades to "no
+stage replay, no live animation" with a warning to the manager, never a lost winner
 (`lib/server/liveRolls.ts`, single-replica by design) to
 `GET /events/{slug}/raffle/stream` (native SSE, heartbeats). The stream and stage gate
 harder than the event page: a member-only event still serves non-members its public
