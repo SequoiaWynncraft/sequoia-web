@@ -9,19 +9,24 @@
     roll,
     clockOffset,
     wheelStyle = "heads",
+    viewerUuid = null,
   }: {
     roll: StageRoll;
     clockOffset: number | null;
     /** Rim identity: pixel heads (crowd-proof) or classic rotated names. */
     wheelStyle?: "heads" | "names";
+    /** The signed-in viewer - their own slice glows a touch warmer. */
+    viewerUuid?: string | null;
   } = $props();
+
+  function canonicalUuid(uuid: string): string {
+    return uuid.replaceAll("-", "").toLowerCase();
+  }
 
   const SIZE = 640;
   const CENTER = SIZE / 2;
   const RADIUS = CENTER - 12;
   const HEAD_RADIUS = RADIUS * 0.84;
-  /** Hairlines on slim wedges melt into a solid fan - draw none below this. */
-  const STROKE_MIN_DEG = 2.5;
   // Heads mode: names only where an arc can hold one, heads carry the rest.
   // Names mode: labels reach further out and down to slimmer wedges - they
   // are the only identity on the wheel.
@@ -30,28 +35,41 @@
   const labelMinDeg = $derived(wheelStyle === "heads" ? 14 : 4);
 
   const wedges = $derived(wheelWedges(roll.entrants));
+  const mineIndex = $derived(
+    viewerUuid === null
+      ? -1
+      : roll.entrants.findIndex(
+          (entrant) => canonicalUuid(entrant.player_uuid) === canonicalUuid(viewerUuid),
+        ),
+  );
   const rotation = $derived(finalRotationDeg(wedges, roll.winnerIndex, roll.spin.turns));
 
-  // Heads shrink as the rim crowds; ticket-proportional spacing means cheap
-  // slots shingle slightly, which reads like a stack rather than a fault.
+  // A head earns its rim spot only when its wedge can actually hold it -
+  // crowded wheels stay quiet instead of shingling. Hover (or winning)
+  // overrides, so every entrant is still reachable.
   const headSize = $derived(
-    Math.max(
-      13,
-      Math.min(26, ((2 * Math.PI * HEAD_RADIUS) / Math.max(1, roll.entrants.length)) * 0.72),
-    ),
+    Math.max(16, Math.min(26, ((2 * Math.PI * HEAD_RADIUS) / Math.max(1, roll.entrants.length)) * 0.9)),
   );
+
+  function headFits(index: number): boolean {
+    const wedge = wedges[index];
+    const arc = ((2 * Math.PI * HEAD_RADIUS) / 360) * (wedge.endDeg - wedge.startDeg);
+    return arc >= headSize + 2;
+  }
 
   let wheel: SVGGElement | undefined = $state();
   let landed = $state(false);
   /** Wedge currently under the pointer - the hub's live ticker. */
   let liveIndex = $state(-1);
+  /** Wedge under the mouse - reveals its head even when it doesn't fit. */
+  let hoveredIndex = $state(-1);
+  /** The disc's current angle - heads live OUTSIDE the rotating group and
+   * position themselves from this, so they are always upright. */
+  let rotationNow = $state(0);
 
   function setStatic(element: SVGGElement, deg: number) {
     element.style.transform = `rotate(${deg}deg)`;
-    // Heads stay upright: each counter-rotates about its own center.
-    for (const head of element.querySelectorAll<SVGGElement>(".wheel-head")) {
-      head.style.transform = `rotate(${-deg}deg)`;
-    }
+    rotationNow = ((deg % 360) + 360) % 360;
   }
 
   // One rotation to the precomputed landing. The feed converts the server's
@@ -98,18 +116,10 @@
       easing: "cubic-bezier(0.12, 0.8, 0.2, 1)",
       fill: "forwards" as const,
     };
-    const animations = [
-      element.animate(
-        [{ transform: "rotate(0deg)" }, { transform: `rotate(${rotation}deg)` }],
-        timing,
-      ),
-      ...[...element.querySelectorAll<SVGGElement>(".wheel-head")].map((head) =>
-        head.animate(
-          [{ transform: "rotate(0deg)" }, { transform: `rotate(${-rotation}deg)` }],
-          timing,
-        ),
-      ),
-    ];
+    const animation = element.animate(
+      [{ transform: "rotate(0deg)" }, { transform: `rotate(${rotation}deg)` }],
+      timing,
+    );
 
     // The hub ticker reads the disc's actual rendered angle each frame, so
     // it can never drift from what the viewer sees. It lives exactly as long
@@ -120,13 +130,14 @@
       const matrix = new DOMMatrixReadOnly(getComputedStyle(element).transform);
       const deg = (Math.atan2(matrix.b, matrix.a) * 180) / Math.PI;
       liveIndex = wedgeAtPointer(wedges, deg);
+      rotationNow = ((deg % 360) + 360) % 360;
       frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
 
     return () => {
       clearTimeout(settleTimer);
-      for (const animation of animations) animation.cancel();
+      animation.cancel();
       cancelAnimationFrame(frame);
     };
   });
@@ -142,12 +153,16 @@
         {#each roll.entrants as entrant, index (entrant.player_uuid)}
           {@const wedge = wedges[index]}
           {@const span = wedge.endDeg - wedge.startDeg}
+          <!-- svelte-ignore a11y_no_static_element_interactions — hover is a
+               visual affordance only; the entrant list carries the names. -->
           <path
             d={wedgePath(CENTER, CENTER, RADIUS, wedge.startDeg, wedge.endDeg)}
             class="wheel-wedge"
             class:wheel-wedge-alt={index % 2 === 1}
-            class:wheel-wedge-quiet={span < STROKE_MIN_DEG}
+            class:wheel-wedge-mine={index === mineIndex}
             class:wheel-wedge-winner={showWinner && index === roll.winnerIndex}
+            onmouseenter={() => (hoveredIndex = index)}
+            onmouseleave={() => (hoveredIndex = -1)}
           />
           {#if span >= labelMinDeg}
             {@const anchor = point(CENTER, CENTER, labelRadius, wedge.midDeg)}
@@ -161,12 +176,13 @@
             </text>
           {/if}
         {/each}
-        {#each showHeads ? roll.entrants : [] as entrant, index (entrant.player_uuid)}
-          {@const anchor = point(CENTER, CENTER, HEAD_RADIUS, wedges[index].midDeg)}
+      </g>
+      {#each showHeads ? roll.entrants : [] as entrant, index (entrant.player_uuid)}
+        {#if headFits(index) || hoveredIndex === index || (showWinner && index === roll.winnerIndex)}
+          {@const anchor = point(CENTER, CENTER, HEAD_RADIUS, wedges[index].midDeg + rotationNow)}
           <g
             class="wheel-head"
             class:wheel-head-winner={showWinner && index === roll.winnerIndex}
-            style="transform-origin: {anchor.x}px {anchor.y}px"
           >
             <image
               href={nmsrFace(entrant.player_uuid, 32)}
@@ -176,8 +192,8 @@
               height={headSize}
             />
           </g>
-        {/each}
-      </g>
+        {/if}
+      {/each}
       <circle cx={CENTER} cy={CENTER} r={RADIUS * 0.21} class="wheel-hub" />
       <path
         d="M {CENTER - 14} 4 L {CENTER + 14} 4 L {CENTER} 34 Z"
@@ -239,26 +255,23 @@
     will-change: transform;
   }
 
+  /* No separator strokes: the tonal alternation IS the boundary, and a
+     hundred hairlines over slim wedges would read as a solid fan anyway. */
   .wheel-wedge {
     fill: color-mix(in srgb, var(--ev-sky-1, #251b38) 72%, #000000);
-    stroke: color-mix(in srgb, var(--color-gold) 26%, transparent);
-    stroke-width: 1;
   }
 
   .wheel-wedge-alt {
     fill: color-mix(in srgb, var(--ev-sky-0, #171120) 82%, #000000);
   }
 
-  /* Slim wedges keep their fill contrast but drop the hairline - a hundred
-     strokes over a few degrees each reads as a solid fan, not a wheel. */
-  .wheel-wedge-quiet {
-    stroke: none;
+  /* Your own slice, a touch warmer - found at a glance, never shouting. */
+  .wheel-wedge-mine {
+    fill: color-mix(in srgb, var(--color-gold) 9%, color-mix(in srgb, var(--ev-sky-1, #251b38) 72%, #000000));
   }
 
   .wheel-wedge-winner {
     fill: color-mix(in srgb, var(--color-gold) 30%, var(--ev-sky-1, #251b38));
-    stroke: var(--color-gold);
-    stroke-width: 2;
   }
 
   .wheel-label {
@@ -273,7 +286,7 @@
   }
 
   .wheel-head {
-    will-change: transform;
+    pointer-events: none;
   }
 
   .wheel-head image {
