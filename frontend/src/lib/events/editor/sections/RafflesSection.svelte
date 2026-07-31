@@ -199,15 +199,22 @@
                 {/each}
               </div>
             {:else if rule.type === "seqRank"}
-              {#if draft.seqRankChoices.length > 0}
+              <!-- Stored selections still filter the draw even when the ladder
+                   fetch failed or a rank left the catalog - they must stay
+                   visible and removable, never silently active. -->
+              {@const choices = [...new Set([...draft.seqRankChoices, ...rule.ranks])]}
+              {#if choices.length > 0}
                 <div class="evf-chips" role="group" aria-label="Sequoia ranks that may enter">
-                  {#each draft.seqRankChoices as rank (rank)}
+                  {#each choices as rank (rank)}
                     <label class="evf-chip" class:evf-chip-selected={rule.ranks.includes(rank)}>
                       <input class="evf-chip-input" type="checkbox" value={rank} bind:group={rule.ranks} />
-                      {rank}
+                      {rank}{#if !draft.seqRankChoices.includes(rank)}&nbsp;· not on the ladder{/if}
                     </label>
                   {/each}
                 </div>
+                {#if draft.seqRankChoices.length === 0}
+                  <p class="evf-hint">The rank ladder is unavailable right now - these saved ranks still filter the draw.</p>
+                {/if}
               {:else}
                 <p class="evf-hint">The rank ladder is unavailable right now - reload to retry.</p>
               {/if}
