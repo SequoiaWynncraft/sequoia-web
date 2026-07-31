@@ -11,6 +11,22 @@
   import { EDITOR_KEY, EventDraft } from "../draft.svelte";
 
   const draft = getContext<EventDraft>(EDITOR_KEY);
+
+  let trackerSubmit = $state<HTMLButtonElement | null>(null);
+
+  /**
+   * The rail's form-associated save button precedes the whole form in DOM
+   * order and is therefore the form's default submitter - a bare Enter
+   * inside the tracker editor would fire ?/save instead of the tracker
+   * action. Route Enter to the tracker's own submit explicitly.
+   */
+  function submitTrackerOnEnter(event: KeyboardEvent) {
+    if (event.key !== "Enter") return;
+    const target = event.target as HTMLElement;
+    if (target instanceof HTMLTextAreaElement || target instanceof HTMLButtonElement) return;
+    event.preventDefault();
+    trackerSubmit?.click();
+  }
 </script>
 
 <FormSection id="standings" title="Standings">
@@ -70,7 +86,8 @@
     {/if}
 
     {#if draft.trackerEditor !== "closed"}
-      <div class="evf-tracker-new">
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <div class="evf-tracker-new" onkeydown={submitTrackerOnEnter}>
         <span class="evf-tracker-label">
           {draft.trackerEditor === "edit" ? `Edit tracker: ${draft.newTrackerName}` : "New tracker event"}
         </span>
@@ -108,6 +125,7 @@
         </p>
         <div class="evf-tracker-new-actions">
           <button
+            bind:this={trackerSubmit}
             type="submit"
             formaction={draft.trackerEditor === "edit" ? "?/updateTracker" : "?/createTracker"}
             formnovalidate
