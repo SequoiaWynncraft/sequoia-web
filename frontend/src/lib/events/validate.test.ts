@@ -154,6 +154,29 @@ describe("parseGuildEvent", () => {
     expectError({ ...VALID, icon: { placements: ["hero"] } }, "icon file");
   });
 
+  it("round-trips a whitelist-only raffle and rejects an empty whitelist", () => {
+    const parsed = parseGuildEvent({
+      ...VALID,
+      raffles: [
+        {
+          id: "r1", prize: "LE", winnerCount: 1, perTicket: 1,
+          eligibility: { whitelistOnly: true, include: [{ player_uuid: "u1", username: "Zed" }] },
+        },
+      ],
+    });
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) expect(parsed.event.raffles?.[0].eligibility?.whitelistOnly).toBe(true);
+    expectError(
+      {
+        ...VALID,
+        raffles: [
+          { id: "r1", prize: "LE", winnerCount: 1, perTicket: 1, eligibility: { whitelistOnly: true } },
+        ],
+      },
+      "whitelist-only but its include list is empty",
+    );
+  });
+
   it("normalizes the legacy single goal into a one-milestone goals list", () => {
     const result = parseGuildEvent({
       ...VALID,

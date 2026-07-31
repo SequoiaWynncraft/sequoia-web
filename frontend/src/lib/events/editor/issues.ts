@@ -103,6 +103,9 @@ export function sectionIssues(draft: EventDraft): Partial<Record<SectionId, stri
       raffle.winners.length > 0;
     if (!filled) continue;
     if (!raffle.prize.trim()) add("raffles", "A raffle needs a prize");
+    if (raffle.whitelistOnly && raffle.include.length === 0) {
+      add("raffles", "A whitelist raffle needs members on its include list");
+    }
     const winnerCount = toCount(raffle.winnerCount);
     if (!Number.isInteger(winnerCount) || winnerCount < 1) add("raffles", "Winners must be at least 1");
     if (raffle.weightMode !== "flat") {

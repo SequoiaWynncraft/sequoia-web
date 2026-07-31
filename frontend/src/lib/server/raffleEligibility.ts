@@ -75,11 +75,14 @@ export async function resolveEligibility(
   const identifiedRoster = roster.filter((member): member is GuildMemberStats & { uuid: string } =>
     Boolean(member.uuid),
   );
-  let pool = identifiedRoster;
+  // Whitelist mode: nobody qualifies via the roster - the include union
+  // below IS the pool (weighted as usual). Rules are ignored outright, so
+  // none of their data sources are consulted either.
+  let pool = eligibility.whitelistOnly ? [] : identifiedRoster;
 
   const boards = new TrackerBoards(fetchImpl, event, roster);
 
-  for (const rule of eligibility.rules ?? []) {
+  for (const rule of eligibility.whitelistOnly ? [] : (eligibility.rules ?? [])) {
     switch (rule.type) {
       case "guildRank": {
         const wanted = new Set<string>(rule.ranks);

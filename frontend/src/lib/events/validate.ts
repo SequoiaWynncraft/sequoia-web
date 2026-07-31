@@ -433,8 +433,14 @@ const ELIGIBILITY_STATS = new Set(["raids", "playtime", "wars"]);
 function parseEligibility(value: unknown, label: string): RaffleEligibility {
   const raw = asRecord(value, `${label} eligibility`);
   const eligibility: RaffleEligibility = {};
+  if (raw.whitelistOnly === true) eligibility.whitelistOnly = true;
   const include = parseManualEntrants(raw.include, `${label} include list`);
   if (include) eligibility.include = include;
+  // A whitelist raffle with nobody on it can only ever roll into an error -
+  // catch the mistake at save time, where the manager can fix it.
+  if (eligibility.whitelistOnly && !eligibility.include) {
+    fail(`${label} is whitelist-only but its include list is empty`);
+  }
   const exclude = parseManualEntrants(raw.exclude, `${label} exclude list`);
   if (exclude) eligibility.exclude = exclude;
   if (present(raw.rules)) {
