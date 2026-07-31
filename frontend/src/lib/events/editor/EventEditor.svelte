@@ -135,6 +135,11 @@
 </script>
 
 <div class="evf-editor">
+  <aside class="evf-side" aria-label="Editor navigation and preview">
+    <SectionRail formId={FORM_ID} />
+    <PreviewPane />
+  </aside>
+
   <div class="evf-main">
     <div class="evf-toolbar">
       <div class="evf-presets">
@@ -282,8 +287,4 @@
     {/if}
   </div>
 
-  <aside class="evf-side" aria-label="Editor navigation and preview">
-    <SectionRail formId={FORM_ID} />
-    <PreviewPane />
-  </aside>
 </div>
