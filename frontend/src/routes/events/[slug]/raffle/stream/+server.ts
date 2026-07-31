@@ -12,6 +12,15 @@ import { loadViewer } from "$lib/server/viewerSession";
 export const prerender = false;
 
 const HEARTBEAT_MS = 25_000;
+/**
+ * Streams are closed and reopened on a cadence: authorization is judged at
+ * connect time, and event-driven teardowns can't see external changes like
+ * a member leaving the roster. A bounded lifetime turns those into "at most
+ * ten more minutes" instead of "until the tab closes" - the browser's
+ * reconnect repeats the membership check, and a mid-spin cut only costs the
+ * animation (the reconnect snapshot restores the roll).
+ */
+const MAX_STREAM_MS = 10 * 60_000;
 
 /**
  * The stage's live feed. Access mirrors the event page: unpublished events
@@ -41,6 +50,7 @@ export const GET: RequestHandler = async ({ params, cookies, fetch, locals }) =>
   const encoder = new TextEncoder();
   let unsubscribe: (() => void) | null | undefined;
   let heartbeat: ReturnType<typeof setInterval> | undefined;
+  let lifetime: ReturnType<typeof setTimeout> | undefined;
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -97,10 +107,21 @@ export const GET: RequestHandler = async ({ params, cookies, fetch, locals }) =>
       // Comment frames keep proxies from idling the connection out.
       heartbeat = setInterval(() => controller.enqueue(encoder.encode(":hb\n\n")), HEARTBEAT_MS);
       if (typeof heartbeat === "object" && "unref" in heartbeat) heartbeat.unref();
+      lifetime = setTimeout(() => {
+        unsubscribe?.();
+        clearInterval(heartbeat);
+        try {
+          controller.close();
+        } catch {
+          // Already closed by the client.
+        }
+      }, MAX_STREAM_MS);
+      if (typeof lifetime === "object" && "unref" in lifetime) lifetime.unref();
     },
     cancel() {
       unsubscribe?.();
       clearInterval(heartbeat);
+      clearTimeout(lifetime);
     },
   });
 
