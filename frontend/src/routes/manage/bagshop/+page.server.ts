@@ -1,5 +1,6 @@
 import type { PageServerLoad } from "./$types";
 
+import { pageAreaAccess } from "$lib/server/manageCapabilities";
 import { createBagshopClient, type InventoryItem, type Order } from "$lib/api/bagshop";
 
 export const prerender = false;
@@ -10,8 +11,10 @@ export const prerender = false;
  * which re-rejects non-staff itself, so the gate here is presentation.
  */
 export const load: PageServerLoad = async ({ fetch, parent }) => {
-  const { capabilities } = await parent();
-  const access = capabilities.bagshop;
+  const { viewer } = await parent();
+  // Re-resolved per page load: the console layout's capabilities are cached
+  // across child navigations, so they must not gate protected data here.
+  const access = await pageAreaAccess(fetch, viewer, "bagshop");
   if (access !== "granted") {
     return { access, openOrders: null, inventory: null, ordersError: null, inventoryError: null };
   }

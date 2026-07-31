@@ -1,6 +1,7 @@
 import { fail, redirect } from "@sveltejs/kit";
 import type { Actions, PageServerLoad } from "./$types";
 
+import { pageAreaAccess } from "$lib/server/manageCapabilities";
 import { recordAudit } from "$lib/server/auditLog";
 import { drawWinners, secureRng } from "$lib/events/raffle";
 import { parseGuildEvent } from "$lib/events/validate";
@@ -17,8 +18,10 @@ import { requestError } from "$lib/server/requestError";
 export const prerender = false;
 
 export const load: PageServerLoad = async ({ fetch, locals, params, parent, url }) => {
-  const { capabilities } = await parent();
-  const access = capabilities.events;
+  const { viewer } = await parent();
+  // Re-resolved per page load: the console layout's capabilities are cached
+  // across child navigations, so they must not gate protected data here.
+  const access = await pageAreaAccess(fetch, viewer, "events");
   if (access !== "granted") return { access, stored: null, context: null, auditWarning: false };
 
   const [stored, context] = await Promise.all([eventStore.get(params.slug), eventFormContext(fetch)]);
