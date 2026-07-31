@@ -4,13 +4,13 @@ import type { GuildMemberStats } from "$lib/api/guildStats";
 import type { EventRaffle, GuildEvent } from "$lib/events/types";
 
 import { resolveEligibility } from "./raffleEligibility";
-import { getMemberProgress } from "./memberProgress";
+import { getMemberProgressResult } from "./memberProgress";
 import { loadRaffleEligible, loadTrackerBoard } from "./raidEventBoards";
-import { getLinkedRankProfiles, memberRanksByUuid } from "./rankProfiles";
+import { getLinkedRankProfilesResult, memberRanksByUuid } from "./rankProfiles";
 
-vi.mock("./memberProgress", () => ({ getMemberProgress: vi.fn() }));
+vi.mock("./memberProgress", () => ({ getMemberProgressResult: vi.fn() }));
 vi.mock("./rankProfiles", () => ({
-  getLinkedRankProfiles: vi.fn(),
+  getLinkedRankProfilesResult: vi.fn(),
   memberRanksByUuid: vi.fn(),
 }));
 vi.mock("./raidEventBoards", async (importOriginal) => ({
@@ -20,8 +20,8 @@ vi.mock("./raidEventBoards", async (importOriginal) => ({
   resolveTrackedEvent: vi.fn().mockResolvedValue(undefined),
 }));
 
-const mockProgress = vi.mocked(getMemberProgress);
-const mockProfiles = vi.mocked(getLinkedRankProfiles);
+const mockProgress = vi.mocked(getMemberProgressResult);
+const mockProfiles = vi.mocked(getLinkedRankProfilesResult);
 const mockRanks = vi.mocked(memberRanksByUuid);
 const mockLegacy = vi.mocked(loadRaffleEligible);
 const mockBoard = vi.mocked(loadTrackerBoard);
@@ -57,8 +57,12 @@ function raffle(overrides: Partial<EventRaffle> = {}): EventRaffle {
 function progressWith(
   entries: [string, { raids?: number; wars?: number; playtime?: number }][],
   dataSince: { activity?: string; raids?: string } = {},
+  stale = false,
 ) {
   mockProgress.mockResolvedValue({
+    stale,
+    updatedAt: 0,
+    data: {
     generated_at: "",
     from: "",
     to: "",
@@ -73,7 +77,8 @@ function progressWith(
       war_points: 0,
       wars_participated: 0,
     })),
-  });
+    },
+  } as never);
 }
 
 beforeEach(() => {
@@ -124,7 +129,7 @@ describe("resolveEligibility", () => {
   });
 
   it("filters by Sequoia ladder rank, case-insensitively, dropping unlinked members", async () => {
-    mockProfiles.mockResolvedValue({} as never);
+    mockProfiles.mockResolvedValue({ data: {}, stale: false, updatedAt: 0 } as never);
     mockRanks.mockReturnValue({
       "uuid-a": { rank: "Druid", rankOrder: 5, insignia: null, insigniaUrl: null, honours: 0 },
       "uuid-b": { rank: "Leafkin", rankOrder: 1, insignia: null, insigniaUrl: null, honours: 0 },
@@ -150,7 +155,7 @@ describe("resolveEligibility", () => {
       ROSTER,
     );
     expect(result.entrants.map((entrant) => entrant.username)).toEqual(["Alice"]);
-    expect(mockProgress).toHaveBeenCalledWith(fetch, "2026-07-01", "2026-07-15");
+    expect(mockProgress).toHaveBeenCalledWith(fetch, "2026-07-01", "2026-07-15", { allowStale: true });
   });
 
   it("gates on a personal milestone via the full-window tracker board", async () => {
@@ -297,5 +302,44 @@ describe("resolveEligibility", () => {
       ROSTER,
     );
     expect(perRaid.error).toBe("Board down.");
+  });
+});
+
+describe("strict resolution for rolls", () => {
+  it("refuses stale stat rollups and rank profiles under strict, tolerates them otherwise", async () => {
+    progressWith([["uuid-a", { raids: 12 }]], {}, true);
+    const rule = { type: "stat" as const, stat: "raids" as const, min: 1, window: WINDOW };
+    const strict = await resolveEligibility(
+      fetch,
+      event(),
+      raffle({ eligibility: { rules: [rule] } }),
+      ROSTER,
+      { strict: true },
+    );
+    expect(strict.error).not.toBeNull();
+    expect(mockProgress).toHaveBeenCalledWith(fetch, "2026-07-01", "2026-07-15", {
+      allowStale: false,
+    });
+    const lenient = await resolveEligibility(
+      fetch,
+      event(),
+      raffle({ eligibility: { rules: [rule] } }),
+      ROSTER,
+    );
+    expect(lenient.error).toBeNull();
+
+    mockProfiles.mockResolvedValue({ data: {}, stale: true, updatedAt: 0 } as never);
+    mockRanks.mockReturnValue({
+      "uuid-a": { rank: "Druid", rankOrder: 5, insignia: null, insigniaUrl: null, honours: 0 },
+    });
+    const ranks = await resolveEligibility(
+      fetch,
+      event(),
+      raffle({ eligibility: { rules: [{ type: "seqRank", ranks: ["druid"] }] } }),
+      ROSTER,
+      { strict: true },
+    );
+    expect(ranks.error).not.toBeNull();
+    expect(mockProfiles).toHaveBeenCalledWith(fetch, { allowStale: false });
   });
 });

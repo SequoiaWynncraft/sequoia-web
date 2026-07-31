@@ -1,7 +1,7 @@
 import type { GuildMemberStats } from "$lib/api/guildStats";
 import type { EventRaffle, GuildEvent, TicketWeight } from "$lib/events/types";
 
-import { getMemberProgress } from "./memberProgress";
+import { getMemberProgressResult } from "./memberProgress";
 import {
   loadRaffleEligible,
   loadTrackerBoard,
@@ -9,7 +9,17 @@ import {
   resolveTrackedEvent,
   type RaidEvent,
 } from "./raidEventBoards";
-import { getLinkedRankProfiles, memberRanksByUuid } from "./rankProfiles";
+import { getLinkedRankProfilesResult, memberRanksByUuid } from "./rankProfiles";
+
+export interface ResolveOptions {
+  /**
+   * A draw is irreversible, so a roll must resolve against fresh data: with
+   * `strict`, cached-but-stale rank profiles or stat rollups fail the
+   * resolution instead of silently deciding who can win. The preview stays
+   * lenient - it is display-only and marked as such.
+   */
+  strict?: boolean;
+}
 
 export interface ResolvedEntrant {
   player_uuid: string;
@@ -54,7 +64,9 @@ export async function resolveEligibility(
   event: GuildEvent,
   raffle: EventRaffle,
   roster: GuildMemberStats[],
+  options: ResolveOptions = {},
 ): Promise<EligibilityResult> {
+  const strict = options.strict ?? false;
   if (!raffle.eligibility) return resolveLegacy(fetchImpl, event, raffle, roster);
   const eligibility = raffle.eligibility;
 
@@ -76,7 +88,14 @@ export async function resolveEligibility(
       case "seqRank": {
         let ranks: Record<string, { rank: string | null }>;
         try {
-          ranks = memberRanksByUuid(await getLinkedRankProfiles(fetchImpl));
+          const profiles = await getLinkedRankProfilesResult(fetchImpl, {
+            allowStale: !strict,
+          });
+          // A demotion lives on in a stale cache; a draw must not use it.
+          // (The cache serves a stale value on refresh failure even when
+          // stale was disallowed, so the flag needs checking either way.)
+          if (strict && profiles.stale) return failed(RESULT_UNAVAILABLE);
+          ranks = memberRanksByUuid(profiles.data);
         } catch {
           return failed(RESULT_UNAVAILABLE);
         }
@@ -88,7 +107,7 @@ export async function resolveEligibility(
         break;
       }
       case "stat": {
-        const gains = await statGains(fetchImpl, rule.stat, rule.window);
+        const gains = await statGains(fetchImpl, rule.stat, rule.window, strict);
         if ("error" in gains) return failed(gains.error);
         pool = pool.filter(
           (member) => (gains.counts.get(normalizeUuid(member.uuid)) ?? 0) >= rule.min,
@@ -125,7 +144,7 @@ export async function resolveEligibility(
     const gains =
       weight.mode === "perRaid"
         ? await boards.raidGains(weight.window)
-        : await statGains(fetchImpl, weight.stat, weight.window);
+        : await statGains(fetchImpl, weight.stat, weight.window, strict);
     if ("error" in gains) return failed(gains.error);
     const per = Math.max(1, Math.trunc(weight.mode === "perRaid" ? weight.perTicket : weight.per));
     for (const member of pool) {
@@ -268,13 +287,20 @@ async function statGains(
   fetchImpl: typeof fetch,
   stat: "raids" | "playtime" | "wars",
   window: { from: string; to: string },
+  strict: boolean,
 ): Promise<{ counts: Map<string, number> } | { error: string }> {
   try {
-    const progress = await getMemberProgress(
+    const result = await getMemberProgressResult(
       fetchImpl,
       window.from.slice(0, 10),
       window.to.slice(0, 10),
+      { allowStale: !strict },
     );
+    // Rolls must not draw from cached totals that may already have moved -
+    // and the cache serves a stale value on refresh failure even when stale
+    // was disallowed, so the flag needs checking either way.
+    if (strict && result.stale) return { error: RESULT_UNAVAILABLE };
+    const progress = result.data;
     // Raids have their own rollup feed; wars and playtime come from the
     // activity rollups.
     const since = (
