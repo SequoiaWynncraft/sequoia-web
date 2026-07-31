@@ -22,6 +22,10 @@ export const handle: Handle = async ({ event, resolve }) => {
           method: "POST",
           headers: event.request.headers,
           body,
+          // A redirecting action (create's 303, delete's 303) must reach the
+          // BROWSER - following it here would return the destination's HTML
+          // while the address bar stays on the legacy URL.
+          redirect: "manual",
         }),
       );
     }

@@ -116,11 +116,19 @@ describe("navManageVisible", () => {
     expect(mockStats).toHaveBeenCalledWith(fetch, { allowStale: true });
   });
 
-  it("falls through to the staff flag for everyone else", async () => {
+  it("peeks the staff flag without awaiting the bot", async () => {
     bagshopMe({ ok: true, staff: true });
-    expect(await navManageVisible(fetch, viewer())).toBe(true);
+    const who = viewer();
+    // Cold cache: the nav renders without the link and warms in the
+    // background - it must never block a page on the bot.
+    expect(await navManageVisible(fetch, who)).toBe(false);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(await navManageVisible(fetch, who)).toBe(true);
+
     bagshopMe({ ok: true, staff: false });
-    expect(await navManageVisible(fetch, viewer())).toBe(false);
+    const other = viewer();
+    await resolveManageCapabilities(fetch, other);
+    expect(await navManageVisible(fetch, other)).toBe(false);
   });
 
   it("stays quiet when the roster read fails and the viewer is not staff", async () => {
