@@ -34,6 +34,9 @@
   const labelRadius = $derived(RADIUS * (wheelStyle === "heads" ? 0.55 : 0.68));
   const labelMinDeg = $derived(wheelStyle === "heads" ? 14 : 4);
 
+  /** Hairlines on slim wedges melt into a solid fan - draw none below this. */
+  const STROKE_MIN_DEG = 2.5;
+
   const wedges = $derived(wheelWedges(roll.entrants));
   const mineIndex = $derived(
     viewerUuid === null
@@ -159,6 +162,7 @@
             d={wedgePath(CENTER, CENTER, RADIUS, wedge.startDeg, wedge.endDeg)}
             class="wheel-wedge"
             class:wheel-wedge-alt={index % 2 === 1}
+            class:wheel-wedge-quiet={span < STROKE_MIN_DEG}
             class:wheel-wedge-mine={index === mineIndex}
             class:wheel-wedge-winner={showWinner && index === roll.winnerIndex}
             onmouseenter={() => (hoveredIndex = index)}
@@ -255,10 +259,18 @@
     will-change: transform;
   }
 
-  /* No separator strokes: the tonal alternation IS the boundary, and a
-     hundred hairlines over slim wedges would read as a solid fan anyway. */
+  /* The seam is a whisper: a one-pixel trace of gold, there when you look
+     for it. Tonal alternation still does the real separating. */
   .wheel-wedge {
     fill: color-mix(in srgb, var(--ev-sky-1, #251b38) 72%, #000000);
+    stroke: color-mix(in srgb, var(--color-gold) 11%, transparent);
+    stroke-width: 1;
+  }
+
+  /* Slim wedges drop the seam - dozens of hairlines over a few degrees
+     each would read as a solid fan, not a wheel. */
+  .wheel-wedge-quiet {
+    stroke: none;
   }
 
   .wheel-wedge-alt {
