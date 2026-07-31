@@ -128,8 +128,10 @@ and shared form primitives (`lib/design-system/components/forms/`, skinned by th
 Sequoia ladder rank, windowed stat thresholds from the daily rollups, personal
 milestones; manual include/exclude; flat, per-raid, or per-stat ticket weights), resolved
 server-side in `lib/server/raffleEligibility.ts` (fail-closed; legacy raffles without the
-block keep their exact original semantics). The editor previews the exact pool via
-`POST /api/manage/raffle-preview`. Rolling draws with the same resolver, grafts the
+block keep their exact original semantics). The editor previews the pool via
+`POST /api/manage/raffle-preview` — display-only and stale-tolerant (it accepts a cached
+roster where the roll insists on a fresh one), so its entrants and odds are a guide, not
+the authoritative draw. Rolling draws with the same resolver, grafts the
 winner into the event JSON under the whole-event CAS (still the sole contention arbiter),
 then records the draw in `raffle_rolls` (`lib/server/raffleRolls.ts`: entrant snapshot,
 winner index, spin choreography) and broadcasts it over in-process pub/sub
