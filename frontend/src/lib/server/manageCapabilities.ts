@@ -15,7 +15,10 @@ const STAFF_TIMEOUT_MS = 2_500;
  * Failures are never cached: a bot restart must not lock staff out of the
  * console for a TTL, so "unavailable" evicts and the next request retries.
  */
-const staffCache = new Map<string, { at: number; check: Promise<StaffCheck> }>();
+const staffCache = new Map<
+  string,
+  { at: number; check: Promise<StaffCheck>; settled?: StaffCheck }
+>();
 
 function checkBagshopStaff(fetchImpl: typeof fetch, viewer: Viewer): Promise<StaffCheck> {
   const cached = staffCache.get(viewer.discordId);
@@ -24,18 +27,35 @@ function checkBagshopStaff(fetchImpl: typeof fetch, viewer: Viewer): Promise<Sta
   const timeout = new Promise<StaffCheck>((resolve) =>
     setTimeout(() => resolve("unavailable"), STAFF_TIMEOUT_MS),
   );
-  const check = Promise.race([
-    createBagshopClient({ fetch: fetchImpl })
-      .getMe()
-      .then((me): StaffCheck => (me.ok ? (me.data.staff ? "staff" : "not-staff") : "unavailable"))
-      .catch((): StaffCheck => "unavailable"),
-    timeout,
-  ]).then((result) => {
-    if (result === "unavailable") staffCache.delete(viewer.discordId);
-    return result;
-  });
-  staffCache.set(viewer.discordId, { at: Date.now(), check });
-  return check;
+  const entry: { at: number; check: Promise<StaffCheck>; settled?: StaffCheck } = {
+    at: Date.now(),
+    check: Promise.race([
+      createBagshopClient({ fetch: fetchImpl })
+        .getMe()
+        .then((me): StaffCheck => (me.ok ? (me.data.staff ? "staff" : "not-staff") : "unavailable"))
+        .catch((): StaffCheck => "unavailable"),
+      timeout,
+    ]).then((result) => {
+      if (result === "unavailable") staffCache.delete(viewer.discordId);
+      else entry.settled = result;
+      return result;
+    }),
+  };
+  staffCache.set(viewer.discordId, entry);
+  return entry.check;
+}
+
+/**
+ * Non-blocking read for display-only callers: the cached answer when one has
+ * settled, else it kicks the check off in the background and reports null
+ * for this render. The navbar must never wait on the bot - during an outage
+ * every signed-in page would stall for the timeout just to hide a link.
+ */
+function peekBagshopStaff(fetchImpl: typeof fetch, viewer: Viewer): StaffCheck | null {
+  const cached = staffCache.get(viewer.discordId);
+  const fresh = cached !== undefined && Date.now() - cached.at < STAFF_TTL_MS;
+  if (!fresh) void checkBagshopStaff(fetchImpl, viewer).catch(() => undefined);
+  return cached?.settled ?? null;
 }
 
 function bagshopAccess(check: StaffCheck): AreaAccess {
@@ -95,5 +115,7 @@ export async function navManageVisible(
     (entry) => entry.uuid !== null && sameUuid(entry.uuid, viewer.minecraftUuid),
   );
   if (member && MANAGER_RANKS.includes(member.rank)) return true;
-  return (await checkBagshopStaff(fetchImpl, viewer)) === "staff";
+  // Peek, never await: the first page after sign-in may hide the link until
+  // the background check settles; staff still reach /manage directly.
+  return peekBagshopStaff(fetchImpl, viewer) === "staff";
 }
