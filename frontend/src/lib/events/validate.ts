@@ -134,6 +134,68 @@ function parseEvent(value: unknown): GuildEvent {
         );
       }
     }
+    // Per-raffle counts miss OVERLAP: two undrawn one-slot whitelists sharing
+    // their only member both pass above, yet whichever rolls second must
+    // fail. Joint feasibility is a bipartite matching question - every
+    // remaining whitelist slot must be fillable by a distinct member.
+    const jointRaffles = (raffles ?? []).filter((raffle) => raffle.eligibility?.whitelistOnly);
+    const wonAnywhere = new Set(
+      (raffles ?? [])
+        .flatMap((entry) => entry.winners ?? [])
+        .map((winner) => winner.player_uuid.replaceAll("-", "").toLowerCase()),
+    );
+    const pools = jointRaffles.map((raffle) => {
+      const excluded = new Set(
+        (raffle.eligibility?.exclude ?? []).map((entry) =>
+          entry.player_uuid.replaceAll("-", "").toLowerCase(),
+        ),
+      );
+      return {
+        raffle,
+        slots: raffle.winnerCount - (raffle.winners?.length ?? 0),
+        members: (raffle.eligibility?.include ?? [])
+          .map((entry) => entry.player_uuid.replaceAll("-", "").toLowerCase())
+          .filter((uuid) => !excluded.has(uuid) && !wonAnywhere.has(uuid)),
+      };
+    });
+    // Augmenting-path matching, member -> slot. Sizes are bounded by the
+    // manual-entrant and winner caps, so the quadratic walk stays tiny.
+    const slotOwners: (string | null)[] = [];
+    const slotPool: number[] = [];
+    pools.forEach((pool, poolIndex) => {
+      for (let slot = 0; slot < pool.slots; slot++) slotPool.push(poolIndex);
+    });
+    for (let index = 0; index < slotPool.length; index++) slotOwners.push(null);
+    const tryAssign = (uuid: string, allowed: Set<number>, visited: Set<number>): boolean => {
+      for (let slot = 0; slot < slotPool.length; slot++) {
+        if (!allowed.has(slotPool[slot]) || visited.has(slot)) continue;
+        visited.add(slot);
+        const owner = slotOwners[slot];
+        if (owner === null || tryAssign(owner, memberPools.get(owner) ?? new Set(), visited)) {
+          slotOwners[slot] = uuid;
+          return true;
+        }
+      }
+      return false;
+    };
+    const memberPools = new Map<string, Set<number>>();
+    pools.forEach((pool, poolIndex) => {
+      for (const uuid of pool.members) {
+        const entry = memberPools.get(uuid) ?? new Set<number>();
+        entry.add(poolIndex);
+        memberPools.set(uuid, entry);
+      }
+    });
+    let matched = 0;
+    for (const [uuid, allowed] of memberPools) {
+      if (tryAssign(uuid, allowed, new Set())) matched += 1;
+      if (matched >= slotPool.length) break;
+    }
+    if (matched < slotPool.length) {
+      fail(
+        "whitelist raffles overlap too much - there are not enough distinct members to fill every winner slot",
+      );
+    }
   }
   return event;
 }

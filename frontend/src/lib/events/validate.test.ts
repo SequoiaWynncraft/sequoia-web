@@ -255,6 +255,44 @@ describe("parseGuildEvent", () => {
     expect(extra.ok).toBe(true);
   });
 
+  it("rejects overlapping whitelists that cannot fill every slot jointly", () => {
+    const zed = { player_uuid: "u1", username: "Zed" };
+    const yara = { player_uuid: "u2", username: "Yara" };
+    const shared = (include: (typeof zed)[]) => ({ whitelistOnly: true, include });
+    // Two one-slot whitelists sharing their ONLY member: each passes alone,
+    // but whichever rolls second must fail - reject at save.
+    expectError(
+      {
+        ...VALID,
+        raffleExcludeWinners: true,
+        raffles: [
+          { id: "r1", prize: "A", winnerCount: 1, perTicket: 1, eligibility: shared([zed]) },
+          { id: "r2", prize: "B", winnerCount: 1, perTicket: 1, eligibility: shared([zed]) },
+        ],
+      },
+      "whitelist raffles overlap too much",
+    );
+    // Two members cover two slots even when both lists overlap fully.
+    const feasible = parseGuildEvent({
+      ...VALID,
+      raffleExcludeWinners: true,
+      raffles: [
+        { id: "r1", prize: "A", winnerCount: 1, perTicket: 1, eligibility: shared([zed, yara]) },
+        { id: "r2", prize: "B", winnerCount: 1, perTicket: 1, eligibility: shared([zed, yara]) },
+      ],
+    });
+    expect(feasible.ok).toBe(true);
+    // Without event-wide exclusion the pools are independent - no joint check.
+    const independent = parseGuildEvent({
+      ...VALID,
+      raffles: [
+        { id: "r1", prize: "A", winnerCount: 1, perTicket: 1, eligibility: shared([zed]) },
+        { id: "r2", prize: "B", winnerCount: 1, perTicket: 1, eligibility: shared([zed]) },
+      ],
+    });
+    expect(independent.ok).toBe(true);
+  });
+
   it("counts other raffle winners as whitelist exclusions only when enabled", () => {
     const raffles = [
       {
