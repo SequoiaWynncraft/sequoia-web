@@ -58,25 +58,30 @@ function progressWith(
   entries: [string, { raids?: number; wars?: number; playtime?: number }][],
   dataSince: { activity?: string; raids?: string } = {},
   stale = false,
+  resolvedRange: { from?: string; to?: string } = {},
 ) {
   mockProgress.mockResolvedValue({
     stale,
     updatedAt: 0,
     data: {
-    generated_at: "",
-    from: "",
-    to: "",
-    data_since: { activity: dataSince.activity ?? "", raids: dataSince.raids ?? "", war_points: "" },
-    members: entries.map(([uuid, gains]) => ({
-      player_uuid: uuid,
-      player_name: uuid,
-      playtime_hours: gains.playtime ?? 0,
-      wars: gains.wars ?? 0,
-      raids: gains.raids ?? 0,
-      raids_by_type: {},
-      war_points: 0,
-      wars_participated: 0,
-    })),
+      generated_at: "",
+      from: resolvedRange.from ?? WINDOW.from.slice(0, 10),
+      to: resolvedRange.to ?? WINDOW.to.slice(0, 10),
+      data_since: {
+        activity: dataSince.activity ?? "",
+        raids: dataSince.raids ?? "",
+        war_points: "",
+      },
+      members: entries.map(([uuid, gains]) => ({
+        player_uuid: uuid,
+        player_name: uuid,
+        playtime_hours: gains.playtime ?? 0,
+        wars: gains.wars ?? 0,
+        raids: gains.raids ?? 0,
+        raids_by_type: {},
+        war_points: 0,
+        wars_participated: 0,
+      })),
     },
   } as never);
 }
@@ -328,6 +333,34 @@ describe("resolveEligibility", () => {
 });
 
 describe("strict resolution for rolls", () => {
+  it("refuses a backend-truncated stat range under strict resolution", async () => {
+    progressWith(
+      [["uuid-a", { raids: 12 }]],
+      {},
+      false,
+      { from: "2026-07-02", to: "2026-07-15" },
+    );
+    const rule = { type: "stat" as const, stat: "raids" as const, min: 1, window: WINDOW };
+
+    const strict = await resolveEligibility(
+      fetch,
+      event(),
+      raffle({ eligibility: { rules: [rule] } }),
+      ROSTER,
+      { strict: true },
+    );
+    expect(strict.error).toBe("Member data is temporarily unavailable - try again shortly.");
+    expect(strict.entrants).toEqual([]);
+
+    const preview = await resolveEligibility(
+      fetch,
+      event(),
+      raffle({ eligibility: { rules: [rule] } }),
+      ROSTER,
+    );
+    expect(preview.error).toBeNull();
+  });
+
   it("refuses stale stat rollups and rank profiles under strict, tolerates them otherwise", async () => {
     progressWith([["uuid-a", { raids: 12 }]], {}, true);
     const rule = { type: "stat" as const, stat: "raids" as const, min: 1, window: WINDOW };
