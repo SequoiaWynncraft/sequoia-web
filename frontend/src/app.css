@@ -382,6 +382,53 @@ input[type="number"]::-webkit-inner-spin-button {
   border-color: rgba(168,85,247,0.6);
 }
 
+/* Shared form controls. Global rather than component-scoped so composite
+   widgets (date pairs, color pairs, datalist inputs) can put the same skin
+   on their own native inputs. */
+.seq-input {
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid var(--color-border-subtle);
+  background: color-mix(in srgb, var(--color-abyss) 65%, transparent);
+  color: var(--text-body);
+  font-family: var(--font-data);
+  font-size: var(--text-sm);
+  transition: border-color var(--dur-fast) ease;
+}
+
+.seq-input:focus-visible {
+  outline: none;
+  border-color: color-mix(in srgb, var(--color-gold) 55%, var(--color-border-subtle));
+}
+
+.seq-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.seq-input:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.seq-input[aria-invalid="true"] {
+  border-color: var(--status-error);
+}
+
+select.seq-input {
+  appearance: none;
+  cursor: pointer;
+}
+
+textarea.seq-input {
+  resize: vertical;
+  line-height: var(--leading-normal);
+}
+
+.seq-input-mono {
+  font-variant-numeric: tabular-nums;
+}
+
 .seq-service-card {
   display: flex;
   flex-direction: column;
@@ -1451,7 +1498,10 @@ input[type="number"]::-webkit-inner-spin-button {
   .seq-hero-kicker,
   .seq-hero-chevron,
   .seq-chibi-kicker,
-  .seq-chibi-track {
+  .seq-chibi-track,
+  /* Decorative infinite animations: status pulse, loading shimmer, scroll hints. */
+  .status-pulse,
+  .seq-branchmasters-loading {
     animation: none !important;
   }
 }

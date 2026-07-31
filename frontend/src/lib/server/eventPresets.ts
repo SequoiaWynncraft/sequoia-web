@@ -37,7 +37,12 @@ export async function listPresets(): Promise<EventPreset[]> {
   });
 }
 
-type ManageRequest = { request: Request; cookies: Cookies; fetch: typeof fetch };
+type ManageRequest = {
+  request: Request;
+  cookies: Cookies;
+  fetch: typeof fetch;
+  locals: App.Locals;
+};
 
 /** Shared ?/savePreset form action: upserts a named preset. */
 export async function savePresetAction(event: ManageRequest) {

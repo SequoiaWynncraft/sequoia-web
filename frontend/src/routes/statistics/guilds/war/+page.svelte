@@ -5,7 +5,8 @@
   import type { LedgerColumn } from "$lib/design-system/components/ledgerTable";
   import StackedColumns from "$lib/design-system/components/charts/StackedColumns.svelte";
   import DeferredPanel from "$lib/design-system/components/DeferredPanel.svelte";
-  import type { GuildMemberStats } from "$lib/api/guildStats";
+  import { guildRankLabel, type GuildMemberStats } from "$lib/api/guildStats";
+  import { rankColor } from "$lib/site/rankColors";
 
   let { data } = $props();
 
@@ -18,15 +19,6 @@
       : null,
   );
 
-  const RANK_LABELS: Record<string, string> = {
-    owner: "Owner",
-    chief: "Chief",
-    strategist: "Strategist",
-    captain: "Captain",
-    recruiter: "Recruiter",
-    recruit: "Recruit",
-  };
-
   const warColumns: LedgerColumn<GuildMemberStats>[] = [
     {
       key: "member",
@@ -34,7 +26,8 @@
       nameStyle: true,
       value: (member) => member.username,
       sortValue: (member) => member.username.toLowerCase(),
-      secondary: (member) => RANK_LABELS[member.rank] ?? member.rank,
+      secondary: (member) => guildRankLabel(member.rank),
+      secondaryColor: (member) => rankColor(member.rank),
       href: (member) => `/statistics/player/playercard?player=${encodeURIComponent(member.username)}`,
     },
     {

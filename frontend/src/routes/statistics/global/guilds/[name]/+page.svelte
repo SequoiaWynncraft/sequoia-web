@@ -7,7 +7,7 @@
   import StackedColumns from "$lib/design-system/components/charts/StackedColumns.svelte";
   import Podium from "$lib/design-system/components/Podium.svelte";
   import type { LedgerColumn } from "$lib/design-system/components/ledgerTable";
-  import type { GuildMemberStats } from "$lib/api/guildStats";
+  import { guildRankLabel, guildRankOrder, type GuildMemberStats } from "$lib/api/guildStats";
   import { raidSeriesFor } from "$lib/site/raids";
   import { nmsrFace } from "$lib/site/nmsr";
 
@@ -67,6 +67,11 @@
       })),
   );
 
+  /** The member's org standing, when their Minecraft account is linked to a rank profile. */
+  function orgRankOf(member: GuildMemberStats) {
+    return member.uuid ? (data.ranks?.[member.uuid.toLowerCase()] ?? null) : null;
+  }
+
   const memberColumns: LedgerColumn<GuildMemberStats>[] = [
     {
       key: "member",
@@ -74,11 +79,22 @@
       nameStyle: true,
       value: (member) => member.username,
       sortValue: (member) => member.username.toLowerCase(),
-      secondary: (member) => member.rank,
       avatar: (member) => nmsrFace(member.uuid ?? member.username, 22),
       // UUIDs dodge the 300 selector that reused usernames answer with.
       href: (member) =>
         `/statistics/global/players/${encodeURIComponent(member.uuid ?? member.username)}`,
+    },
+    {
+      key: "rank",
+      label: "Rank",
+      nameStyle: true,
+      value: (member) => orgRankOf(member)?.rank ?? guildRankLabel(member.rank),
+      // Org positions and in-game equivalents share one scale; without the
+      // catalog every row falls back to the plain in-game ladder.
+      sortValue: (member) =>
+        data.rankLadder
+          ? (orgRankOf(member)?.rankOrder ?? data.rankLadder[member.rank])
+          : guildRankOrder(member.rank),
     },
     {
       key: "contributed",

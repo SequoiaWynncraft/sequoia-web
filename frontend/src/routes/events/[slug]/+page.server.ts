@@ -1,14 +1,20 @@
-import { error } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
 
 import { eventChart, eventStatus } from "$lib/events/helpers";
 import type { GuildEvent } from "$lib/events/types";
-import { getGuildStats } from "$lib/server/guildStats";
 import { checkEventManager } from "$lib/server/eventManagers";
+import { checkEventMembership, type Membership } from "$lib/server/eventMembership";
 import { eventStore } from "$lib/server/eventStore";
 import { loadEventRaidCounts, sumCounts, type EventDayCount } from "$lib/server/eventActivity";
 import { loadGoalProgress } from "$lib/server/goalProgress";
 import { loadModRunCounts } from "$lib/server/modActivity";
+import { raffleRollStore } from "$lib/server/raffleRolls";
+import {
+  getLinkedRankProfiles,
+  memberRanksByUuid,
+  type MemberRankEntry,
+} from "$lib/server/rankProfiles";
+import { requestError } from "$lib/server/requestError";
 import {
   loadModLeaderboard,
   loadRaidEvents,
@@ -21,8 +27,10 @@ import type { GuildMemberStats } from "$lib/api/guildStats";
 
 export const prerender = false;
 
-/** Non-members never receive a member event's gated sections. */
-type Membership = "member" | "signin" | "unverified" | "notMember";
+/** How long the optional profile-rank lookup may keep ready standings waiting. */
+const RANKS_GRACE_MS = 1500;
+
+const EMPTY_RANKS: Record<string, MemberRankEntry> = {};
 
 export type Standings =
   | { state: "signin" }
@@ -30,47 +38,30 @@ export type Standings =
   | { state: "notMember" }
   | { state: "board"; leaderboard: RaidLeaderboardEntry[]; error: string | null };
 
-export const load: PageServerLoad = async ({ fetch, params, parent }) => {
+export const load: PageServerLoad = async ({ fetch, locals, params, parent }) => {
   const stored = await eventStore.get(params.slug);
-  if (!stored) error(404, "No such event");
+  if (!stored) requestError(locals, 404, "No such event");
   const event = stored.event;
 
   // Unpublished events stay invisible except as a manager preview.
   if (!stored.published) {
     const { viewer } = await parent();
-    if ((await checkEventManager(fetch, viewer)) !== "manager") error(404, "No such event");
+    if ((await checkEventManager(fetch, viewer)) !== "manager") {
+      requestError(locals, 404, "No such event");
+    }
   }
 
   const now = new Date();
   const status = eventStatus(event, now);
   const today = now.toISOString().slice(0, 10);
 
-  // Regular membership mirrors the raid page's fresh-roster trust rules.
-  // Website administrators are already authorized by the backend.
   let membership: Membership | null = null;
   let roster: GuildMemberStats[] | null = null;
   if (event.access === "members" || event.tracker) {
     const { viewer } = await parent();
-    if (!viewer) {
-      membership = "signin";
-    } else if (viewer.websiteAdmin) {
-      membership = "member";
-      const stats = await getGuildStats(fetch, { allowStale: true }).catch(() => null);
-      roster = stats?.members ?? null;
-    } else {
-      const stats = await getGuildStats(fetch, { allowStale: false }).catch(() => null);
-      const freshRoster = stats !== null && !stats.stale ? stats.members : null;
-      if (freshRoster === null) {
-        membership = "unverified";
-      } else {
-        roster = freshRoster;
-        membership = freshRoster.some(
-          (member) => member.uuid !== null && sameUuid(member.uuid, viewer.minecraftUuid),
-        )
-          ? "member"
-          : "notMember";
-      }
-    }
+    const result = await checkEventMembership(fetch, viewer);
+    membership = result.membership;
+    roster = result.roster;
   }
 
   // Member events keep a public hero; everything below it is stripped
@@ -88,6 +79,7 @@ export const load: PageServerLoad = async ({ fetch, params, parent }) => {
       today,
       standings: null,
       viewerRaids: null,
+      spinningSlots: [] as string[],
     };
   }
 
@@ -126,7 +118,31 @@ export const load: PageServerLoad = async ({ fetch, params, parent }) => {
   let viewerRaids: number | null = null;
   if (event.tracker && event.startsAt && event.endsAt && status !== "upcoming") {
     if (membership === "member") {
+      // Best-effort role-aware enrichment, started alongside the board fetch:
+      // the standings render progression ranks and insignias when linked, but
+      // a slow profile read forfeits them after a short grace instead of
+      // holding the page.
+      const ranksPromise = getLinkedRankProfiles(fetch)
+        .then(memberRanksByUuid)
+        .catch(() => EMPTY_RANKS);
       const result = await loadTrackerStandings(fetch, event.tracker, roster);
+      if (result.leaderboard.length > 0) {
+        const ranks = await Promise.race([
+          ranksPromise,
+          new Promise<Record<string, MemberRankEntry>>((resolve) => {
+            setTimeout(resolve, RANKS_GRACE_MS, EMPTY_RANKS);
+          }),
+        ]);
+        result.leaderboard = result.leaderboard.map((entry) => {
+          const standing = ranks[entry.player_uuid.toLowerCase()];
+          return {
+            ...entry,
+            insigniaUrl: standing?.insigniaUrl ?? null,
+            insignia: standing?.insignia ?? null,
+            progressionRank: standing?.rank ?? null,
+          };
+        });
+      }
       standings = { state: "board", leaderboard: result.leaderboard, error: result.error };
       const { viewer } = await parent();
       const mine = viewer
@@ -141,6 +157,16 @@ export const load: PageServerLoad = async ({ fetch, params, parent }) => {
     }
   }
 
+  // Slots whose roll is still animating on the stage: their committed winner
+  // is masked below so this page can't spoil a wheel that hasn't landed.
+  // Load-time only - a reload during the ~9s spin says "Rolling..." and the
+  // next reload shows the winner; the stage page carries the live feed.
+  const spinningSlots = event.raffles?.length
+    ? (await raffleRollStore.latestForEvent(params.slug).catch(() => []))
+        .filter((roll) => roll.pending || roll.state === "spinning")
+        .map((roll) => `${roll.raffleId}:${roll.slot}`)
+    : [];
+
   return {
     event,
     status,
@@ -153,6 +179,7 @@ export const load: PageServerLoad = async ({ fetch, params, parent }) => {
     today,
     standings,
     viewerRaids,
+    spinningSlots,
   };
 };
 

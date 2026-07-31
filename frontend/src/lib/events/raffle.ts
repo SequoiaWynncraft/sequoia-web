@@ -20,6 +20,34 @@ export interface DrawOptions {
   rng?: () => number;
 }
 
+/** Uuid identity tolerates spelling differences (case, hyphens): stored
+ * winners, manual includes, and roster entries do not all share a format. */
+function canonicalUuid(uuid: string): string {
+  return uuid.replaceAll("-", "").toLowerCase();
+}
+
+/**
+ * The exact candidate list a draw runs over: excluded UUIDs and zero-ticket
+ * entrants dropped, duplicate UUIDs deduped on first sighting (two
+ * leaderboard entries can resolve to the same roster member). Exported so a
+ * display of the pool (e.g. the live wheel) filters identically to the draw.
+ */
+export function drawablePool(
+  pool: RaffleEntrant[],
+  exclude?: Iterable<string>,
+): RaffleEntrant[] {
+  const excluded = new Set([...(exclude ?? [])].map(canonicalUuid));
+  const seen = new Set<string>();
+  return pool.filter((entry) => {
+    const key = canonicalUuid(entry.player_uuid);
+    if (entry.tickets <= 0 || excluded.has(key) || seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
 /**
  * Draws up to `count` distinct winners from `pool`, weighting each entrant by
  * their ticket count (more tickets, higher odds). Selection is without
@@ -33,19 +61,9 @@ export function drawWinners(
   count: number,
   { exclude, rng = Math.random }: DrawOptions = {},
 ): DrawnEntrant[] {
-  const excluded = new Set(exclude ?? []);
   // Fresh copy: entrants are spliced out as they win, so the caller's pool is
-  // never mutated. A uuid can appear more than once when two leaderboard entries
-  // resolve to the same roster member; dedupe on first sighting so a member can
-  // never take two slots in one draw.
-  const seen = new Set<string>();
-  const remaining = pool.filter((entry) => {
-    if (entry.tickets <= 0 || excluded.has(entry.player_uuid) || seen.has(entry.player_uuid)) {
-      return false;
-    }
-    seen.add(entry.player_uuid);
-    return true;
-  });
+  // never mutated.
+  const remaining = drawablePool(pool, exclude);
   const winners: DrawnEntrant[] = [];
   const target = Math.min(count, remaining.length);
   for (let drawn = 0; drawn < target; drawn++) {

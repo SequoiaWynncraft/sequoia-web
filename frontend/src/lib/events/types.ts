@@ -1,3 +1,5 @@
+import type { GuildRankName } from "$lib/api/guildStats";
+
 export type EventAccess = "public" | "members";
 
 export type EventStatus = "tba" | "upcoming" | "live" | "ended";
@@ -104,6 +106,60 @@ export interface RaffleWinner {
   player_uuid: string;
   /** Ticket count the winner held when drawn - kept for display and audit. */
   tickets: number;
+  /** How the slot was filled; absent means "drawn" (every pre-existing row). */
+  source?: "drawn" | "manual";
+}
+
+/** A hand-picked raffle entrant, stored with identity so the pick survives roster churn. */
+export interface ManualEntrant {
+  player_uuid: string;
+  username: string;
+  /** Ticket floor for include entries; absent means 1. Ignored on excludes. */
+  tickets?: number;
+}
+
+/**
+ * One eligibility filter; a raffle's rules are AND-composed over the fresh
+ * roster. Stat rules read the daily rollups, so their windows count whole
+ * UTC days.
+ */
+export type EligibilityRule =
+  | { type: "guildRank"; ranks: GuildRankName[] }
+  | { type: "seqRank"; ranks: string[] }
+  | {
+      type: "stat";
+      stat: "raids" | "playtime" | "wars";
+      min: number;
+      window: { from: string; to: string };
+    }
+  | { type: "milestone"; milestoneId: string };
+
+/** How surviving entrants are weighted into tickets. */
+export type TicketWeight =
+  | { mode: "flat" }
+  | { mode: "perRaid"; perTicket: number; window?: { from: string; to: string } }
+  | {
+      mode: "perStat";
+      stat: "raids" | "playtime" | "wars";
+      per: number;
+      window: { from: string; to: string };
+    };
+
+/**
+ * Composable raffle eligibility. The pool starts from the fresh roster,
+ * `rules` filter it (AND), `include` pins entrants past the rules,
+ * `exclude` beats everything, and `weight` converts survivors to tickets
+ * (default flat: one each). Absent entirely, the raffle keeps the legacy
+ * semantics driven by `perTicket`/`window`/`requiresMilestone`.
+ */
+export interface RaffleEligibility {
+  /** The include list IS the pool: rules and the roster base don't apply,
+   * only whitelisted members enter (weighted as usual, excludes still win). */
+  whitelistOnly?: boolean;
+  include?: ManualEntrant[];
+  exclude?: ManualEntrant[];
+  rules?: EligibilityRule[];
+  weight?: TicketWeight;
 }
 
 /**
@@ -118,6 +174,10 @@ export interface EventRaffle {
   prize: string;
   /** How many distinct winners to draw. */
   winnerCount: number;
+  /** Curated prize art (file from PRIZE_ICONS); display-only. */
+  icon?: string;
+  /** What identifies entrants on the stage wheel; default "heads". */
+  wheelStyle?: "heads" | "names";
   /** Raids per ticket: entrants earn floor(raids / perTicket) weighted tickets. */
   perTicket: number;
   /** Ticket-earning window (RFC3339); absent uses the tracker's full window. */
@@ -131,6 +191,12 @@ export interface EventRaffle {
    * the full event standings window may enter this raffle.
    */
   requiresMilestone?: string;
+  /**
+   * Composable pool definition; when present it fully decides who enters and
+   * with how many tickets, and the legacy fields above only remain as the
+   * rollback mirror (the editor keeps `perTicket` in sync where it can).
+   */
+  eligibility?: RaffleEligibility;
 }
 
 export interface GuildEvent {

@@ -1,4 +1,3 @@
-import { error } from "@sveltejs/kit";
 import type { Cookies } from "@sveltejs/kit";
 
 import type { GuildRankName } from "$lib/api/guildStats";
@@ -6,6 +5,7 @@ import type { Viewer } from "$lib/site/viewer";
 
 import { getGuildStats } from "./guildStats";
 import { sameUuid } from "./raidEventBoards";
+import { requestError } from "./requestError";
 import { loadViewer } from "./viewerSession";
 
 /** Ranks allowed to create, edit, and delete events. */
@@ -37,12 +37,13 @@ export async function checkEventManager(
  * Returns the acting manager so actions can attribute their audit entries.
  */
 export async function requireEventManager(request: {
-  cookies: Cookies;
+  cookies: Pick<Cookies, "get">;
   fetch: typeof fetch;
+  locals: App.Locals;
 }): Promise<Viewer> {
   const viewer = await loadViewer(request.cookies.get("seq_session"), request.fetch);
   if (!viewer || (await checkEventManager(request.fetch, viewer)) !== "manager") {
-    error(403, "Event management is restricted to guild leadership");
+    requestError(request.locals, 403, "Event management is restricted to guild leadership");
   }
   return viewer;
 }

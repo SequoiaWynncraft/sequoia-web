@@ -1,14 +1,26 @@
 <script lang="ts">
+  import { page } from "$app/state";
   import Container from "$lib/components/Container.svelte";
   import Button from "$lib/design-system/components/Button.svelte";
+  import { errorCopy } from "$lib/site/errorCopy";
+
+  const copy = $derived(errorCopy(page.status));
+  const requestId = $derived(page.error?.requestId);
 </script>
+
+<svelte:head>
+  <title>{copy.title} — Sequoia</title>
+</svelte:head>
 
 <Container width="md" style="text-align:center;padding:4rem 1.25rem">
   <div class="text-gold-gradient" style="font-family:var(--font-display);font-size:clamp(3rem,10vw,5rem);line-height:1">
-    404
+    {copy.heading}
   </div>
-  <p style="color:var(--color-text-secondary);margin:1rem 0 1.75rem">This path leads nowhere in the forest.</p>
-  <a href="/" style="text-decoration:none">
-    <Button>Back home</Button>
-  </a>
+  <p style="color:var(--color-text-secondary);margin:1rem 0 1.75rem">{copy.message}</p>
+  {#if requestId}
+    <p style="color:var(--color-text-dim);font-size:0.78rem;margin:-0.75rem 0 1.75rem">
+      Reference: <code>{requestId}</code>
+    </p>
+  {/if}
+  <Button href="/">Back home</Button>
 </Container>

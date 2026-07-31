@@ -3,6 +3,10 @@ import { formatWindow } from "$lib/events/format";
 import { listPresets, type EventPreset } from "./eventPresets";
 import { getGuildStats } from "./guildStats";
 import { loadRaidEvents } from "./raidEventBoards";
+import { getLinkedRankProfiles, progressionRankLabels } from "./rankProfiles";
+
+/** Optional rank choices must not hold the editor behind the rank API timeout. */
+const RANK_PROFILES_GRACE_MS = 500;
 
 export interface TrackerOption {
   id: string;
@@ -16,28 +20,41 @@ export interface TrackerOption {
   raid: string | null;
 }
 
+/** A roster member for editor pickers; raffle identity needs the uuid. */
+export interface MemberOption {
+  username: string;
+  uuid: string | null;
+}
+
 export interface EventFormContext {
-  /** Roster usernames for the donor picker, alphabetical. */
-  members: string[];
+  /** Roster members for the donor and raffle pickers, alphabetical. */
+  members: MemberOption[];
   /** Backend tracker events for the standings picker. */
   trackerEvents: TrackerOption[];
   /** Saved editor presets, alphabetical. */
   presets: EventPreset[];
+  /** Org ladder labels for the eligibility picker, most senior first. */
+  seqRanks: string[];
 }
 
 /** Picker data for the event editor - lookup helpers, not authorization. */
 export async function eventFormContext(fetchImpl: typeof fetch): Promise<EventFormContext> {
-  const [stats, raidEvents, presets] = await Promise.all([
+  const [stats, raidEvents, presets, profiles] = await Promise.all([
     getGuildStats(fetchImpl, { allowStale: true }).catch(() => null),
     loadRaidEvents(fetchImpl),
     listPresets().catch(() => [] as EventPreset[]),
+    Promise.race([
+      getLinkedRankProfiles(fetchImpl).catch(() => null),
+      new Promise<null>((resolve) => setTimeout(resolve, RANK_PROFILES_GRACE_MS, null)),
+    ]),
   ]);
   return {
     members: (stats?.members ?? [])
-      .map((member) => member.username)
-      .sort((a, b) => a.localeCompare(b)),
+      .map((member) => ({ username: member.username, uuid: member.uuid }))
+      .sort((a, b) => a.username.localeCompare(b.username)),
     trackerEvents: raidEvents.map(trackerOption),
     presets,
+    seqRanks: profiles ? progressionRankLabels(profiles) : [],
   };
 }
 
