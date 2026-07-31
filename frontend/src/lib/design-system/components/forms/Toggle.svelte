@@ -11,17 +11,33 @@
     label: string;
     hint?: string;
   } & Omit<HTMLInputAttributes, "checked" | "type"> = $props();
+
+  const hintId = $props.id();
 </script>
 
-<label class="check">
-  <input {...rest} type="checkbox" bind:checked />
-  <span>
-    {label}
-    {#if hint}<small>{hint}</small>{/if}
-  </span>
-</label>
+<!-- The hint sits OUTSIDE the label (a label's descendants become part of
+     the checkbox's accessible NAME) and describes the input instead. -->
+<div class="toggle">
+  <label class="check">
+    <input
+      {...rest}
+      type="checkbox"
+      bind:checked
+      aria-describedby={hint ? hintId : undefined}
+    />
+    <span>{label}</span>
+  </label>
+  {#if hint}
+    <small class="check-hint" id={hintId}>{hint}</small>
+  {/if}
+</div>
 
 <style>
+  .toggle {
+    display: grid;
+    gap: 2px;
+  }
+
   .check {
     display: flex;
     gap: 10px;
@@ -36,8 +52,10 @@
     translate: 0 1px;
   }
 
-  .check small {
+  .check-hint {
     display: block;
+    /* Aligns under the label text, past the checkbox and its gap. */
+    padding-left: 23px;
     color: var(--text-muted);
     font-size: var(--text-xs);
   }

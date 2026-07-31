@@ -32,7 +32,13 @@
     const showing = Boolean(error || hint);
     const control = main?.querySelector("input, select, textarea");
     if (!control) return;
-    if (showing) control.setAttribute("aria-describedby", descriptionId);
+    // Merge, never clobber: a control may carry its own external
+    // descriptions - only this field's generated id is added and removed.
+    const existing = (control.getAttribute("aria-describedby") ?? "")
+      .split(/\s+/)
+      .filter((id) => id !== "" && id !== descriptionId);
+    const ids = showing ? [...existing, descriptionId] : existing;
+    if (ids.length > 0) control.setAttribute("aria-describedby", ids.join(" "));
     else control.removeAttribute("aria-describedby");
   });
 </script>
