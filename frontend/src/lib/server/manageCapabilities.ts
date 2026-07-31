@@ -53,8 +53,12 @@ function checkBagshopStaff(
         .catch((): StaffCheck => "unavailable"),
       timeout,
     ]).then((result) => {
-      if (result === "unavailable") staffCache.delete(viewer.discordId);
-      else entry.settled = result;
+      // Evict only our own entry: a fresh page-gate check can replace it
+      // while an older peek is still in flight, and that older failure must
+      // not blow away the newer settled answer.
+      if (result === "unavailable") {
+        if (staffCache.get(viewer.discordId) === entry) staffCache.delete(viewer.discordId);
+      } else entry.settled = result;
       return result;
     }),
   };
