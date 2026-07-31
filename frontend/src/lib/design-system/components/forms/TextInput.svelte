@@ -19,7 +19,7 @@
 <input
   {...rest}
   type="text"
-  class="seq-input {extraClass}"
+  class={["seq-input", extraClass]}
   class:seq-input-mono={mono}
   aria-invalid={invalid ? true : ariaInvalid}
   bind:value

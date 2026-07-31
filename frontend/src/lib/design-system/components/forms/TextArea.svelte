@@ -13,4 +13,4 @@
   } & Omit<HTMLTextareaAttributes, "value"> = $props();
 </script>
 
-<textarea {...rest} class="seq-input {extraClass}" aria-invalid={invalid ? true : ariaInvalid} bind:value></textarea>
+<textarea {...rest} class={["seq-input", extraClass]} aria-invalid={invalid ? true : ariaInvalid} bind:value></textarea>

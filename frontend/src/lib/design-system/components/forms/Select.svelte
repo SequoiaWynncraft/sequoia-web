@@ -17,6 +17,6 @@
   } & Omit<HTMLSelectAttributes, "value" | "multiple"> = $props();
 </script>
 
-<select {...rest} class="seq-input {extraClass}" aria-invalid={invalid ? true : ariaInvalid} bind:value>
+<select {...rest} class={["seq-input", extraClass]} aria-invalid={invalid ? true : ariaInvalid} bind:value>
   {@render children()}
 </select>
