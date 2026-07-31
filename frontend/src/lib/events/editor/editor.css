@@ -814,8 +814,13 @@
     grid-column: auto;
   }
 
-  /* Paired cells stretch to the row, so their bottom hairlines align; the
-     fields inside stay top-anchored. */
+  /* Pairs keep their natural heights: identical stretched rows would give
+     both sections the same scroll interval, and the rail could never
+     activate the right-hand one. A ragged hairline is the cheaper cost. */
+  .evf-form {
+    align-items: start;
+  }
+
   .evf-form > .form-section {
     align-content: start;
   }
