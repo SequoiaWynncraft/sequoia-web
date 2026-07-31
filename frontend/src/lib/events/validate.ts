@@ -421,7 +421,9 @@ function parseRaffle(value: unknown, label: string): EventRaffle {
   const requiresMilestone = optionalText(raw.requiresMilestone, `${label} milestone gate`, 64);
   // The referenced id is cross-checked against personalMilestones in parseEvent.
   if (requiresMilestone) raffle.requiresMilestone = requiresMilestone;
-  if (present(raw.eligibility)) raffle.eligibility = parseEligibility(raw.eligibility, label);
+  if (present(raw.eligibility)) {
+    raffle.eligibility = parseEligibility(raw.eligibility, label, raffle.winnerCount);
+  }
   return raffle;
 }
 
@@ -430,7 +432,7 @@ const MAX_MANUAL_TICKETS = 1_000_000;
 const MAX_ELIGIBILITY_RULES = 20;
 const ELIGIBILITY_STATS = new Set(["raids", "playtime", "wars"]);
 
-function parseEligibility(value: unknown, label: string): RaffleEligibility {
+function parseEligibility(value: unknown, label: string, winnerCount: number): RaffleEligibility {
   const raw = asRecord(value, `${label} eligibility`);
   const eligibility: RaffleEligibility = {};
   if (raw.whitelistOnly === true) eligibility.whitelistOnly = true;
@@ -438,17 +440,21 @@ function parseEligibility(value: unknown, label: string): RaffleEligibility {
   if (include) eligibility.include = include;
   const exclude = parseManualEntrants(raw.exclude, `${label} exclude list`);
   if (exclude) eligibility.exclude = exclude;
-  // A whitelist raffle whose pool cannot contain anyone - empty, or wholly
-  // covered by exclusions - can only ever roll into an error. Catch the
-  // mistake at save time, where the manager can fix it.
+  // A whitelist raffle without enough distinct entrants left after exclusions
+  // can only ever roll into an error. Catch the mistake at save time, where the
+  // manager can fix it.
   if (eligibility.whitelistOnly) {
     const excluded = new Set(
       (eligibility.exclude ?? []).map((entry) => entry.player_uuid.replaceAll("-", "").toLowerCase()),
     );
-    const drawable = (eligibility.include ?? []).some(
-      (entry) => !excluded.has(entry.player_uuid.replaceAll("-", "").toLowerCase()),
-    );
-    if (!drawable) fail(`${label} is whitelist-only but nobody on its include list can enter`);
+    const drawable = new Set(
+      (eligibility.include ?? [])
+        .map((entry) => entry.player_uuid.replaceAll("-", "").toLowerCase())
+        .filter((uuid) => !excluded.has(uuid)),
+    ).size;
+    if (drawable < winnerCount) {
+      fail(`${label} is whitelist-only but has more winners than surviving include-list members`);
+    }
   }
   if (present(raw.rules)) {
     if (!Array.isArray(raw.rules)) fail(`${label} rules must be a list`);

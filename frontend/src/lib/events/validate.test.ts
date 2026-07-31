@@ -173,7 +173,7 @@ describe("parseGuildEvent", () => {
           { id: "r1", prize: "LE", winnerCount: 1, perTicket: 1, eligibility: { whitelistOnly: true } },
         ],
       },
-      "whitelist-only but nobody on its include list can enter",
+      "whitelist-only but has more winners than surviving include-list members",
     );
     // Fully excluded whitelist: saves would only ever roll into an error.
     expectError(
@@ -190,19 +190,43 @@ describe("parseGuildEvent", () => {
           },
         ],
       },
-      "nobody on its include list can enter",
+      "more winners than surviving include-list members",
     );
-    // Partially excluded is fine.
+    // A partially excluded whitelist with fewer surviving members than winner
+    // slots would fail deterministically after drawing every survivor.
+    expectError(
+      {
+        ...VALID,
+        raffles: [
+          {
+            id: "r1", prize: "LE", winnerCount: 3, perTicket: 1,
+            eligibility: {
+              whitelistOnly: true,
+              include: [
+                { player_uuid: "u1", username: "Zed" },
+                { player_uuid: "u2", username: "Yara" },
+                { player_uuid: "u3", username: "Xena" },
+              ],
+              exclude: [{ player_uuid: "u1", username: "Zed" }],
+            },
+          },
+        ],
+      },
+      "more winners than surviving include-list members",
+    );
+    // Partially excluded is fine when the surviving member count exactly
+    // matches the winner count.
     const partial = parseGuildEvent({
       ...VALID,
       raffles: [
         {
-          id: "r1", prize: "LE", winnerCount: 1, perTicket: 1,
+          id: "r1", prize: "LE", winnerCount: 2, perTicket: 1,
           eligibility: {
             whitelistOnly: true,
             include: [
               { player_uuid: "u1", username: "Zed" },
               { player_uuid: "u2", username: "Yara" },
+              { player_uuid: "u3", username: "Xena" },
             ],
             exclude: [{ player_uuid: "u1", username: "Zed" }],
           },
@@ -210,6 +234,25 @@ describe("parseGuildEvent", () => {
       ],
     });
     expect(partial.ok).toBe(true);
+
+    // Having more survivors than winner slots remains valid.
+    const extra = parseGuildEvent({
+      ...VALID,
+      raffles: [
+        {
+          id: "r1", prize: "LE", winnerCount: 2, perTicket: 1,
+          eligibility: {
+            whitelistOnly: true,
+            include: [
+              { player_uuid: "u1", username: "Zed" },
+              { player_uuid: "u2", username: "Yara" },
+              { player_uuid: "u3", username: "Xena" },
+            ],
+          },
+        },
+      ],
+    });
+    expect(extra.ok).toBe(true);
   });
 
   it("normalizes the legacy single goal into a one-milestone goals list", () => {
