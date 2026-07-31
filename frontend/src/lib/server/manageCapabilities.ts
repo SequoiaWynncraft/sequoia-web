@@ -39,7 +39,12 @@ function checkBagshopStaff(
   // Display callers (navbar, sidebar) ride the memo; a protected page gate
   // asks fresh, so an allowlist change applies on the next navigation rather
   // than after the TTL. The fresh answer still lands in the cache.
-  if (!options.fresh && cached && now - cached.at < STAFF_TTL_MS) return cached.check;
+  if (cached && now - cached.at < STAFF_TTL_MS) {
+    // A strict page gate must revalidate a settled display answer, but it can
+    // share a request already in flight. This prevents the /manage layout's
+    // bounded peek and its bagshop child from starting duplicate bot calls.
+    if (!cached.settled || !options.fresh) return cached.check;
+  }
 
   const timeout = new Promise<StaffCheck>((resolve) =>
     setTimeout(() => resolve("unavailable"), STAFF_TIMEOUT_MS),
@@ -104,18 +109,35 @@ async function bagshopAreaAccess(fetchImpl: typeof fetch, viewer: Viewer): Promi
 }
 
 /**
- * Resolves every console area's access in one place, strictly (fail-closed),
- * for the /manage layout. Form actions still re-guard themselves - layout
- * loads do not run for actions.
+ * Bounded, stale-tolerant roster read for display-only console navigation.
+ * Protected pages use the strict per-area resolver below before reading data.
  */
-export async function resolveManageCapabilities(
+async function peekEventsAreaAccess(fetchImpl: typeof fetch, viewer: Viewer): Promise<AreaAccess> {
+  if (viewer.websiteAdmin) return "granted";
+  const stats = await Promise.race([
+    getGuildStats(fetchImpl, { allowStale: true }).catch(() => null),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), PEEK_WAIT_MS)),
+  ]);
+  if (!stats) return "unverified";
+  const member = stats.members.find(
+    (entry) => entry.uuid !== null && sameUuid(entry.uuid, viewer.minecraftUuid),
+  );
+  return member && MANAGER_RANKS.includes(member.rank) ? "granted" : "denied";
+}
+
+/**
+ * Resolves the sidebar's area list with bounded display-only peeks. Each area
+ * is checked independently and protected pages still resolve only their own
+ * authority strictly before consuming data.
+ */
+export async function peekManageCapabilities(
   fetchImpl: typeof fetch,
   viewer: Viewer | null,
 ): Promise<ManageCapabilities> {
   if (!viewer) return { events: "signin", bagshop: "signin" };
   const [events, bagshop] = await Promise.all([
-    eventsAreaAccess(fetchImpl, viewer),
-    bagshopAreaAccess(fetchImpl, viewer),
+    peekEventsAreaAccess(fetchImpl, viewer),
+    peekBagshopStaff(fetchImpl, viewer).then((check) => bagshopAccess(check ?? "unavailable")),
   ]);
   return { events, bagshop };
 }
@@ -152,16 +174,11 @@ export async function navManageVisible(
 ): Promise<boolean> {
   if (!viewer) return false;
   if (viewer.websiteAdmin) return true;
-  const stats = await Promise.race([
-    getGuildStats(fetchImpl, { allowStale: true }).catch(() => null),
-    new Promise<null>((resolve) => setTimeout(() => resolve(null), PEEK_WAIT_MS)),
+  const [events, bagshop] = await Promise.all([
+    peekEventsAreaAccess(fetchImpl, viewer),
+    peekBagshopStaff(fetchImpl, viewer),
   ]);
-  if (!stats) return false;
-  const member = stats?.members.find(
-    (entry) => entry.uuid !== null && sameUuid(entry.uuid, viewer.minecraftUuid),
-  );
-  if (member && MANAGER_RANKS.includes(member.rank)) return true;
   // Bounded peek: the first page after sign-in may briefly hide the link;
   // staff still reach /manage directly, and the next load shows it.
-  return (await peekBagshopStaff(fetchImpl, viewer)) === "staff";
+  return events === "granted" || bagshop === "staff";
 }
