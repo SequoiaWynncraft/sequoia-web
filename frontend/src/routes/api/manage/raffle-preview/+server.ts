@@ -6,6 +6,7 @@ import { parseGuildEvent } from "$lib/events/validate";
 import { requireEventManager } from "$lib/server/eventManagers";
 import { getGuildStats } from "$lib/server/guildStats";
 import { resolveEligibility } from "$lib/server/raffleEligibility";
+import { normalizeUuid } from "$lib/server/raidEventBoards";
 
 export const prerender = false;
 
@@ -40,18 +41,23 @@ export const POST: RequestHandler = async ({ request, cookies, fetch, locals }) 
 
   const pool = await resolveEligibility(fetch, parsed.event, raffle, stats.members);
   if (pool.error) return json(unavailable(pool.error));
-  // Mirror the roll's cross-raffle exclusion: with the event-wide flag on,
-  // another raffle's frozen winner can never win this one, so listing them
+  // Mirror the roll's exclusions: a slot already drawn in THIS raffle bars
+  // its winner from the remaining slots, and with the event-wide flag on,
+  // another raffle's frozen winner can never win here either. Listing them
   // (or counting their tickets into the odds) would misstate the pool.
   const barred = new Set(
-    parsed.event.raffleExcludeWinners
-      ? (parsed.event.raffles ?? [])
-          .filter((entry) => entry.id !== raffle.id)
-          .flatMap((entry) => entry.winners ?? [])
-          .map((winner) => winner.player_uuid)
-      : [],
+    [
+      ...(raffle.winners ?? []),
+      ...(parsed.event.raffleExcludeWinners
+        ? (parsed.event.raffles ?? [])
+            .filter((entry) => entry.id !== raffle.id)
+            .flatMap((entry) => entry.winners ?? [])
+        : []),
+    ].map((winner) => normalizeUuid(winner.player_uuid)),
   );
-  const eligible = pool.entrants.filter((entrant) => !barred.has(entrant.player_uuid));
+  const eligible = pool.entrants.filter(
+    (entrant) => !barred.has(normalizeUuid(entrant.player_uuid)),
+  );
   const totalTickets = eligible.reduce((sum, entrant) => sum + entrant.tickets, 0);
   const entrants = eligible
     .map((entrant) => ({
