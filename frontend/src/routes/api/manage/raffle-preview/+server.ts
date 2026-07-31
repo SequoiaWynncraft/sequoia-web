@@ -49,11 +49,15 @@ export const POST: RequestHandler = async ({ request, cookies, fetch, locals }) 
   // preset load - so the persisted event is the authority here, exactly as
   // it is for the roll itself.
   const stored = await eventStore.get(parsed.event.slug).catch(() => null);
+  // Only raffles the DRAFT retains bar their winners: a raffle the manager
+  // deleted disappears with its record on save, so its winner re-enters the
+  // pool - the preview must not exclude what the next roll cannot.
+  const draftIds = new Set((parsed.event.raffles ?? []).map((entry) => entry.id));
   const winnersOf = (source: { raffles?: typeof parsed.event.raffles }) => [
     ...(source.raffles?.find((entry) => entry.id === raffle.id)?.winners ?? []),
     ...(parsed.event.raffleExcludeWinners
       ? (source.raffles ?? [])
-          .filter((entry) => entry.id !== raffle.id)
+          .filter((entry) => entry.id !== raffle.id && draftIds.has(entry.id))
           .flatMap((entry) => entry.winners ?? [])
       : []),
   ];

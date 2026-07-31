@@ -140,6 +140,17 @@ export function keepInstant(value: string, original: string): string {
   return original && value === toInput(original) ? original : toInstant(value);
 }
 
+/**
+ * The validator canonicalizes instants (".000Z" millis and all); emitting
+ * the same spelling keeps serialized-vs-stored comparisons honest - a fresh
+ * "T00:00:00Z" must not read as different from the saved "T00:00:00.000Z".
+ * Invalid strings pass through so the validator can still name them.
+ */
+export function canonInstant(value: string): string {
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? value : new Date(parsed).toISOString();
+}
+
 export function slugify(value: string): string {
   return value
     .toLowerCase()
@@ -574,8 +585,8 @@ export class EventDraft {
               stat: rule.stat,
               min: toCount(rule.min),
               window: {
-                from: keepInstant(rule.windowFrom, rule.seedWindowFrom),
-                to: keepInstant(rule.windowTo, rule.seedWindowTo),
+                from: canonInstant(keepInstant(rule.windowFrom, rule.seedWindowFrom)),
+                to: canonInstant(keepInstant(rule.windowTo, rule.seedWindowTo)),
               },
             },
           ];
@@ -594,8 +605,8 @@ export class EventDraft {
         stat: row.weightStat,
         per: toCount(row.weightPer),
         window: {
-          from: keepInstant(row.windowFrom, row.seedWindowFrom),
-          to: keepInstant(row.windowTo, row.seedWindowTo),
+          from: canonInstant(keepInstant(row.windowFrom, row.seedWindowFrom)),
+          to: canonInstant(keepInstant(row.windowTo, row.seedWindowTo)),
         },
       };
       eligibility.weight = weight;
@@ -608,8 +619,8 @@ export class EventDraft {
       // validator instead of silently vanishing.
       if (row.windowFrom || row.windowTo) {
         weight.window = {
-          from: keepInstant(row.windowFrom, row.seedWindowFrom),
-          to: keepInstant(row.windowTo, row.seedWindowTo),
+          from: canonInstant(keepInstant(row.windowFrom, row.seedWindowFrom)),
+          to: canonInstant(keepInstant(row.windowTo, row.seedWindowTo)),
         };
       }
       eligibility.weight = weight;
