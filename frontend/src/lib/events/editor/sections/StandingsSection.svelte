@@ -13,6 +13,16 @@
   const draft = getContext<EventDraft>(EDITOR_KEY);
 
   let trackerSubmit = $state<HTMLButtonElement | null>(null);
+  const trackerSubmitInputTypes = new Set([
+    "email",
+    "number",
+    "password",
+    "search",
+    "tel",
+    "text",
+    "time",
+    "url",
+  ]);
 
   /**
    * The rail's form-associated save button precedes the whole form in DOM
@@ -23,9 +33,13 @@
   function submitTrackerOnEnter(event: KeyboardEvent) {
     if (event.key !== "Enter") return;
     // Only text-style inputs shortcut to the tracker action: a select's
-    // Enter confirms the highlighted option, and hijacking it would submit
-    // the tracker with the PREVIOUS selection still applied.
-    if (!(event.target instanceof HTMLInputElement)) return;
+    // or date picker's Enter confirms its highlighted value, and hijacking
+    // it would submit the tracker with the PREVIOUS selection still applied.
+    if (
+      !(event.target instanceof HTMLInputElement) ||
+      !trackerSubmitInputTypes.has(event.target.type)
+    )
+      return;
     event.preventDefault();
     trackerSubmit?.click();
   }
