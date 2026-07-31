@@ -111,6 +111,29 @@ function parseEvent(value: unknown): GuildEvent {
         across.add(winner.player_uuid);
       }
     }
+    for (const raffle of raffles ?? []) {
+      const eligibility = raffle.eligibility;
+      if (!eligibility?.whitelistOnly) continue;
+      const excluded = new Set([
+        ...(eligibility.exclude ?? []).map((entry) =>
+          entry.player_uuid.replaceAll("-", "").toLowerCase(),
+        ),
+        ...(raffles ?? [])
+          .filter((entry) => entry.id !== raffle.id)
+          .flatMap((entry) => entry.winners ?? [])
+          .map((winner) => winner.player_uuid.replaceAll("-", "").toLowerCase()),
+      ]);
+      const drawable = new Set(
+        (eligibility.include ?? [])
+          .map((entry) => entry.player_uuid.replaceAll("-", "").toLowerCase())
+          .filter((uuid) => !excluded.has(uuid)),
+      ).size;
+      if (drawable < raffle.winnerCount) {
+        fail(
+          `raffle "${raffle.prize}" is whitelist-only but has too few eligible members after excluding other raffle winners`,
+        );
+      }
+    }
   }
   return event;
 }

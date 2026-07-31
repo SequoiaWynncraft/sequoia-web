@@ -255,6 +255,35 @@ describe("parseGuildEvent", () => {
     expect(extra.ok).toBe(true);
   });
 
+  it("counts other raffle winners as whitelist exclusions only when enabled", () => {
+    const raffles = [
+      {
+        id: "r1",
+        prize: "LE",
+        winnerCount: 1,
+        perTicket: 1,
+        winners: [{ slot: 0, username: "Zed", player_uuid: "AA-bb", tickets: 1 }],
+      },
+      {
+        id: "r2",
+        prize: "Mythic",
+        winnerCount: 1,
+        perTicket: 1,
+        eligibility: {
+          whitelistOnly: true,
+          include: [{ player_uuid: "aabb", username: "Zed" }],
+        },
+      },
+    ];
+
+    expectError(
+      { ...VALID, raffleExcludeWinners: true, raffles },
+      "too few eligible members after excluding other raffle winners",
+    );
+    expect(parseGuildEvent({ ...VALID, raffleExcludeWinners: false, raffles }).ok).toBe(true);
+    expect(parseGuildEvent({ ...VALID, raffles }).ok).toBe(true);
+  });
+
   it("normalizes the legacy single goal into a one-milestone goals list", () => {
     const result = parseGuildEvent({
       ...VALID,
