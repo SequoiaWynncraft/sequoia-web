@@ -21,6 +21,9 @@
   } = $props();
 
   let dialog: HTMLDialogElement;
+  // Native dialogs take no accessible name from descendant headings - wire
+  // the title to the dialog explicitly.
+  const titleId = $props.id();
 
   export function open() {
     dialog.showModal();
@@ -36,8 +39,10 @@
   }
 </script>
 
-<dialog bind:this={dialog} class="confirm">
-  <h2 class="confirm-title"><span class="confirm-diamond" aria-hidden="true">◆</span>{title}</h2>
+<dialog bind:this={dialog} class="confirm" aria-labelledby={titleId}>
+  <h2 class="confirm-title" id={titleId}>
+    <span class="confirm-diamond" aria-hidden="true">◆</span>{title}
+  </h2>
   {#if body}<p class="confirm-body">{body}</p>{/if}
   {#if children}{@render children()}{/if}
   <div class="confirm-actions">

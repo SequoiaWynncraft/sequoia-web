@@ -6,7 +6,9 @@
     invalid = false,
     ...rest
   }: {
-    value?: number | null;
+    /** Numeric binding; a cleared input reads back as null or undefined
+     * depending on the browser path, so callers must treat both as empty. */
+    value?: number | null | undefined;
     invalid?: boolean;
   } & Omit<HTMLInputAttributes, "value" | "type"> = $props();
 </script>
