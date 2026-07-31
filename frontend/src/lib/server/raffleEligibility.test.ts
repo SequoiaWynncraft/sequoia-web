@@ -398,3 +398,46 @@ describe("strict resolution for rolls", () => {
     expect(mockProfiles).toHaveBeenCalledWith(fetch, { allowStale: false });
   });
 });
+
+describe("whitelist-only raffles", () => {
+  it("pools exactly the include list - roster and rules ignored", async () => {
+    const result = await resolveEligibility(
+      fetch,
+      event(),
+      raffle({
+        eligibility: {
+          whitelistOnly: true,
+          // A rule that would exclude everyone must have no effect.
+          rules: [{ type: "guildRank", ranks: [] }],
+          include: [
+            { player_uuid: "uuid-b", username: "Bob" },
+            { player_uuid: "outsider", username: "Zed", tickets: 3 },
+          ],
+        },
+      }),
+      ROSTER,
+    );
+    expect(result.error).toBeNull();
+    expect(result.entrants.map((entry) => entry.username).sort()).toEqual(["Bob", "Zed"]);
+    expect(result.entrants.find((entry) => entry.username === "Zed")?.tickets).toBe(3);
+  });
+
+  it("excludes still beat the whitelist", async () => {
+    const result = await resolveEligibility(
+      fetch,
+      event(),
+      raffle({
+        eligibility: {
+          whitelistOnly: true,
+          include: [
+            { player_uuid: "uuid-a", username: "Alice" },
+            { player_uuid: "uuid-b", username: "Bob" },
+          ],
+          exclude: [{ player_uuid: "UUID-A", username: "Alice" }],
+        },
+      }),
+      ROSTER,
+    );
+    expect(result.entrants.map((entry) => entry.username)).toEqual(["Bob"]);
+  });
+});
