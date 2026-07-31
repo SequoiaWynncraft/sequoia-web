@@ -224,6 +224,35 @@ describe("round-five hardening", () => {
     );
   });
 
+  it("accepts 400 inclusive stat days and rejects 401", () => {
+    const fourHundredDays = {
+      from: "2026-01-01T00:00:00Z",
+      to: "2027-02-04T00:00:00Z",
+    };
+    const fourHundredOneDays = { ...fourHundredDays, to: "2027-02-05T00:00:00Z" };
+
+    expect(
+      parseGuildEvent(
+        withEligibility({
+          rules: [{ type: "stat", stat: "raids", min: 1, window: fourHundredDays }],
+          weight: { mode: "perStat", stat: "wars", per: 1, window: fourHundredDays },
+        }),
+      ).ok,
+    ).toBe(true);
+    expectError(
+      withEligibility({
+        rules: [{ type: "stat", stat: "raids", min: 1, window: fourHundredOneDays }],
+      }),
+      "at most 400 inclusive days",
+    );
+    expectError(
+      withEligibility({
+        weight: { mode: "perStat", stat: "wars", per: 1, window: fourHundredOneDays },
+      }),
+      "at most 400 inclusive days",
+    );
+  });
+
   it("caps manual ticket floors below overflow territory", () => {
     expectError(
       withEligibility({ include: [{ player_uuid: "uuid-a", username: "Alice", tickets: 1e308 }] }),

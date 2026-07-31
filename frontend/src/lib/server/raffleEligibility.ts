@@ -306,10 +306,12 @@ async function statGains(
   strict: boolean,
 ): Promise<{ counts: Map<string, number> } | { error: string }> {
   try {
+    const requestedFrom = window.from.slice(0, 10);
+    const requestedTo = window.to.slice(0, 10);
     const result = await getMemberProgressResult(
       fetchImpl,
-      window.from.slice(0, 10),
-      window.to.slice(0, 10),
+      requestedFrom,
+      requestedTo,
       { allowStale: !strict },
     );
     // Rolls must not draw from cached totals that may already have moved -
@@ -317,6 +319,14 @@ async function statGains(
     // was disallowed, so the flag needs checking either way.
     if (strict && result.stale) return { error: RESULT_UNAVAILABLE };
     const progress = result.data;
+    // The backend resolves and caps the requested span. A roll must never use
+    // a truncated response as though it covered the raffle's full window.
+    if (
+      strict &&
+      (progress.from.slice(0, 10) !== requestedFrom || progress.to.slice(0, 10) !== requestedTo)
+    ) {
+      return { error: RESULT_UNAVAILABLE };
+    }
     // Raids have their own rollup feed; wars and playtime come from the
     // activity rollups.
     const since = (
