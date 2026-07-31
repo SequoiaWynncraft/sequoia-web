@@ -53,6 +53,21 @@ export function wedgePath(
   return `M ${cx} ${cy} L ${start.x} ${start.y} A ${radius} ${radius} 0 ${large} 1 ${end.x} ${end.y} Z`;
 }
 
+/**
+ * Index of the wedge sitting under the top pointer when the disc has been
+ * rotated clockwise by `rotationDeg` - drives the hub's live ticker.
+ */
+export function wedgeAtPointer(wedges: Wedge[], rotationDeg: number): number {
+  if (wedges.length === 0) return -1;
+  const angle = (((360 - rotationDeg) % 360) + 360) % 360;
+  for (let index = 0; index < wedges.length; index++) {
+    if (angle >= wedges[index].startDeg && angle < wedges[index].endDeg) return index;
+  }
+  // Floating point can leave the boundary angle unowned - it belongs to the
+  // last wedge, whose end is the 360 seam.
+  return wedges.length - 1;
+}
+
 /** A point on the circle at `deg` (0° up, clockwise). */
 export function point(cx: number, cy: number, radius: number, deg: number) {
   const rad = (deg * Math.PI) / 180;
