@@ -133,19 +133,21 @@ export function sectionIssues(draft: EventDraft): Partial<Record<SectionId, stri
     ) {
       add("raffles", "The window must end after it starts");
     }
-    for (const rule of raffle.rules) {
-      if ((rule.type === "guildRank" || rule.type === "seqRank") && rule.ranks.length === 0) {
-        add("raffles", "A rank rule needs at least one rank");
-      }
-      if (rule.type === "stat") {
-        if (!hasCount(rule.min)) add("raffles", "A stat rule needs a minimum");
-        if (!rule.windowFrom || !rule.windowTo) add("raffles", "A stat rule needs a window");
-        else if (!rule.windowFrom.endsWith("T00:00") || !rule.windowTo.endsWith("T00:00")) {
-          add("raffles", "Stat windows count whole UTC days - use 00:00 bounds");
+    if (!raffle.whitelistOnly) {
+      for (const rule of raffle.rules) {
+        if ((rule.type === "guildRank" || rule.type === "seqRank") && rule.ranks.length === 0) {
+          add("raffles", "A rank rule needs at least one rank");
         }
-      }
-      if (rule.type === "milestone" && !rule.milestoneId) {
-        add("raffles", "A milestone rule needs a milestone");
+        if (rule.type === "stat") {
+          if (!hasCount(rule.min)) add("raffles", "A stat rule needs a minimum");
+          if (!rule.windowFrom || !rule.windowTo) add("raffles", "A stat rule needs a window");
+          else if (!rule.windowFrom.endsWith("T00:00") || !rule.windowTo.endsWith("T00:00")) {
+            add("raffles", "Stat windows count whole UTC days - use 00:00 bounds");
+          }
+        }
+        if (rule.type === "milestone" && !rule.milestoneId) {
+          add("raffles", "A milestone rule needs a milestone");
+        }
       }
     }
     for (const entry of [...raffle.include, ...raffle.exclude]) {
