@@ -436,13 +436,20 @@ function parseEligibility(value: unknown, label: string): RaffleEligibility {
   if (raw.whitelistOnly === true) eligibility.whitelistOnly = true;
   const include = parseManualEntrants(raw.include, `${label} include list`);
   if (include) eligibility.include = include;
-  // A whitelist raffle with nobody on it can only ever roll into an error -
-  // catch the mistake at save time, where the manager can fix it.
-  if (eligibility.whitelistOnly && !eligibility.include) {
-    fail(`${label} is whitelist-only but its include list is empty`);
-  }
   const exclude = parseManualEntrants(raw.exclude, `${label} exclude list`);
   if (exclude) eligibility.exclude = exclude;
+  // A whitelist raffle whose pool cannot contain anyone - empty, or wholly
+  // covered by exclusions - can only ever roll into an error. Catch the
+  // mistake at save time, where the manager can fix it.
+  if (eligibility.whitelistOnly) {
+    const excluded = new Set(
+      (eligibility.exclude ?? []).map((entry) => entry.player_uuid.replaceAll("-", "").toLowerCase()),
+    );
+    const drawable = (eligibility.include ?? []).some(
+      (entry) => !excluded.has(entry.player_uuid.replaceAll("-", "").toLowerCase()),
+    );
+    if (!drawable) fail(`${label} is whitelist-only but nobody on its include list can enter`);
+  }
   if (present(raw.rules)) {
     if (!Array.isArray(raw.rules)) fail(`${label} rules must be a list`);
     if (raw.rules.length > MAX_ELIGIBILITY_RULES) {

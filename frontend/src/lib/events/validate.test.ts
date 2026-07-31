@@ -173,8 +173,43 @@ describe("parseGuildEvent", () => {
           { id: "r1", prize: "LE", winnerCount: 1, perTicket: 1, eligibility: { whitelistOnly: true } },
         ],
       },
-      "whitelist-only but its include list is empty",
+      "whitelist-only but nobody on its include list can enter",
     );
+    // Fully excluded whitelist: saves would only ever roll into an error.
+    expectError(
+      {
+        ...VALID,
+        raffles: [
+          {
+            id: "r1", prize: "LE", winnerCount: 1, perTicket: 1,
+            eligibility: {
+              whitelistOnly: true,
+              include: [{ player_uuid: "AA-bb", username: "Zed" }],
+              exclude: [{ player_uuid: "aabb", username: "Zed" }],
+            },
+          },
+        ],
+      },
+      "nobody on its include list can enter",
+    );
+    // Partially excluded is fine.
+    const partial = parseGuildEvent({
+      ...VALID,
+      raffles: [
+        {
+          id: "r1", prize: "LE", winnerCount: 1, perTicket: 1,
+          eligibility: {
+            whitelistOnly: true,
+            include: [
+              { player_uuid: "u1", username: "Zed" },
+              { player_uuid: "u2", username: "Yara" },
+            ],
+            exclude: [{ player_uuid: "u1", username: "Zed" }],
+          },
+        },
+      ],
+    });
+    expect(partial.ok).toBe(true);
   });
 
   it("normalizes the legacy single goal into a one-milestone goals list", () => {
