@@ -12,13 +12,30 @@ export const load: PageServerLoad = async ({ fetch, parent }) => {
   const { viewer } = await parent();
   const capabilities = {} as ManageCapabilities;
 
-  const checks = await Promise.all(
-    MANAGE_AREAS.map(async (area) => [area, await pageAreaAccess(fetch, viewer, area.id)] as const),
+  const checks = MANAGE_AREAS.map(
+    async (area) => [area, await pageAreaAccess(fetch, viewer, area.id)] as const,
   );
 
-  for (const [area, access] of checks) {
+  let grantedArea: (typeof MANAGE_AREAS)[number] | undefined;
+  try {
+    // Registry order is a preference, not a guarantee: immediate entry beats
+    // waiting for a preferred area's slower authority when several grant.
+    grantedArea = await Promise.any(
+      checks.map(async (check) => {
+        const [area, access] = await check;
+        if (access !== "granted") throw access;
+        return area;
+      }),
+    );
+  } catch {
+    // Every area denied, failed closed, or requires sign-in. Build the full
+    // capability result below so the landing gate can show the best action.
+  }
+
+  if (grantedArea) redirect(307, grantedArea.href);
+
+  for (const [area, access] of await Promise.all(checks)) {
     capabilities[area.id] = access;
-    if (access === "granted") redirect(307, area.href);
   }
 
   return { capabilities };
