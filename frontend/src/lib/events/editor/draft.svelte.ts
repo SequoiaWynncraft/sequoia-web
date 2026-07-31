@@ -670,10 +670,25 @@ export class EventDraft {
     const eligibilityUnchanged =
       JSON.stringify(this.rowEligibility(row)) ===
       JSON.stringify(this.rowEligibility(this.seedRaffleRow(saved)));
+    // With winner exclusion on, every OTHER raffle's stored winners are part
+    // of this row's exclusions - and the roll reads them from the STORED
+    // event. Deleting such a raffle or shrinking it past a filled slot
+    // re-admits its winner in the preview only; gate the roll until the save
+    // makes that real.
+    const crossExclusionsUnchanged =
+      !this.raffleExcludeWinners ||
+      (initial?.raffles ?? []).every((entry) => {
+        if (entry.id === row.id) return true;
+        const draftRow = this.raffles.find((candidate) => candidate.id === entry.id);
+        return (entry.winners ?? []).every(
+          (winner) => draftRow !== undefined && winner.slot < toCount(draftRow.winnerCount),
+        );
+      });
     return (
       eventConfigUnchanged &&
       milestoneTargetsUnchanged &&
       eligibilityUnchanged &&
+      crossExclusionsUnchanged &&
       row.prize.trim() === saved.prize &&
       toCount(row.winnerCount) === saved.winnerCount
     );
