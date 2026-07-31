@@ -253,6 +253,44 @@ describe("parseGuildEvent", () => {
       ],
     });
     expect(extra.ok).toBe(true);
+
+    // Frozen winners already occupy slots, so only the remaining slots need
+    // surviving whitelist members.
+    const partiallyDrawn = parseGuildEvent({
+      ...VALID,
+      raffles: [
+        {
+          id: "r1", prize: "LE", winnerCount: 3, perTicket: 1,
+          winners: [
+            { slot: 0, username: "Zed", player_uuid: "u1", tickets: 1 },
+            { slot: 1, username: "Yara", player_uuid: "u2", tickets: 1 },
+          ],
+          eligibility: {
+            whitelistOnly: true,
+            include: [{ player_uuid: "u3", username: "Xena" }],
+          },
+        },
+      ],
+    });
+    expect(partiallyDrawn.ok).toBe(true);
+
+    // One frozen winner leaves two slots, which one survivor cannot fill.
+    expectError(
+      {
+        ...VALID,
+        raffles: [
+          {
+            id: "r1", prize: "LE", winnerCount: 3, perTicket: 1,
+            winners: [{ slot: 0, username: "Zed", player_uuid: "u1", tickets: 1 }],
+            eligibility: {
+              whitelistOnly: true,
+              include: [{ player_uuid: "u2", username: "Yara" }],
+            },
+          },
+        ],
+      },
+      "more winners than surviving include-list members",
+    );
   });
 
   it("rejects overlapping whitelists that cannot fill every slot jointly", () => {
@@ -320,6 +358,35 @@ describe("parseGuildEvent", () => {
     );
     expect(parseGuildEvent({ ...VALID, raffleExcludeWinners: false, raffles }).ok).toBe(true);
     expect(parseGuildEvent({ ...VALID, raffles }).ok).toBe(true);
+
+    const partiallyDrawn = {
+      id: "r2",
+      prize: "Mythic",
+      winnerCount: 3,
+      perTicket: 1,
+      winners: [
+        { slot: 0, username: "Yara", player_uuid: "u2", tickets: 1 },
+        { slot: 1, username: "Xena", player_uuid: "u3", tickets: 1 },
+      ],
+      eligibility: {
+        whitelistOnly: true,
+        include: [
+          { player_uuid: "aabb", username: "Zed" },
+          { player_uuid: "u4", username: "Willow" },
+        ],
+      },
+    };
+    expect(
+      parseGuildEvent({ ...VALID, raffleExcludeWinners: true, raffles: [raffles[0], partiallyDrawn] }).ok,
+    ).toBe(true);
+    expectError(
+      {
+        ...VALID,
+        raffleExcludeWinners: true,
+        raffles: [raffles[0], { ...partiallyDrawn, winnerCount: 4 }],
+      },
+      "too few eligible members after excluding other raffle winners",
+    );
   });
 
   it("normalizes the legacy single goal into a one-milestone goals list", () => {

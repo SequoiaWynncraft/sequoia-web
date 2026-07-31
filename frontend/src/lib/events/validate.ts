@@ -128,7 +128,7 @@ function parseEvent(value: unknown): GuildEvent {
           .map((entry) => entry.player_uuid.replaceAll("-", "").toLowerCase())
           .filter((uuid) => !excluded.has(uuid)),
       ).size;
-      if (drawable < raffle.winnerCount) {
+      if (drawable < raffle.winnerCount - (raffle.winners?.length ?? 0)) {
         fail(
           `raffle "${raffle.prize}" is whitelist-only but has too few eligible members after excluding other raffle winners`,
         );
@@ -507,7 +507,11 @@ function parseRaffle(value: unknown, label: string): EventRaffle {
   // The referenced id is cross-checked against personalMilestones in parseEvent.
   if (requiresMilestone) raffle.requiresMilestone = requiresMilestone;
   if (present(raw.eligibility)) {
-    raffle.eligibility = parseEligibility(raw.eligibility, label, raffle.winnerCount);
+    raffle.eligibility = parseEligibility(
+      raw.eligibility,
+      label,
+      raffle.winnerCount - (raffle.winners?.length ?? 0),
+    );
   }
   return raffle;
 }
