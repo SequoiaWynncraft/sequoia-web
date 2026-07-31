@@ -433,10 +433,18 @@ export class EventDraft {
       gate === "" ||
       toCount(this.personalMilestones.find((entry) => entry.id === gate)?.at) ===
         initial?.personalMilestones?.find((entry) => entry.id === gate)?.at;
+    const milestoneRuleTargetsUnchanged = (saved.eligibility?.rules ?? []).every((rule) => {
+      if (rule.type !== "milestone") return true;
+      return (
+        toCount(this.personalMilestones.find((entry) => entry.id === rule.milestoneId)?.at) ===
+        initial?.personalMilestones?.find((entry) => entry.id === rule.milestoneId)?.at
+      );
+    });
     return (
       eventConfigUnchanged &&
       gate === savedGate &&
       gateTargetUnchanged &&
+      milestoneRuleTargetsUnchanged &&
       row.prize.trim() === saved.prize &&
       toCount(row.winnerCount) === saved.winnerCount &&
       toCount(row.perTicket) === saved.perTicket &&
