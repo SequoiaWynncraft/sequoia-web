@@ -551,7 +551,7 @@ export class EventDraft {
    * unresolved manual picks drop, like every other empty repeater row; a
    * milestone rule only survives while its milestone does.
    */
-  rowEligibility(row: RaffleRow, milestoneIds: Set<string>): RaffleEligibility {
+  rowEligibility(row: RaffleRow): RaffleEligibility {
     const eligibility: RaffleEligibility = {};
     const include = row.include
       .filter((entry) => entry.player_uuid && entry.username)
@@ -569,31 +569,28 @@ export class EventDraft {
       .filter((entry) => entry.player_uuid && entry.username)
       .map((entry) => ({ player_uuid: entry.player_uuid, username: entry.username }));
     if (exclude.length > 0) eligibility.exclude = exclude;
-    const rules = row.rules.flatMap((rule): EligibilityRule[] => {
+    // Incomplete rule rows serialize AS-IS: the server validator then
+    // rejects the save with a named error. Silently dropping them would let
+    // a save (and a roll) proceed WITHOUT a restriction the builder visibly
+    // shows - drawing from a broader pool than the manager configured.
+    const rules = row.rules.map((rule): EligibilityRule => {
       switch (rule.type) {
         case "guildRank":
-          return rule.ranks.length > 0
-            ? [{ type: "guildRank", ranks: rule.ranks as GuildRankName[] }]
-            : [];
+          return { type: "guildRank", ranks: rule.ranks as GuildRankName[] };
         case "seqRank":
-          return rule.ranks.length > 0 ? [{ type: "seqRank", ranks: [...rule.ranks] }] : [];
+          return { type: "seqRank", ranks: [...rule.ranks] };
         case "stat":
-          if (!hasCount(rule.min) || !rule.windowFrom || !rule.windowTo) return [];
-          return [
-            {
-              type: "stat",
-              stat: rule.stat,
-              min: toCount(rule.min),
-              window: {
-                from: canonInstant(keepInstant(rule.windowFrom, rule.seedWindowFrom)),
-                to: canonInstant(keepInstant(rule.windowTo, rule.seedWindowTo)),
-              },
+          return {
+            type: "stat",
+            stat: rule.stat,
+            min: toCount(rule.min),
+            window: {
+              from: canonInstant(keepInstant(rule.windowFrom, rule.seedWindowFrom)),
+              to: canonInstant(keepInstant(rule.windowTo, rule.seedWindowTo)),
             },
-          ];
+          };
         case "milestone":
-          return rule.milestoneId && milestoneIds.has(rule.milestoneId)
-            ? [{ type: "milestone", milestoneId: rule.milestoneId }]
-            : [];
+          return { type: "milestone", milestoneId: rule.milestoneId };
       }
     });
     if (rules.length > 0) eligibility.rules = rules;
@@ -664,15 +661,9 @@ export class EventDraft {
     // serializer both sides, so a stored legacy raffle (no eligibility yet)
     // compares against its own builder equivalent and stays rollable until
     // actually edited.
-    const savedMilestoneIds = new Set(
-      (initial?.personalMilestones ?? []).map((milestone) => milestone.id),
-    );
-    const currentMilestoneIds = new Set(
-      this.personalMilestones.filter((entry) => hasCount(entry.at) || entry.unlock.trim()).map((entry) => entry.id),
-    );
     const eligibilityUnchanged =
-      JSON.stringify(this.rowEligibility(row, currentMilestoneIds)) ===
-      JSON.stringify(this.rowEligibility(this.seedRaffleRow(saved), savedMilestoneIds));
+      JSON.stringify(this.rowEligibility(row)) ===
+      JSON.stringify(this.rowEligibility(this.seedRaffleRow(saved)));
     return (
       eventConfigUnchanged &&
       milestoneTargetsUnchanged &&
@@ -813,7 +804,6 @@ export class EventDraft {
     // intent - a row counts once it has a prize, a window, rules, manual
     // picks, or frozen winners (the last keeps a save from ever wiping a
     // rolled result).
-    const filledMilestoneIds = new Set(filledMilestones.map((entry) => entry.id));
     const filledRaffles = this.raffles
       .filter(
         (row) =>
@@ -826,7 +816,7 @@ export class EventDraft {
           row.winners.length > 0,
       )
       .map((row) => {
-        const eligibility = this.rowEligibility(row, filledMilestoneIds);
+        const eligibility = this.rowEligibility(row);
         const raffle: Record<string, unknown> = {
           id: row.id,
           prize: row.prize,
