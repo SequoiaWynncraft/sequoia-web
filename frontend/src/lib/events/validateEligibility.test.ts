@@ -93,13 +93,7 @@ describe("raffle eligibility parsing", () => {
     expectError(withEligibility({ weight: { mode: "lottery" } }), "unknown mode");
   });
 
-  it("rejects an inverted stat-rule window and duplicate manual entries", () => {
-    expectError(
-      withEligibility({
-        rules: [{ type: "stat", stat: "raids", min: 1, window: { from: "2026-07-02T00:00:00Z", to: "2026-07-01T00:00:00Z" } }],
-      }),
-      "end after it starts",
-    );
+  it("rejects duplicate manual entries", () => {
     expectError(
       withEligibility({
         include: [
@@ -197,6 +191,32 @@ describe("raffle eligibility parsing", () => {
 });
 
 describe("round-five hardening", () => {
+  it("accepts one-day stat windows and rejects inverted ones", () => {
+    const oneDay = { from: "2026-07-01T00:00:00Z", to: "2026-07-01T00:00:00Z" };
+    expect(
+      parseGuildEvent(
+        withEligibility({
+          rules: [{ type: "stat", stat: "raids", min: 1, window: oneDay }],
+          weight: { mode: "perStat", stat: "wars", per: 1, window: oneDay },
+        }),
+      ).ok,
+    ).toBe(true);
+
+    expectError(
+      withEligibility({
+        rules: [
+          {
+            type: "stat",
+            stat: "raids",
+            min: 1,
+            window: { from: "2026-07-02T00:00:00Z", to: "2026-07-01T00:00:00Z" },
+          },
+        ],
+      }),
+      "end after it starts",
+    );
+  });
+
   it("requires UTC-midnight bounds on stat windows", () => {
     expectError(
       withEligibility({

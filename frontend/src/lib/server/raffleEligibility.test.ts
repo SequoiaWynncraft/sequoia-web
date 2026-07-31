@@ -227,13 +227,13 @@ describe("resolveEligibility", () => {
         eligibility: {
           rules: [{ type: "guildRank", ranks: ["chief"] }],
           weight: { mode: "perRaid", perTicket: 5 },
-          include: [{ player_uuid: "uuid-c", username: "Cara", tickets: 3 }],
+          include: [{ player_uuid: "UUID-C", username: "Cara", tickets: 3 }],
         },
       }),
       ROSTER,
     );
     expect(result.entrants).toEqual([
-      { player_uuid: "uuid-c", username: "Cara", tickets: 10, source: "roster" },
+      { player_uuid: "uuid-c", username: "Cara", tickets: 10, source: "include" },
     ]);
   });
 
@@ -271,7 +271,7 @@ describe("resolveEligibility", () => {
       ROSTER,
     );
     const alice = result.entrants.find((entrant) => entrant.username === "Alice");
-    expect(alice).toMatchObject({ tickets: 5, source: "roster" });
+    expect(alice).toMatchObject({ tickets: 5, source: "include" });
     expect(result.entrants).toHaveLength(3);
   });
 

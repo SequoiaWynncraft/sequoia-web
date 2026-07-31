@@ -6,6 +6,7 @@ export const handle: Handle = async ({ event, resolve }) => {
   const requestId = crypto.randomUUID();
   const startedAt = performance.now();
   event.locals.requestId = requestId;
+  let response: Response | undefined;
 
   // A stale tab's form POST to a legacy management path must reach the real
   // action with its body intact. A redirect can't deliver that: actions
@@ -17,7 +18,7 @@ export const handle: Handle = async ({ event, resolve }) => {
     const target = legacyManageRedirect(event.url.pathname, event.url.search);
     if (target) {
       const body = await event.request.arrayBuffer();
-      return event.fetch(
+      response = await event.fetch(
         new Request(new URL(target, event.url.origin), {
           method: "POST",
           headers: event.request.headers,
@@ -31,7 +32,7 @@ export const handle: Handle = async ({ event, resolve }) => {
     }
   }
 
-  const response = await resolve(event);
+  response ??= await resolve(event);
   response.headers.set("x-request-id", requestId);
 
   const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";

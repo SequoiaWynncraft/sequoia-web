@@ -1,14 +1,19 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
   import { page } from "$app/state";
-  import { accessibleAreas } from "$lib/manage/registry";
+  import { MANAGE_AREAS, accessibleAreas } from "$lib/manage/registry";
   import type { ManageCapabilities } from "$lib/manage/types";
 
   let { data, children }: { data: { capabilities: ManageCapabilities }; children: Snippet } =
     $props();
 
-  const areas = $derived(accessibleAreas(data.capabilities));
   const path = $derived(page.url.pathname);
+  const capabilities = $derived.by(() => {
+    const currentArea = MANAGE_AREAS.find((area) => activeArea(area.href));
+    if (!currentArea || page.data.access !== "granted") return data.capabilities;
+    return { ...data.capabilities, [currentArea.id]: "granted" as const };
+  });
+  const areas = $derived(accessibleAreas(capabilities));
 
   function activeArea(href: string) {
     return path === href || path.startsWith(`${href}/`);
