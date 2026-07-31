@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { finalRotationDeg, wheelWedges } from "./wheelMath";
+import { finalRotationDeg, wedgeAtPointer, wheelWedges } from "./wheelMath";
 
 describe("wheel math", () => {
   it("sizes wedges proportionally to tickets, covering the full circle", () => {
@@ -40,5 +40,29 @@ describe("wheel math", () => {
     const zeroes = wheelWedges([{ tickets: 0 }, { tickets: 0 }]);
     expect(zeroes).toHaveLength(2);
     expect(finalRotationDeg(zeroes, 5, 4)).toBe(4 * 360);
+  });
+});
+
+describe("wedgeAtPointer", () => {
+  it("tracks the wedge under the pointer through a spin", () => {
+    const wedges = wheelWedges([{ tickets: 1 }, { tickets: 1 }, { tickets: 2 }]);
+    // Unrotated, the pointer sits at the first wedge's start.
+    expect(wedgeAtPointer(wedges, 0)).toBe(0);
+    // Rotating clockwise brings EARLIER angles under the pointer from the
+    // seam side: 10deg of rotation parks 350deg under it (the last wedge).
+    expect(wedgeAtPointer(wedges, 10)).toBe(2);
+    expect(wedgeAtPointer(wedges, 300)).toBe(0);
+    expect(wedgeAtPointer(wedges, 10 + 720)).toBe(2);
+  });
+
+  it("lands on the winner after the final rotation", () => {
+    const wedges = wheelWedges([{ tickets: 3 }, { tickets: 5 }, { tickets: 2 }]);
+    for (const winner of [0, 1, 2]) {
+      expect(wedgeAtPointer(wedges, finalRotationDeg(wedges, winner, 4))).toBe(winner);
+    }
+  });
+
+  it("handles the empty pool", () => {
+    expect(wedgeAtPointer([], 90)).toBe(-1);
   });
 });

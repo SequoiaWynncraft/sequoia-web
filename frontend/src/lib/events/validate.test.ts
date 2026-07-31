@@ -154,6 +154,22 @@ describe("parseGuildEvent", () => {
     expectError({ ...VALID, icon: { placements: ["hero"] } }, "icon file");
   });
 
+  it("keeps a catalog prize icon and silently drops an unknown one", () => {
+    const parsed = parseGuildEvent({
+      ...VALID,
+      raffles: [
+        { id: "r1", prize: "LE", winnerCount: 1, perTicket: 1, icon: "le.svg" },
+        { id: "r2", prize: "??", winnerCount: 1, perTicket: 1, icon: "not-in-catalog.svg" },
+      ],
+    });
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.event.raffles?.[0].icon).toBe("le.svg");
+      // Cosmetic field: never a reason to reject a stored event row.
+      expect(parsed.event.raffles?.[1].icon).toBeUndefined();
+    }
+  });
+
   it("round-trips a whitelist-only raffle and rejects an empty whitelist", () => {
     const parsed = parseGuildEvent({
       ...VALID,
@@ -388,6 +404,7 @@ describe("parseGuildEvent", () => {
       "too few eligible members after excluding other raffle winners",
     );
   });
+
 
   it("normalizes the legacy single goal into a one-milestone goals list", () => {
     const result = parseGuildEvent({

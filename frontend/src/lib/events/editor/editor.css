@@ -788,6 +788,11 @@
   }
 }
 
+/* Prize art picker: the event-icon grid vocabulary at raffle-card scale. */
+.evf-prize-icons .evf-icon-option img {
+  image-rendering: pixelated;
+}
+
 /* ── Wide viewports ──
    The console must use a big monitor, not center a phone column on it: the
    compact "setup" sections pair two across, while the program sections
@@ -851,3 +856,4 @@
 .rail-cat:first-child {
   margin-top: 0;
 }
+

@@ -10,6 +10,7 @@
   import type { LedgerColumn } from "$lib/design-system/components/ledgerTable";
   import EventMeta from "$lib/events/components/EventMeta.svelte";
   import GoalMeter from "$lib/events/components/GoalMeter.svelte";
+  import PrizeBoard from "$lib/events/components/PrizeBoard.svelte";
   import { themeVars } from "$lib/events/theme";
   import { isoDay } from "$lib/events/format";
   import { nmsrFace } from "$lib/site/nmsr";
@@ -40,11 +41,23 @@
   // a raffle with three winners shows three rows sharing its prize.
   const raffleRows = $derived(
     (event.raffles ?? []).flatMap((raffle) =>
-      Array.from({ length: raffle.winnerCount }, (_unused, slot) => ({
-        key: `${raffle.id}:${slot}`,
-        prize: raffle.prize,
-        winner: raffle.winners?.find((entry) => entry.slot === slot) ?? null,
-      })),
+      Array.from({ length: raffle.winnerCount }, (_unused, slot) => {
+        const key = `${raffle.id}:${slot}`;
+        // A slot still animating on the stage keeps its committed winner
+        // masked here - this page must not spoil the wheel's landing.
+        const spinning = data.spinningSlots.includes(key);
+        const stored = raffle.winners?.find((entry) => entry.slot === slot) ?? null;
+        return {
+          key,
+          prize: raffle.prize,
+          icon: raffle.icon ?? null,
+          spinning,
+          winner:
+            !spinning && stored
+              ? { username: stored.username, uuid: stored.player_uuid }
+              : null,
+        };
+      }),
     ),
   );
 
@@ -327,28 +340,7 @@
             <span aria-hidden="true">✦</span> Watch the stage
           </a>
         </div>
-        <div class="ev-raffles" role="table" aria-label="Raffle winners">
-          <div class="ev-raffle-row ev-raffle-head" role="row">
-            <span role="columnheader">Winner</span>
-            <span role="columnheader">Prize</span>
-          </div>
-          {#each raffleRows as row (row.key)}
-            <div class="ev-raffle-row" role="row">
-              {#if data.spinningSlots.includes(row.key)}
-                <!-- The wheel is still turning on the stage - the committed
-                     winner must not appear here first. -->
-                <span class="ev-raffle-cell ev-raffle-unrolled" role="cell">Rolling…</span>
-              {:else if row.winner}
-                <span class="ev-raffle-cell ev-raffle-winner" role="cell">
-                  <PlayerName username={row.winner.username} uuid={row.winner.player_uuid} size={22} />
-                </span>
-              {:else}
-                <span class="ev-raffle-cell ev-raffle-unrolled" role="cell">Not rolled</span>
-              {/if}
-              <span class="ev-raffle-cell ev-raffle-prize" role="cell">{row.prize || "—"}</span>
-            </div>
-          {/each}
-        </div>
+        <PrizeBoard rows={raffleRows} />
         {#if lastDrawnAt}
           <p class="ev-raffle-drawn">Last drawn {lastDrawnAt} UTC</p>
         {/if}
@@ -745,47 +737,6 @@
     color: var(--text-muted);
     font-family: var(--font-data);
     font-size: var(--text-xs);
-  }
-
-  .ev-raffles {
-    display: grid;
-    gap: 8px;
-  }
-
-  .ev-raffle-row {
-    display: grid;
-    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
-    gap: 12px;
-    align-items: center;
-  }
-
-  .ev-raffle-head {
-    color: var(--text-muted);
-    font-family: var(--font-display);
-    font-size: var(--text-2xs);
-    letter-spacing: var(--tracking-wider);
-    text-transform: uppercase;
-    padding: 0 2px;
-  }
-
-  .ev-raffle-cell {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 11px 14px;
-    border: 1px solid var(--color-border-subtle);
-    background: color-mix(in srgb, var(--ev-sky-1) 28%, transparent);
-    color: var(--text-body);
-    font-family: var(--font-data);
-    font-size: var(--text-sm);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .ev-raffle-unrolled {
-    color: var(--text-muted);
-    font-style: italic;
   }
 
   @media (max-width: 900px) {
