@@ -3,7 +3,7 @@
 
   import { finalRotationDeg, point, wedgePath, wheelWedges } from "./wheelMath";
 
-  let { roll }: { roll: StageRoll } = $props();
+  let { roll, clockOffset }: { roll: StageRoll; clockOffset: number | null } = $props();
 
   const SIZE = 640;
   const CENTER = SIZE / 2;
@@ -18,20 +18,42 @@
   let wheel: SVGGElement | undefined = $state();
   let landed = $state(false);
 
-  // One rotation to the precomputed landing. All viewers share startedAt, so
-  // a late joiner enters the same animation mid-flight via a negative delay;
-  // past the settle time (or under reduced motion) the wheel renders parked.
+  // One rotation to the precomputed landing. The feed converts the server's
+  // epochs to this viewer's clock, so skew cannot start or finish the reveal
+  // early. Reduced-motion viewers hold a neutral wheel, then land discretely.
   $effect(() => {
     const element = wheel;
     if (!element) return;
-    const elapsed = Date.now() - roll.startedAt;
+    const finalTransform = `rotate(${rotation % 360}deg)`;
+    if (clockOffset === null) {
+      element.style.transform = roll.state === "settled" ? finalTransform : "rotate(0deg)";
+      landed = roll.state === "settled";
+      return;
+    }
+
+    const localNow = Date.now();
+    const elapsed = Math.max(0, localNow - clockOffset - roll.startedAt);
+    const settleDelay = Math.max(0, roll.settlesAt + clockOffset - localNow);
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduced || elapsed >= roll.spin.durationMs) {
-      element.style.transform = `rotate(${rotation % 360}deg)`;
+    if (settleDelay === 0) {
+      element.style.transform = finalTransform;
       landed = true;
       return;
     }
+
     landed = false;
+    const settleTimer = setTimeout(() => {
+      element.style.transform = finalTransform;
+      landed = true;
+    }, settleDelay);
+    if (reduced) {
+      element.style.transform = "rotate(0deg)";
+      return () => clearTimeout(settleTimer);
+    }
+    if (elapsed >= roll.spin.durationMs) {
+      element.style.transform = finalTransform;
+      return () => clearTimeout(settleTimer);
+    }
     const animation = element.animate(
       [{ transform: "rotate(0deg)" }, { transform: `rotate(${rotation}deg)` }],
       {
@@ -41,15 +63,13 @@
         fill: "forwards",
       },
     );
-    const done = () => (landed = true);
-    animation.addEventListener("finish", done);
     return () => {
-      animation.removeEventListener("finish", done);
+      clearTimeout(settleTimer);
       animation.cancel();
     };
   });
 
-  const showWinner = $derived(landed || roll.state === "settled");
+  const showWinner = $derived(landed);
 </script>
 
 <div class="wheel">

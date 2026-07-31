@@ -46,7 +46,12 @@
     (data.event.raffles ?? []).flatMap((raffle) =>
       Array.from({ length: raffle.winnerCount }, (_unused, slot) => {
         const live = feed?.rolls[`${raffle.id}:${slot}`];
-        const spinning = live?.state === "spinning";
+        const spinning =
+          live !== undefined &&
+          (feed?.clockOffset === null
+            ? live.state === "spinning"
+            : live.state === "spinning" ||
+              Date.now() < live.settlesAt + (feed?.clockOffset ?? 0));
         const winner = spinning
           ? null
           : live && live.state === "settled"
@@ -73,7 +78,7 @@
     {#if current}
       <div class="stage-live">
         {#key current.rollId}
-          <RaffleWheel roll={current} />
+          <RaffleWheel roll={current} clockOffset={feed?.clockOffset ?? null} />
         {/key}
         <aside class="stage-side" aria-label="This draw">
           {#if current.prize}

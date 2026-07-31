@@ -404,7 +404,7 @@ export const actions: Actions = {
             rollRecorded = false;
             return;
           }
-          publish(params.slug, { type: "roll", roll });
+          publish(params.slug, { type: "roll", now: Date.now(), roll });
           return;
         }
         // Connected stages may still hold the retired roll in memory. Name it

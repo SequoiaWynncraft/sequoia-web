@@ -11,6 +11,8 @@ export class StageFeed {
   /** Latest roll per `${raffleId}:${slot}`. */
   rolls = $state<Record<string, StageRoll>>({});
   connected = $state(false);
+  /** Local epoch minus server epoch, refreshed by every timed SSE message. */
+  clockOffset = $state<number | null>(null);
 
   private source: EventSource | undefined;
   /** Client-side settle timers per roll key - the server's own settle timer
@@ -35,13 +37,14 @@ export class StageFeed {
     source.onopen = () => (this.connected = true);
     source.onerror = () => (this.connected = false);
     source.onmessage = (event) => {
+      const receivedAt = Date.now();
       let message: StageMessage;
       try {
         message = JSON.parse(event.data as string) as StageMessage;
       } catch {
         return;
       }
-      this.apply(message);
+      this.apply(message, receivedAt);
     };
   }
 
@@ -59,25 +62,37 @@ export class StageFeed {
     const key = `${roll.raffleId}:${roll.slot}`;
     const pending = this.settleTimers.get(key);
     if (pending) clearTimeout(pending);
-    if (roll.state !== "spinning") return;
+    if (roll.state !== "spinning" || this.clockOffset === null) return;
     const timer = setTimeout(
       () => {
         const current = this.rolls[key];
         if (current && current.rollId === roll.rollId) current.state = "settled";
         this.settleTimers.delete(key);
       },
-      Math.max(0, roll.settlesAt - Date.now()),
+      Math.max(0, roll.settlesAt + this.clockOffset - Date.now()),
     );
     this.settleTimers.set(key, timer);
   }
 
-  private apply(message: StageMessage) {
+  private rescheduleSettles() {
+    for (const timer of this.settleTimers.values()) clearTimeout(timer);
+    this.settleTimers.clear();
+    for (const roll of Object.values(this.rolls)) this.scheduleSettle(roll);
+  }
+
+  private apply(message: StageMessage, receivedAt: number) {
+    if (
+      (message.type === "snapshot" || message.type === "roll") &&
+      Number.isFinite(message.now)
+    ) {
+      this.clockOffset = receivedAt - message.now;
+    }
     switch (message.type) {
       case "snapshot": {
         const rolls: Record<string, StageRoll> = {};
         for (const roll of message.rolls) rolls[`${roll.raffleId}:${roll.slot}`] = roll;
         this.rolls = rolls;
-        for (const roll of message.rolls) this.scheduleSettle(roll);
+        this.rescheduleSettles();
         break;
       }
       case "roll": {
@@ -86,14 +101,32 @@ export class StageFeed {
         // draws race, the one that started later is the one that won the
         // event's version guard.
         const existing = this.rolls[key];
-        if (existing && existing.startedAt > message.roll.startedAt) break;
+        if (existing && existing.startedAt > message.roll.startedAt) {
+          this.rescheduleSettles();
+          break;
+        }
         this.rolls[key] = message.roll;
-        this.scheduleSettle(message.roll);
+        this.rescheduleSettles();
         break;
       }
       case "settled": {
-        const roll = this.rolls[`${message.raffleId}:${message.slot}`];
-        if (roll && roll.rollId === message.rollId) roll.state = "settled";
+        const key = `${message.raffleId}:${message.slot}`;
+        const roll = this.rolls[key];
+        if (roll && roll.rollId === message.rollId) {
+          if (
+            this.clockOffset === null ||
+            Date.now() >= roll.settlesAt + this.clockOffset
+          ) {
+            roll.state = "settled";
+            const pending = this.settleTimers.get(key);
+            if (pending) clearTimeout(pending);
+            this.settleTimers.delete(key);
+          } else {
+            // Even an unexpectedly early server broadcast must not unmask
+            // the committed winner before the shared settle epoch.
+            this.scheduleSettle(roll);
+          }
+        }
         break;
       }
       case "retired": {
@@ -113,5 +146,4 @@ export class StageFeed {
         break;
     }
   }
-
 }
