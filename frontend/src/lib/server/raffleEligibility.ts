@@ -89,8 +89,10 @@ export async function resolveEligibility(
       }
       case "stat": {
         const gains = await statGains(fetchImpl, rule.stat, rule.window);
-        if (gains === null) return failed(RESULT_UNAVAILABLE);
-        pool = pool.filter((member) => (gains.get(normalizeUuid(member.uuid)) ?? 0) >= rule.min);
+        if ("error" in gains) return failed(gains.error);
+        pool = pool.filter(
+          (member) => (gains.counts.get(normalizeUuid(member.uuid)) ?? 0) >= rule.min,
+        );
         break;
       }
       case "milestone": {
@@ -123,8 +125,8 @@ export async function resolveEligibility(
     const gains =
       weight.mode === "perRaid"
         ? await boards.raidGains(weight.window)
-        : await statGainsOrNull(fetchImpl, weight.stat, weight.window);
-    if (gains === null || gains.error) return failed(gains?.error ?? RESULT_UNAVAILABLE);
+        : await statGains(fetchImpl, weight.stat, weight.window);
+    if ("error" in gains) return failed(gains.error);
     const per = Math.max(1, Math.trunc(weight.mode === "perRaid" ? weight.perTicket : weight.per));
     for (const member of pool) {
       const tickets = Math.floor((gains.counts.get(normalizeUuid(member.uuid)) ?? 0) / per);
@@ -212,9 +214,9 @@ class TrackerBoards {
 
   async raidGains(
     window: { from: string; to: string } | undefined,
-  ): Promise<{ counts: Map<string, number>; error: string | null } | null> {
+  ): Promise<{ counts: Map<string, number> } | { error: string }> {
     const board = await this.board(window);
-    return { counts: board.raids, error: board.error };
+    return board.error === null ? { counts: board.raids } : { error: board.error };
   }
 
   private board(window: { from: string; to: string } | undefined) {
@@ -253,37 +255,45 @@ class TrackerBoards {
   }
 }
 
+const DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
 /**
  * Per-member gains for one stat over a window, keyed by normalized uuid.
- * Backed by the daily rollups, so the window counts whole UTC days.
+ * Backed by the daily rollups, so the window counts whole UTC days - and
+ * only as far back as the rollups reach: a window starting before the
+ * metric's `data_since` would return partial totals that silently exclude
+ * or underweight legitimate entrants, so it fails closed instead.
  */
 async function statGains(
   fetchImpl: typeof fetch,
   stat: "raids" | "playtime" | "wars",
   window: { from: string; to: string },
-): Promise<Map<string, number> | null> {
+): Promise<{ counts: Map<string, number> } | { error: string }> {
   try {
     const progress = await getMemberProgress(
       fetchImpl,
       window.from.slice(0, 10),
       window.to.slice(0, 10),
     );
-    return new Map(
-      progress.members.map((member) => [
-        normalizeUuid(member.player_uuid),
-        stat === "raids" ? member.raids : stat === "wars" ? member.wars : member.playtime_hours,
-      ]),
-    );
+    // Raids have their own rollup feed; wars and playtime come from the
+    // activity rollups.
+    const since = (
+      stat === "raids" ? progress.data_since.raids : progress.data_since.activity
+    ).slice(0, 10);
+    if (DAY_PATTERN.test(since) && window.from.slice(0, 10) < since) {
+      return {
+        error: `${stat === "playtime" ? "Playtime" : stat === "wars" ? "War" : "Raid"} rollups only reach back to ${since} - start the window there or later.`,
+      };
+    }
+    return {
+      counts: new Map(
+        progress.members.map((member) => [
+          normalizeUuid(member.player_uuid),
+          stat === "raids" ? member.raids : stat === "wars" ? member.wars : member.playtime_hours,
+        ]),
+      ),
+    };
   } catch {
-    return null;
+    return { error: RESULT_UNAVAILABLE };
   }
-}
-
-async function statGainsOrNull(
-  fetchImpl: typeof fetch,
-  stat: "raids" | "playtime" | "wars",
-  window: { from: string; to: string },
-): Promise<{ counts: Map<string, number>; error: string | null } | null> {
-  const gains = await statGains(fetchImpl, stat, window);
-  return gains === null ? null : { counts: gains, error: null };
 }
