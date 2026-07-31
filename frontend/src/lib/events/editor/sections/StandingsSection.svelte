@@ -22,8 +22,10 @@
    */
   function submitTrackerOnEnter(event: KeyboardEvent) {
     if (event.key !== "Enter") return;
-    const target = event.target as HTMLElement;
-    if (target instanceof HTMLTextAreaElement || target instanceof HTMLButtonElement) return;
+    // Only text-style inputs shortcut to the tracker action: a select's
+    // Enter confirms the highlighted option, and hijacking it would submit
+    // the tracker with the PREVIOUS selection still applied.
+    if (!(event.target instanceof HTMLInputElement)) return;
     event.preventDefault();
     trackerSubmit?.click();
   }
