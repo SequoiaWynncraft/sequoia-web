@@ -170,6 +170,13 @@
         </div>
       </Field>
 
+      <Field label="Wheel shows">
+        <select class="seq-input evf-wheel-style" bind:value={raffle.wheelStyle}>
+          <option value="heads">Player heads on the rim</option>
+          <option value="names">Names on the wedges</option>
+        </select>
+      </Field>
+
       <Field label="Tickets" element="div">
         <div class="evf-weight-row">
           <select class="seq-input evf-weight-mode" bind:value={raffle.weightMode}>

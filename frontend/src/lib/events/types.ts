@@ -176,6 +176,8 @@ export interface EventRaffle {
   winnerCount: number;
   /** Curated prize art (file from PRIZE_ICONS); display-only. */
   icon?: string;
+  /** What identifies entrants on the stage wheel; default "heads". */
+  wheelStyle?: "heads" | "names";
   /** Raids per ticket: entrants earn floor(raids / perTicket) weighted tickets. */
   perTicket: number;
   /** Ticket-earning window (RFC3339); absent uses the tracker's full window. */

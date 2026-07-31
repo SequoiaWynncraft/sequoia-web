@@ -5,17 +5,29 @@
 
   import { finalRotationDeg, point, wedgeAtPointer, wedgePath, wheelWedges } from "./wheelMath";
 
-  let { roll, clockOffset }: { roll: StageRoll; clockOffset: number | null } = $props();
+  let {
+    roll,
+    clockOffset,
+    wheelStyle = "heads",
+  }: {
+    roll: StageRoll;
+    clockOffset: number | null;
+    /** Rim identity: pixel heads (crowd-proof) or classic rotated names. */
+    wheelStyle?: "heads" | "names";
+  } = $props();
 
   const SIZE = 640;
   const CENTER = SIZE / 2;
   const RADIUS = CENTER - 12;
   const HEAD_RADIUS = RADIUS * 0.84;
-  const LABEL_RADIUS = RADIUS * 0.55;
   /** Hairlines on slim wedges melt into a solid fan - draw none below this. */
   const STROKE_MIN_DEG = 2.5;
-  /** Names only where an arc can actually hold one; heads carry the rest. */
-  const LABEL_MIN_DEG = 14;
+  // Heads mode: names only where an arc can hold one, heads carry the rest.
+  // Names mode: labels reach further out and down to slimmer wedges - they
+  // are the only identity on the wheel.
+  const showHeads = $derived(wheelStyle === "heads");
+  const labelRadius = $derived(RADIUS * (wheelStyle === "heads" ? 0.55 : 0.68));
+  const labelMinDeg = $derived(wheelStyle === "heads" ? 14 : 4);
 
   const wedges = $derived(wheelWedges(roll.entrants));
   const rotation = $derived(finalRotationDeg(wedges, roll.winnerIndex, roll.spin.turns));
@@ -137,8 +149,8 @@
             class:wheel-wedge-quiet={span < STROKE_MIN_DEG}
             class:wheel-wedge-winner={showWinner && index === roll.winnerIndex}
           />
-          {#if span >= LABEL_MIN_DEG}
-            {@const anchor = point(CENTER, CENTER, LABEL_RADIUS, wedge.midDeg)}
+          {#if span >= labelMinDeg}
+            {@const anchor = point(CENTER, CENTER, labelRadius, wedge.midDeg)}
             <text
               x={anchor.x}
               y={anchor.y}
@@ -149,7 +161,7 @@
             </text>
           {/if}
         {/each}
-        {#each roll.entrants as entrant, index (entrant.player_uuid)}
+        {#each showHeads ? roll.entrants : [] as entrant, index (entrant.player_uuid)}
           {@const anchor = point(CENTER, CENTER, HEAD_RADIUS, wedges[index].midDeg)}
           <g
             class="wheel-head"
@@ -189,19 +201,6 @@
       {/if}
     </div>
 
-    {#if showWinner}
-      <!-- One-shot landing moment: an expanding gold ring and a scatter of
-           sparks. Plays once, settles still - never loops, never pulses. -->
-      <div class="wheel-burst" aria-hidden="true">
-        <span class="wheel-burst-ring"></span>
-        {#each Array.from({ length: 10 }, (_unused, spark) => spark) as spark (spark)}
-          <span
-            class="wheel-burst-spark"
-            style="--spark-angle: {spark * 36}deg; --spark-delay: {spark % 3}">✦</span
-          >
-        {/each}
-      </div>
-    {/if}
   </div>
 
   <div class="wheel-under" aria-live="polite">
@@ -335,74 +334,6 @@
     color: var(--text-muted);
   }
 
-  /* ── The landing moment: one shot, then stillness ── */
-
-  .wheel-burst {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 0;
-    height: 0;
-    pointer-events: none;
-  }
-
-  .wheel-burst-ring {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 120px;
-    height: 120px;
-    border: 1px solid var(--color-gold);
-    border-radius: 50%;
-    opacity: 0;
-    translate: -50% -50%;
-    animation: wheel-ring 900ms ease-out forwards;
-  }
-
-  .wheel-burst-spark {
-    position: absolute;
-    color: var(--color-gold);
-    font-size: 14px;
-    opacity: 0;
-    rotate: var(--spark-angle);
-    animation: wheel-spark 800ms ease-out forwards;
-    animation-delay: calc(var(--spark-delay) * 70ms);
-  }
-
-  @keyframes wheel-ring {
-    from {
-      opacity: 0.9;
-      scale: 0.35;
-    }
-
-    to {
-      opacity: 0;
-      scale: 2.1;
-    }
-  }
-
-  @keyframes wheel-spark {
-    0% {
-      opacity: 0;
-      transform: translateY(-40px);
-    }
-
-    25% {
-      opacity: 1;
-    }
-
-    100% {
-      opacity: 0;
-      transform: translateY(-150px);
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .wheel-burst {
-      display: none;
-    }
-  }
-
   .wheel-under {
     display: grid;
     justify-items: center;
@@ -420,6 +351,14 @@
     color: var(--text-heading);
     font-family: var(--font-display);
     font-size: var(--text-lg);
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+  }
+
+  /* The banner's identity renders in the display face like the frame - the
+     shared PlayerName default (data face) is for tables and lists. */
+  .wheel-winner :global(.pn-name) {
+    font-family: var(--font-display);
     letter-spacing: var(--tracking-wide);
     text-transform: uppercase;
   }
