@@ -192,6 +192,13 @@ export async function resolveEligibility(
     }
   }
 
+  // Source tracks why an entrant was admitted, independently of how their
+  // tickets were weighted. Includes retain that provenance even on the roster.
+  for (const entry of eligibility.include ?? []) {
+    const included = weighted.get(normalizeUuid(entry.player_uuid));
+    if (included) included.source = "include";
+  }
+
   for (const entry of eligibility.exclude ?? []) {
     weighted.delete(normalizeUuid(entry.player_uuid));
   }
