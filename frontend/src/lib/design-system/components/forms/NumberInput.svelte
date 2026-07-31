@@ -5,6 +5,7 @@
     value = $bindable(null),
     invalid = false,
     class: extraClass = "",
+    "aria-invalid": ariaInvalid,
     ...rest
   }: {
     /** Numeric binding; a cleared input reads back as null or undefined
@@ -18,6 +19,6 @@
   {...rest}
   type="number"
   class="seq-input seq-input-mono {extraClass}"
-  aria-invalid={invalid || undefined}
+  aria-invalid={invalid ? true : ariaInvalid}
   bind:value
 />

@@ -6,6 +6,7 @@
     value = $bindable(""),
     invalid = false,
     class: extraClass = "",
+    "aria-invalid": ariaInvalid,
     children,
     ...rest
   }: {
@@ -16,6 +17,6 @@
   } & Omit<HTMLSelectAttributes, "value" | "multiple"> = $props();
 </script>
 
-<select {...rest} class="seq-input {extraClass}" aria-invalid={invalid || undefined} bind:value>
+<select {...rest} class="seq-input {extraClass}" aria-invalid={invalid ? true : ariaInvalid} bind:value>
   {@render children()}
 </select>
