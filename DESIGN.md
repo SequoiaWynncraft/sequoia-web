@@ -143,9 +143,12 @@ stage. If the CAS loses, the action supersedes that pending row; if it wins, `ma
 conditionally flips the row live and reports whether the transition actually happened.
 Only a successfully flipped row is broadcast over in-process pub/sub. Failed cleanup or
 activation cannot create a false stage result: an abandoned pending row becomes invisible
-everywhere when its settle time expires and can no longer mask the slot or shadow an older
-live roll. The committed winner in the event JSON remains authoritative. A failed record
-or activation therefore costs the stage its replay and live animation, and warns the
+to the public page and stage when `latestForEvent` skips it after its settle time expires,
+and it can no longer mask the slot or shadow an older live roll. The management roll
+history intentionally uses `listForEvent` to list every record, including abandoned pending
+rows, without a separate marker; their attempted draws have no winner committed to the
+authoritative event JSON. A failed record or activation therefore costs the stage its replay
+and live animation, and warns the
 manager distinctly from an audit failure; a delivery error on one subscriber's stream
 costs only that stream the live push — the persisted live record still replays on its
 reconnect snapshot
