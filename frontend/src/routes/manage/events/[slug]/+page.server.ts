@@ -218,6 +218,21 @@ export const actions: Actions = {
     if (!Number.isInteger(slot) || slot < 0 || slot >= raffle.winnerCount) {
       return fail(400, { error: "That winner slot no longer exists - save and try again." });
     }
+    // Capture the slot's current roll NOW, while whatever is recorded still
+    // belongs to the version this request just checked. Observed any later -
+    // after the eligibility awaits - it could be a rival request's fresh
+    // record, and retiring that right before our own CAS loses would erase a
+    // valid draw.
+    let priorRollId: string | null = null;
+    try {
+      priorRollId =
+        (await raffleRollStore.latestForEvent(params.slug)).find(
+          (entry) => entry.raffleId === raffleId && entry.slot === slot,
+        )?.rollId ?? null;
+    } catch (error) {
+      console.warn("raffle roll lookup failed:", error);
+      return fail(503, { error: "Could not clear the previous roll - try again shortly." });
+    }
     // Membership trust mirrors the public standings board: only a fresh
     // roster is authoritative for who is eligible.
     const stats = await getGuildStats(fetch, { allowStale: false }).catch(() => null);
@@ -251,22 +266,15 @@ export const actions: Actions = {
 
     raffle.winners = [...others, { slot, ...drawn }];
     raffle.drawnAt = new Date().toISOString();
-    // Retire the slot's previous roll BEFORE committing its replacement, and
-    // abort if that fails: a committed new winner alongside a live old roll
-    // would let recovered snapshots replay the old winner over the real one.
-    // Only the roll THIS request observed is retired - a blanket slot-wide
-    // supersede could take a concurrent rival's fresh record down before our
-    // own CAS loses. The reverse loss (retired old roll, CAS below fails)
-    // only costs the stage its replay - the slot's winner is unchanged.
-    let priorRollId: string | null = null;
+    // Retire the version-bound roll captured above BEFORE committing its
+    // replacement, and abort if that fails: a committed new winner alongside
+    // a live old roll would let recovered snapshots replay the old winner
+    // over the real one. If a rival raced us here, it retired the same
+    // captured roll (idempotent) and exactly one of us survives the CAS
+    // below. The reverse loss (retired old roll, CAS fails) only costs the
+    // stage its replay - the slot's winner is unchanged.
     try {
-      const prior = (await raffleRollStore.latestForEvent(params.slug)).find(
-        (entry) => entry.raffleId === raffleId && entry.slot === slot,
-      );
-      if (prior) {
-        priorRollId = prior.rollId;
-        await raffleRollStore.markSupersededById(prior.rollId);
-      }
+      if (priorRollId) await raffleRollStore.markSupersededById(priorRollId);
     } catch (error) {
       console.warn("raffle roll supersede failed:", error);
       return fail(503, { error: "Could not clear the previous roll - try again shortly." });

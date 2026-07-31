@@ -325,7 +325,11 @@
           </div>
           {#each raffleRows as row (row.key)}
             <div class="ev-raffle-row" role="row">
-              {#if row.winner}
+              {#if data.spinningSlots.includes(row.key)}
+                <!-- The wheel is still turning on the stage - the committed
+                     winner must not appear here first. -->
+                <span class="ev-raffle-cell ev-raffle-unrolled" role="cell">Rolling…</span>
+              {:else if row.winner}
                 <a
                   class="ev-raffle-cell ev-raffle-winner focus-ring"
                   role="cell"

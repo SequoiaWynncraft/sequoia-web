@@ -8,6 +8,7 @@ import { eventStore } from "$lib/server/eventStore";
 import { loadEventRaidCounts, sumCounts, type EventDayCount } from "$lib/server/eventActivity";
 import { loadGoalProgress } from "$lib/server/goalProgress";
 import { loadModRunCounts } from "$lib/server/modActivity";
+import { raffleRollStore } from "$lib/server/raffleRolls";
 import { requestError } from "$lib/server/requestError";
 import {
   loadModLeaderboard,
@@ -68,6 +69,7 @@ export const load: PageServerLoad = async ({ fetch, locals, params, parent }) =>
       today,
       standings: null,
       viewerRaids: null,
+      spinningSlots: [] as string[],
     };
   }
 
@@ -121,6 +123,16 @@ export const load: PageServerLoad = async ({ fetch, locals, params, parent }) =>
     }
   }
 
+  // Slots whose roll is still animating on the stage: their committed winner
+  // is masked below so this page can't spoil a wheel that hasn't landed.
+  // Load-time only - a reload during the ~9s spin says "Rolling..." and the
+  // next reload shows the winner; the stage page carries the live feed.
+  const spinningSlots = event.raffles?.length
+    ? (await raffleRollStore.latestForEvent(params.slug).catch(() => []))
+        .filter((roll) => roll.state === "spinning")
+        .map((roll) => `${roll.raffleId}:${roll.slot}`)
+    : [];
+
   return {
     event,
     status,
@@ -133,6 +145,7 @@ export const load: PageServerLoad = async ({ fetch, locals, params, parent }) =>
     today,
     standings,
     viewerRaids,
+    spinningSlots,
   };
 };
 
