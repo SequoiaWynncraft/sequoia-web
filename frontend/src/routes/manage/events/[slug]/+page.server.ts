@@ -100,8 +100,32 @@ export const actions: Actions = {
       params.slug,
       payload.published ? "published" : "draft",
     );
+    // A save that removes a raffle or shrinks its winner count strands the
+    // slot's persisted roll: retire it, or the stage keeps replaying a wheel
+    // for configuration that no longer exists.
+    const validCounts = new Map(
+      (regrafted.event.raffles ?? []).map((raffle) => [raffle.id, raffle.winnerCount]),
+    );
+    try {
+      for (const roll of await raffleRollStore.latestForEvent(params.slug)) {
+        const winnerCount = validCounts.get(roll.raffleId);
+        if (winnerCount === undefined || roll.slot >= winnerCount) {
+          await raffleRollStore.markSuperseded(params.slug, roll.raffleId, roll.slot);
+        }
+      }
+    } catch (error) {
+      console.warn("orphan raffle roll retirement failed:", error);
+    }
+    // Tightening visibility must cut existing streams, not just notify them:
+    // a subscriber authorized at connect time would otherwise keep receiving
+    // entrant names past the new gate. Ended streams reconnect into the
+    // connect-time access check.
+    const tightened =
+      (stored.published && !payload.published) ||
+      (stored.event.access === "public" && regrafted.event.access === "members");
+    if (tightened) endRoom(params.slug);
     // Open stages refetch their raffle config off the fresh event.
-    publish(params.slug, { type: "event-updated" });
+    else publish(params.slug, { type: "event-updated" });
     // The exact version this save wrote: the client adopts it as its reviewed
     // token, so a concurrent save landing during the response can't slip in.
     return { saved: true, newUpdatedAt, auditWarning: !audited };
@@ -128,20 +152,26 @@ export const actions: Actions = {
     if (stored.updatedAt !== baseUpdatedAt) {
       return fail(409, { error: "This event just changed - reload before deleting." });
     }
+    // A later event reusing this slug must not inherit the old rolls - the
+    // stage would replay the previous event's wheel and entrant names. The
+    // purge comes FIRST and a failure aborts the deletion: leaving the event
+    // in place is recoverable, orphaned entrant snapshots under a reusable
+    // slug are not. (Purged-but-not-deleted, the rare CAS-loss below, only
+    // costs the stage its replay; winners live in the event JSON.)
+    try {
+      await raffleRollStore.removeForEvent(params.slug);
+    } catch (error) {
+      console.warn("raffle roll purge failed:", error);
+      return fail(503, { error: "Could not clear the raffle records - try again shortly." });
+    }
     if (!(await eventStore.remove(params.slug, { ifUpdatedAt: baseUpdatedAt }))) {
       // The CAS lost a race after the read above: a concurrent delete of the
       // same version is done, a concurrent update is a conflict.
       if (!(await eventStore.get(params.slug))) redirect(303, "/manage/events");
       return fail(409, { error: "This event just changed - reload before deleting." });
     }
-    // A later event reusing this slug must not inherit the old rolls - the
-    // stage would replay the previous event's wheel and entrant names. Purge
-    // best-effort; the audit row below retains the winners. Open stage
-    // streams end with the event: their reconnect re-runs the access check
-    // against whatever lives at the slug next.
-    await raffleRollStore
-      .removeForEvent(params.slug)
-      .catch((error: unknown) => console.warn("raffle roll purge failed:", error));
+    // Open stage streams end with the event: their reconnect re-runs the
+    // access check against whatever lives at the slug next.
     endRoom(params.slug);
     // Retain the deleted payload so the event can be reconstructed from the log.
     const audited = await recordAudit(manager, "event.delete", params.slug, JSON.stringify(stored.event));

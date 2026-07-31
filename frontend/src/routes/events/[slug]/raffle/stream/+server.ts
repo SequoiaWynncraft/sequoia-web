@@ -68,10 +68,18 @@ export const GET: RequestHandler = async ({ params, cookies, fetch, locals }) =>
           }
         },
       );
-      send({
-        type: "snapshot",
-        rolls: (await raffleRollStore.latestForEvent(params.slug)).map(toStageRoll),
-      });
+      try {
+        send({
+          type: "snapshot",
+          rolls: (await raffleRollStore.latestForEvent(params.slug)).map(toStageRoll),
+        });
+      } catch (error) {
+        // A failed snapshot must not leave a dead subscriber behind - the
+        // browser's reconnects would pile them up for the process lifetime.
+        unsubscribe?.();
+        controller.error(error);
+        return;
+      }
       const backlog = buffered;
       buffered = null;
       for (const message of backlog) send(message);

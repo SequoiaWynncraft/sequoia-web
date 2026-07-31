@@ -20,7 +20,15 @@
     return () => connected.close();
   });
 
-  const current = $derived(feed?.current ?? null);
+  // A roll only reaches the wheel while its raffle and slot still exist in
+  // the event - a save can remove either, and the feed's copy would
+  // otherwise keep replaying configuration that is gone.
+  const current = $derived.by(() => {
+    const roll = feed?.current ?? null;
+    if (!roll) return null;
+    const raffle = (data.event.raffles ?? []).find((entry) => entry.id === roll.raffleId);
+    return raffle && roll.slot < raffle.winnerCount ? roll : null;
+  });
 
   // One row per declared winner slot: a settled live roll wins over the
   // winner stored in the event JSON (which only refreshes on reload).
