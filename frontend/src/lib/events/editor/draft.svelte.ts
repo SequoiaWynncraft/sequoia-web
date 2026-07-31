@@ -293,6 +293,8 @@ export class EventDraft {
   serverSaved = $state(false);
   serverError = $state<string | null>(null);
   serverAuditWarning = $state(false);
+  /** The last roll landed but its stage replay record did not. */
+  serverRollWarning = $state(false);
   newTrackerName = $state("");
   newTrackerStarts = $state("");
   newTrackerEnds = $state("");

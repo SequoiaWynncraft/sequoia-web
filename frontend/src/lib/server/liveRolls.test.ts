@@ -74,3 +74,18 @@ describe("room epochs", () => {
     unsubscribe?.();
   });
 });
+
+describe("teardown races", () => {
+  it("a straggling unsubscribe never deletes a replacement room", () => {
+    const listener = vi.fn();
+    const oldUnsub = subscribe("event-g", listener)!;
+    endRoom("event-g");
+    const replacement = vi.fn();
+    const newUnsub = subscribe("event-g", replacement, undefined, roomEpoch("event-g"))!;
+    // The old stream's cleanup fires after the reconnect already registered.
+    oldUnsub();
+    publish("event-g", MESSAGE);
+    expect(replacement).toHaveBeenCalledWith(MESSAGE);
+    newUnsub();
+  });
+});

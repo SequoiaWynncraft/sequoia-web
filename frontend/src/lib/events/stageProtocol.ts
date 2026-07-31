@@ -32,4 +32,9 @@ export type StageMessage =
   | { type: "snapshot"; rolls: StageRoll[] }
   | { type: "roll"; roll: StageRoll }
   | { type: "settled"; rollId: string; raffleId: string; slot: number }
+  /** The named roll is gone (its replacement's record failed) - drop it
+   * only if the feed still holds exactly that roll, and fall back to the
+   * event data, which stays authoritative. A concurrent manager's newer
+   * roll on the same slot must survive this message. */
+  | { type: "retired"; raffleId: string; slot: number; rollId: string }
   | { type: "event-updated" };

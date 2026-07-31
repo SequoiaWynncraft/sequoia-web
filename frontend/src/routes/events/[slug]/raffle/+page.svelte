@@ -38,16 +38,21 @@
   });
 
   // One row per declared winner slot: a settled live roll wins over the
-  // winner stored in the event JSON (which only refreshes on reload).
+  // winner stored in the event JSON (which only refreshes on reload) - and
+  // while a slot's roll is still SPINNING, the stored winner stays hidden:
+  // the commit precedes the animation, and the table must not spoil the
+  // wheel's landing for anyone who opens or reloads mid-spin.
   const results = $derived(
     (data.event.raffles ?? []).flatMap((raffle) =>
       Array.from({ length: raffle.winnerCount }, (_unused, slot) => {
         const live = feed?.rolls[`${raffle.id}:${slot}`];
-        const winner =
-          live && live.state === "settled"
+        const spinning = live?.state === "spinning";
+        const winner = spinning
+          ? null
+          : live && live.state === "settled"
             ? live.winner.username
             : (raffle.winners?.find((entry) => entry.slot === slot)?.username ?? null);
-        return { key: `${raffle.id}:${slot}`, prize: raffle.prize, winner };
+        return { key: `${raffle.id}:${slot}`, prize: raffle.prize, winner, spinning };
       }),
     ),
   );
@@ -89,7 +94,7 @@
         {#each results as row (row.key)}
           <div class="stage-result">
             <span class="stage-result-winner" class:stage-result-unrolled={!row.winner}>
-              {row.winner ?? "Not rolled"}
+              {row.winner ?? (row.spinning ? "Rolling…" : "Not rolled")}
             </span>
             <span class="stage-result-prize">{row.prize}</span>
           </div>
