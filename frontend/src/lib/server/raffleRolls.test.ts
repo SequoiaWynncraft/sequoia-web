@@ -94,4 +94,15 @@ describe("raffle roll store", () => {
     expect(await store.latestForEvent("other-event")).toHaveLength(1);
     expect(await store.listForEvent("test-event")).toHaveLength(1);
   });
+
+  it("purges an event's rolls without touching other events", async () => {
+    const store = memoryStore();
+    await store.insert(roll());
+    await store.insert(roll({ slot: 1 }));
+    await store.insert(roll({ eventSlug: "other-event", rollId: "other-roll" }));
+    await store.removeForEvent("test-event");
+    expect(await store.listForEvent("test-event")).toHaveLength(0);
+    expect(await store.latestForEvent("test-event")).toHaveLength(0);
+    expect(await store.listForEvent("other-event")).toHaveLength(1);
+  });
 });

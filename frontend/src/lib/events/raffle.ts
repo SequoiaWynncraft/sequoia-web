@@ -28,24 +28,35 @@ export interface DrawOptions {
  * only when the eligible pool is smaller. Ticket counts are frozen onto each
  * returned winner; the caller assigns each one a slot.
  */
-export function drawWinners(
+/**
+ * The exact candidate list a draw runs over: excluded UUIDs and zero-ticket
+ * entrants dropped, duplicate UUIDs deduped on first sighting (two
+ * leaderboard entries can resolve to the same roster member). Exported so a
+ * display of the pool (e.g. the live wheel) filters identically to the draw.
+ */
+export function drawablePool(
   pool: RaffleEntrant[],
-  count: number,
-  { exclude, rng = Math.random }: DrawOptions = {},
-): DrawnEntrant[] {
+  exclude?: Iterable<string>,
+): RaffleEntrant[] {
   const excluded = new Set(exclude ?? []);
-  // Fresh copy: entrants are spliced out as they win, so the caller's pool is
-  // never mutated. A uuid can appear more than once when two leaderboard entries
-  // resolve to the same roster member; dedupe on first sighting so a member can
-  // never take two slots in one draw.
   const seen = new Set<string>();
-  const remaining = pool.filter((entry) => {
+  return pool.filter((entry) => {
     if (entry.tickets <= 0 || excluded.has(entry.player_uuid) || seen.has(entry.player_uuid)) {
       return false;
     }
     seen.add(entry.player_uuid);
     return true;
   });
+}
+
+export function drawWinners(
+  pool: RaffleEntrant[],
+  count: number,
+  { exclude, rng = Math.random }: DrawOptions = {},
+): DrawnEntrant[] {
+  // Fresh copy: entrants are spliced out as they win, so the caller's pool is
+  // never mutated.
+  const remaining = drawablePool(pool, exclude);
   const winners: DrawnEntrant[] = [];
   const target = Math.min(count, remaining.length);
   for (let drawn = 0; drawn < target; drawn++) {

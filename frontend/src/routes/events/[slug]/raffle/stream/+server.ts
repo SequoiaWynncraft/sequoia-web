@@ -34,18 +34,30 @@ export const GET: RequestHandler = async ({ params, cookies, fetch, locals }) =>
     }
   }
 
-  const snapshot = await raffleRollStore.latestForEvent(params.slug);
   const encoder = new TextEncoder();
   let unsubscribe: (() => void) | undefined;
   let heartbeat: ReturnType<typeof setInterval> | undefined;
 
   const stream = new ReadableStream<Uint8Array>({
-    start(controller) {
+    async start(controller) {
       const send = (message: StageMessage) => {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(message)}\n\n`));
       };
-      send({ type: "snapshot", rolls: snapshot });
-      unsubscribe = subscribe(params.slug, send);
+      // Subscribe BEFORE reading the snapshot: a roll landing between the
+      // two would otherwise be in neither (published with no listener yet,
+      // committed after the read), and this viewer would miss the whole
+      // draw. Messages arriving during the read are buffered and flushed
+      // after the snapshot; the client's apply is idempotent per rollId, so
+      // a roll that made both is harmless.
+      let buffered: StageMessage[] | null = [];
+      unsubscribe = subscribe(params.slug, (message) => {
+        if (buffered) buffered.push(message);
+        else send(message);
+      });
+      send({ type: "snapshot", rolls: await raffleRollStore.latestForEvent(params.slug) });
+      const backlog = buffered;
+      buffered = null;
+      for (const message of backlog) send(message);
       // Comment frames keep proxies from idling the connection out.
       heartbeat = setInterval(() => controller.enqueue(encoder.encode(":hb\n\n")), HEARTBEAT_MS);
       if (typeof heartbeat === "object" && "unref" in heartbeat) heartbeat.unref();

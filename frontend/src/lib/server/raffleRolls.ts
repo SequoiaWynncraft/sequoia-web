@@ -25,6 +25,12 @@ export interface RaffleRollStore {
   markSettled(id: string): Promise<void>;
   /** Re-rolling a slot retires its previous roll from the stage snapshot. */
   markSuperseded(eventSlug: string, raffleId: string, slot: number): Promise<void>;
+  /**
+   * Deleting an event purges its rolls: a later event reusing the slug must
+   * never inherit the old wheel - a members-only event's entrant names could
+   * otherwise resurface on a public successor's stage.
+   */
+  removeForEvent(eventSlug: string): Promise<void>;
 }
 
 /**
@@ -136,6 +142,14 @@ export function createRaffleRollStore(getClient: () => Promise<Client>): RaffleR
       await db.execute({
         sql: "UPDATE raffle_rolls SET state = 'superseded' WHERE event_slug = ? AND raffle_id = ? AND slot = ?",
         args: [eventSlug, raffleId, slot],
+      });
+    },
+
+    async removeForEvent(eventSlug) {
+      const db = await ready();
+      await db.execute({
+        sql: "DELETE FROM raffle_rolls WHERE event_slug = ?",
+        args: [eventSlug],
       });
     },
   };

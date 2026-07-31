@@ -3,14 +3,13 @@ import type { Actions, PageServerLoad } from "./$types";
 
 import { pageAreaAccess } from "$lib/server/manageCapabilities";
 import { recordAudit } from "$lib/server/auditLog";
-import { drawWinners, secureRng } from "$lib/events/raffle";
+import { drawWinners, drawablePool, secureRng } from "$lib/events/raffle";
 import { parseGuildEvent } from "$lib/events/validate";
 import { eventFormContext } from "$lib/server/eventFormContext";
 import { requireEventManager } from "$lib/server/eventManagers";
 import { getGuildStats } from "$lib/server/guildStats";
 import { publish } from "$lib/server/liveRolls";
 import { resolveEligibility } from "$lib/server/raffleEligibility";
-import { normalizeUuid, sameUuid } from "$lib/server/raidEventBoards";
 import { raffleRollStore } from "$lib/server/raffleRolls";
 import { createTrackerAction, updateTrackerAction } from "$lib/server/trackerAdmin";
 import { parseEventPayload } from "$lib/server/eventPayload";
@@ -135,6 +134,12 @@ export const actions: Actions = {
       if (!(await eventStore.get(params.slug))) redirect(303, "/manage/events");
       return fail(409, { error: "This event just changed - reload before deleting." });
     }
+    // A later event reusing this slug must not inherit the old rolls - the
+    // stage would replay the previous event's wheel and entrant names. Purge
+    // best-effort; the audit row above retains the winners.
+    await raffleRollStore
+      .removeForEvent(params.slug)
+      .catch((error: unknown) => console.warn("raffle roll purge failed:", error));
     // Retain the deleted payload so the event can be reconstructed from the log.
     const audited = await recordAudit(manager, "event.delete", params.slug, JSON.stringify(stored.event));
     // The event is gone either way; an unrecorded deletion must not pass silently.
@@ -226,19 +231,15 @@ export const actions: Actions = {
 
     // The winner in the event JSON is authoritative from here on. The roll
     // row and broadcast below power the live stage: they replay the exact
-    // drawable pool the draw ran over (drawWinners' own filter, mirrored),
-    // so every open stage animates the same wheel to the same wedge. A
-    // failed row is a degraded animation, never a lost winner.
-    const excluded = new Set(exclude.map(normalizeUuid));
-    const seen = new Set<string>();
-    const wheelPool = pool.entrants.flatMap((entrant) => {
-      const key = normalizeUuid(entrant.player_uuid);
-      if (entrant.tickets <= 0 || excluded.has(key) || seen.has(key)) return [];
-      seen.add(key);
-      return [
-        { player_uuid: entrant.player_uuid, username: entrant.username, tickets: entrant.tickets },
-      ];
-    });
+    // drawable pool the draw ran over (drawWinners' own exported filter, so
+    // the semantics can never drift), and every open stage animates the same
+    // wheel to the same wedge. A failed row is a degraded animation, never a
+    // lost winner.
+    const wheelPool = drawablePool(pool.entrants, exclude).map((entrant) => ({
+      player_uuid: entrant.player_uuid,
+      username: entrant.username,
+      tickets: entrant.tickets,
+    }));
     const startedAt = Date.now();
     const roll = {
       rollId: crypto.randomUUID(),
@@ -247,9 +248,9 @@ export const actions: Actions = {
       slot,
       prize: raffle.prize,
       entrants: wheelPool,
-      winnerIndex: wheelPool.findIndex((entrant) =>
-        sameUuid(entrant.player_uuid, drawn.player_uuid),
-      ),
+      // The draw picked from this same filtered list, so the winner matches
+      // by exact uuid - the draw's own comparison.
+      winnerIndex: wheelPool.findIndex((entrant) => entrant.player_uuid === drawn.player_uuid),
       winner: drawn,
       spin: { turns: 4 + Math.floor(secureRng() * 3), durationMs: 9000 },
       state: "spinning" as const,
