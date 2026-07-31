@@ -121,14 +121,16 @@
   });
 
   // Removing or emptying a personal milestone drops it from milestoneOptions;
-  // clear any raffle gate that pointed at it so the picker visibly resets and no
-  // stale id lingers until serialization. Setting "" is stable (falsy, so the
-  // effect no-ops on its own re-run).
+  // clear any milestone rule that pointed at it so the picker visibly resets
+  // and no stale id lingers until serialization. Setting "" is stable (falsy,
+  // so the effect no-ops on its own re-run).
   $effect(() => {
     const valid = new Set(draft.milestoneOptions.map((option) => option.id));
     for (const raffle of draft.raffles) {
-      if (raffle.requiresMilestone && !valid.has(raffle.requiresMilestone)) {
-        raffle.requiresMilestone = "";
+      for (const rule of raffle.rules) {
+        if (rule.type === "milestone" && rule.milestoneId && !valid.has(rule.milestoneId)) {
+          rule.milestoneId = "";
+        }
       }
     }
   });

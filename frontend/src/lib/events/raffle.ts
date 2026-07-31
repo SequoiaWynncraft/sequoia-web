@@ -20,6 +20,10 @@ export interface DrawOptions {
   rng?: () => number;
 }
 
+function canonicalUuid(value: string): string {
+  return value.replaceAll("-", "").toLowerCase();
+}
+
 /**
  * Draws up to `count` distinct winners from `pool`, weighting each entrant by
  * their ticket count (more tickets, higher odds). Selection is without
@@ -33,17 +37,18 @@ export function drawWinners(
   count: number,
   { exclude, rng = Math.random }: DrawOptions = {},
 ): DrawnEntrant[] {
-  const excluded = new Set(exclude ?? []);
+  const excluded = new Set(Array.from(exclude ?? [], canonicalUuid));
   // Fresh copy: entrants are spliced out as they win, so the caller's pool is
   // never mutated. A uuid can appear more than once when two leaderboard entries
   // resolve to the same roster member; dedupe on first sighting so a member can
   // never take two slots in one draw.
   const seen = new Set<string>();
   const remaining = pool.filter((entry) => {
-    if (entry.tickets <= 0 || excluded.has(entry.player_uuid) || seen.has(entry.player_uuid)) {
+    const uuid = canonicalUuid(entry.player_uuid);
+    if (entry.tickets <= 0 || excluded.has(uuid) || seen.has(uuid)) {
       return false;
     }
-    seen.add(entry.player_uuid);
+    seen.add(uuid);
     return true;
   });
   const winners: DrawnEntrant[] = [];

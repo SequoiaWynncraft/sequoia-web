@@ -160,8 +160,151 @@
 }
 
 .evf-repeat-raffle {
-  grid-template-columns: minmax(0, 3fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 4fr) minmax(0, 1fr) auto;
   align-items: end;
+}
+
+/* ── Eligibility builder ── */
+
+.evf-weight-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.evf-weight-mode {
+  width: auto;
+  min-width: 230px;
+}
+
+.evf-weight-stat {
+  width: auto;
+}
+
+.evf-weight-per {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.evf-weight-per input {
+  width: 74px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.evf-weight-per-label {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+.evf-rule {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border-left: 2px solid color-mix(in srgb, var(--color-gold) 35%, var(--color-border-subtle));
+  background: color-mix(in srgb, var(--color-abyss) 40%, transparent);
+}
+
+.evf-rule-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.evf-rule-type {
+  color: var(--text-heading);
+  font-family: var(--font-display);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+}
+
+.evf-rule-stat {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.evf-rule-stat select {
+  width: auto;
+}
+
+.evf-rule-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+
+.evf-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.evf-chip {
+  padding: 5px 11px 4px;
+  border: 1px solid var(--color-border-subtle);
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+
+.evf-chip:hover {
+  border-color: var(--color-border-accent);
+}
+
+.evf-chip-selected,
+.evf-chip-selected:hover {
+  border-color: color-mix(in srgb, var(--color-gold) 55%, var(--color-border-subtle));
+  color: var(--color-gold);
+}
+
+.evf-chip-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.evf-chip:has(.evf-chip-input:focus-visible) {
+  outline: 2px solid var(--color-gold);
+  outline-offset: 2px;
+}
+
+.evf-manual-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.evf-manual-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-body);
+  font-family: var(--font-data);
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.evf-manual-add {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.evf-manual-add input {
+  max-width: 220px;
 }
 
 .evf-raffle {

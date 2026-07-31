@@ -124,6 +124,19 @@ export function memberRanksByUuid(
   return entries;
 }
 
+/**
+ * The org rank ladder's labels, most senior first, for eligibility pickers.
+ * Legacy ranks fold into their modern equivalents, so each label appears once.
+ */
+export function progressionRankLabels(response: RankProfilesResponse): string[] {
+  const legacy = new Set(Object.keys(LEGACY_RANK_EQUIVALENTS));
+  const labels = response.catalog.roles
+    .filter((role) => role.key.startsWith("rank.") && !legacy.has(role.key))
+    .sort((left, right) => (right.position ?? 0) - (left.position ?? 0))
+    .map((role) => role.label);
+  return [...new Set(labels)];
+}
+
 /** Ladder position each in-game rank sorts at; null when the catalog lacks its org equivalent. */
 export type InGameRankLadder = Record<GuildRankName, number | null>;
 
