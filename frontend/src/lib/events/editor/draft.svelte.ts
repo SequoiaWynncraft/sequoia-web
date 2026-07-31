@@ -1171,6 +1171,7 @@ export class EventDraft {
         // A snapshot missing an id (hand-edited preset) still needs a stable one.
         id: text(record.id) || crypto.randomUUID(),
         prize: text(record.prize),
+        icon: text(record.icon),
         winnerCount: count(record.winnerCount),
         perTicket: count(record.perTicket),
         window: windowRecord

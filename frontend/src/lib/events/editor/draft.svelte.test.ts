@@ -42,4 +42,20 @@ describe("EventDraft raffle saved state", () => {
     draft.personalMilestones[0].at = 11;
     expect(draft.raffleConfigUnchanged(raffle)).toBe(false);
   });
+
+  it("preserves raffle icons when replaying an undo snapshot", () => {
+    const draft = new EventDraft({
+      mode: "edit",
+      initial: {
+        ...EVENT,
+        raffles: EVENT.raffles?.map((raffle) => ({ ...raffle, icon: "le.svg" })),
+      },
+    });
+
+    draft.name = "Changed name";
+    draft.undo();
+
+    expect(draft.name).toBe(EVENT.name);
+    expect(draft.raffles[0].icon).toBe("le.svg");
+  });
 });
