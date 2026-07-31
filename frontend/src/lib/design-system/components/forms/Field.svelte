@@ -21,15 +21,20 @@
   } = $props();
 </script>
 
-<svelte:element this={element} class="field" class:field-tight={tight}>
-  <span class="field-label">{label}</span>
-  {@render children()}
+<!-- The hint/error sits OUTSIDE the label element: a label's descendants
+     become part of the control's accessible NAME, so an appearing error
+     would rename the focused field to screen readers. -->
+<div class="field" class:field-tight={tight}>
+  <svelte:element this={element} class="field-main">
+    <span class="field-label">{label}</span>
+    {@render children()}
+  </svelte:element>
   {#if error}
-    <span class="field-error">{error}</span>
+    <span class="field-error" role="alert">{error}</span>
   {:else if hint}
     <span class="field-hint">{hint}</span>
   {/if}
-</svelte:element>
+</div>
 
 <style>
   .field {
@@ -38,7 +43,13 @@
     align-content: start;
   }
 
-  .field-tight {
+  .field-main {
+    display: grid;
+    gap: 6px;
+  }
+
+  .field-tight,
+  .field-tight .field-main {
     gap: 4px;
   }
 
