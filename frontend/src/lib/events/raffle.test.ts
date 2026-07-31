@@ -50,6 +50,32 @@ describe("drawWinners", () => {
     expect(winners).toEqual([{ username: "Alice", player_uuid: "a", tickets: 5 }]);
   });
 
+  it("excludes UUID spelling variants without changing the stored entrant UUID", () => {
+    const pool: RaffleEntrant[] = [
+      {
+        player_uuid: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+        username: "Alice",
+        tickets: 5,
+      },
+      {
+        player_uuid: "11111111-2222-3333-4444-555555555555",
+        username: "Bob",
+        tickets: 5,
+      },
+    ];
+    const winners = drawWinners(pool, 2, {
+      exclude: ["AAAAAAAABBBBCCCCDDDDEEEEEEEEEEEE"],
+      rng: sequenceRng([0]),
+    });
+    expect(winners).toEqual([
+      {
+        username: "Bob",
+        player_uuid: "11111111-2222-3333-4444-555555555555",
+        tickets: 5,
+      },
+    ]);
+  });
+
   it("collapses repeated uuids so a member wins at most one slot", () => {
     const pool: RaffleEntrant[] = [
       { player_uuid: "a", username: "Alice", tickets: 3 },
