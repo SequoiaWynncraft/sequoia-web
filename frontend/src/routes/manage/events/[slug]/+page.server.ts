@@ -3,12 +3,15 @@ import type { Actions, PageServerLoad } from "./$types";
 
 import { pageAreaAccess } from "$lib/server/manageCapabilities";
 import { recordAudit } from "$lib/server/auditLog";
-import { drawWinners, secureRng } from "$lib/events/raffle";
+import { drawWinners, drawablePool, secureRng } from "$lib/events/raffle";
 import { parseGuildEvent } from "$lib/events/validate";
 import { eventFormContext } from "$lib/server/eventFormContext";
 import { requireEventManager } from "$lib/server/eventManagers";
 import { getGuildStats } from "$lib/server/guildStats";
+import { withEventLock } from "$lib/server/eventLocks";
+import { endRoom, publish } from "$lib/server/liveRolls";
 import { resolveEligibility } from "$lib/server/raffleEligibility";
+import { raffleRollStore } from "$lib/server/raffleRolls";
 import { createTrackerAction, updateTrackerAction } from "$lib/server/trackerAdmin";
 import { parseEventPayload } from "$lib/server/eventPayload";
 import { deletePresetAction, savePresetAction } from "$lib/server/eventPresets";
@@ -24,10 +27,20 @@ export const load: PageServerLoad = async ({ fetch, locals, params, parent, url 
   const access = await pageAreaAccess(fetch, viewer, "events");
   if (access !== "granted") return { access, stored: null, context: null, auditWarning: false };
 
-  const [stored, context] = await Promise.all([eventStore.get(params.slug), eventFormContext(fetch)]);
+  const [stored, context, rollHistory] = await Promise.all([
+    eventStore.get(params.slug),
+    eventFormContext(fetch),
+    raffleRollStore.listForEvent(params.slug, 25).catch(() => []),
+  ]);
   if (!stored) requestError(locals, 404, "No such event");
   // Set by the create redirect when the audit row for it did not land.
-  return { access, stored, context, auditWarning: url.searchParams.get("audit") === "unrecorded" };
+  return {
+    access,
+    stored,
+    context,
+    rollHistory,
+    auditWarning: url.searchParams.get("audit") === "unrecorded",
+  };
 };
 
 export const actions: Actions = {
@@ -82,12 +95,44 @@ export const actions: Actions = {
     if (newUpdatedAt === null) {
       return fail(409, { error: "This event just changed - reload and save again." });
     }
+    // Tightening visibility cuts existing streams THE MOMENT the new
+    // version is committed - a roll under the new version must never reach
+    // subscribers authorized against the old one, so no await may sit
+    // between the commit and this teardown.
+    const tightened =
+      (stored.published && !payload.published) ||
+      (stored.event.access === "public" && regrafted.event.access === "members");
+    if (tightened) endRoom(params.slug);
     const audited = await recordAudit(
       manager,
       "event.update",
       params.slug,
       payload.published ? "published" : "draft",
     );
+    // A save that removes a raffle or shrinks its winner count strands the
+    // slot's persisted roll. Snapshot the candidate rows first, then bind the
+    // cleanup to the version this save wrote. If a newer save landed, its
+    // current configuration and rolls belong to that save alone. Targeting
+    // observed ids also keeps a roll inserted after the version re-read safe.
+    try {
+      const rolls = await raffleRollStore.latestForEvent(params.slug);
+      const current = await eventStore.get(params.slug);
+      if (current?.updatedAt === newUpdatedAt) {
+        const validCounts = new Map(
+          (current.event.raffles ?? []).map((raffle) => [raffle.id, raffle.winnerCount]),
+        );
+        for (const roll of rolls) {
+          const winnerCount = validCounts.get(roll.raffleId);
+          if (winnerCount === undefined || roll.slot >= winnerCount) {
+            await raffleRollStore.markSupersededById(roll.rollId);
+          }
+        }
+      }
+    } catch (error) {
+      console.warn("orphan raffle roll retirement failed:", error);
+    }
+    // Open stages refetch their raffle config off the fresh event.
+    if (!tightened) publish(params.slug, { type: "event-updated" });
     // The exact version this save wrote: the client adopts it as its reviewed
     // token, so a concurrent save landing during the response can't slip in.
     return { saved: true, newUpdatedAt, auditWarning: !audited };
@@ -114,7 +159,32 @@ export const actions: Actions = {
     if (stored.updatedAt !== baseUpdatedAt) {
       return fail(409, { error: "This event just changed - reload before deleting." });
     }
-    if (!(await eventStore.remove(params.slug, { ifUpdatedAt: baseUpdatedAt }))) {
+    // A later event reusing this slug must not inherit the old rolls - the
+    // stage would replay the previous event's wheel and entrant names. The
+    // purge comes FIRST and a failure aborts the deletion: leaving the event
+    // in place is recoverable, orphaned entrant snapshots under a reusable
+    // slug are not. (Purged-but-not-deleted, the rare CAS-loss below, only
+    // costs the stage its replay; winners live in the event JSON.)
+    // The lock closes the last hole: a roll whose winner already committed
+    // inserts its record under the same lock, so it can never land between
+    // this purge and the removal.
+    const removal = await withEventLock(params.slug, async () => {
+      try {
+        await raffleRollStore.removeForEvent(params.slug);
+      } catch (error) {
+        console.warn("raffle roll purge failed:", error);
+        return "purgeFailed" as const;
+      }
+      const removed = await eventStore.remove(params.slug, { ifUpdatedAt: baseUpdatedAt });
+      if (!removed) return "lost" as const;
+      // Teardown is part of the lifecycle turn: no successor room can open in the gap.
+      endRoom(params.slug);
+      return "removed" as const;
+    });
+    if (removal === "purgeFailed") {
+      return fail(503, { error: "Could not clear the raffle records - try again shortly." });
+    }
+    if (removal === "lost") {
       // The CAS lost a race after the read above: a concurrent delete of the
       // same version is done, a concurrent update is a conflict.
       if (!(await eventStore.get(params.slug))) redirect(303, "/manage/events");
@@ -165,6 +235,31 @@ export const actions: Actions = {
     if (!Number.isInteger(slot) || slot < 0 || slot >= raffle.winnerCount) {
       return fail(400, { error: "That winner slot no longer exists - save and try again." });
     }
+    // Capture the slot's current roll NOW, while whatever is recorded still
+    // belongs to the version this request just checked. Observed any later -
+    // after the eligibility awaits - it could be a rival request's fresh
+    // record, and retiring that right before our own CAS loses would erase a
+    // valid draw.
+    let priorRollId: string | null = null;
+    try {
+      priorRollId =
+        (await raffleRollStore.latestForEvent(params.slug)).find(
+          (entry) =>
+            entry.raffleId === raffleId && entry.slot === slot && !entry.pending,
+        )?.rollId ?? null;
+    } catch (error) {
+      console.warn("raffle roll lookup failed:", error);
+      return fail(503, { error: "Could not clear the previous roll - try again shortly." });
+    }
+    // Read-validate the capture against the version: a rival that read the
+    // same version could commit AND record between our version check and the
+    // lookup above, making the captured id its fresh record. If the version
+    // moved during the lookup the capture is unbindable - bail exactly like
+    // any stale roll. A version still intact here proves every record the
+    // lookup saw predates whatever commits next.
+    if ((await eventStore.get(params.slug))?.updatedAt !== stored.updatedAt) {
+      return fail(409, { error: "This event just changed - reload and roll again." });
+    }
     // Membership trust mirrors the public standings board: only a fresh
     // roster is authoritative for who is eligible.
     const stats = await getGuildStats(fetch, { allowStale: false }).catch(() => null);
@@ -198,6 +293,70 @@ export const actions: Actions = {
 
     raffle.winners = [...others, { slot, ...drawn }];
     raffle.drawnAt = new Date().toISOString();
+    // Retire the version-bound roll captured above BEFORE committing its
+    // replacement, and abort if that fails: a committed new winner alongside
+    // a live old roll would let recovered snapshots replay the old winner
+    // over the real one. If a rival raced us here, it retired the same
+    // captured roll (idempotent) and exactly one of us survives the CAS
+    // below. The reverse loss (retired old roll, CAS fails) only costs the
+    // stage its replay - the slot's winner is unchanged.
+    try {
+      if (priorRollId) await raffleRollStore.markSupersededById(priorRollId);
+    } catch (error) {
+      console.warn("raffle roll supersede failed:", error);
+      return fail(503, { error: "Could not clear the previous roll - try again shortly." });
+    }
+    // The roll record replays the exact drawable pool the draw ran over
+    // (drawWinners' own exported filter, so the semantics can never drift),
+    // and every open stage animates the same wheel to the same wedge. A
+    // failed record is a degraded animation, never a lost winner - the event
+    // JSON committed below stays authoritative.
+    const wheelPool = drawablePool(pool.entrants, exclude).map((entrant) => ({
+      player_uuid: entrant.player_uuid,
+      username: entrant.username,
+      tickets: entrant.tickets,
+    }));
+    const startedAt = Date.now();
+    const roll = {
+      rollId: crypto.randomUUID(),
+      eventSlug: params.slug,
+      raffleId,
+      slot,
+      prize: raffle.prize,
+      entrants: wheelPool,
+      // The draw picked from this same filtered list, so the winner matches
+      // by exact uuid - the draw's own comparison.
+      winnerIndex: wheelPool.findIndex((entrant) => entrant.player_uuid === drawn.player_uuid),
+      winner: drawn,
+      spin: { turns: 4 + Math.floor(secureRng() * 3), durationMs: 9000 },
+      state: "spinning" as const,
+      startedAt,
+      settlesAt: startedAt + 9000,
+    };
+    // The record lands BEFORE the winner commits, as a pending row: the
+    // public event page masks a slot with a pending record, so there is no
+    // instant where the committed winner is readable with no mask persisted
+    // yet. The stage ignores pending rows until the flip below. Same lock as
+    // deletion: the purge-then-remove sequence can never interleave with
+    // this existence check + insert, so a slug whose event vanished while we
+    // awaited records nothing instead of orphaning a row a later event on
+    // this slug would replay.
+    let rollRecorded = false;
+    try {
+      rollRecorded = await withEventLock(params.slug, async () => {
+        if (!(await eventStore.get(params.slug))) return false;
+        await raffleRollStore.insert({
+          ...roll,
+          createdBy: manager.discordId,
+          superseded: false,
+          pending: true,
+        });
+        return true;
+      });
+    } catch (error) {
+      console.warn("raffle roll record failed:", error);
+    }
+
     // Guard on the version we read: if another roll (or save) landed in the
     // meantime, this write loses rather than clobbering that winner, and the
     // manager is told to retry against the fresh state.
@@ -206,8 +365,85 @@ export const actions: Actions = {
       ifUpdatedAt: stored.updatedAt,
     });
     if (newUpdatedAt === null) {
+      // The commit this record was pending on never happened - take it back
+      // out. If even that fails, the row expires with its settle time and
+      // every reader ignores it from then on.
+      if (rollRecorded) {
+        await raffleRollStore
+          .markSupersededById(roll.rollId)
+          .catch((error: unknown) => console.warn("pending roll cleanup failed:", error));
+      }
       return fail(409, { error: "This event just changed - reload and roll again." });
     }
+
+    // The commit-to-publication turn belongs to one event incarnation. Deletion
+    // tears the room down under this same lock before a successor can subscribe.
+    try {
+      await withEventLock(params.slug, async () => {
+        const current = await eventStore.get(params.slug);
+        if (!current || current.updatedAt !== newUpdatedAt) {
+          if (rollRecorded) {
+            await raffleRollStore
+              .markSupersededById(roll.rollId)
+              .catch((error: unknown) => console.warn("stale raffle roll cleanup failed:", error));
+          }
+          rollRecorded = false;
+          return;
+        }
+        // A failed flip leaves the row pending and invisible; refresh from the
+        // committed event instead of announcing a roll snapshots cannot replay.
+        if (rollRecorded) {
+          try {
+            rollRecorded = await raffleRollStore.markLive(roll.rollId);
+          } catch (error) {
+            console.warn("raffle roll flip failed:", error);
+            rollRecorded = false;
+          }
+        }
+        if (rollRecorded) {
+          const afterFlip = await eventStore.get(params.slug);
+          if (!afterFlip || afterFlip.updatedAt !== newUpdatedAt) {
+            await raffleRollStore
+              .markSupersededById(roll.rollId)
+              .catch((error: unknown) =>
+                console.warn("stale raffle roll cleanup failed:", error),
+              );
+            rollRecorded = false;
+            return;
+          }
+          publish(params.slug, { type: "roll", now: Date.now(), roll });
+          return;
+        }
+        // Connected stages may still hold the retired roll in memory. Name it
+        // precisely so a concurrent manager's newer draw stays intact.
+        if (priorRollId) {
+          publish(params.slug, { type: "retired", raffleId, slot, rollId: priorRollId });
+        }
+        publish(params.slug, { type: "event-updated" });
+      });
+    } catch (error) {
+      console.warn("raffle roll publication failed:", error);
+      if (rollRecorded) {
+        await raffleRollStore
+          .markSupersededById(roll.rollId)
+          .catch((cleanupError: unknown) =>
+            console.warn("stale raffle roll cleanup failed:", cleanupError),
+          );
+      }
+      rollRecorded = false;
+    }
+
+    if (rollRecorded) {
+      const settleTimer = setTimeout(() => {
+        raffleRollStore
+          .markSettled(roll.rollId)
+          .catch((error: unknown) => console.warn("raffle roll settle failed:", error));
+        publish(params.slug, { type: "settled", rollId: roll.rollId, raffleId, slot });
+      }, roll.spin.durationMs);
+      // A held timer must not keep a short-lived process (tests) alive.
+      if (typeof settleTimer === "object" && "unref" in settleTimer) settleTimer.unref();
+    }
+
     // Record who was drawn, not just where: the audit trail must show the exact
     // winner (uuid, name, ticket weight) and when the draw landed, so a roll can
     // be reconstructed from the log alone.
@@ -215,7 +451,7 @@ export const actions: Actions = {
       manager,
       "event.rollRaffle",
       params.slug,
-      `${raffleId}:${slot} → ${drawn.username} (${drawn.player_uuid}), ${drawn.tickets} tickets, ${raffle.drawnAt}`,
+      `${raffleId}:${slot} → ${drawn.username} (${drawn.player_uuid}), ${drawn.tickets} tickets, ${raffle.drawnAt}, roll ${roll.rollId}`,
     );
     return {
       rolled: raffleId,
@@ -224,6 +460,8 @@ export const actions: Actions = {
       drawnAt: raffle.drawnAt,
       newUpdatedAt,
       auditWarning: !audited,
+      // Distinct from the audit trail: only the live-stage replay was lost.
+      rollWarning: !rollRecorded,
     };
   },
 

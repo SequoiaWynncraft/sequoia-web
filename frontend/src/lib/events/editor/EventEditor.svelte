@@ -6,6 +6,7 @@
 
   import type { GuildEvent } from "$lib/events/types";
   import type { EventFormContext, TrackerOption } from "$lib/server/eventFormContext";
+  import type { RaffleRoll as RaffleRollRecord } from "$lib/server/raffleRolls";
 
   import { EDITOR_KEY, EventDraft } from "./draft.svelte";
   import PreviewPane from "./PreviewPane.svelte";
@@ -30,6 +31,7 @@
     initialPublished = false,
     initialUpdatedAt = null,
     context = null,
+    rollHistory = null,
     error = null,
     saved = false,
     trackerCreated = null,
@@ -37,6 +39,7 @@
     trackerError = null,
     presetError = null,
     auditWarning = false,
+    rollWarning = false,
   }: {
     mode: "create" | "edit";
     initial?: GuildEvent | null;
@@ -46,6 +49,8 @@
     initialUpdatedAt?: number | null;
     /** Picker data (roster, tracker events); the form degrades without it. */
     context?: EventFormContext | null;
+    /** Persisted draw records for the raffle history, newest first. */
+    rollHistory?: RaffleRollRecord[] | null;
     /** Rejection from the last server submission. */
     error?: string | null;
     saved?: boolean;
@@ -57,6 +62,8 @@
     presetError?: string | null;
     /** The last action succeeded but its audit row did not land. */
     auditWarning?: boolean;
+    /** The last roll landed but its stage replay record did not. */
+    rollWarning?: boolean;
   } = $props();
 
   const FORM_ID = "event-editor-form";
@@ -82,6 +89,11 @@
     draft.serverSaved = saved;
     draft.serverError = error;
     draft.serverAuditWarning = auditWarning;
+    draft.serverRollWarning = rollWarning;
+  });
+
+  $effect.pre(() => {
+    draft.rollHistory = rollHistory ?? [];
   });
 
   // History capture after a quiet period. Replayed snapshots need no
@@ -249,6 +261,11 @@
         {/if}
         {#if auditWarning}
           <span class="evf-error" role="alert">Done, but not recorded in the audit log.</span>
+        {/if}
+        {#if rollWarning}
+          <span class="evf-error" role="alert">
+            Rolled, but the stage replay was not recorded - viewers see the winner without a spin.
+          </span>
         {/if}
       </div>
     </form>

@@ -14,6 +14,7 @@ import type {
 } from "$lib/events/types";
 import { parseGuildEvent } from "$lib/events/validate";
 import type { EventFormContext, MemberOption, TrackerOption } from "$lib/server/eventFormContext";
+import type { RaffleRoll as RaffleRollRecord } from "$lib/server/raffleRolls";
 
 /** Context key the editor shell shares its EventDraft under. */
 export const EDITOR_KEY = Symbol("event-draft");
@@ -226,6 +227,8 @@ export class EventDraft {
   /** Org ladder labels for the eligibility picker, most senior first. */
   readonly seqRankChoices: string[];
   trackerChoices = $state<TrackerOption[]>([]);
+  /** Persisted draw records, newest first, synced from the page data. */
+  rollHistory = $state<RaffleRollRecord[]>([]);
 
   name = $state("");
   slug = $state("");
@@ -301,6 +304,8 @@ export class EventDraft {
   serverSaved = $state(false);
   serverError = $state<string | null>(null);
   serverAuditWarning = $state(false);
+  /** The last roll landed but its stage replay record did not. */
+  serverRollWarning = $state(false);
   newTrackerName = $state("");
   newTrackerStarts = $state("");
   newTrackerEnds = $state("");
