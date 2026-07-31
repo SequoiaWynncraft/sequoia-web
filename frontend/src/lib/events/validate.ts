@@ -558,7 +558,8 @@ function parseTicketWeight(value: unknown, label: string): TicketWeight {
 /**
  * Stat windows read the daily rollups, which only exist in whole UTC days: a
  * partial-day bound would silently expand to the full days it touches, so
- * both bounds must sit exactly on UTC midnight.
+ * both bounds must sit exactly on UTC midnight. The member-progress backend
+ * serves at most 400 inclusive days, so longer windows must fail before save.
  */
 function parseDayWindow(value: unknown, label: string): NonNullable<EventRaffle["window"]> {
   const window = parseRaffleWindow(value, label);
@@ -567,6 +568,8 @@ function parseDayWindow(value: unknown, label: string): NonNullable<EventRaffle[
       fail(`${label} window counts whole UTC days - both bounds must be UTC midnight`);
     }
   }
+  const inclusiveDays = (Date.parse(window.to) - Date.parse(window.from)) / 86_400_000 + 1;
+  if (inclusiveDays > 400) fail(`${label} window must span at most 400 inclusive days`);
   return window;
 }
 
