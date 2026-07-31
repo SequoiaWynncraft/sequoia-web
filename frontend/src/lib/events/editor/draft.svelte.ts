@@ -511,7 +511,10 @@ export class EventDraft {
         key: this.nextRowId++,
         username: entry.username,
         player_uuid: entry.player_uuid,
-        tickets: entry.tickets ?? 1,
+        // An omitted floor stays omitted: seeding an explicit 1 would make
+        // the reloaded row serialize differently from the local one and
+        // wrongly lock every roll button on "Save first" after a save.
+        tickets: entry.tickets ?? "",
       })),
       exclude: (seed.eligibility?.exclude ?? []).map((entry) => ({
         key: this.nextRowId++,
