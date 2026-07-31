@@ -20,9 +20,26 @@ const staffCache = new Map<
   { at: number; check: Promise<StaffCheck>; settled?: StaffCheck }
 >();
 
-function checkBagshopStaff(fetchImpl: typeof fetch, viewer: Viewer): Promise<StaffCheck> {
+/** Drops entries past their TTL so the map tracks active viewers, not the
+ * lifetime population of everyone who ever signed in. */
+function sweepStaffCache(now: number) {
+  for (const [key, entry] of staffCache) {
+    if (now - entry.at >= STAFF_TTL_MS) staffCache.delete(key);
+  }
+}
+
+function checkBagshopStaff(
+  fetchImpl: typeof fetch,
+  viewer: Viewer,
+  options: { fresh?: boolean } = {},
+): Promise<StaffCheck> {
+  const now = Date.now();
+  sweepStaffCache(now);
   const cached = staffCache.get(viewer.discordId);
-  if (cached && Date.now() - cached.at < STAFF_TTL_MS) return cached.check;
+  // Display callers (navbar, sidebar) ride the memo; a protected page gate
+  // asks fresh, so an allowlist change applies on the next navigation rather
+  // than after the TTL. The fresh answer still lands in the cache.
+  if (!options.fresh && cached && now - cached.at < STAFF_TTL_MS) return cached.check;
 
   const timeout = new Promise<StaffCheck>((resolve) =>
     setTimeout(() => resolve("unavailable"), STAFF_TIMEOUT_MS),
@@ -79,7 +96,7 @@ async function eventsAreaAccess(fetchImpl: typeof fetch, viewer: Viewer): Promis
 }
 
 async function bagshopAreaAccess(fetchImpl: typeof fetch, viewer: Viewer): Promise<AreaAccess> {
-  return bagshopAccess(await checkBagshopStaff(fetchImpl, viewer));
+  return bagshopAccess(await checkBagshopStaff(fetchImpl, viewer, { fresh: true }));
 }
 
 /**

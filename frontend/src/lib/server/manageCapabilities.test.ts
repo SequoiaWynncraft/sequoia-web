@@ -96,11 +96,17 @@ describe("resolveManageCapabilities", () => {
     expect((await resolveManageCapabilities(fetch, who)).bagshop).toBe("granted");
   });
 
-  it("memoizes a settled staff answer per viewer", async () => {
+  it("asks the bot fresh for gates while the navbar rides the memo", async () => {
     const who = viewer();
+    // Strict resolutions never reuse a cached staff answer - an allowlist
+    // change applies on the next navigation, not after a TTL.
     await resolveManageCapabilities(fetch, who);
     await resolveManageCapabilities(fetch, who);
-    expect(mockClient).toHaveBeenCalledTimes(1);
+    expect(mockClient).toHaveBeenCalledTimes(2);
+    // The display-only navbar peek reuses the settled answer.
+    mockClient.mockClear();
+    await navManageVisible(fetch, who);
+    expect(mockClient).not.toHaveBeenCalled();
   });
 });
 
