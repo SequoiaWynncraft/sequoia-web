@@ -45,22 +45,41 @@ function checkBagshopStaff(fetchImpl: typeof fetch, viewer: Viewer): Promise<Sta
   return entry.check;
 }
 
+/** How long the navbar will wait for a cold staff check before rendering
+ * without the link; the settled answer shows on the next load. */
+const PEEK_WAIT_MS = 150;
+
 /**
- * Non-blocking read for display-only callers: the cached answer when one has
- * settled, else it kicks the check off in the background and reports null
- * for this render. The navbar must never wait on the bot - during an outage
- * every signed-in page would stall for the timeout just to hide a link.
+ * Bounded read for display-only callers: a settled cached answer returns
+ * instantly; a cold cache waits at most PEEK_WAIT_MS for the check it just
+ * started - enough for the memoized common case, never the full bot timeout.
+ * During an outage every signed-in page pays these milliseconds, not 2.5s.
  */
-function peekBagshopStaff(fetchImpl: typeof fetch, viewer: Viewer): StaffCheck | null {
+async function peekBagshopStaff(
+  fetchImpl: typeof fetch,
+  viewer: Viewer,
+): Promise<StaffCheck | null> {
   const cached = staffCache.get(viewer.discordId);
-  const fresh = cached !== undefined && Date.now() - cached.at < STAFF_TTL_MS;
-  if (!fresh) void checkBagshopStaff(fetchImpl, viewer).catch(() => undefined);
-  return cached?.settled ?? null;
+  if (cached && Date.now() - cached.at < STAFF_TTL_MS && cached.settled) return cached.settled;
+  const check = checkBagshopStaff(fetchImpl, viewer).catch((): StaffCheck => "unavailable");
+  return Promise.race([
+    check,
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), PEEK_WAIT_MS)),
+  ]);
 }
 
 function bagshopAccess(check: StaffCheck): AreaAccess {
   if (check === "staff") return "granted";
   return check === "not-staff" ? "denied" : "unverified";
+}
+
+async function eventsAreaAccess(fetchImpl: typeof fetch, viewer: Viewer): Promise<AreaAccess> {
+  const access = await checkEventManager(fetchImpl, viewer);
+  return access === "manager" ? "granted" : access;
+}
+
+async function bagshopAreaAccess(fetchImpl: typeof fetch, viewer: Viewer): Promise<AreaAccess> {
+  return bagshopAccess(await checkBagshopStaff(fetchImpl, viewer));
 }
 
 /**
@@ -73,30 +92,32 @@ export async function resolveManageCapabilities(
   viewer: Viewer | null,
 ): Promise<ManageCapabilities> {
   if (!viewer) return { events: "signin", bagshop: "signin" };
-  const [events, staff] = await Promise.all([
-    checkEventManager(fetchImpl, viewer),
-    checkBagshopStaff(fetchImpl, viewer),
+  const [events, bagshop] = await Promise.all([
+    eventsAreaAccess(fetchImpl, viewer),
+    bagshopAreaAccess(fetchImpl, viewer),
   ]);
-  return {
-    events: events === "manager" ? "granted" : events,
-    bagshop: bagshopAccess(staff),
-  };
+  return { events, bagshop };
 }
 
 /**
- * Strict access for one protected console page. SvelteKit reruns a layout
- * load only when its own dependencies change, so the console layout's
- * capabilities go stale across child navigations - a manager demoted
- * mid-session would keep reading protected data until a full reload. Page
- * loads call this instead of trusting `parent().capabilities`; the layout's
- * copy only drives the sidebar.
+ * Strict access for one protected console page - and only that page's area:
+ * an events page must not stall on a bag-shop outage (or vice versa) for a
+ * capability it never reads. SvelteKit reruns a layout load only when its
+ * own dependencies change, so the console layout's capabilities go stale
+ * across child navigations - a manager demoted mid-session would keep
+ * reading protected data until a full reload. Page loads call this instead
+ * of trusting `parent().capabilities`; the layout's copy only drives the
+ * sidebar.
  */
 export async function pageAreaAccess(
   fetchImpl: typeof fetch,
   viewer: Viewer | null,
   area: keyof ManageCapabilities,
 ): Promise<AreaAccess> {
-  return (await resolveManageCapabilities(fetchImpl, viewer))[area];
+  if (!viewer) return "signin";
+  return area === "events"
+    ? eventsAreaAccess(fetchImpl, viewer)
+    : bagshopAreaAccess(fetchImpl, viewer);
 }
 
 /**
@@ -115,7 +136,7 @@ export async function navManageVisible(
     (entry) => entry.uuid !== null && sameUuid(entry.uuid, viewer.minecraftUuid),
   );
   if (member && MANAGER_RANKS.includes(member.rank)) return true;
-  // Peek, never await: the first page after sign-in may hide the link until
-  // the background check settles; staff still reach /manage directly.
-  return peekBagshopStaff(fetchImpl, viewer) === "staff";
+  // Bounded peek: the first page after sign-in may briefly hide the link;
+  // staff still reach /manage directly, and the next load shows it.
+  return (await peekBagshopStaff(fetchImpl, viewer)) === "staff";
 }
