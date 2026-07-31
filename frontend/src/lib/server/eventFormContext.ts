@@ -5,6 +5,9 @@ import { getGuildStats } from "./guildStats";
 import { loadRaidEvents } from "./raidEventBoards";
 import { getLinkedRankProfiles, progressionRankLabels } from "./rankProfiles";
 
+/** Optional rank choices must not hold the editor behind the rank API timeout. */
+const RANK_PROFILES_GRACE_MS = 500;
+
 export interface TrackerOption {
   id: string;
   name: string;
@@ -40,7 +43,10 @@ export async function eventFormContext(fetchImpl: typeof fetch): Promise<EventFo
     getGuildStats(fetchImpl, { allowStale: true }).catch(() => null),
     loadRaidEvents(fetchImpl),
     listPresets().catch(() => [] as EventPreset[]),
-    getLinkedRankProfiles(fetchImpl).catch(() => null),
+    Promise.race([
+      getLinkedRankProfiles(fetchImpl).catch(() => null),
+      new Promise<null>((resolve) => setTimeout(resolve, RANK_PROFILES_GRACE_MS, null)),
+    ]),
   ]);
   return {
     members: (stats?.members ?? [])
