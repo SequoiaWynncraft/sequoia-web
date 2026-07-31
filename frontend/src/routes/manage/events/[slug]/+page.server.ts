@@ -258,11 +258,15 @@ export const actions: Actions = {
     // supersede could take a concurrent rival's fresh record down before our
     // own CAS loses. The reverse loss (retired old roll, CAS below fails)
     // only costs the stage its replay - the slot's winner is unchanged.
+    let priorRollId: string | null = null;
     try {
       const prior = (await raffleRollStore.latestForEvent(params.slug)).find(
         (entry) => entry.raffleId === raffleId && entry.slot === slot,
       );
-      if (prior) await raffleRollStore.markSupersededById(prior.rollId);
+      if (prior) {
+        priorRollId = prior.rollId;
+        await raffleRollStore.markSupersededById(prior.rollId);
+      }
     } catch (error) {
       console.warn("raffle roll supersede failed:", error);
       return fail(503, { error: "Could not clear the previous roll - try again shortly." });
@@ -322,10 +326,11 @@ export const actions: Actions = {
       console.warn("raffle roll record failed:", error);
       rollRecorded = false;
       // Connected stages still hold the (already superseded) previous roll
-      // in memory - retire the slot on the wire and refresh, so the event
-      // JSON's committed winner takes over instead of a replaced one being
-      // announced until reload.
-      publish(params.slug, { type: "retired", raffleId, slot });
+      // in memory - retire exactly THAT roll on the wire and refresh, so the
+      // event JSON's committed winner takes over instead of a replaced one
+      // being announced until reload. Naming the roll keeps a concurrent
+      // manager's newer draw on this slot intact.
+      if (priorRollId) publish(params.slug, { type: "retired", raffleId, slot, rollId: priorRollId });
       publish(params.slug, { type: "event-updated" });
     }
 

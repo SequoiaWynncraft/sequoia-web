@@ -80,10 +80,17 @@ export class StageFeed {
         for (const roll of message.rolls) this.scheduleSettle(roll);
         break;
       }
-      case "roll":
-        this.rolls[`${message.roll.raffleId}:${message.roll.slot}`] = message.roll;
+      case "roll": {
+        const key = `${message.roll.raffleId}:${message.roll.slot}`;
+        // A delayed publish must never roll the slot backward: when two
+        // draws race, the one that started later is the one that won the
+        // event's version guard.
+        const existing = this.rolls[key];
+        if (existing && existing.startedAt > message.roll.startedAt) break;
+        this.rolls[key] = message.roll;
         this.scheduleSettle(message.roll);
         break;
+      }
       case "settled": {
         const roll = this.rolls[`${message.raffleId}:${message.slot}`];
         if (roll && roll.rollId === message.rollId) roll.state = "settled";
@@ -91,6 +98,9 @@ export class StageFeed {
       }
       case "retired": {
         const key = `${message.raffleId}:${message.slot}`;
+        // Only the named roll retires - a newer roll occupying the slot by
+        // now is exactly the thing this message must not destroy.
+        if (this.rolls[key]?.rollId !== message.rollId) break;
         const pending = this.settleTimers.get(key);
         if (pending) clearTimeout(pending);
         this.settleTimers.delete(key);
