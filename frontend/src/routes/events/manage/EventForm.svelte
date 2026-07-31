@@ -3,7 +3,7 @@
   import type { SubmitFunction } from "@sveltejs/kit";
 
   import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
-  import InstantField from "./InstantField.svelte";
+  import InstantField from "$lib/design-system/components/forms/InstantField.svelte";
   import EventSky from "$lib/events/components/EventSky.svelte";
   import GoalMeter from "$lib/events/components/GoalMeter.svelte";
   import { RAID_ICONS, raidIconUrl } from "$lib/events/raidIcons";

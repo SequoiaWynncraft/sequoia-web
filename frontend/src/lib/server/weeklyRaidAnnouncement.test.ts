@@ -196,7 +196,13 @@ function rosterWith(...uuids: string[]) {
 
 describe("isAnnouncementViewer", () => {
   const UUID = H.players[0].uuid;
-  const viewer = { discordId: "1", discordUsername: null, minecraftUuid: UUID, minecraftUsername: null };
+  const viewer = {
+    discordId: "1",
+    discordUsername: null,
+    minecraftUuid: UUID,
+    minecraftUsername: null,
+    websiteAdmin: false,
+  };
   const DEV = { key: "branch.development", branch: "development", level: "member" as const };
 
   it("admits a full Development or Community member who is on the roster", () => {
@@ -260,6 +266,7 @@ describe("loadWeeklyRaidAnnouncement", () => {
     discordUsername: null,
     minecraftUuid: H.players[0].uuid,
     minecraftUsername: null,
+    websiteAdmin: false,
   };
 
   beforeEach(() => {
