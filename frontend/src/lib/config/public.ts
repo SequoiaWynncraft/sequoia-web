@@ -17,6 +17,15 @@ export const SEQUOIA_API_BASE_URL =
  */
 export const SEQUOIA_MOD_VERSION = envValue("PUBLIC_SEQUOIA_MOD_VERSION").trim() || "1.6.8";
 
+/**
+ * Wynncraft uuid of the guild the site is about. Everything else here identifies
+ * Sequoia by prefix (`/guild/prefix/SEQ`), but the backend's guild level-history
+ * route takes a uuid path variable, so the uuid has to be spelled out somewhere.
+ * Overridable via env so a redeploy can point a preview build at another guild.
+ */
+export const SEQUOIA_GUILD_UUID =
+  envValue("PUBLIC_SEQUOIA_GUILD_UUID").trim() || "ee860b7c-9a1d-49cf-9f19-ab673ba0f23b";
+
 export const NMSR_BASE_URL =
   configuredNmsrBaseUrl === "same-origin"
     ? "/nmsr"
