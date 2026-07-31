@@ -121,11 +121,14 @@ authorize a page.
 `checkEventManager` (strategist+ against a fresh roster, admins bypass), the bag shop via
 the bot's staff flag (memoized, failures never cached). The navbar's Manage entry uses a
 cheap stale-tolerant variant, while `pageAreaAccess` resolves only the requested area's
-strict authority. Legacy URLs
+strict authority. Legacy URL navigations and other non-POST requests
 (`/events/manage/**`, `/services/bagshop/manage`) 308-redirect via a pure map
-(`lib/manage/redirects.ts`). The event editor (`lib/events/editor/`) is one form split
-into section components sharing an `EventDraft` runes class over context (one payload,
-one undo history, one version token), with a scrollspy rail, per-section issue badges,
+(`lib/manage/redirects.ts`). Legacy management POSTs are deliberately intercepted in
+`hooks.server.ts` and internally re-dispatched to the mapped route with their method and
+body preserved; do not replace that rewrite with an enhanced-action redirect, which would
+turn the submission into a GET and drop it. The event editor (`lib/events/editor/`) is one
+form split into section components sharing an `EventDraft` runes class over context (one
+payload, one undo history, one version token), with a scrollspy rail, per-section issue badges,
 and shared form primitives (`lib/design-system/components/forms/`, skinned by the global
 `seq-input` in `app.css`).
 
@@ -148,13 +151,14 @@ Only a successfully flipped row is broadcast over in-process pub/sub. Failed cle
 activation cannot create a false stage result: an abandoned pending row becomes invisible
 to the public page and stage when `latestForEvent` skips it after its settle time expires,
 and it can no longer mask the slot or shadow an older live roll. The management roll
-history intentionally uses `listForEvent` to list every record, including abandoned pending
-rows, without a separate marker; their attempted draws have no winner committed to the
-authoritative event JSON. A failed record or activation therefore costs the stage its replay
-and live animation, and warns the
-manager distinctly from an audit failure; a delivery error on one subscriber's stream
-costs only that stream the live push — the persisted live record still replays on its
-reconnect snapshot
+history uses `listForEvent(slug, 25)` to show the latest 25 records, including abandoned or
+stranded pending rows, without a separate marker. Pending rows abandoned after a lost CAS
+never had a winner committed to the authoritative event JSON; pending rows stranded by an
+activation failure follow a successful CAS and therefore accompany a committed winner. In
+the latter case the event JSON stays authoritative, only the stage replay and live animation
+are lost, and the manager sees a roll warning distinct from an audit failure. A delivery error
+on one subscriber's stream costs only that stream the live push — the persisted live record
+still replays on its reconnect snapshot
 (`lib/server/liveRolls.ts`, single-replica by design) to
 `GET /events/{slug}/raffle/stream` (native SSE, heartbeats). The stream and stage gate
 harder than the event page: a member-only event still serves non-members its public
