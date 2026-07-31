@@ -68,7 +68,11 @@ export function subscribe(
   room.add(subscriber);
   return () => {
     room.delete(subscriber);
-    if (room.size === 0) rooms.delete(eventSlug);
+    // Only drop the map entry while it still points at OUR set: a teardown
+    // may already have replaced the room, and a straggling unsubscribe from
+    // the old one must not delete the replacement out from under its
+    // subscribers.
+    if (room.size === 0 && rooms.get(eventSlug) === room) rooms.delete(eventSlug);
   };
 }
 
