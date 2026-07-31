@@ -485,6 +485,9 @@ function parseRaffle(value: unknown, label: string): EventRaffle {
   // Cosmetic and tolerant on purpose: an icon outside the current catalog is
   // dropped, never a reason to invalidate a stored event row.
   if (typeof raw.icon === "string" && isPrizeIconFile(raw.icon)) raffle.icon = raw.icon;
+  // Display-only and tolerant, like the icon: unknown values fall back to
+  // the default rather than invalidating a stored row.
+  if (raw.wheelStyle === "heads" || raw.wheelStyle === "names") raffle.wheelStyle = raw.wheelStyle;
   if (present(raw.window)) raffle.window = parseRaffleWindow(raw.window, label);
   if (present(raw.winners)) {
     const winners = parseList(raw.winners, `${label} winners`, (entry) =>

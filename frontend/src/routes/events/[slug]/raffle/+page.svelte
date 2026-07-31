@@ -90,7 +90,10 @@
     {#if current}
       <div class="stage-live">
         {#key current.rollId}
-          <RaffleWheel roll={current} clockOffset={feed?.clockOffset ?? null} />
+          {@const currentStyle =
+            (data.event.raffles ?? []).find((entry) => entry.id === current.raffleId)?.wheelStyle ??
+            "heads"}
+          <RaffleWheel roll={current} clockOffset={feed?.clockOffset ?? null} wheelStyle={currentStyle} />
         {/key}
         <aside class="stage-side" aria-label="This draw">
           {#if current.prize}
@@ -178,8 +181,6 @@
   .stage-prize {
     display: grid;
     gap: 6px;
-    padding: 16px 18px;
-    border: 1px solid color-mix(in srgb, var(--color-gold) 45%, transparent);
   }
 
   .stage-prize-label {

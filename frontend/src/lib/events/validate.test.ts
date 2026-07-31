@@ -154,6 +154,21 @@ describe("parseGuildEvent", () => {
     expectError({ ...VALID, icon: { placements: ["hero"] } }, "icon file");
   });
 
+  it("keeps a known wheel style and silently drops an unknown one", () => {
+    const parsed = parseGuildEvent({
+      ...VALID,
+      raffles: [
+        { id: "r1", prize: "LE", winnerCount: 1, perTicket: 1, wheelStyle: "names" },
+        { id: "r2", prize: "LE", winnerCount: 1, perTicket: 1, wheelStyle: "confetti" },
+      ],
+    });
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.event.raffles?.[0].wheelStyle).toBe("names");
+      expect(parsed.event.raffles?.[1].wheelStyle).toBeUndefined();
+    }
+  });
+
   it("keeps a catalog prize icon and silently drops an unknown one", () => {
     const parsed = parseGuildEvent({
       ...VALID,
