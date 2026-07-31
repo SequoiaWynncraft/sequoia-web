@@ -1,6 +1,6 @@
 <script lang="ts">
   import ManageHeader from "$lib/manage/ManageHeader.svelte";
-  import EventForm from "../EventForm.svelte";
+  import EventEditor from "$lib/events/editor/EventEditor.svelte";
   import EventsGate from "../EventsGate.svelte";
 
   let { data, form } = $props();
@@ -17,7 +17,7 @@
   {#if data.access !== "granted"}
     <EventsGate access={data.access} returnTo="/manage/events/new" />
   {:else}
-    <EventForm
+    <EventEditor
       mode="create"
       context={data.context}
       error={form?.error ?? null}

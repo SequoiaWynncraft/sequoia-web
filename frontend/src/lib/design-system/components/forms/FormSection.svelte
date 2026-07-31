@@ -37,6 +37,8 @@
     gap: 14px;
     padding: 22px 0 26px;
     border-bottom: 1px solid var(--color-border-subtle);
+    /* Jump targets must land below the fixed navbar, not underneath it. */
+    scroll-margin-top: calc(3.5rem + 20px);
   }
 
   .form-section:first-child {

@@ -1,6 +1,6 @@
 <script lang="ts">
   import ManageHeader from "$lib/manage/ManageHeader.svelte";
-  import EventForm from "../EventForm.svelte";
+  import EventEditor from "$lib/events/editor/EventEditor.svelte";
   import EventsGate from "../EventsGate.svelte";
 
   let { data, form } = $props();
@@ -21,7 +21,7 @@
       <a class="focus-ring" href="/manage/events">◆ All events</a>
     </nav>
     {#key data.stored.event.slug}
-      <EventForm
+      <EventEditor
         mode="edit"
         initial={data.stored.event}
         initialPublished={data.stored.published}
