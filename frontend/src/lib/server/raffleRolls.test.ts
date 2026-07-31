@@ -119,3 +119,19 @@ describe("wire projection", () => {
     expect(wire.winnerIndex).toBe(record.winnerIndex);
   });
 });
+
+describe("targeted supersede", () => {
+  it("retires exactly the observed roll, leaving a rival's fresh record alone", async () => {
+    const store = memoryStore();
+    const observed = roll();
+    await store.insert(observed);
+    const rival = roll();
+    await store.insert(rival);
+    await store.markSupersededById(observed.rollId);
+    const latest = await store.latestForEvent("test-event");
+    expect(latest.map((entry) => entry.rollId)).toEqual([rival.rollId]);
+    const history = await store.listForEvent("test-event");
+    expect(history.find((entry) => entry.rollId === observed.rollId)?.superseded).toBe(true);
+    expect(history.find((entry) => entry.rollId === rival.rollId)?.superseded).toBe(false);
+  });
+});

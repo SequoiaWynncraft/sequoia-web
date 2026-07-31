@@ -89,6 +89,14 @@ export class StageFeed {
         if (roll && roll.rollId === message.rollId) roll.state = "settled";
         break;
       }
+      case "retired": {
+        const key = `${message.raffleId}:${message.slot}`;
+        const pending = this.settleTimers.get(key);
+        if (pending) clearTimeout(pending);
+        this.settleTimers.delete(key);
+        delete this.rolls[key];
+        break;
+      }
       case "event-updated":
         // Raffle config changed - refetch the page data underneath the feed.
         void invalidateAll();

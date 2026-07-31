@@ -94,6 +94,14 @@ export const actions: Actions = {
     if (newUpdatedAt === null) {
       return fail(409, { error: "This event just changed - reload and save again." });
     }
+    // Tightening visibility cuts existing streams THE MOMENT the new
+    // version is committed - a roll under the new version must never reach
+    // subscribers authorized against the old one, so no await may sit
+    // between the commit and this teardown.
+    const tightened =
+      (stored.published && !payload.published) ||
+      (stored.event.access === "public" && regrafted.event.access === "members");
+    if (tightened) endRoom(params.slug);
     const audited = await recordAudit(
       manager,
       "event.update",
@@ -116,16 +124,8 @@ export const actions: Actions = {
     } catch (error) {
       console.warn("orphan raffle roll retirement failed:", error);
     }
-    // Tightening visibility must cut existing streams, not just notify them:
-    // a subscriber authorized at connect time would otherwise keep receiving
-    // entrant names past the new gate. Ended streams reconnect into the
-    // connect-time access check.
-    const tightened =
-      (stored.published && !payload.published) ||
-      (stored.event.access === "public" && regrafted.event.access === "members");
-    if (tightened) endRoom(params.slug);
     // Open stages refetch their raffle config off the fresh event.
-    else publish(params.slug, { type: "event-updated" });
+    if (!tightened) publish(params.slug, { type: "event-updated" });
     // The exact version this save wrote: the client adopts it as its reviewed
     // token, so a concurrent save landing during the response can't slip in.
     return { saved: true, newUpdatedAt, auditWarning: !audited };
@@ -254,10 +254,15 @@ export const actions: Actions = {
     // Retire the slot's previous roll BEFORE committing its replacement, and
     // abort if that fails: a committed new winner alongside a live old roll
     // would let recovered snapshots replay the old winner over the real one.
-    // The reverse loss (retired old roll, CAS below fails) only costs the
-    // stage its replay - the slot's winner is unchanged in the event JSON.
+    // Only the roll THIS request observed is retired - a blanket slot-wide
+    // supersede could take a concurrent rival's fresh record down before our
+    // own CAS loses. The reverse loss (retired old roll, CAS below fails)
+    // only costs the stage its replay - the slot's winner is unchanged.
     try {
-      await raffleRollStore.markSuperseded(params.slug, raffleId, slot);
+      const prior = (await raffleRollStore.latestForEvent(params.slug)).find(
+        (entry) => entry.raffleId === raffleId && entry.slot === slot,
+      );
+      if (prior) await raffleRollStore.markSupersededById(prior.rollId);
     } catch (error) {
       console.warn("raffle roll supersede failed:", error);
       return fail(503, { error: "Could not clear the previous roll - try again shortly." });
@@ -316,6 +321,12 @@ export const actions: Actions = {
     } catch (error) {
       console.warn("raffle roll record failed:", error);
       rollRecorded = false;
+      // Connected stages still hold the (already superseded) previous roll
+      // in memory - retire the slot on the wire and refresh, so the event
+      // JSON's committed winner takes over instead of a replaced one being
+      // announced until reload.
+      publish(params.slug, { type: "retired", raffleId, slot });
+      publish(params.slug, { type: "event-updated" });
     }
 
     // Record who was drawn, not just where: the audit trail must show the exact
