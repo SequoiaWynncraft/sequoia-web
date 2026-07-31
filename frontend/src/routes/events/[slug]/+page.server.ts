@@ -9,6 +9,11 @@ import { loadEventRaidCounts, sumCounts, type EventDayCount } from "$lib/server/
 import { loadGoalProgress } from "$lib/server/goalProgress";
 import { loadModRunCounts } from "$lib/server/modActivity";
 import { raffleRollStore } from "$lib/server/raffleRolls";
+import {
+  getLinkedRankProfiles,
+  memberRanksByUuid,
+  type MemberRankEntry,
+} from "$lib/server/rankProfiles";
 import { requestError } from "$lib/server/requestError";
 import {
   loadModLeaderboard,
@@ -21,6 +26,11 @@ import {
 import type { GuildMemberStats } from "$lib/api/guildStats";
 
 export const prerender = false;
+
+/** How long the optional profile-rank lookup may keep ready standings waiting. */
+const RANKS_GRACE_MS = 1500;
+
+const EMPTY_RANKS: Record<string, MemberRankEntry> = {};
 
 export type Standings =
   | { state: "signin" }
@@ -108,7 +118,31 @@ export const load: PageServerLoad = async ({ fetch, locals, params, parent }) =>
   let viewerRaids: number | null = null;
   if (event.tracker && event.startsAt && event.endsAt && status !== "upcoming") {
     if (membership === "member") {
+      // Best-effort role-aware enrichment, started alongside the board fetch:
+      // the standings render progression ranks and insignias when linked, but
+      // a slow profile read forfeits them after a short grace instead of
+      // holding the page.
+      const ranksPromise = getLinkedRankProfiles(fetch)
+        .then(memberRanksByUuid)
+        .catch(() => EMPTY_RANKS);
       const result = await loadTrackerStandings(fetch, event.tracker, roster);
+      if (result.leaderboard.length > 0) {
+        const ranks = await Promise.race([
+          ranksPromise,
+          new Promise<Record<string, MemberRankEntry>>((resolve) => {
+            setTimeout(resolve, RANKS_GRACE_MS, EMPTY_RANKS);
+          }),
+        ]);
+        result.leaderboard = result.leaderboard.map((entry) => {
+          const standing = ranks[entry.player_uuid.toLowerCase()];
+          return {
+            ...entry,
+            insigniaUrl: standing?.insigniaUrl ?? null,
+            insignia: standing?.insignia ?? null,
+            progressionRank: standing?.rank ?? null,
+          };
+        });
+      }
       standings = { state: "board", leaderboard: result.leaderboard, error: result.error };
       const { viewer } = await parent();
       const mine = viewer
