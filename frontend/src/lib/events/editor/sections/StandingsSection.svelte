@@ -79,6 +79,17 @@
         <button type="button" class="evf-inline-link focus-ring" onclick={() => (draft.trackerManual = true)}>
           Enter an id manually
         </button>
+        {#if draft.mode === "edit" && draft.trackerEventId}
+          <!-- Server endpoint streams the full board - every roster member for
+               mod-tracked windows - so managers get the raw numbers. -->
+          <a
+            class="evf-inline-link focus-ring"
+            href={`/manage/events/${draft.liveInitial?.slug ?? draft.slug}/export?tracker=${encodeURIComponent(draft.trackerEventId)}`}
+            download
+          >
+            Export CSV
+          </a>
+        {/if}
       </p>
     {:else}
       <div class="evf-grid-2">
