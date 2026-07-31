@@ -14,6 +14,10 @@
   let loading = $state(false);
   let result = $state<RafflePreviewResponse | null>(null);
 
+  const hasWinners = $derived(
+    (draft.raffles.find((row) => row.id === raffleId)?.winners.length ?? 0) > 0,
+  );
+
   // Debounced re-resolve while open: any draft change re-runs this effect via
   // the payload read; the abort keeps a slow response from clobbering a newer
   // one.
@@ -62,6 +66,11 @@
         {result.entrants.length === 1 ? "entrant" : "entrants"} · {result.totalTickets}
         {result.totalTickets === 1 ? "ticket" : "tickets"}{loading ? " · updating…" : ""}
       </p>
+      {#if hasWinners}
+        <p class="preview-meta">
+          Pool for an unfilled slot - a re-roll also re-enters that slot's current winner.
+        </p>
+      {/if}
       {#if result.entrants.length > 0}
         <ul class="preview-list">
           {#each result.entrants as entrant (entrant.player_uuid)}
