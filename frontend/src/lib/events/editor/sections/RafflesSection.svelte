@@ -2,6 +2,7 @@
   import { getContext } from "svelte";
 
   import { GUILD_RANKS } from "$lib/api/guildStats";
+  import PlayerName from "$lib/design-system/components/PlayerName.svelte";
   import ConfirmDialog from "$lib/design-system/components/forms/ConfirmDialog.svelte";
   import Field from "$lib/design-system/components/forms/Field.svelte";
   import FormSection from "$lib/design-system/components/forms/FormSection.svelte";
@@ -279,7 +280,9 @@
         <Field label="Always include" element="div">
           {#each raffle.include as entry (entry.key)}
             <div class="evf-manual-row">
-              <span class="evf-manual-name">{entry.username}</span>
+              <span class="evf-manual-name">
+                <PlayerName username={entry.username} uuid={entry.player_uuid} size={18} />
+              </span>
               <label class="evf-weight-per">
                 <span class="evf-weight-per-label">min tickets</span>
                 <input class="seq-input" type="number" min="1" bind:value={entry.tickets} />
@@ -315,7 +318,9 @@
         <Field label="Never include" element="div">
           {#each raffle.exclude as entry (entry.key)}
             <div class="evf-manual-row">
-              <span class="evf-manual-name">{entry.username}</span>
+              <span class="evf-manual-name">
+                <PlayerName username={entry.username} uuid={entry.player_uuid} size={18} />
+              </span>
               <button
                 type="button"
                 class="evf-remove focus-ring"
@@ -379,7 +384,11 @@
             class="evf-raffle-cell"
             class:evf-raffle-unrolled={!row.winner}
             role="cell"
-          >{row.winner ? row.winner.username : "Not rolled"}</span>
+          >{#if row.winner}<PlayerName
+              username={row.winner.username}
+              uuid={row.winner.player_uuid}
+              size={18}
+            />{:else}Not rolled{/if}</span>
           <span class="evf-raffle-cell" role="cell">{row.prize || "—"}</span>
           <span class="evf-raffle-roll-cell" role="cell">
             {#if row.saved}
@@ -415,7 +424,8 @@
           <li class="evf-roll-history-row">
             <span class="evf-roll-history-when">{historyWhen(roll.startedAt)}</span>
             <span class="evf-roll-history-what">
-              {roll.prize || "—"} · slot {roll.slot + 1} → {roll.winner.username}
+              {roll.prize || "—"} · slot {roll.slot + 1} →
+              <PlayerName username={roll.winner.username} uuid={roll.winner.player_uuid} size={16} />
               ({roll.winner.tickets} {roll.winner.tickets === 1 ? "ticket" : "tickets"},
               {roll.entrants.length} entrants)
             </span>

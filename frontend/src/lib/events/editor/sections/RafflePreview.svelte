@@ -1,9 +1,9 @@
 <script lang="ts">
+  import PlayerName from "$lib/design-system/components/PlayerName.svelte";
   import { getContext } from "svelte";
 
   import type { RafflePreviewResponse } from "$lib/events/rafflePreview";
-  import { nmsrFace } from "$lib/site/nmsr";
-
+  
   import { EDITOR_KEY, EventDraft } from "../draft.svelte";
 
   let { raffleId }: { raffleId: string } = $props();
@@ -77,8 +77,9 @@
         <ul class="preview-list">
           {#each result.entrants as entrant (entrant.player_uuid)}
             <li class="preview-row">
-              <img class="preview-face" src={nmsrFace(entrant.player_uuid, 18)} alt="" loading="lazy" />
-              <span class="preview-name">{entrant.username}</span>
+              <span class="preview-name">
+                <PlayerName username={entrant.username} uuid={entrant.player_uuid} size={18} />
+              </span>
               {#if entrant.source === "include"}
                 <span class="preview-pinned" title="Hand-picked entrant">pinned</span>
               {/if}
@@ -125,12 +126,6 @@
     gap: 10px;
     padding: 6px 4px;
     border-bottom: 1px solid var(--color-border-subtle);
-  }
-
-  .preview-face {
-    width: 18px;
-    height: 18px;
-    image-rendering: pixelated;
   }
 
   .preview-name {

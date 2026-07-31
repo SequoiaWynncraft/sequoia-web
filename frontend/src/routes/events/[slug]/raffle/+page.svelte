@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
 
+  import PlayerName from "$lib/design-system/components/PlayerName.svelte";
   import EventSky from "$lib/events/components/EventSky.svelte";
   import EntrantList from "$lib/events/stage/EntrantList.svelte";
   import RaffleWheel from "$lib/events/stage/RaffleWheel.svelte";
@@ -52,11 +53,15 @@
             ? live.state === "spinning"
             : live.state === "spinning" ||
               Date.now() < live.settlesAt + (feed?.clockOffset ?? 0));
+        const settled = live && live.state === "settled" ? live.winner : null;
+        const stored = raffle.winners?.find((entry) => entry.slot === slot) ?? null;
         const winner = spinning
           ? null
-          : live && live.state === "settled"
-            ? live.winner.username
-            : (raffle.winners?.find((entry) => entry.slot === slot)?.username ?? null);
+          : settled
+            ? { username: settled.username, uuid: settled.player_uuid }
+            : stored
+              ? { username: stored.username, uuid: stored.player_uuid }
+              : null;
         return { key: `${raffle.id}:${slot}`, prize: raffle.prize, winner, spinning };
       }),
     ),
@@ -99,7 +104,11 @@
         {#each results as row (row.key)}
           <div class="stage-result">
             <span class="stage-result-winner" class:stage-result-unrolled={!row.winner}>
-              {row.winner ?? (row.spinning ? "Rolling…" : "Not rolled")}
+              {#if row.winner}
+                <PlayerName username={row.winner.username} uuid={row.winner.uuid} size={18} />
+              {:else}
+                {row.spinning ? "Rolling…" : "Not rolled"}
+              {/if}
             </span>
             <span class="stage-result-prize">{row.prize}</span>
           </div>

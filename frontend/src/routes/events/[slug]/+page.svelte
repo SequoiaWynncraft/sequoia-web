@@ -1,5 +1,8 @@
 <script lang="ts">
   import { guildRankLabel } from "$lib/api/guildStats";
+  import PlayerName from "$lib/design-system/components/PlayerName.svelte";
+  import { playercardUrl } from "$lib/site/identity";
+  import { rankColor } from "$lib/site/rankColors";
   import { webAuthStartUrl } from "$lib/site/webAuth";
   import Button from "$lib/design-system/components/Button.svelte";
   import DailyBars from "$lib/design-system/components/charts/DailyBars.svelte";
@@ -86,9 +89,16 @@
       nameStyle: true,
       value: (entry) => entry.username,
       sortValue: (entry) => entry.username.toLowerCase(),
-      secondary: (entry) => guildRankLabel(entry.rank),
+      // Role-aware: the Sequoia progression rank when the member is linked,
+      // the in-game rank otherwise - colored from the shared rank vocabulary.
+      secondary: (entry) => entry.progressionRank ?? guildRankLabel(entry.rank),
+      secondaryColor: (entry) => rankColor(entry.progressionRank ?? entry.rank),
       avatar: (entry) => nmsrFace(entry.player_uuid, 22),
-      href: (entry) => `/statistics/player/playercard?player=${encodeURIComponent(entry.username)}`,
+      href: (entry) => playercardUrl(entry.username),
+      icon: (entry) =>
+        entry.insigniaUrl && entry.insignia
+          ? { src: entry.insigniaUrl, alt: `${entry.insignia.toLowerCase()} insignia` }
+          : null,
     },
     {
       key: "raids",
@@ -267,10 +277,9 @@
               {#each event.prizes as entry (entry.donor + entry.prize)}
                 <li class="ev-prize">
                   {#if entry.donorPlayer}
-                    <a
-                      class="ev-prize-donor ev-prize-donor-link focus-ring"
-                      href={`/statistics/player/playercard?player=${encodeURIComponent(entry.donorPlayer)}`}
-                    >{entry.donor}</a>
+                    <span class="ev-prize-donor">
+                      <PlayerName username={entry.donor} player={entry.donorPlayer} size={18} />
+                    </span>
                   {:else}
                     <span class="ev-prize-donor">{entry.donor}</span>
                   {/if}
@@ -330,14 +339,9 @@
                      winner must not appear here first. -->
                 <span class="ev-raffle-cell ev-raffle-unrolled" role="cell">Rolling…</span>
               {:else if row.winner}
-                <a
-                  class="ev-raffle-cell ev-raffle-winner focus-ring"
-                  role="cell"
-                  href={`/statistics/player/playercard?player=${encodeURIComponent(row.winner.username)}`}
-                >
-                  <img class="ev-raffle-face" src={nmsrFace(row.winner.player_uuid, 22)} alt="" />
-                  {row.winner.username}
-                </a>
+                <span class="ev-raffle-cell ev-raffle-winner" role="cell">
+                  <PlayerName username={row.winner.username} uuid={row.winner.player_uuid} size={22} />
+                </span>
               {:else}
                 <span class="ev-raffle-cell ev-raffle-unrolled" role="cell">Not rolled</span>
               {/if}
@@ -679,17 +683,6 @@
     text-transform: uppercase;
   }
 
-  .ev-prize-donor-link {
-    text-decoration: none;
-    transition: color var(--dur-fast) ease;
-  }
-
-  .ev-prize-donor-link:hover {
-    color: var(--ev-accent);
-    text-decoration: underline;
-    text-underline-offset: 3px;
-  }
-
   .ev-prize-what {
     color: var(--text-body);
     font-family: var(--font-data);
@@ -790,25 +783,9 @@
     white-space: nowrap;
   }
 
-  .ev-raffle-winner {
-    text-decoration: none;
-    transition: color var(--dur-fast) ease;
-  }
-
-  .ev-raffle-winner:hover {
-    color: var(--ev-accent);
-  }
-
   .ev-raffle-unrolled {
     color: var(--text-muted);
     font-style: italic;
-  }
-
-  .ev-raffle-face {
-    width: 22px;
-    height: 22px;
-    image-rendering: pixelated;
-    flex-shrink: 0;
   }
 
   @media (max-width: 900px) {
