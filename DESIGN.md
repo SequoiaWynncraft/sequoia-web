@@ -134,14 +134,21 @@ server-side in `lib/server/raffleEligibility.ts` (fail-closed; legacy raffles wi
 block keep their exact original semantics). The editor previews the pool via
 `POST /api/manage/raffle-preview` — display-only and stale-tolerant (it accepts a cached
 roster where the roll insists on a fresh one), so its entrants and odds are a guide, not
-the authoritative draw. Rolling draws with the same resolver, grafts the
-winner into the event JSON under the whole-event CAS (still the sole contention arbiter),
-then records the draw in `raffle_rolls` (`lib/server/raffleRolls.ts`: entrant snapshot,
-winner index, spin choreography) and broadcasts it over in-process pub/sub — best-effort:
-the committed winner is authoritative, never lost. A failed RECORD costs the stage its
-replay and live animation, and warns the manager distinctly from an audit failure; a
-delivery error on one subscriber's stream costs only that stream the live push — the
-persisted record still replays on its reconnect snapshot
+the authoritative draw. The roll action draws with the same resolver, builds the wheel snapshot
+(entrants, winner index, spin choreography), and inserts it into `raffle_rolls`
+(`lib/server/raffleRolls.ts`) as PENDING *before* the whole-event CAS grafts the winner.
+That order closes the visibility gap: the pending row masks the slot on the public event
+page while the winner commit and activation complete, but pending rows never reach the
+stage. If the CAS loses, the action supersedes that pending row; if it wins, `markLive`
+conditionally flips the row live and reports whether the transition actually happened.
+Only a successfully flipped row is broadcast over in-process pub/sub. Failed cleanup or
+activation cannot create a false stage result: an abandoned pending row becomes invisible
+everywhere when its settle time expires and can no longer mask the slot or shadow an older
+live roll. The committed winner in the event JSON remains authoritative. A failed record
+or activation therefore costs the stage its replay and live animation, and warns the
+manager distinctly from an audit failure; a delivery error on one subscriber's stream
+costs only that stream the live push — the persisted live record still replays on its
+reconnect snapshot
 (`lib/server/liveRolls.ts`, single-replica by design) to
 `GET /events/{slug}/raffle/stream` (native SSE, heartbeats). The stream and stage gate
 harder than the event page: a member-only event still serves non-members its public
