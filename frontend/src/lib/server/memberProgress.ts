@@ -1,6 +1,6 @@
 import { isMemberProgressResponse, type MemberProgressResponse } from "$lib/api/memberProgress";
 import { SEQUOIA_API_BASE_URL } from "$lib/config/public";
-import { createCachedResource, type CachedResource } from "$lib/server/serverCache";
+import { createCachedResource, type CachedResource, type CachedValue } from "$lib/server/serverCache";
 
 const FRESH_MS = 5 * 60 * 1000;
 const STALE_MS = 60 * 60 * 1000;
@@ -8,11 +8,7 @@ const MAX_RANGES = 32;
 
 const resources = new Map<string, CachedResource<MemberProgressResponse>>();
 
-export async function getMemberProgress(
-  fetchImpl: typeof fetch,
-  from: string,
-  to: string,
-): Promise<MemberProgressResponse> {
+function resourceFor(from: string, to: string): CachedResource<MemberProgressResponse> {
   const key = `${from}..${to}`;
   let resource = resources.get(key);
   if (!resource) {
@@ -30,7 +26,30 @@ export async function getMemberProgress(
     });
     resources.set(key, resource);
   }
-  return (await resource.get(fetchImpl, { allowStale: true })).data;
+  return resource;
+}
+
+export async function getMemberProgress(
+  fetchImpl: typeof fetch,
+  from: string,
+  to: string,
+): Promise<MemberProgressResponse> {
+  return (await resourceFor(from, to).get(fetchImpl, { allowStale: true })).data;
+}
+
+/**
+ * The progress with its staleness attached. Callers whose decision is
+ * irreversible (raffle draws) must ask with `allowStale: false` AND refuse a
+ * result that still reports `stale` - the cache falls back to a stale value
+ * when the refresh itself fails.
+ */
+export async function getMemberProgressResult(
+  fetchImpl: typeof fetch,
+  from: string,
+  to: string,
+  options: { allowStale?: boolean } = {},
+): Promise<CachedValue<MemberProgressResponse>> {
+  return resourceFor(from, to).get(fetchImpl, { allowStale: options.allowStale ?? true });
 }
 
 async function loadProgress(

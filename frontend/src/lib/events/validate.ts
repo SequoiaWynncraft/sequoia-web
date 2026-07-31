@@ -1,15 +1,21 @@
+import { GUILD_RANKS, type GuildRankName } from "$lib/api/guildStats";
+
 import { RAID_ICONS } from "./raidIcons";
 import type {
   CompRole,
+  EligibilityRule,
   EventGoal,
   EventIcon,
   EventIconPlacement,
   EventRaffle,
   EventTheme,
   GuildEvent,
+  ManualEntrant,
   PersonalMilestone,
   PrizeEntry,
+  RaffleEligibility,
   RaffleWinner,
+  TicketWeight,
 } from "./types";
 
 export type ParseResult = { ok: true; event: GuildEvent } | { ok: false; error: string };
@@ -85,6 +91,11 @@ function parseEvent(value: unknown): GuildEvent {
     for (const raffle of raffles) {
       if (raffle.requiresMilestone !== undefined && !milestoneIds.has(raffle.requiresMilestone)) {
         fail(`raffle "${raffle.prize}" requires a personal milestone that does not exist`);
+      }
+      for (const rule of raffle.eligibility?.rules ?? []) {
+        if (rule.type === "milestone" && !milestoneIds.has(rule.milestoneId)) {
+          fail(`raffle "${raffle.prize}" filters on a personal milestone that does not exist`);
+        }
       }
     }
   }
@@ -410,27 +421,190 @@ function parseRaffle(value: unknown, label: string): EventRaffle {
   const requiresMilestone = optionalText(raw.requiresMilestone, `${label} milestone gate`, 64);
   // The referenced id is cross-checked against personalMilestones in parseEvent.
   if (requiresMilestone) raffle.requiresMilestone = requiresMilestone;
+  if (present(raw.eligibility)) raffle.eligibility = parseEligibility(raw.eligibility, label);
   return raffle;
 }
 
-function parseRaffleWindow(value: unknown, label: string): NonNullable<EventRaffle["window"]> {
+const MAX_MANUAL_ENTRANTS = 150;
+const MAX_MANUAL_TICKETS = 1_000_000;
+const MAX_ELIGIBILITY_RULES = 20;
+const ELIGIBILITY_STATS = new Set(["raids", "playtime", "wars"]);
+
+function parseEligibility(value: unknown, label: string): RaffleEligibility {
+  const raw = asRecord(value, `${label} eligibility`);
+  const eligibility: RaffleEligibility = {};
+  const include = parseManualEntrants(raw.include, `${label} include list`);
+  if (include) eligibility.include = include;
+  const exclude = parseManualEntrants(raw.exclude, `${label} exclude list`);
+  if (exclude) eligibility.exclude = exclude;
+  if (present(raw.rules)) {
+    if (!Array.isArray(raw.rules)) fail(`${label} rules must be a list`);
+    if (raw.rules.length > MAX_ELIGIBILITY_RULES) {
+      fail(`${label} has too many rules (max ${MAX_ELIGIBILITY_RULES})`);
+    }
+    const rules = raw.rules.map((entry) => parseEligibilityRule(entry, label));
+    if (rules.length > 0) eligibility.rules = rules;
+  }
+  if (present(raw.weight)) eligibility.weight = parseTicketWeight(raw.weight, label);
+  return eligibility;
+}
+
+function parseManualEntrants(value: unknown, label: string): ManualEntrant[] | undefined {
+  if (!present(value)) return undefined;
+  if (!Array.isArray(value)) fail(`${label} must be a list`);
+  if (value.length > MAX_MANUAL_ENTRANTS) {
+    fail(`${label} has too many entries (max ${MAX_MANUAL_ENTRANTS})`);
+  }
+  const seen = new Set<string>();
+  const entries = value.map((entry) => {
+    const raw = asRecord(entry, `${label} entry`);
+    const entrant: ManualEntrant = {
+      player_uuid: requiredText(raw.player_uuid, `${label} entry uuid`, 64),
+      username: requiredText(raw.username, `${label} entry name`, 40),
+    };
+    const key = entrant.player_uuid.replaceAll("-", "").toLowerCase();
+    if (seen.has(key)) fail(`${label} lists the same player twice`);
+    seen.add(key);
+    if (present(raw.tickets)) {
+      entrant.tickets = parseCount(raw.tickets, `${label} entry tickets`, 1);
+      // Huge floors pass Number.isInteger (1e308 is "an integer") and would
+      // overflow the draw's ticket sum to Infinity, breaking the weighting.
+      if (entrant.tickets > MAX_MANUAL_TICKETS) {
+        fail(`${label} entry tickets must be at most ${MAX_MANUAL_TICKETS}`);
+      }
+    }
+    return entrant;
+  });
+  return entries.length > 0 ? entries : undefined;
+}
+
+function parseEligibilityRule(value: unknown, label: string): EligibilityRule {
+  const raw = asRecord(value, `${label} rule`);
+  switch (raw.type) {
+    case "guildRank": {
+      const ranks = parseRankList(raw.ranks, `${label} guild-rank rule`, (rank) =>
+        (GUILD_RANKS as readonly string[]).includes(rank),
+      );
+      return { type: "guildRank", ranks: ranks as GuildRankName[] };
+    }
+    case "seqRank": {
+      const ranks = parseRankList(raw.ranks, `${label} Sequoia-rank rule`, () => true);
+      return { type: "seqRank", ranks };
+    }
+    case "stat": {
+      if (typeof raw.stat !== "string" || !ELIGIBILITY_STATS.has(raw.stat)) {
+        fail(`${label} stat rule must count raids, playtime, or wars`);
+      }
+      return {
+        type: "stat",
+        stat: raw.stat as "raids" | "playtime" | "wars",
+        min: parseCount(raw.min, `${label} stat rule minimum`, 1),
+        window: parseDayWindow(raw.window, `${label} stat rule`),
+      };
+    }
+    case "milestone":
+      // The referenced id is cross-checked against personalMilestones in parseEvent.
+      return { type: "milestone", milestoneId: requiredText(raw.milestoneId, `${label} milestone rule`, 64) };
+    default:
+      fail(`${label} has a rule of unknown type`);
+  }
+}
+
+function parseRankList(
+  value: unknown,
+  label: string,
+  valid: (rank: string) => boolean,
+): string[] {
+  if (!Array.isArray(value) || value.length === 0) fail(`${label} needs at least one rank`);
+  if (value.length > MAX_ELIGIBILITY_RULES) fail(`${label} lists too many ranks`);
+  const ranks = value.map((rank) => {
+    const text = requiredText(rank, `${label} rank`, 40);
+    if (!valid(text)) fail(`${label} names an unknown rank`);
+    return text;
+  });
+  if (new Set(ranks).size !== ranks.length) fail(`${label} lists the same rank twice`);
+  return ranks;
+}
+
+function parseTicketWeight(value: unknown, label: string): TicketWeight {
+  const raw = asRecord(value, `${label} weight`);
+  switch (raw.mode) {
+    case "flat":
+      return { mode: "flat" };
+    case "perRaid": {
+      const weight: TicketWeight = {
+        mode: "perRaid",
+        perTicket: parseCount(raw.perTicket, `${label} raids per ticket`, 1),
+      };
+      if (present(raw.window)) weight.window = parseRaffleWindow(raw.window, `${label} weight`);
+      return weight;
+    }
+    case "perStat": {
+      if (typeof raw.stat !== "string" || !ELIGIBILITY_STATS.has(raw.stat)) {
+        fail(`${label} weight must count raids, playtime, or wars`);
+      }
+      return {
+        mode: "perStat",
+        stat: raw.stat as "raids" | "playtime" | "wars",
+        per: parseCount(raw.per, `${label} per-stat divisor`, 1),
+        window: parseDayWindow(raw.window, `${label} weight`),
+      };
+    }
+    default:
+      fail(`${label} has a weight of unknown mode`);
+  }
+}
+
+/**
+ * Stat windows read the daily rollups, which only exist in whole UTC days: a
+ * partial-day bound would silently expand to the full days it touches, so
+ * both bounds must sit exactly on UTC midnight. The member-progress backend
+ * serves at most 400 inclusive days, so longer windows must fail before save.
+ */
+function parseDayWindow(value: unknown, label: string): NonNullable<EventRaffle["window"]> {
+  const window = parseRaffleWindow(value, label, true);
+  for (const bound of [window.from, window.to]) {
+    if (!bound.endsWith("T00:00:00.000Z")) {
+      fail(`${label} window counts whole UTC days - both bounds must be UTC midnight`);
+    }
+  }
+  const inclusiveDays = (Date.parse(window.to) - Date.parse(window.from)) / 86_400_000 + 1;
+  if (inclusiveDays > 400) fail(`${label} window must span at most 400 inclusive days`);
+  return window;
+}
+
+function parseRaffleWindow(
+  value: unknown,
+  label: string,
+  allowEqual = false,
+): NonNullable<EventRaffle["window"]> {
   const raw = asRecord(value, `${label} window`);
   const from = parseInstant(raw.from, `${label} window start`);
   const to = parseInstant(raw.to, `${label} window end`);
-  if (Date.parse(from) >= Date.parse(to)) fail(`${label} window must end after it starts`);
+  const invalidOrder = allowEqual ? Date.parse(from) > Date.parse(to) : Date.parse(from) >= Date.parse(to);
+  if (invalidOrder) {
+    fail(`${label} window must end after it starts`);
+  }
   return { from, to };
 }
 
 function parseRaffleWinner(value: unknown, label: string): RaffleWinner {
   const raw = asRecord(value, `${label} winner`);
-  return {
+  if (present(raw.source) && raw.source !== "drawn" && raw.source !== "manual") {
+    fail(`${label} winner has an unknown source`);
+  }
+  const source = raw.source === "manual" ? "manual" : undefined;
+  const winner: RaffleWinner = {
     slot: parseCount(raw.slot, `${label} winner slot`, 0),
     username: requiredText(raw.username, `${label} winner name`, 40),
     player_uuid: requiredText(raw.player_uuid, `${label} winner uuid`, 64),
-    // A winner was drawn from the ticket-weighted pool, where zero-ticket
-    // entrants never win - a persisted winner therefore holds at least one.
-    tickets: parseCount(raw.tickets, `${label} winner tickets`, 1),
+    // A drawn winner came from the ticket-weighted pool, where zero-ticket
+    // entrants never win - so it holds at least one. A hand-picked winner
+    // may hold zero, since no draw produced it.
+    tickets: parseCount(raw.tickets, `${label} winner tickets`, source === "manual" ? 0 : 1),
   };
+  if (source) winner.source = source;
+  return winner;
 }
 
 function parseLines(value: unknown, label: string, maxLength: number): string[] | undefined {

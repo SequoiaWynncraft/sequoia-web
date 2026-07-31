@@ -8,7 +8,7 @@ import { parseGuildEvent } from "$lib/events/validate";
 import { eventFormContext } from "$lib/server/eventFormContext";
 import { requireEventManager } from "$lib/server/eventManagers";
 import { getGuildStats } from "$lib/server/guildStats";
-import { loadRaffleEligible } from "$lib/server/raidEventBoards";
+import { resolveEligibility } from "$lib/server/raffleEligibility";
 import { createTrackerAction, updateTrackerAction } from "$lib/server/trackerAdmin";
 import { parseEventPayload } from "$lib/server/eventPayload";
 import { deletePresetAction, savePresetAction } from "$lib/server/eventPresets";
@@ -165,24 +165,17 @@ export const actions: Actions = {
     if (!Number.isInteger(slot) || slot < 0 || slot >= raffle.winnerCount) {
       return fail(400, { error: "That winner slot no longer exists - save and try again." });
     }
-    if (!event.tracker) return fail(400, { error: "This event needs a tracker to roll raffles." });
-
     // Membership trust mirrors the public standings board: only a fresh
     // roster is authoritative for who is eligible.
     const stats = await getGuildStats(fetch, { allowStale: false }).catch(() => null);
     if (stats === null || stats.stale) {
       return fail(503, { error: "Member data is temporarily unavailable - try again shortly." });
     }
-    // A milestone-gated raffle only draws from members who reached that personal
-    // milestone's raid target over the full standings window.
-    const requiredRaids = raffle.requiresMilestone
-      ? event.personalMilestones?.find((milestone) => milestone.id === raffle.requiresMilestone)?.at
-      : undefined;
-    const pool = await loadRaffleEligible(fetch, event.tracker, stats.members, {
-      perTicket: raffle.perTicket,
-      window: raffle.window,
-      requiredRaids,
-    });
+    // One resolution path for both raffle generations: legacy fields or the
+    // composable eligibility block, always against the fresh roster.
+    // Strict: a draw is irreversible, so stale rank or stat caches fail the
+    // roll instead of deciding who can win.
+    const pool = await resolveEligibility(fetch, event, raffle, stats.members, { strict: true });
     if (pool.error) return fail(503, { error: pool.error });
 
     // Nobody already holding a slot can win this one: every other slot of this
@@ -195,10 +188,13 @@ export const actions: Actions = {
           .flatMap((entry) => entry.winners ?? [])
       : [];
     const exclude = [...others, ...crossRaffle].map((winner) => winner.player_uuid);
-    const [drawn] = drawWinners(pool.entrants, 1, { exclude, rng: secureRng });
-    if (!drawn) {
+    const [pick] = drawWinners(pool.entrants, 1, { exclude, rng: secureRng });
+    if (!pick) {
       return fail(400, { error: "No eligible members are left to draw for this slot." });
     }
+    // Rebuild the winner from named fields: the entrant carries resolver
+    // metadata (its pool source) that must not leak into the stored event.
+    const drawn = { username: pick.username, player_uuid: pick.player_uuid, tickets: pick.tickets };
 
     raffle.winners = [...others, { slot, ...drawn }];
     raffle.drawnAt = new Date().toISOString();
