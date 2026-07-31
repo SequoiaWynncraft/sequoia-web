@@ -21,6 +21,19 @@ interface Subscriber {
 
 const rooms = new Map<string, Set<Subscriber>>();
 
+/**
+ * Each teardown advances the slug's epoch. A stream handler captures the
+ * epoch BEFORE its access checks and hands it to `subscribe`: a teardown
+ * that lands while those checks await (deletion, visibility tightening)
+ * would otherwise miss the not-yet-registered subscriber, attaching stale
+ * authorization to whatever lives at the slug next.
+ */
+const epochs = new Map<string, number>();
+
+export function roomEpoch(eventSlug: string): number {
+  return epochs.get(eventSlug) ?? 0;
+}
+
 export function publish(eventSlug: string, message: StageMessage): void {
   const room = rooms.get(eventSlug);
   if (!room) return;
@@ -33,8 +46,19 @@ export function publish(eventSlug: string, message: StageMessage): void {
   }
 }
 
-/** Registers a stage listener; the returned function removes it. */
-export function subscribe(eventSlug: string, send: Send, end?: () => void): () => void {
+/**
+ * Registers a stage listener; the returned function removes it. When
+ * `expectedEpoch` is given and a teardown has advanced the room since it was
+ * captured, the registration is refused (null) - the caller's authorization
+ * predates the teardown and must be re-established on a fresh connect.
+ */
+export function subscribe(
+  eventSlug: string,
+  send: Send,
+  end?: () => void,
+  expectedEpoch?: number,
+): (() => void) | null {
+  if (expectedEpoch !== undefined && expectedEpoch !== roomEpoch(eventSlug)) return null;
   let room = rooms.get(eventSlug);
   if (!room) {
     room = new Set();
@@ -56,6 +80,7 @@ export function subscribe(eventSlug: string, send: Send, end?: () => void): () =
  * subscriber silently receiving the successor's rolls.
  */
 export function endRoom(eventSlug: string): void {
+  epochs.set(eventSlug, roomEpoch(eventSlug) + 1);
   const room = rooms.get(eventSlug);
   if (!room) return;
   rooms.delete(eventSlug);

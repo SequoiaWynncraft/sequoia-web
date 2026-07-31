@@ -20,14 +20,21 @@
     return () => connected.close();
   });
 
-  // A roll only reaches the wheel while its raffle and slot still exist in
-  // the event - a save can remove either, and the feed's copy would
-  // otherwise keep replaying configuration that is gone.
+  // The wheel shows the newest VALID roll: rolls whose raffle or slot a save
+  // removed are filtered before selection, so retiring the newest roll falls
+  // back to the next surviving one instead of an empty stage.
   const current = $derived.by(() => {
-    const roll = feed?.current ?? null;
-    if (!roll) return null;
-    const raffle = (data.event.raffles ?? []).find((entry) => entry.id === roll.raffleId);
-    return raffle && roll.slot < raffle.winnerCount ? roll : null;
+    if (!feed) return null;
+    const valid = Object.values(feed.rolls).filter((roll) => {
+      const raffle = (data.event.raffles ?? []).find((entry) => entry.id === roll.raffleId);
+      return raffle !== undefined && roll.slot < raffle.winnerCount;
+    });
+    if (valid.length === 0) return null;
+    const spinning = valid
+      .filter((roll) => roll.state === "spinning")
+      .sort((left, right) => right.startedAt - left.startedAt);
+    if (spinning.length > 0) return spinning[0];
+    return valid.sort((left, right) => right.startedAt - left.startedAt)[0];
   });
 
   // One row per declared winner slot: a settled live roll wins over the

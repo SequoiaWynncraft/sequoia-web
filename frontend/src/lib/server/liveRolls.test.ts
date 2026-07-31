@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { StageMessage } from "$lib/events/stageProtocol";
 
-import { endRoom, publish, subscribe, subscriberCount } from "./liveRolls";
+import { endRoom, publish, roomEpoch, subscribe, subscriberCount } from "./liveRolls";
 
 const MESSAGE: StageMessage = { type: "event-updated" };
 
@@ -10,8 +10,8 @@ describe("live roll fan-out", () => {
   it("delivers to every subscriber of the event, and only them", () => {
     const here = vi.fn();
     const there = vi.fn();
-    const unsubHere = subscribe("event-a", here);
-    const unsubThere = subscribe("event-b", there);
+    const unsubHere = subscribe("event-a", here)!;
+    const unsubThere = subscribe("event-b", there)!;
     publish("event-a", MESSAGE);
     expect(here).toHaveBeenCalledWith(MESSAGE);
     expect(there).not.toHaveBeenCalled();
@@ -21,7 +21,7 @@ describe("live roll fan-out", () => {
 
   it("stops delivering after unsubscribe and cleans the room up", () => {
     const listener = vi.fn();
-    const unsubscribe = subscribe("event-c", listener);
+    const unsubscribe = subscribe("event-c", listener)!;
     expect(subscriberCount("event-c")).toBe(1);
     unsubscribe();
     expect(subscriberCount("event-c")).toBe(0);
@@ -34,8 +34,8 @@ describe("live roll fan-out", () => {
       throw new Error("dead stream");
     });
     const good = vi.fn();
-    const unsubBad = subscribe("event-d", bad);
-    const unsubGood = subscribe("event-d", good);
+    const unsubBad = subscribe("event-d", bad)!;
+    const unsubGood = subscribe("event-d", good)!;
     publish("event-d", MESSAGE);
     expect(good).toHaveBeenCalledWith(MESSAGE);
     unsubBad();
@@ -58,5 +58,19 @@ describe("room teardown", () => {
     expect(subscriberCount("event-e")).toBe(0);
     publish("event-e", MESSAGE);
     expect(listener).not.toHaveBeenCalled();
+  });
+});
+
+describe("room epochs", () => {
+  it("refuses subscriptions whose captured epoch predates a teardown", () => {
+    const listener = vi.fn();
+    const epoch = roomEpoch("event-f");
+    endRoom("event-f");
+    expect(subscribe("event-f", listener, undefined, epoch)).toBeNull();
+    expect(subscriberCount("event-f")).toBe(0);
+    // A fresh capture after the teardown subscribes normally.
+    const unsubscribe = subscribe("event-f", listener, undefined, roomEpoch("event-f"));
+    expect(unsubscribe).not.toBeNull();
+    unsubscribe?.();
   });
 });

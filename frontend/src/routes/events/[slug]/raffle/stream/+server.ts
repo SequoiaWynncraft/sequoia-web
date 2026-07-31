@@ -4,7 +4,7 @@ import type { StageMessage } from "$lib/events/stageProtocol";
 import { checkEventManager } from "$lib/server/eventManagers";
 import { checkEventMembership } from "$lib/server/eventMembership";
 import { eventStore } from "$lib/server/eventStore";
-import { subscribe } from "$lib/server/liveRolls";
+import { roomEpoch, subscribe } from "$lib/server/liveRolls";
 import { raffleRollStore, toStageRoll } from "$lib/server/raffleRolls";
 import { requestError } from "$lib/server/requestError";
 import { loadViewer } from "$lib/server/viewerSession";
@@ -21,6 +21,10 @@ const HEARTBEAT_MS = 25_000;
  * and a mid-spin joiner animates the remainder from `startedAt`.
  */
 export const GET: RequestHandler = async ({ params, cookies, fetch, locals }) => {
+  // Captured before any await: a teardown landing while the checks below
+  // run (deletion, visibility tightening) advances the epoch, and the
+  // subscription is then refused - this request's authorization predates it.
+  const epoch = roomEpoch(params.slug);
   const stored = await eventStore.get(params.slug);
   if (!stored) requestError(locals, 404, "No such event");
   const viewer = await loadViewer(cookies.get("seq_session"), fetch);
@@ -35,7 +39,7 @@ export const GET: RequestHandler = async ({ params, cookies, fetch, locals }) =>
   }
 
   const encoder = new TextEncoder();
-  let unsubscribe: (() => void) | undefined;
+  let unsubscribe: (() => void) | null | undefined;
   let heartbeat: ReturnType<typeof setInterval> | undefined;
 
   const stream = new ReadableStream<Uint8Array>({
@@ -67,7 +71,14 @@ export const GET: RequestHandler = async ({ params, cookies, fetch, locals }) =>
             // Already closed by the client.
           }
         },
+        epoch,
       );
+      if (unsubscribe === null) {
+        // The room was torn down while access was being checked. Close
+        // without data; the reconnect re-runs the checks from scratch.
+        controller.close();
+        return;
+      }
       try {
         send({
           type: "snapshot",
