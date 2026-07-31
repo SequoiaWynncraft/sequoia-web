@@ -181,8 +181,6 @@
   .stage-prize {
     display: grid;
     gap: 6px;
-    padding: 16px 18px;
-    border: 1px solid color-mix(in srgb, var(--color-gold) 45%, transparent);
   }
 
   .stage-prize-label {

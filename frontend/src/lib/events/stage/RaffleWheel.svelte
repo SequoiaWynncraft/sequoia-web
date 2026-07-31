@@ -346,8 +346,6 @@
     display: inline-flex;
     gap: 12px;
     align-items: center;
-    padding: 8px 22px;
-    border: 1px solid var(--color-gold);
     color: var(--text-heading);
     font-family: var(--font-display);
     font-size: var(--text-lg);
