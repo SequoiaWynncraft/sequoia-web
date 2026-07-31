@@ -26,6 +26,11 @@
           if (entry.isIntersecting) visible.add(entry.target.id);
           else visible.delete(entry.target.id);
         }
+        // Side-by-side sections share the top of their grid row, so both can
+        // sit in the band at once. Sticky tie-break: if the CURRENT active
+        // section is still a candidate, keep it - this is what lets a click
+        // on the right-hand section survive the observer's next callback.
+        if (visible.has(active)) return;
         for (const section of EDITOR_SECTIONS) {
           if (visible.has(section.id)) {
             active = section.id;
@@ -43,6 +48,9 @@
     event.preventDefault();
     const target = document.getElementById(id);
     if (!target) return;
+    // Explicit intent beats the observer: side-by-side sections can share a
+    // scroll interval, and the click must win the tie.
+    active = id;
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     target.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
     history.replaceState(history.state, "", `#${id}`);
@@ -51,8 +59,11 @@
 
 <nav class="rail" aria-label="Editor sections">
   <ul class="rail-list">
-    {#each EDITOR_SECTIONS as section (section.id)}
+    {#each EDITOR_SECTIONS as section, index (section.id)}
       {@const count = issues[section.id]?.length ?? 0}
+      {#if index === 0 || EDITOR_SECTIONS[index - 1].category !== section.category}
+        <li class="rail-cat" aria-hidden="true">{section.category}</li>
+      {/if}
       <li>
         <a
           href="#{section.id}"

@@ -223,7 +223,7 @@
       <p class="evf-toolbar-error"><span class="evf-error" role="alert">{presetError}</span></p>
     {/if}
 
-    <form id={FORM_ID} method="POST" action="?/save" use:enhance={draft.submit}>
+    <form id={FORM_ID} class="evf-form" method="POST" action="?/save" use:enhance={draft.submit}>
       <input type="hidden" name="payload" value={draft.payload} />
       <!-- The version the visible draft is based on (see knownUpdatedAt): own
            saves and rolls advance it so follow-up saves aren't rejected as
@@ -236,13 +236,13 @@
       <SkySection />
       <IconSection />
       <AboutSection />
+      <RulesSection />
+      <ActivitySection />
       <GoalsSection />
       <MilestonesSection />
-      <ActivitySection />
+      <StandingsSection />
       <PrizesSection />
       <CompSection />
-      <RulesSection />
-      <StandingsSection />
       <RafflesSection />
 
       <div class="evf-footer">

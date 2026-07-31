@@ -43,7 +43,7 @@
 
 <style>
   .mg-page {
-    width: min(1200px, 100% - 3rem);
+    width: 100%;
     margin: 0 auto;
     padding-bottom: 48px;
   }
@@ -68,7 +68,7 @@
 
   @media (max-width: 640px) {
     .mg-page {
-      width: min(1200px, 100% - 2rem);
+      width: 100%;
     }
   }
 </style>
