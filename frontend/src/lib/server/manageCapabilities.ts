@@ -64,6 +64,22 @@ export async function resolveManageCapabilities(
 }
 
 /**
+ * Strict access for one protected console page. SvelteKit reruns a layout
+ * load only when its own dependencies change, so the console layout's
+ * capabilities go stale across child navigations - a manager demoted
+ * mid-session would keep reading protected data until a full reload. Page
+ * loads call this instead of trusting `parent().capabilities`; the layout's
+ * copy only drives the sidebar.
+ */
+export async function pageAreaAccess(
+  fetchImpl: typeof fetch,
+  viewer: Viewer | null,
+  area: keyof ManageCapabilities,
+): Promise<AreaAccess> {
+  return (await resolveManageCapabilities(fetchImpl, viewer))[area];
+}
+
+/**
  * Cheap check for the navbar's Manage entry: stale-tolerant roster, memoized
  * staff flag. Display-only - the /manage routes re-check strictly, so a stale
  * "true" costs a click into a gate, never access.
