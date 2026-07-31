@@ -2,7 +2,8 @@
   import { getContext } from "svelte";
 
   import { EDITOR_KEY, EventDraft } from "./draft.svelte";
-  import { EDITOR_SECTIONS, sectionIssues } from "./issues";
+  import { EDITOR_SECTIONS, sectionIssues, type SectionId } from "./issues";
+  import { nearestVisibleSection } from "./sectionRail";
 
   let { formId }: { formId: string } = $props();
 
@@ -10,7 +11,16 @@
 
   const issues = $derived(sectionIssues(draft));
 
-  let active = $state<string>(EDITOR_SECTIONS[0].id);
+  let active = $state<SectionId>(EDITOR_SECTIONS[0].id);
+  /** Click target whose smooth scroll is still traveling; observer holds. */
+  let navigatingTo: SectionId | null = null;
+  let navigationTimer: ReturnType<typeof setTimeout> | undefined;
+  const visible = new Set<string>();
+
+  function reconcileActive() {
+    const next = nearestVisibleSection(visible, active);
+    if (next !== null) active = next;
+  }
 
   // Scrollspy: the topmost section intersecting the upper viewport band wins.
   // One observer over the stable section anchors; sections never unmount.
@@ -19,24 +29,17 @@
       (element): element is HTMLElement => element !== null,
     );
     if (anchors.length === 0) return;
-    const visible = new Set<string>();
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
           if (entry.isIntersecting) visible.add(entry.target.id);
           else visible.delete(entry.target.id);
         }
-        // Side-by-side sections share the top of their grid row, so both can
-        // sit in the band at once. Sticky tie-break: if the CURRENT active
-        // section is still a candidate, keep it - this is what lets a click
-        // on the right-hand section survive the observer's next callback.
-        if (visible.has(active)) return;
-        for (const section of EDITOR_SECTIONS) {
-          if (visible.has(section.id)) {
-            active = section.id;
-            return;
-          }
-        }
+        // A click's smooth scroll crosses every section between here and the
+        // target - the observer must not fight the explicit choice while the
+        // scroll is still traveling.
+        if (navigatingTo !== null) return;
+        reconcileActive();
       },
       { rootMargin: "-15% 0px -70% 0px" },
     );
@@ -44,13 +47,28 @@
     return () => observer.disconnect();
   });
 
-  function jump(event: MouseEvent, id: string) {
+  function jump(event: MouseEvent, id: SectionId) {
     event.preventDefault();
     const target = document.getElementById(id);
     if (!target) return;
     // Explicit intent beats the observer: side-by-side sections can share a
-    // scroll interval, and the click must win the tie.
+    // scroll interval, and the click must win the tie. The suppression lifts
+    // when the scroll settles (scrollend where supported, a timer where not).
     active = id;
+    navigatingTo = id;
+    clearTimeout(navigationTimer);
+    const settle = () => {
+      navigatingTo = null;
+      reconcileActive();
+      window.removeEventListener("scrollend", settle);
+    };
+    if ("onscrollend" in window) {
+      window.addEventListener("scrollend", settle, { once: true });
+      // A no-op scroll (target already in view) never fires scrollend.
+      navigationTimer = setTimeout(settle, 1200);
+    } else {
+      navigationTimer = setTimeout(settle, 900);
+    }
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     target.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
     history.replaceState(history.state, "", `#${id}`);

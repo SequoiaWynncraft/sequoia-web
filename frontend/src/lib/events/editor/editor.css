@@ -13,6 +13,7 @@
 /* The rail reads first in DOM order (keyboard users reach navigation before
    the thirteen sections); the grid pins it to the right column on desktop. */
 .evf-main {
+  container: evf-main / inline-size;
   grid-column: 1;
   grid-row: 1;
   min-width: 0;
@@ -792,7 +793,11 @@
    compact "setup" sections pair two across, while the program sections
    (goals, milestones, prizes, comp, standings, raffles - repeaters and
    boards) keep the full line. Still ONE form; only the layout changes. */
-@media (min-width: 1500px) {
+/* The editor main column measures itself: media queries can't see how much
+   width survives the management rail + preview column, so the two-column
+   split keys off the form's actual container. ~1080px gives two ~510px
+   columns - below that, pairs would crush nested field grids. */
+@container evf-main (min-width: 1080px) {
   .evf-form {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
