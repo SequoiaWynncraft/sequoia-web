@@ -37,6 +37,9 @@ export function isMemberProgressResponse(value: unknown): value is MemberProgres
         typeof (member as Record<string, unknown>).player_name === "string" &&
         typeof (member as Record<string, unknown>).playtime_hours === "number" &&
         typeof (member as Record<string, unknown>).raids === "number" &&
+        // Raffle eligibility thresholds and weights read this directly - a
+        // missing count must fail validation, not read as zero wars.
+        typeof (member as Record<string, unknown>).wars === "number" &&
         typeof (member as Record<string, unknown>).war_points === "number",
     )
   );
