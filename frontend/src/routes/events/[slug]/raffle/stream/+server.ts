@@ -92,7 +92,10 @@ export const GET: RequestHandler = async ({ params, cookies, fetch, locals }) =>
       try {
         send({
           type: "snapshot",
-          rolls: (await raffleRollStore.latestForEvent(params.slug)).map(toStageRoll),
+          rolls: (await raffleRollStore.latestForEvent(params.slug))
+            // A pending row's winner has not committed yet - not stage material.
+            .filter((roll) => !roll.pending)
+            .map(toStageRoll),
         });
       } catch (error) {
         // A failed snapshot must not leave a dead subscriber behind - the

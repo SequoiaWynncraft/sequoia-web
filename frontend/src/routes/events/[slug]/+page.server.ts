@@ -129,7 +129,7 @@ export const load: PageServerLoad = async ({ fetch, locals, params, parent }) =>
   // next reload shows the winner; the stage page carries the live feed.
   const spinningSlots = event.raffles?.length
     ? (await raffleRollStore.latestForEvent(params.slug).catch(() => []))
-        .filter((roll) => roll.state === "spinning")
+        .filter((roll) => roll.pending || roll.state === "spinning")
         .map((roll) => `${roll.raffleId}:${roll.slot}`)
     : [];
 

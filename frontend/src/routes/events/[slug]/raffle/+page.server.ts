@@ -34,7 +34,10 @@ export const load: PageServerLoad = async ({ fetch, locals, params, parent }) =>
       }
     }
     // Projected: the persisted rows carry manager identifiers the wire must not.
-    rolls = (await raffleRollStore.latestForEvent(params.slug)).map(toStageRoll);
+    rolls = (await raffleRollStore.latestForEvent(params.slug))
+      // A pending row's winner has not committed yet - not stage material.
+      .filter((roll) => !roll.pending)
+      .map(toStageRoll);
     const check = await eventStore.get(params.slug);
     if (check && check.updatedAt === stored.updatedAt) break;
     // Version moved mid-check; loop re-authorizes against the new state.
