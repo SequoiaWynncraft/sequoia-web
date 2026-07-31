@@ -141,9 +141,11 @@ winner index, spin choreography) and broadcasts it over in-process pub/sub
 (`lib/server/liveRolls.ts`, single-replica by design) to
 `GET /events/{slug}/raffle/stream` (native SSE, heartbeats). The stream and stage gate
 harder than the event page: a member-only event still serves non-members its public
-hero, but their stream and stage requests are denied outright — entrant names never
-leave the membership boundary. The stage page renders a deterministic SVG wheel
-(`lib/events/stage/`): every
+hero, but their stream and stage requests are denied outright. Stream authorization is
+judged at CONNECT time — an open stream is not re-checked mid-flight, but every
+visibility change that matters (deletion, unpublishing, public→members) tears the room
+down server-side, and the browser's reconnect lands back in the connect-time check. The
+stage page renders a deterministic SVG wheel (`lib/events/stage/`): every
 viewer computes the same landing from the same roll data, late joiners enter the same
 animation mid-flight, and reduced motion renders the parked result.
 
