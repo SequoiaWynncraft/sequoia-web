@@ -40,11 +40,24 @@ export const POST: RequestHandler = async ({ request, cookies, fetch, locals }) 
 
   const pool = await resolveEligibility(fetch, parsed.event, raffle, stats.members);
   if (pool.error) return json(unavailable(pool.error));
-  const entrants = pool.entrants
+  // Mirror the roll's cross-raffle exclusion: with the event-wide flag on,
+  // another raffle's frozen winner can never win this one, so listing them
+  // (or counting their tickets into the odds) would misstate the pool.
+  const barred = new Set(
+    parsed.event.raffleExcludeWinners
+      ? (parsed.event.raffles ?? [])
+          .filter((entry) => entry.id !== raffle.id)
+          .flatMap((entry) => entry.winners ?? [])
+          .map((winner) => winner.player_uuid)
+      : [],
+  );
+  const eligible = pool.entrants.filter((entrant) => !barred.has(entrant.player_uuid));
+  const totalTickets = eligible.reduce((sum, entrant) => sum + entrant.tickets, 0);
+  const entrants = eligible
     .map((entrant) => ({
       ...entrant,
-      odds: pool.totalTickets > 0 ? entrant.tickets / pool.totalTickets : 0,
+      odds: totalTickets > 0 ? entrant.tickets / totalTickets : 0,
     }))
     .sort((left, right) => right.tickets - left.tickets || left.username.localeCompare(right.username));
-  return json({ entrants, totalTickets: pool.totalTickets, error: null });
+  return json({ entrants, totalTickets, error: null });
 };

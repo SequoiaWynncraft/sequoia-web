@@ -462,11 +462,12 @@ export class EventDraft {
    * builder (the first save then writes the eligibility it shows). */
   private seedRaffleRow(seed: RaffleSeed): RaffleRow {
     const weight = seed.eligibility?.weight;
-    const window = weight
-      ? weight.mode === "flat"
-        ? undefined
-        : weight.window
-      : seed.window;
+    // An eligibility block without an explicit weight IS flat weighting (the
+    // resolver's default) - only a legacy raffle with no block at all reads
+    // its perTicket/window as an implicit per-raid weight.
+    const mode = weight?.mode ?? (seed.eligibility ? "flat" : "perRaid");
+    const window =
+      weight && weight.mode !== "flat" ? weight.window : seed.eligibility ? undefined : seed.window;
     const rules = (seed.eligibility?.rules ?? []).map((rule) => this.seedRuleRow(rule));
     // The legacy milestone gate reads as a milestone rule in the builder.
     if (!seed.eligibility && seed.requiresMilestone) {
@@ -479,7 +480,7 @@ export class EventDraft {
       key: this.nextRowId++,
       prize: seed.prize,
       winnerCount: seed.winnerCount,
-      weightMode: weight?.mode ?? "perRaid",
+      weightMode: mode,
       weightStat: weight?.mode === "perStat" ? weight.stat : "raids",
       weightPer: weight
         ? weight.mode === "perRaid"
@@ -487,7 +488,9 @@ export class EventDraft {
           : weight.mode === "perStat"
             ? weight.per
             : 1
-        : seed.perTicket,
+        : seed.eligibility
+          ? 1
+          : seed.perTicket,
       windowFrom: toInput(window?.from),
       windowTo: toInput(window?.to),
       seedWindowFrom: window?.from ?? "",
