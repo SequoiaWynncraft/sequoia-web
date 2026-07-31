@@ -16,7 +16,7 @@
 
   const hasWinners = $derived(
     (draft.liveInitial?.raffles ?? []).some(
-      (raffle) => raffle.id === raffleId && raffle.winners.length > 0,
+      (raffle) => raffle.id === raffleId && (raffle.winners ?? []).length > 0,
     ),
   );
 
