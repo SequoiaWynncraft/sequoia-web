@@ -69,6 +69,7 @@
     const settleTimer = setTimeout(() => {
       setStatic(element, finalDeg);
       landed = true;
+      cancelAnimationFrame(frame);
     }, settleDelay);
     if (reduced) {
       setStatic(element, 0);
@@ -98,9 +99,12 @@
     ];
 
     // The hub ticker reads the disc's actual rendered angle each frame, so
-    // it can never drift from what the viewer sees.
+    // it can never drift from what the viewer sees. It lives exactly as long
+    // as the spin: once landed, the hub shows the winner and polling a
+    // static page would only burn battery.
     let frame = 0;
     const tick = () => {
+      if (landed) return;
       const matrix = new DOMMatrixReadOnly(getComputedStyle(element).transform);
       const deg = (Math.atan2(matrix.b, matrix.a) * 180) / Math.PI;
       liveIndex = wedgeAtPointer(wedges, deg);
