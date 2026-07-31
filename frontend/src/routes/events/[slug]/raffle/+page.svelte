@@ -1,7 +1,8 @@
 <script lang="ts">
   import { untrack } from "svelte";
 
-  import PlayerName from "$lib/design-system/components/PlayerName.svelte";
+  import PrizeBoard from "$lib/events/components/PrizeBoard.svelte";
+  import { prizeIconUrl } from "$lib/events/prizeIcons";
   import EventSky from "$lib/events/components/EventSky.svelte";
   import EntrantList from "$lib/events/stage/EntrantList.svelte";
   import RaffleWheel from "$lib/events/stage/RaffleWheel.svelte";
@@ -62,7 +63,13 @@
             : stored
               ? { username: stored.username, uuid: stored.player_uuid }
               : null;
-        return { key: `${raffle.id}:${slot}`, prize: raffle.prize, winner, spinning };
+        return {
+          key: `${raffle.id}:${slot}`,
+          prize: raffle.prize,
+          icon: raffle.icon ?? null,
+          winner,
+          spinning,
+        };
       }),
     ),
   );
@@ -87,9 +94,16 @@
         {/key}
         <aside class="stage-side" aria-label="This draw">
           {#if current.prize}
+            {@const currentIcon =
+              (data.event.raffles ?? []).find((entry) => entry.id === current.raffleId)?.icon ?? null}
             <div class="stage-prize">
               <span class="stage-prize-label">Prize</span>
-              <span class="stage-prize-name">{current.prize}</span>
+              <span class="stage-prize-name">
+                {#if currentIcon}
+                  <img class="stage-prize-art" src={prizeIconUrl(currentIcon)} alt="" />
+                {/if}
+                {current.prize}
+              </span>
             </div>
           {/if}
           <EntrantList entrants={current.entrants} />
@@ -101,18 +115,7 @@
 
     {#if results.length > 0}
       <section class="stage-results" aria-label="Winners">
-        {#each results as row (row.key)}
-          <div class="stage-result">
-            <span class="stage-result-winner" class:stage-result-unrolled={!row.winner}>
-              {#if row.winner}
-                <PlayerName username={row.winner.username} uuid={row.winner.uuid} size={18} />
-              {:else}
-                {row.spinning ? "Rolling…" : "Not rolled"}
-              {/if}
-            </span>
-            <span class="stage-result-prize">{row.prize}</span>
-          </div>
-        {/each}
+        <PrizeBoard rows={results} />
       </section>
     {/if}
 
@@ -196,6 +199,14 @@
     overflow-wrap: anywhere;
   }
 
+  .stage-prize-art {
+    width: 22px;
+    height: 22px;
+    margin-right: 8px;
+    image-rendering: pixelated;
+    vertical-align: -4px;
+  }
+
   .stage-waiting {
     margin: 10vh 0;
     color: var(--text-muted);
@@ -204,33 +215,7 @@
   }
 
   .stage-results {
-    display: grid;
-    gap: 8px;
-    width: min(720px, 100%);
-  }
-
-  .stage-result {
-    display: grid;
-    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
-    gap: 10px;
-  }
-
-  .stage-result-winner,
-  .stage-result-prize {
-    padding: 9px 12px;
-    border: 1px solid var(--color-border-subtle);
-    background: color-mix(in srgb, var(--color-abyss) 45%, transparent);
-    color: var(--text-body);
-    font-family: var(--font-data);
-    font-size: var(--text-sm);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .stage-result-unrolled {
-    color: var(--text-muted);
-    font-style: italic;
+    width: min(880px, 100%);
   }
 
   .stage-back {
