@@ -105,7 +105,8 @@
       // Role-aware: the Sequoia progression rank when the member is linked,
       // the in-game rank otherwise - colored from the shared rank vocabulary.
       secondary: (entry) => entry.progressionRank ?? guildRankLabel(entry.rank),
-      secondaryColor: (entry) => rankColor(entry.progressionRank ?? entry.rank),
+      secondaryColor: (entry) =>
+        entry.progressionRankColor ?? rankColor(entry.progressionRank ?? entry.rank),
       avatar: (entry) => nmsrFace(entry.player_uuid, 22),
       href: (entry) => playercardUrl(entry.username),
       icon: (entry) =>

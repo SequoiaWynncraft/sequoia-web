@@ -199,7 +199,13 @@
               <h2 class="card-name">{card.username}</h2>
               <p class="card-tags">
                 {#if honours.rank}
-                  <span class="tag tag-gold">{honours.rank.toLowerCase()}</span>
+                  <span
+                    class="tag"
+                    class:tag-gold={!honours.rankColor}
+                    style:color={honours.rankColor ?? undefined}
+                  >
+                    {honours.rank.toLowerCase()}
+                  </span>
                 {/if}
                 {#if honours.insignia}
                   {#if honours.insignia.assetUrl}

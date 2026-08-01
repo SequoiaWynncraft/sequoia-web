@@ -171,6 +171,7 @@
       label: "Rank",
       nameStyle: true,
       value: (member) => standingOf(member)?.rank ?? "-",
+      valueColor: (member) => standingOf(member)?.rankColor ?? null,
       sortValue: (member) => standingOf(member)?.rankOrder ?? null,
       icon: (member) => {
         const standing = standingOf(member);

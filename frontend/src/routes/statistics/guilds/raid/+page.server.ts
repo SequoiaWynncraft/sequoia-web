@@ -172,6 +172,7 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
         insigniaUrl: standing?.insigniaUrl ?? null,
         insignia: standing?.insignia ?? null,
         progressionRank: standing?.rank ?? null,
+        progressionRankColor: standing?.rankColor ?? null,
       };
     });
   }

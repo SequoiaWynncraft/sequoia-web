@@ -12,6 +12,7 @@ import {
 
 const FRESH_MS = 30 * 1000;
 const STALE_MS = 30 * 60 * 1000;
+const CSS_HEX_COLOR = /^#[0-9a-f]{6}$/i;
 
 /** Retired ladder ranks read as their modern equivalent; only Verdant stands as-is. */
 const LEGACY_RANK_EQUIVALENTS: Record<string, string> = {
@@ -76,9 +77,11 @@ export function honoursForMinecraft(
   const assets = new Map(response.catalog.assets.map((asset) => [asset.key, asset]));
   const awards = new Map(response.catalog.awards.map((award) => [award.key, award]));
 
-  const rank = rankLabel(roles, profile.summary.progression_rank);
+  const rankRole = resolveRankRole(roles, profile.summary.progression_rank);
+  const rank = rankRole?.label ?? null;
   return {
     rank,
+    rankColor: primaryRoleColor(rankRole),
     insignia: heldInsignia(roles, assets, profile.summary.insignia),
     leadership: leadershipLabel(roles, profile.summary.leadership, rank),
     branches: branchNames(roles, profile.summary.branches),
@@ -90,6 +93,8 @@ export function honoursForMinecraft(
 /** Rank standing per member, keyed by lowercased Minecraft UUID — one entry per linked profile. */
 export interface MemberRankEntry {
   rank: string | null;
+  /** Primary color of the authoritative Discord rank role, when configured. */
+  rankColor: string | null;
   /** Ladder position from the role catalog — higher is more senior. */
   rankOrder: number | null;
   insignia: BadgeTier | null;
@@ -113,6 +118,7 @@ export function memberRanksByUuid(
     const insignia = heldInsignia(roles, assets, profile.summary.insignia);
     entries[uuid.toLowerCase()] = {
       rank: rankRole?.label ?? null,
+      rankColor: primaryRoleColor(rankRole),
       rankOrder: rankRole?.position ?? null,
       insignia: insignia?.tier ?? null,
       insigniaUrl: insignia?.assetUrl ?? null,
@@ -175,6 +181,7 @@ function warnUnresolvedRankKey(rank: GuildRankName, key: string): void {
 }
 
 type Catalog = RankProfilesResponse["catalog"];
+type RoleDefinition = Catalog["roles"][number];
 type RoleMap = Map<string, Catalog["roles"][number]>;
 type AssetMap = Map<string, Catalog["assets"][number]>;
 type AwardMap = Map<string, Catalog["awards"][number]>;
@@ -184,8 +191,9 @@ function resolveRankRole(roles: RoleMap, key: string | null) {
   return roles.get(LEGACY_RANK_EQUIVALENTS[key] ?? key) ?? roles.get(key);
 }
 
-function rankLabel(roles: RoleMap, key: string | null): string | null {
-  return resolveRankRole(roles, key)?.label ?? null;
+function primaryRoleColor(role: RoleDefinition | undefined): string | null {
+  const color = role?.colors?.primary;
+  return color && CSS_HEX_COLOR.test(color) ? color : null;
 }
 
 function heldInsignia(

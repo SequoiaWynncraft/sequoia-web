@@ -12,6 +12,8 @@ export interface LedgerColumn<Row> {
   /** Cell text; omit only when `cell` renders the whole cell. */
   value?: (row: Row) => string;
   sortValue?: (row: Row) => number | string | null;
+  /** CSS color for the primary cell text. */
+  valueColor?: (row: Row) => string | null;
   color?: (row: Row) => string | null;
   secondary?: (row: Row) => string | null;
   /** CSS color for the secondary text - rank-aware labels pass rankColor(). */
