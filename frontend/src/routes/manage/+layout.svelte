@@ -9,7 +9,14 @@
 
   const path = $derived(page.url.pathname);
   const capabilities = $derived.by(() => {
-    const currentArea = MANAGE_AREAS.find((area) => area.href !== null && activeArea(area.href));
+    // An area is current when the path sits under its href OR any of its
+    // sub-links - a link route (e.g. community/announcements) is not always
+    // under the area's own href (community/exports).
+    const currentArea = MANAGE_AREAS.find((area) =>
+      [area.href, ...area.links.map((link) => link.href)].some(
+        (href) => href !== null && activeArea(href),
+      ),
+    );
     if (!currentArea || page.data.access !== "granted") return data.capabilities;
     return { ...data.capabilities, [currentArea.id]: "granted" as const };
   });

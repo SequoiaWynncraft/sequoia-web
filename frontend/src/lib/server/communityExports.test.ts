@@ -56,9 +56,13 @@ describe("parseExportParams", () => {
     expect(
       parseExportParams(dataset("progress"), search({ from: "2026-03-01", to: "2026-02-01" })).ok,
     ).toBe(false);
-    expect(
-      parseExportParams(dataset("progress"), search({ from: "2026-02-30", to: "2026-03-01" })).ok,
-    ).toBe(false);
+    // A nonexistent calendar day must 400, not normalize: Date.parse reads
+    // 2026-02-30 as March 2, which would silently shift the range.
+    const overflow = parseExportParams(
+      dataset("progress"),
+      search({ from: "2026-02-30", to: "2026-03-15" }),
+    );
+    expect(overflow).toEqual({ ok: false, message: "Dates must be YYYY-MM-DD" });
   });
 
   it("caps the range span", () => {
@@ -141,6 +145,18 @@ describe("buildExport", () => {
   it("reports the roster unavailable instead of an empty file", async () => {
     mockStats.mockRejectedValue(new Error("wynn down"));
     mockProfiles.mockResolvedValue({ profiles: [] } as never);
+    const result = await buildExport(fetch, "roster", {
+      from: null,
+      to: null,
+      raid: null,
+      rosterOnly: false,
+    });
+    expect(result).toMatchObject({ ok: false, status: 503 });
+  });
+
+  it("refuses a roster export with silently blank rank columns", async () => {
+    mockStats.mockResolvedValue({ stale: false, members: [] } as never);
+    mockProfiles.mockRejectedValue(new Error("ranks down"));
     const result = await buildExport(fetch, "roster", {
       from: null,
       to: null,

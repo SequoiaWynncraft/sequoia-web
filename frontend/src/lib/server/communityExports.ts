@@ -60,7 +60,10 @@ const MAX_RANGE_DAYS = 366;
 function parseDay(value: string): number | null {
   if (!ISO_DATE.test(value)) return null;
   const time = Date.parse(`${value}T00:00:00Z`);
-  return Number.isNaN(time) ? null : time;
+  if (Number.isNaN(time)) return null;
+  // Date.parse normalizes calendar overflow (2026-02-30 reads as March 2);
+  // round-trip so a nonexistent day is rejected, not silently shifted.
+  return new Date(time).toISOString().slice(0, 10) === value ? time : null;
 }
 
 /**
@@ -137,6 +140,11 @@ async function buildRoster(fetchImpl: typeof fetch): Promise<ExportRows> {
   ]);
   if (members === null) {
     return { ok: false, status: 503, message: "Member data is temporarily unavailable" };
+  }
+  // The dataset advertises org ranks and branches; exporting them silently
+  // blank would be indistinguishable from members having none.
+  if (profiles === null) {
+    return { ok: false, status: 503, message: "Rank data is temporarily unavailable" };
   }
   // The rank API and the roster disagree on uuid dashes; strip them on both
   // sides so linked profiles actually join.
