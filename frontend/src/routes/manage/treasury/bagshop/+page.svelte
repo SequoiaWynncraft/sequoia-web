@@ -4,6 +4,9 @@
 
   import Button from "$lib/design-system/components/Button.svelte";
   import Card from "$lib/design-system/components/Card.svelte";
+  import LedgerTable from "$lib/design-system/components/LedgerTable.svelte";
+  import type { LedgerColumn } from "$lib/design-system/components/ledgerTable";
+  import FormStatus from "$lib/design-system/components/forms/FormStatus.svelte";
   import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
   import { createBagshopClient, RARITIES, type Order } from "$lib/api/bagshop";
   import AreaGate from "$lib/manage/AreaGate.svelte";
@@ -16,6 +19,36 @@
   const client = createBagshopClient({ fetch });
 
   const groups = $derived(groupInventoryByRaid(data.inventory ?? []));
+
+  interface InventoryRow {
+    key: string;
+    bag: string;
+    stock: number;
+    sellPrice: number;
+    cap: number;
+    index: number;
+  }
+
+  // Flat rows in raid-group + rarity order; `index` pins the ledger's
+  // ordering since none of the editable columns is sortable.
+  const inventoryRows = $derived.by<InventoryRow[]>(() => {
+    const rows: InventoryRow[] = [];
+    for (const group of groups) {
+      for (const rarity of RARITIES) {
+        const cell = group.items.find((item) => item.rarity === rarity);
+        if (!cell) continue;
+        rows.push({
+          key: cell.key,
+          bag: `${group.raid} · ${rarity}`,
+          stock: cell.stock,
+          sellPrice: cell.sellPrice,
+          cap: cell.cap,
+          index: rows.length,
+        });
+      }
+    }
+    return rows;
+  });
 
   // Message/inventory IDs with an action in flight — a Set so concurrent Fill/Decline/Save
   // actions keep independent pending state rather than clobbering one another.
@@ -126,9 +159,7 @@
   {#if data.access !== "granted"}
     <AreaGate area="treasury" access={data.access} returnTo="/manage/treasury/bagshop" />
   {:else}
-    {#if actionError}
-      <p class="mg-error">{actionError}</p>
-    {/if}
+    <FormStatus error={actionError} />
 
     <!-- ─── Open orders ───────────────────────────────────────────────── -->
     <section class="mg-section">
@@ -218,45 +249,46 @@
           <p class="mg-error">Couldn't load the inventory right now. Please try again shortly.</p>
         </Card>
       {/if}
-      <div class="mg-table-scroll">
-        <table class="mg-table">
-          <thead>
-            <tr>
-              <th scope="col">Bag</th>
-              <th scope="col">Stock</th>
-              <th scope="col">Sell price</th>
-              <th scope="col">Cap</th>
-              <th scope="col"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each groups as group (group.raid)}
-              {#each RARITIES as rarity (rarity)}
-                {@const cell = group.items.find((item) => item.rarity === rarity)}
-                {#if cell}
-                  {@const draft = draftFor(cell.key, cell.stock, cell.sellPrice, cell.cap)}
-                  <tr>
-                    <th scope="row" class="mg-bag">{group.raid} · {rarity}</th>
-                    <td class="mg-number-cell"><input class="seq-input seq-input-mono" type="number" min="0" bind:value={draft.stock} oninput={(e) => (drafts[cell.key] = { ...draft, stock: e.currentTarget.value })} /></td>
-                    <td class="mg-number-cell"><input class="seq-input seq-input-mono" type="number" min="0" bind:value={draft.price} oninput={(e) => (drafts[cell.key] = { ...draft, price: e.currentTarget.value })} /></td>
-                    <td class="mg-number-cell"><input class="seq-input seq-input-mono" type="number" min="0" bind:value={draft.cap} oninput={(e) => (drafts[cell.key] = { ...draft, cap: e.currentTarget.value })} /></td>
-                    <td>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        disabled={busy.has(`inv:${cell.key}`)}
-                        onclick={() => saveInventory(cell.key, cell.stock, cell.sellPrice, cell.cap)}
-                      >
-                        {savedKey === cell.key && !drafts[cell.key] ? "Saved" : "Save"}
-                      </Button>
-                    </td>
-                  </tr>
-                {/if}
-              {/each}
-            {/each}
-          </tbody>
-        </table>
-      </div>
+      {#snippet stockCell(row: InventoryRow)}
+        {@const draft = draftFor(row.key, row.stock, row.sellPrice, row.cap)}
+        <input class="seq-input seq-input-mono mg-num-input" type="number" min="0" aria-label="Stock for {row.bag}" bind:value={draft.stock} oninput={(e) => (drafts[row.key] = { ...draft, stock: e.currentTarget.value })} />
+      {/snippet}
+      {#snippet priceCell(row: InventoryRow)}
+        {@const draft = draftFor(row.key, row.stock, row.sellPrice, row.cap)}
+        <input class="seq-input seq-input-mono mg-num-input" type="number" min="0" aria-label="Sell price for {row.bag}" bind:value={draft.price} oninput={(e) => (drafts[row.key] = { ...draft, price: e.currentTarget.value })} />
+      {/snippet}
+      {#snippet capCell(row: InventoryRow)}
+        {@const draft = draftFor(row.key, row.stock, row.sellPrice, row.cap)}
+        <input class="seq-input seq-input-mono mg-num-input" type="number" min="0" aria-label="Cap for {row.bag}" bind:value={draft.cap} oninput={(e) => (drafts[row.key] = { ...draft, cap: e.currentTarget.value })} />
+      {/snippet}
+      {#snippet saveCell(row: InventoryRow)}
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={busy.has(`inv:${row.key}`)}
+          onclick={() => saveInventory(row.key, row.stock, row.sellPrice, row.cap)}
+        >
+          {savedKey === row.key && !drafts[row.key] ? "Saved" : "Save"}
+        </Button>
+      {/snippet}
+      {#snippet inventoryTable()}
+        {@const inventoryColumns = [
+        { key: "bag", label: "Bag", nameStyle: true, sortable: false, value: (row: InventoryRow) => row.bag, sortValue: (row: InventoryRow) => row.index },
+        { key: "stock", label: "Stock", sortable: false, cell: stockCell },
+        { key: "price", label: "Sell price", sortable: false, cell: priceCell },
+        { key: "cap", label: "Cap", sortable: false, cell: capCell },
+        { key: "save", label: "", sortable: false, cell: saveCell },
+        ] satisfies LedgerColumn<InventoryRow>[]}
+        <LedgerTable
+          columns={inventoryColumns}
+          rows={inventoryRows}
+          rowKey={(row) => row.key}
+          defaultSort="bag"
+          defaultDescending={false}
+          showRank={false}
+        />
+      {/snippet}
+      {@render inventoryTable()}
     </section>
   {/if}
 </div>
@@ -341,7 +373,7 @@
     gap: 0.3rem;
     margin: 0.5rem 0;
   }
-  .mg-number-cell {
+    .mg-num-input {
     width: 6rem;
   }
   .mg-order-foot {
@@ -349,31 +381,4 @@
     padding-top: 0.75rem;
     border-top: 1px solid var(--color-border-subtle);
   }
-  .mg-table-scroll {
-    overflow-x: auto;
-  }
-  .mg-table {
-    width: 100%;
-    border-collapse: collapse;
-    min-width: 36rem;
-  }
-  .mg-table th,
-  .mg-table td {
-    padding: 0.55rem 0.7rem;
-    text-align: left;
-    border-bottom: 1px solid var(--color-border-subtle);
-  }
-  .mg-table thead th {
-    font-family: var(--font-display);
-    font-size: 0.7rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--color-text-dim);
-  }
-  .mg-bag {
-    font-family: var(--font-display);
-    letter-spacing: 0.04em;
-    color: var(--color-text-primary);
-    white-space: nowrap;
-  }
-</style>
+          </style>
