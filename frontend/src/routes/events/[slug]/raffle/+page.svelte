@@ -137,9 +137,9 @@
   .stage {
     display: grid;
     justify-items: center;
-    gap: 34px;
+    gap: clamp(28px, 4vw, 48px);
     min-height: 100vh;
-    padding: calc(3.5rem + 40px) clamp(16px, 4vw, 48px) 48px;
+    padding: calc(2.75rem + 40px) clamp(16px, 3vw, 52px) 52px;
     align-content: start;
   }
 
@@ -171,16 +171,22 @@
 
   .stage-live {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);
-    gap: clamp(24px, 4vw, 56px);
+    grid-template-columns: minmax(600px, 1fr) minmax(280px, 340px);
+    gap: clamp(32px, 4vw, 72px);
     align-items: start;
-    width: min(1180px, 100%);
+    width: min(1440px, 100%);
   }
 
   .stage-side {
     display: grid;
-    gap: 18px;
+    gap: 22px;
     min-width: 0;
+    padding: 22px;
+    border: 1px solid color-mix(in srgb, var(--ev-accent, var(--color-gold)) 20%, var(--color-border-subtle));
+    border-radius: var(--radius-md);
+    background: color-mix(in srgb, var(--color-abyss) 76%, transparent);
+    box-shadow: 0 20px 60px rgb(0 0 0 / 0.18);
+    backdrop-filter: blur(12px);
   }
 
   .stage-prize {
@@ -238,9 +244,26 @@
     color: var(--color-gold);
   }
 
-  @media (max-width: 900px) {
+  @media (max-width: 1180px) {
     .stage-live {
       grid-template-columns: minmax(0, 1fr);
+      justify-items: center;
+      width: min(820px, 100%);
+    }
+
+    .stage-side {
+      width: min(760px, 100%);
+    }
+  }
+
+  @media (max-width: 640px) {
+    .stage {
+      gap: 24px;
+      padding-inline: 12px;
+    }
+
+    .stage-side {
+      padding: 16px;
     }
   }
 </style>
