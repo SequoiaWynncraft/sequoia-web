@@ -371,8 +371,7 @@
     text-transform: uppercase;
   }
 
-  /* The banner's identity renders in the display face like the frame - the
-     shared PlayerName default (data face) is for tables and lists. */
+  /* The banner adds its emphatic uppercase treatment to the shared player name. */
   .wheel-winner :global(.pn-name) {
     font-family: var(--font-display);
     letter-spacing: var(--tracking-wide);

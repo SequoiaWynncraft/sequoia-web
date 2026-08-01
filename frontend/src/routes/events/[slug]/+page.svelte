@@ -14,6 +14,7 @@
   import { themeVars } from "$lib/events/theme";
   import { isoDay } from "$lib/events/format";
   import { nmsrFace } from "$lib/site/nmsr";
+  import { insigniaLabel } from "$lib/site/honours";
   import { raidIconUrl } from "$lib/events/raidIcons";
   import type { RaidLeaderboardEntry } from "$lib/server/raidEventBoards";
 
@@ -111,7 +112,7 @@
       href: (entry) => playercardUrl(entry.username),
       icon: (entry) =>
         entry.insigniaUrl && entry.insignia
-          ? { src: entry.insigniaUrl, alt: `${entry.insignia.toLowerCase()} insignia` }
+          ? { src: entry.insigniaUrl, alt: insigniaLabel(entry.insignia) }
           : null,
     },
     {

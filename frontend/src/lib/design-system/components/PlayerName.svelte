@@ -66,7 +66,8 @@
 
   .pn-name {
     overflow: hidden;
-    font-family: var(--font-data);
+    font-family: var(--font-display);
+    letter-spacing: var(--tracking-wide);
     text-overflow: ellipsis;
     white-space: nowrap;
   }

@@ -1,6 +1,17 @@
 export type BadgeType = "WTP" | "NOL" | "INSIGNIA";
 export type BadgeTier = "BRONZE" | "SILVER" | "GOLD" | "DIAMOND";
 
+const INSIGNIA_LABELS: Record<BadgeTier, string> = {
+  BRONZE: "Bronze Insignia",
+  SILVER: "Silver Insignia",
+  GOLD: "Gold Insignia",
+  DIAMOND: "Diamond Insignia",
+};
+
+export function insigniaLabel(tier: BadgeTier): string {
+  return INSIGNIA_LABELS[tier];
+}
+
 export interface HonourBadge {
   playerUuid: string;
   type: BadgeType;

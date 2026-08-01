@@ -10,6 +10,7 @@
   import WeeklyRaidAnnouncement from "./WeeklyRaidAnnouncement.svelte";
   import type { GuildMemberStats } from "$lib/api/guildStats";
   import type { MemberProgressEntry } from "$lib/api/memberProgress";
+  import { insigniaLabel } from "$lib/site/honours";
 
   let { data } = $props();
 
@@ -175,15 +176,14 @@
       sortValue: (member) => standingOf(member)?.rankOrder ?? null,
       icon: (member) => {
         const standing = standingOf(member);
-        return standing?.insigniaUrl
-          ? { src: standing.insigniaUrl, alt: `${standing.insignia?.toLowerCase()} insignia` }
-          : null;
+        if (!standing?.insigniaUrl || !standing.insignia) return null;
+        return { src: standing.insigniaUrl, alt: insigniaLabel(standing.insignia) };
       },
       // Text fallback so an insignia without artwork still shows its grade.
       secondary: (member) => {
         const standing = standingOf(member);
         return standing?.insignia && !standing.insigniaUrl
-          ? `◆ ${standing.insignia.toLowerCase()}`
+          ? `◆ ${insigniaLabel(standing.insignia)}`
           : null;
       },
     },

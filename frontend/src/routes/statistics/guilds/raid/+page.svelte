@@ -8,6 +8,7 @@
   import StackedColumns from "$lib/design-system/components/charts/StackedColumns.svelte";
   import ScopeChips from "$lib/design-system/components/ScopeChips.svelte";
   import { KNOWN_RAIDS, raidSeriesFor } from "$lib/site/raids";
+  import { insigniaLabel } from "$lib/site/honours";
 
   let { data } = $props();
 
@@ -92,7 +93,7 @@
       value: (entry) => entry.username,
       sortValue: (entry) => entry.username.toLowerCase(),
       avatar: (entry) => entry.insigniaUrl ?? null,
-      avatarAlt: (entry) => (entry.insignia ? `${entry.insignia.toLowerCase()} insignia` : null),
+      avatarAlt: (entry) => (entry.insignia ? insigniaLabel(entry.insignia) : null),
       secondary: (entry) => entry.progressionRank ?? null,
       secondaryColor: (entry) => entry.progressionRankColor ?? null,
       href: (entry) => `/statistics/player/playercard?player=${encodeURIComponent(entry.username)}`,
