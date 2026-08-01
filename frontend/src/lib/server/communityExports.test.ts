@@ -215,6 +215,32 @@ describe("buildExport", () => {
     expect(result.rows[1][7]).toBe(4);
   });
 
+  it("rejects a progress payload without raid breakdowns at the validator", async () => {
+    const { isMemberProgressResponse } = await import("$lib/api/memberProgress");
+    const entry = {
+      player_uuid: UNDASHED,
+      player_name: "Alice",
+      playtime_hours: 1,
+      wars: 0,
+      wars_participated: 0,
+      war_points: 0,
+      raids: 0,
+    };
+    const base = {
+      generated_at: "now",
+      from: "2026-07-01",
+      to: "2026-07-31",
+      data_since: { activity: "", raids: "", war_points: "" },
+    };
+    expect(isMemberProgressResponse({ ...base, members: [entry] })).toBe(false);
+    expect(
+      isMemberProgressResponse({ ...base, members: [{ ...entry, raids_by_type: { TNA: 2 } }] }),
+    ).toBe(true);
+    expect(
+      isMemberProgressResponse({ ...base, members: [{ ...entry, raids_by_type: { TNA: "2" } }] }),
+    ).toBe(false);
+  });
+
   it("exports daily runs and surfaces backend absence as 503", async () => {
     mockRuns.mockResolvedValue([{ day: "2026-07-01", value: 9 }]);
     const ok = await buildExport(fetch, "daily-runs", {

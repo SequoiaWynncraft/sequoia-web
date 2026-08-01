@@ -19,6 +19,15 @@ export interface MemberProgressEntry {
   wars_participated: number;
 }
 
+function isNumberRecord(value: unknown): value is Record<string, number> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    Object.values(value).every((entry) => typeof entry === "number")
+  );
+}
+
 export function isMemberProgressResponse(value: unknown): value is MemberProgressResponse {
   if (typeof value !== "object" || value === null) return false;
   const record = value as Record<string, unknown>;
@@ -40,7 +49,10 @@ export function isMemberProgressResponse(value: unknown): value is MemberProgres
         // Raffle eligibility thresholds and weights read this directly - a
         // missing count must fail validation, not read as zero wars.
         typeof (member as Record<string, unknown>).wars === "number" &&
-        typeof (member as Record<string, unknown>).war_points === "number",
+        typeof (member as Record<string, unknown>).war_points === "number" &&
+        // The progress export dereferences the per-raid breakdown; a payload
+        // without it must fail validation, not 500 the download.
+        isNumberRecord((member as Record<string, unknown>).raids_by_type),
     )
   );
 }
