@@ -20,6 +20,7 @@ interface Subscriber {
 }
 
 const rooms = new Map<string, Set<Subscriber>>();
+let retiring = false;
 
 /**
  * Each teardown advances the slug's epoch. A stream handler captures the
@@ -58,6 +59,7 @@ export function subscribe(
   end?: () => void,
   expectedEpoch?: number,
 ): (() => void) | null {
+  if (retiring) return null;
   if (expectedEpoch !== undefined && expectedEpoch !== roomEpoch(eventSlug)) return null;
   let room = rooms.get(eventSlug);
   if (!room) {
@@ -95,6 +97,12 @@ export function endRoom(eventSlug: string): void {
       // Best-effort: one broken stream must not keep others open.
     }
   }
+}
+
+/** Closes every reconnectable stream before a retiring process exits. */
+export function retireAllRooms(): void {
+  retiring = true;
+  for (const eventSlug of [...rooms.keys()]) endRoom(eventSlug);
 }
 
 /** Test hook: the number of live listeners for an event's stage. */
