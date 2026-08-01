@@ -99,9 +99,13 @@ export function branchAccessFrom(
     (candidate) =>
       candidate.minecraft != null && sameUuid(candidate.minecraft.uuid, viewer.minecraftUuid),
   );
-  const granted = profile?.summary.branches.some(
-    (entry) => entry.level === "member" && entry.branch === branch,
-  );
+  if (!profile) return "denied";
+  // The shared validator only guarantees the shallow response shape; a
+  // version-skewed profile must fail closed as retryable, not throw a 500
+  // out of every access check that reaches it.
+  const branches = profile.summary?.branches;
+  if (!Array.isArray(branches)) return "unverified";
+  const granted = branches.some((entry) => entry.level === "member" && entry.branch === branch);
   return granted ? "granted" : "denied";
 }
 

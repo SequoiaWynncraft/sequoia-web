@@ -27,4 +27,28 @@ describe("loadModRunCounts", () => {
     expect(await loadModRunCounts(fetchReturning({ days: [null] }), RANGE)).toBeNull();
     expect(await loadModRunCounts(fetchReturning({}), RANGE)).toBeNull();
   });
+
+  it("rejects rows outside the requested range and non-count runs", async () => {
+    expect(
+      await loadModRunCounts(fetchReturning({ days: [{ day: "2026-08-01", runs: 4 }] }), RANGE),
+    ).toBeNull();
+    expect(
+      await loadModRunCounts(fetchReturning({ days: [{ day: "2026-07-02", runs: -4 }] }), RANGE),
+    ).toBeNull();
+    expect(
+      await loadModRunCounts(fetchReturning({ days: [{ day: "2026-07-02", runs: 1.5 }] }), RANGE),
+    ).toBeNull();
+    // Overflow days normalize under Date.parse; they must still be rejected.
+    expect(
+      await loadModRunCounts(fetchReturning({ days: [{ day: "2026-07-32", runs: 1 }] }), RANGE),
+    ).toBeNull();
+  });
+
+  it("accepts full-timestamp windows from the event path", async () => {
+    const days = await loadModRunCounts(
+      fetchReturning({ days: [{ day: "2026-07-05", runs: 2 }] }),
+      { from: "2026-07-01T12:00:00Z", to: "2026-07-31T00:00:00Z" },
+    );
+    expect(days).toEqual([{ day: "2026-07-05", value: 2 }]);
+  });
 });
