@@ -150,19 +150,23 @@ async function buildRoster(fetchImpl: typeof fetch): Promise<ExportRows> {
   // sides so linked profiles actually join.
   const normalize = (uuid: string) => uuid.toLowerCase().replaceAll("-", "");
   const orgRankByUuid = new Map<string, string>();
-  if (profiles) {
+  const branchesByUuid = new Map<string, string>();
+  try {
     for (const [uuid, entry] of Object.entries(memberRanksByUuid(profiles))) {
       if (entry.rank) orgRankByUuid.set(normalize(uuid), entry.rank);
     }
-  }
-  const branchesByUuid = new Map<string, string>();
-  for (const profile of profiles?.profiles ?? []) {
-    const uuid = profile.minecraft?.uuid;
-    if (!uuid) continue;
-    branchesByUuid.set(
-      normalize(uuid),
-      profile.summary.branches.map((entry) => `${entry.branch}:${entry.level}`).join("; "),
-    );
+    for (const profile of profiles.profiles) {
+      const uuid = profile.minecraft?.uuid;
+      if (!uuid) continue;
+      branchesByUuid.set(
+        normalize(uuid),
+        profile.summary.branches.map((entry) => `${entry.branch}:${entry.level}`).join("; "),
+      );
+    }
+  } catch {
+    // The shared rank-profiles validator only guarantees the shallow shape;
+    // a version-skewed profile must read as unavailable, not 500 mid-export.
+    return { ok: false, status: 503, message: "Rank data is temporarily unavailable" };
   }
 
   const rows: CsvValue[][] = [

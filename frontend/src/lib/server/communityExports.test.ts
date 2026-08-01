@@ -154,6 +154,23 @@ describe("buildExport", () => {
     expect(result).toMatchObject({ ok: false, status: 503 });
   });
 
+  it("reads a version-skewed rank profile as unavailable, not a crash", async () => {
+    mockStats.mockResolvedValue({ stale: false, members: [{ uuid: UUID, rank: "recruit" }] } as never);
+    mockProfiles.mockResolvedValue({
+      catalog: { roles: [], assets: [], awards: [] },
+      // summary.branches missing entirely - the shared validator only checks
+      // the shallow response shape.
+      profiles: [{ minecraft: { uuid: UNDASHED }, award_keys: [], summary: {} }],
+    } as never);
+    const result = await buildExport(fetch, "roster", {
+      from: null,
+      to: null,
+      raid: null,
+      rosterOnly: false,
+    });
+    expect(result).toMatchObject({ ok: false, status: 503 });
+  });
+
   it("refuses a roster export with silently blank rank columns", async () => {
     mockStats.mockResolvedValue({ stale: false, members: [] } as never);
     mockProfiles.mockRejectedValue(new Error("ranks down"));
