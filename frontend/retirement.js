@@ -1,23 +1,39 @@
 export const REQUEST_STARTED = "sequoia:request-started";
 export const REQUEST_FINISHED = "sequoia:request-finished";
+export const RETIRING_ENV = "SEQUOIA_FRONTEND_RETIRING";
+export const PROXY_DRAIN_MS = 6_000;
+
+export function serverIsRetiring() {
+  return process.env[RETIRING_ENV] === "1";
+}
 
 /**
- * Runs `retire` at the first request-free event-loop point after SIGUSR2.
- * The server keeps accepting requests until then, avoiding any interval where
- * Traefik can discover the container but its listener is already closed.
+ * SIGUSR2 first makes the dedicated health endpoint fail so Traefik removes
+ * this container from its service. The server remains available for a short
+ * provider-propagation window, then retires at the first request-free point.
  *
  * @param {import("node:http").Server} httpServer
  * @param {NodeJS.Process} signals
  * @param {() => void} retire
+ * @param {{ proxyDrainMs?: number, markRetiring?: () => void }} [options]
  */
-export function trackServerRetirement(httpServer, signals, retire) {
+export function trackServerRetirement(httpServer, signals, retire, options = {}) {
   let activeResponses = 0;
   let activeHandlers = 0;
   let stopRequested = false;
+  let proxyDrained = false;
   let retired = false;
+  const proxyDrainMs = options.proxyDrainMs ?? PROXY_DRAIN_MS;
+  const markRetiring = options.markRetiring ?? (() => (process.env[RETIRING_ENV] = "1"));
 
   function retireIfIdle() {
-    if (!stopRequested || activeResponses !== 0 || activeHandlers !== 0 || retired) return;
+    if (
+      !stopRequested ||
+      !proxyDrained ||
+      activeResponses !== 0 ||
+      activeHandlers !== 0 ||
+      retired
+    ) return;
     retired = true;
     retire();
   }
@@ -44,6 +60,11 @@ export function trackServerRetirement(httpServer, signals, retire) {
   });
   signals.once("SIGUSR2", () => {
     stopRequested = true;
-    retireIfIdle();
+    markRetiring();
+    const timer = setTimeout(() => {
+      proxyDrained = true;
+      retireIfIdle();
+    }, proxyDrainMs);
+    timer.unref?.();
   });
 }
