@@ -1,0 +1,104 @@
+<script lang="ts">
+  import ManageGate from "$lib/manage/ManageGate.svelte";
+  import ManageHeader from "$lib/manage/ManageHeader.svelte";
+  import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
+  import Select from "$lib/design-system/components/forms/Select.svelte";
+  import Toggle from "$lib/design-system/components/forms/Toggle.svelte";
+
+  let { data } = $props();
+</script>
+
+<svelte:head>
+  <title>Stats exports - Sequoia</title>
+  <meta name="robots" content="noindex" />
+</svelte:head>
+
+<div class="mg-page">
+  <ManageHeader
+    area="Community"
+    title="Stats exports"
+    lead="Download guild data as CSV. Ranges before the tracking start undercount."
+  />
+
+  {#if data.access !== "granted"}
+    <ManageGate
+      access={data.access}
+      returnTo="/manage/community/exports"
+      title="Community branch only"
+      signinText="Sign in to export guild stats."
+      deniedText="Exports are for the Community branch and guild leadership."
+      backHref="/statistics"
+      backLabel="Back to statistics"
+    />
+  {:else if data.datasets}
+    {#each data.datasets as dataset (dataset.id)}
+      <section class="export-section">
+        <SectionLabel>
+          {#snippet children()}{dataset.label}{/snippet}
+        </SectionLabel>
+        <p class="export-lead">{dataset.description}</p>
+        <form method="GET" action={`/manage/community/exports/${dataset.id}`} class="export-form">
+          {#if dataset.filters.dateRange}
+            <label class="export-field">
+              <span class="seq-field-label">From</span>
+              <input class="seq-input" type="date" name="from" required value={data.defaultFrom} />
+            </label>
+            <label class="export-field">
+              <span class="seq-field-label">To</span>
+              <input class="seq-input" type="date" name="to" required value={data.defaultTo} />
+            </label>
+          {/if}
+          {#if dataset.filters.raid && data.raids}
+            <label class="export-field">
+              <span class="seq-field-label">Raid</span>
+              <Select name="raid">
+                <option value="">All raids</option>
+                {#each data.raids as raid (raid.key)}
+                  <option value={raid.key}>{raid.short}</option>
+                {/each}
+              </Select>
+            </label>
+          {/if}
+          {#if dataset.filters.rosterOnly}
+            <Toggle name="rosterOnly" value="1" label="Current members only" />
+          {/if}
+          <!-- Native submit until Button grows a type prop (form-primitives PR). -->
+          <button type="submit" class="seq-button seq-button-secondary seq-button-sm">
+            Download CSV
+          </button>
+        </form>
+      </section>
+    {/each}
+  {/if}
+</div>
+
+<style>
+  /* Scoped like the sibling manage pages; the form-primitives PR moves this
+     width into app.css and these rules go with it. */
+  .mg-page {
+    width: min(1100px, 100% - 3rem);
+    margin: 0 auto;
+  }
+
+  .export-section {
+    margin-bottom: 2.5rem;
+  }
+
+  .export-lead {
+    margin: 0.5rem 0 1rem;
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+  }
+
+  .export-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 1rem;
+  }
+
+  .export-field {
+    display: grid;
+    gap: 0.35rem;
+  }
+</style>

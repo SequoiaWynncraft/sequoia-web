@@ -42,7 +42,7 @@ export const MANAGE_AREAS: readonly ManageArea[] = [
     branch: "treasury",
     href: "/manage/bagshop",
     marker: "◆",
-    links: [],
+    links: [{ label: "Bag shop", href: "/manage/bagshop" }],
   },
   {
     id: "military",
@@ -56,9 +56,13 @@ export const MANAGE_AREAS: readonly ManageArea[] = [
     id: "community",
     label: "Community",
     branch: "community",
-    href: null,
+    href: "/manage/community/exports",
     marker: "◆",
-    links: [],
+    links: [
+      { label: "Stats exports", href: "/manage/community/exports" },
+      { label: "Announcements", href: "/manage/community/announcements" },
+      { label: "Blog", href: "/manage/community/blog" },
+    ],
   },
   {
     id: "endGame",

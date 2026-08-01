@@ -1,6 +1,13 @@
 import type { EventDayCount } from "./eventActivity";
 import { sequoiaBackendInternalHeaders, sequoiaBackendOrigin } from "./sequoiaBackend";
 
+/** A calendar-valid YYYY-MM-DD: Date.parse alone normalizes overflow days. */
+function isRealIsoDay(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const time = Date.parse(`${value}T00:00:00Z`);
+  return !Number.isNaN(time) && new Date(time).toISOString().slice(0, 10) === value;
+}
+
 /**
  * Daily unique raid completions from the guild mod's log - one per run, so
  * party size never inflates the count. Aggregate counts only; member-level
@@ -22,9 +29,26 @@ export async function loadModRunCounts(
       signal: AbortSignal.timeout(6000),
     });
     if (!response.ok) return null;
-    const body = (await response.json()) as { days?: { day: string; runs: number }[] };
+    const body = (await response.json()) as { days?: unknown };
     if (!Array.isArray(body.days)) return null;
-    return body.days.map((entry) => ({ day: entry.day, value: entry.runs }));
+    // Validate every row, not just the envelope: a malformed entry must read
+    // as an outage, not flow blank values into charts and exports. Bounds
+    // are normalized to days because event callers pass full timestamps.
+    const fromDay = options.from.slice(0, 10);
+    const toDay = options.to.slice(0, 10);
+    const days: EventDayCount[] = [];
+    const seen = new Set<string>();
+    for (const entry of body.days as Record<string, unknown>[]) {
+      if (!entry || typeof entry.day !== "string" || typeof entry.runs !== "number") return null;
+      if (!isRealIsoDay(entry.day) || entry.day < fromDay || entry.day > toDay) return null;
+      if (!Number.isInteger(entry.runs) || entry.runs < 0) return null;
+      // One aggregate per day is the endpoint's contract; a duplicate would
+      // double-count in goal progress and the export alike.
+      if (seen.has(entry.day)) return null;
+      seen.add(entry.day);
+      days.push({ day: entry.day, value: entry.runs });
+    }
+    return days;
   } catch {
     return null;
   }
