@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import { createSequoiaApiClient } from "$lib/api/client";
 import type { SeasonRaidActivityResponse } from "$lib/api/client";
-import type { GuildOverviewResponse } from "$lib/api/guildOverview";
+import {
+  branchLeadershipBadge,
+  type GuildOverviewResponse,
+} from "$lib/api/guildOverview";
 
 const guildOverviewBody: GuildOverviewResponse = {
   generated_at: "2026-07-08T12:00:00Z",
@@ -21,6 +24,8 @@ const guildOverviewBody: GuildOverviewResponse = {
       rank: "branchmaster",
       rank_label: "Branchmaster",
       rank_color: "#DBD1C7",
+      progression_rank_label: "Treant",
+      progression_rank_color: "#1B9056",
       online: true,
       contributed: 1200,
       contribution_rank: 2,
@@ -46,6 +51,28 @@ const seasonRaidActivityBody: SeasonRaidActivityResponse = {
     },
   ],
 };
+
+describe("branchLeadershipBadge", () => {
+  it("keeps a progression rank with no Discord color neutral", () => {
+    expect(
+      branchLeadershipBadge({
+        ...guildOverviewBody.branchmasters[0],
+        progression_rank_color: null,
+      }),
+    ).toEqual({ label: "Treant", color: null });
+  });
+
+  it("falls back to the leadership badge for rolling-deployment payloads", () => {
+    const member = { ...guildOverviewBody.branchmasters[0] };
+    delete member.progression_rank_label;
+    delete member.progression_rank_color;
+
+    expect(branchLeadershipBadge(member)).toEqual({
+      label: "Branchmaster",
+      color: "#DBD1C7",
+    });
+  });
+});
 
 describe("createSequoiaApiClient", () => {
   it("requests the linked rank-profile snapshot by default", async () => {
@@ -88,6 +115,26 @@ describe("createSequoiaApiClient", () => {
 
     expect(result).toEqual({ ok: true, data: guildOverviewBody });
     expect(requests).toEqual(["/api/guild-overview"]);
+  });
+
+  it("accepts the previous guild-overview shape during a rolling deployment", async () => {
+    const legacyBody = {
+      ...guildOverviewBody,
+      branchmasters: guildOverviewBody.branchmasters.map((member) => {
+        const legacyMember = { ...member };
+        delete legacyMember.progression_rank_label;
+        delete legacyMember.progression_rank_color;
+        return legacyMember;
+      }),
+    };
+    const client = createSequoiaApiClient({
+      baseUrl: "https://api.example.test",
+      fetch: async () => jsonResponse(legacyBody),
+    });
+
+    const result = await client.getGuildOverview();
+
+    expect(result).toEqual({ ok: true, data: legacyBody });
   });
 
   it("rejects malformed guild overview payloads", async () => {
