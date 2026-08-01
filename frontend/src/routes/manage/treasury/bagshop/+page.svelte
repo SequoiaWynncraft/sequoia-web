@@ -262,9 +262,12 @@
         <input class="seq-input seq-input-mono mg-num-input" type="number" min="0" aria-label="Cap for {row.bag}" bind:value={draft.cap} oninput={(e) => (drafts[row.key] = { ...draft, cap: e.currentTarget.value })} />
       {/snippet}
       {#snippet saveCell(row: InventoryRow)}
+        <!-- The bag label is a plain cell in the ledger, so the button names
+             its own row for screen readers. -->
         <Button
           size="sm"
           variant="secondary"
+          aria-label="Save {row.bag}"
           disabled={busy.has(`inv:${row.key}`)}
           onclick={() => saveInventory(row.key, row.stock, row.sellPrice, row.cap)}
         >
