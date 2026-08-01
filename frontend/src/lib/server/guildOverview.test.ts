@@ -19,7 +19,7 @@ describe("parseWynncraftGuildOverview", () => {
         members: {
           total: 3,
           chief: {
-            NotBranchLeadership: member("44444444-4444-4444-4444-444444444444", 500, 1),
+            SeniorBranchmaster: member("44444444-4444-4444-4444-444444444444", 500, 1),
           },
           captain: {
             CurrentBranchmasterName: member(BRANCHMASTER, 300, 2, {
@@ -49,6 +49,18 @@ describe("parseWynncraftGuildOverview", () => {
         online_now: 19,
       },
       branchmasters: [
+        {
+          username: "SeniorBranchmaster",
+          rank: "branchmaster",
+          rank_label: "Branchmaster",
+          rank_color: "#DBD1C7",
+          online: false,
+          contributed: 500,
+          contribution_rank: 1,
+          wars: null,
+          raids: null,
+          joined: null,
+        },
         {
           username: "CurrentBranchmasterName",
           rank: "branchmaster",
@@ -173,7 +185,17 @@ function rankProfiles(): RankProfilesResponse {
       profile(BRANCHMASTER, "StaleBranchmasterName", "leadership.branchmaster"),
       profile(OUTSIDE_GUILD, "OutsideGuild", "leadership.branchmaster"),
       profile(NOVICE, "NoviceName", "leadership.branch_novice"),
-      profile("44444444-4444-4444-4444-444444444444", "RootMember", "leadership.root"),
+      profile(
+        "44444444-4444-4444-4444-444444444444",
+        "RootMember",
+        "leadership.root",
+        ["leadership.root", "leadership.branchmaster"],
+      ),
+      profile(
+        "55555555-5555-5555-5555-555555555555",
+        "RootOnly",
+        "leadership.root",
+      ),
     ],
   };
 }
@@ -195,11 +217,12 @@ function profile(
   uuid: string,
   username: string,
   leadership: string,
+  roleKeys: string[] = [leadership],
 ): RankProfilesResponse["profiles"][number] {
   return {
     discord: null,
     minecraft: { uuid, username },
-    role_keys: [leadership],
+    role_keys: roleKeys,
     award_keys: [],
     summary: {
       progression_rank: null,

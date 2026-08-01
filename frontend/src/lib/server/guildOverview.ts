@@ -20,6 +20,7 @@ const BRANCH_ROLES = new Map<string, BranchRole>([
   ["leadership.branchmaster", { rank: "branchmaster", fallbackLabel: "Branchmaster", order: 0 }],
   ["leadership.branch_novice", { rank: "branch_novice", fallbackLabel: "Branch Novice", order: 1 }],
 ]);
+const BRANCH_ROLE_ENTRIES = [...BRANCH_ROLES.entries()];
 const RANK_ORDER = new Map<BranchmasterRank, number>(
   [...BRANCH_ROLES.values()].map(({ rank, order }) => [rank, order]),
 );
@@ -104,11 +105,13 @@ function parseBranchLeadership(
   const branchmasters: BranchmasterMember[] = [];
 
   for (const profile of profiles.profiles) {
-    const roleKey = profile.summary.leadership;
-    if (!roleKey) continue;
-    const branchRole = BRANCH_ROLES.get(roleKey);
+    const branchRoleEntry = BRANCH_ROLE_ENTRIES.find(([roleKey]) =>
+      profile.role_keys.includes(roleKey),
+    );
+    if (!branchRoleEntry) continue;
+    const [roleKey, branchRole] = branchRoleEntry;
     const minecraft = profile.minecraft;
-    if (!branchRole || !minecraft || typeof minecraft.uuid !== "string") continue;
+    if (!minecraft || typeof minecraft.uuid !== "string") continue;
 
     const guildMember = guildMembers.get(normalizeUuid(minecraft.uuid));
     const username = guildMember?.username ?? stringValue(minecraft.username);
