@@ -14,6 +14,9 @@ FROM oven/bun:1.3.14-alpine AS runtime
 WORKDIR /app/frontend
 ENV NODE_ENV=production
 ENV PORT=3000
+# Coolify keeps the retiring container discoverable until it exits. Bound
+# adapter-node's drain so Traefik cannot route to a closed listener for 30s.
+ENV SHUTDOWN_TIMEOUT=0
 # The container only ever sits behind the reverse proxy, so derive the site
 # origin from its forwarded headers - form actions 403 on a wrong origin.
 ENV PROTOCOL_HEADER=x-forwarded-proto
