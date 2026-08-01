@@ -1,22 +1,24 @@
 import { redirect } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
 
-import { MANAGE_AREAS } from "$lib/manage/registry";
+import { contentAreas } from "$lib/manage/registry";
 import type { ManageCapabilities } from "$lib/manage/types";
 import { pageAreaAccess } from "$lib/server/manageCapabilities";
 
 export const prerender = false;
 
-/** The console has no landing content: go straight to the first area. */
+/** The console has no landing content: go straight to the first area with
+ * content - a granted branch without pages yet has nowhere to land. */
 export const load: PageServerLoad = async ({ fetch, parent }) => {
   const { viewer } = await parent();
   const capabilities = {} as ManageCapabilities;
 
-  const checks = MANAGE_AREAS.map(
+  const areas = contentAreas();
+  const checks = areas.map(
     async (area) => [area, await pageAreaAccess(fetch, viewer, area.id)] as const,
   );
 
-  let grantedArea: (typeof MANAGE_AREAS)[number] | undefined;
+  let grantedArea: (typeof areas)[number] | undefined;
   try {
     // Registry order is a preference, not a guarantee: immediate entry beats
     // waiting for a preferred area's slower authority when several grant.

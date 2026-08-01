@@ -14,7 +14,7 @@ export const load: PageServerLoad = async ({ fetch, parent }) => {
   const { viewer } = await parent();
   // Re-resolved per page load: the console layout's capabilities are cached
   // across child navigations, so they must not gate protected data here.
-  const access = await pageAreaAccess(fetch, viewer, "bagshop");
+  const access = await pageAreaAccess(fetch, viewer, "treasury");
   if (access !== "granted") {
     return { access, openOrders: null, inventory: null, ordersError: null, inventoryError: null };
   }
