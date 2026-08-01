@@ -176,8 +176,18 @@ async function buildRoster(fetchImpl: typeof fetch): Promise<ExportRows> {
   const orgRankByUuid = new Map<string, string>();
   const branchesByUuid = new Map<string, string>();
   try {
-    for (const [uuid, entry] of Object.entries(memberRanksByUuid(profiles))) {
-      if (entry.rank) orgRankByUuid.set(normalize(uuid), entry.rank);
+    const ranks = memberRanksByUuid(profiles);
+    for (const profile of profiles.profiles) {
+      const uuid = profile.minecraft?.uuid;
+      if (!uuid) continue;
+      const entry = ranks[uuid.toLowerCase()];
+      // A declared progression rank that cannot resolve to a catalog label
+      // must fail the export - a blank org_rank cell is indistinguishable
+      // from a member genuinely holding none.
+      if (profile.summary?.progression_rank != null && !entry?.rank) {
+        throw new Error("unresolved org rank");
+      }
+      if (entry?.rank) orgRankByUuid.set(normalize(uuid), entry.rank);
     }
     for (const profile of profiles.profiles) {
       const uuid = profile.minecraft?.uuid;

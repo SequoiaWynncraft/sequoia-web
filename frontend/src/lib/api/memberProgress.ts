@@ -19,12 +19,14 @@ export interface MemberProgressEntry {
   wars_participated: number;
 }
 
-function isNumberRecord(value: unknown): value is Record<string, number> {
+/** Raid breakdowns are counts: nonnegative safe integers only - a negative
+ * or fractional value is upstream corruption, not data. */
+function isCountRecord(value: unknown): value is Record<string, number> {
   return (
     typeof value === "object" &&
     value !== null &&
     !Array.isArray(value) &&
-    Object.values(value).every((entry) => typeof entry === "number")
+    Object.values(value).every((entry) => Number.isSafeInteger(entry) && (entry as number) >= 0)
   );
 }
 
@@ -53,7 +55,7 @@ export function isMemberProgressResponse(value: unknown): value is MemberProgres
         typeof (member as Record<string, unknown>).war_points === "number" &&
         // The progress export dereferences the per-raid breakdown; a payload
         // without it must fail validation, not 500 the download.
-        isNumberRecord((member as Record<string, unknown>).raids_by_type),
+        isCountRecord((member as Record<string, unknown>).raids_by_type),
     )
   );
 }

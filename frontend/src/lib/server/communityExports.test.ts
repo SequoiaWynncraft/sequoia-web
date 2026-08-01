@@ -183,6 +183,34 @@ describe("buildExport", () => {
     expect(result).toMatchObject({ ok: false, status: 503 });
   });
 
+  it("fails the export when a declared org rank cannot resolve to a label", async () => {
+    mockStats.mockResolvedValue({ stale: false, members: [{ uuid: UUID, rank: "recruit" }] } as never);
+    mockProfiles({
+      // The declared rank has no catalog role, so no label can resolve.
+      catalog: { roles: [], assets: [], awards: [] },
+      profiles: [
+        {
+          minecraft: { uuid: UNDASHED },
+          award_keys: [],
+          summary: {
+            progression_rank: "rank.dryad",
+            insignia: [],
+            leadership: [],
+            war_honours: [],
+            branches: [],
+          },
+        },
+      ],
+    });
+    const result = await buildExport(fetch, "roster", {
+      from: null,
+      to: null,
+      raid: null,
+      rosterOnly: false,
+    });
+    expect(result).toMatchObject({ ok: false, status: 503 });
+  });
+
   it("reads a malformed branch entry as unavailable, not undefined:undefined", async () => {
     mockStats.mockResolvedValue({ stale: false, members: [{ uuid: UUID, rank: "recruit" }] } as never);
     mockProfiles({
@@ -351,6 +379,13 @@ describe("buildExport", () => {
     ).toBe(true);
     expect(
       isMemberProgressResponse({ ...base, members: [{ ...entry, raids_by_type: { TNA: "2" } }] }),
+    ).toBe(false);
+    // Counts are nonnegative integers - corruption must not export as data.
+    expect(
+      isMemberProgressResponse({ ...base, members: [{ ...entry, raids_by_type: { TNA: -1 } }] }),
+    ).toBe(false);
+    expect(
+      isMemberProgressResponse({ ...base, members: [{ ...entry, raids_by_type: { TNA: 1.5 } }] }),
     ).toBe(false);
   });
 
