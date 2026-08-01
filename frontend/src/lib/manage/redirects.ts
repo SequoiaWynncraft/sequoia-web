@@ -1,7 +1,15 @@
-/** Old management URLs and their console homes, deepest prefix first. */
+/**
+ * Old management URLs and their console homes. Deepest prefix FIRST - the
+ * order is load-bearing: /events/manage/audit must map to the audit log's
+ * current home in one hop, not bounce through /manage/events/audit's own
+ * stub.
+ */
 const LEGACY_PREFIXES: readonly [from: string, to: string][] = [
-  ["/services/bagshop/manage", "/manage/bagshop"],
+  ["/services/bagshop/manage", "/manage/treasury/bagshop"],
+  ["/events/manage/audit", "/manage/development/audit"],
   ["/events/manage", "/manage/events"],
+  ["/manage/events/audit", "/manage/development/audit"],
+  ["/manage/bagshop", "/manage/treasury/bagshop"],
 ];
 
 /**

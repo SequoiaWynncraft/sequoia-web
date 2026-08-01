@@ -31,18 +31,15 @@ export const MANAGE_AREAS: readonly ManageArea[] = [
     branch: "events",
     href: "/manage/events",
     marker: "✦",
-    links: [
-      { label: "New event", href: "/manage/events/new" },
-      { label: "Audit log", href: "/manage/events/audit" },
-    ],
+    links: [{ label: "New event", href: "/manage/events/new" }],
   },
   {
     id: "treasury",
     label: "Treasury",
     branch: "treasury",
-    href: "/manage/bagshop",
+    href: "/manage/treasury/bagshop",
     marker: "◆",
-    links: [{ label: "Bag shop", href: "/manage/bagshop" }],
+    links: [{ label: "Bag shop", href: "/manage/treasury/bagshop" }],
   },
   {
     id: "military",
@@ -76,9 +73,9 @@ export const MANAGE_AREAS: readonly ManageArea[] = [
     id: "development",
     label: "Development",
     branch: "development",
-    href: null,
+    href: "/manage/development/audit",
     marker: "◆",
-    links: [],
+    links: [{ label: "Audit log", href: "/manage/development/audit" }],
   },
 ];
 

@@ -1,6 +1,7 @@
 <script lang="ts">
   import ManageGate from "$lib/manage/ManageGate.svelte";
   import ManageHeader from "$lib/manage/ManageHeader.svelte";
+  import Button from "$lib/design-system/components/Button.svelte";
   import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
   import Select from "$lib/design-system/components/forms/Select.svelte";
   import Toggle from "$lib/design-system/components/forms/Toggle.svelte";
@@ -62,10 +63,7 @@
           {#if dataset.filters.rosterOnly}
             <Toggle name="rosterOnly" value="1" label="Current members only" />
           {/if}
-          <!-- Native submit until Button grows a type prop (form-primitives PR). -->
-          <button type="submit" class="seq-button seq-button-secondary seq-button-sm">
-            Download CSV
-          </button>
+          <Button type="submit" variant="secondary" size="sm">Download CSV</Button>
         </form>
       </section>
     {/each}
@@ -73,13 +71,6 @@
 </div>
 
 <style>
-  /* Scoped like the sibling manage pages; the form-primitives PR moves this
-     width into app.css and these rules go with it. */
-  .mg-page {
-    width: min(1100px, 100% - 3rem);
-    margin: 0 auto;
-  }
-
   .export-section {
     margin-bottom: 2.5rem;
   }

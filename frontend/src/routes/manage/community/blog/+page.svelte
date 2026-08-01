@@ -28,11 +28,6 @@
 </div>
 
 <style>
-  .mg-page {
-    width: min(1100px, 100% - 3rem);
-    margin: 0 auto;
-  }
-
   .mg-muted {
     margin: 0;
     color: var(--text-muted);
