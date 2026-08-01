@@ -1,6 +1,7 @@
 import type { RequestHandler } from "./$types";
 
 import { guildRankLabel } from "$lib/api/guildStats";
+import { csvResponse, type CsvValue } from "$lib/server/csv";
 import { requireEventManager } from "$lib/server/eventManagers";
 import { eventStore } from "$lib/server/eventStore";
 import { getGuildStats } from "$lib/server/guildStats";
@@ -13,16 +14,6 @@ import {
 import { requestError } from "$lib/server/requestError";
 
 export const prerender = false;
-
-/** RFC 4180: quote when needed, double inner quotes, CRLF rows. */
-function csvField(value: string | number | null | undefined): string {
-  const text = value === null || value === undefined ? "" : String(value);
-  return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
-}
-
-function toCsv(rows: (string | number | null | undefined)[][]): string {
-  return rows.map((row) => row.map(csvField).join(",")).join("\r\n") + "\r\n";
-}
 
 /**
  * Exports a tracker's full standings as CSV: every board row with identity,
@@ -54,7 +45,7 @@ export const GET: RequestHandler = async ({ params, url, cookies, fetch, locals 
   }
   if (result.error) requestError(locals, 503, result.error);
 
-  const rows: (string | number | null | undefined)[][] = [
+  const rows: CsvValue[][] = [
     ["place", "username", "player_uuid", "guild_rank", "progression_rank", "raids"],
     ...result.leaderboard.map((entry, index) => [
       index + 1,
@@ -67,11 +58,5 @@ export const GET: RequestHandler = async ({ params, url, cookies, fetch, locals 
   ];
 
   const stamp = new Date().toISOString().slice(0, 10);
-  return new Response(toCsv(rows), {
-    headers: {
-      "content-type": "text/csv; charset=utf-8",
-      "content-disposition": `attachment; filename="${params.slug}-tracker-${stamp}.csv"`,
-      "cache-control": "no-store",
-    },
-  });
+  return csvResponse(`${params.slug}-tracker-${stamp}.csv`, rows);
 };
