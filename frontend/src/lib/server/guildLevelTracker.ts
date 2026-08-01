@@ -57,8 +57,9 @@ ${PAYOUT_RATE}`;
  * level-up history the backend has recorded. Returns null on any failure, so the
  * section is simply absent rather than breaking the statistics page.
  *
- * Both halves of the gate are read fresh and fail closed when they come back
- * stale, matching the weekly raid announcement - see `isBranchMemberViewer`.
+ * Regular viewers read both halves of the gate fresh and fail closed when they
+ * come back stale. Website administrators are members by session grant, so
+ * they skip the branch-profile read and may use stale guild display data.
  */
 export async function loadGuildLevelTracker(
   fetchImpl: typeof fetch,
@@ -67,14 +68,16 @@ export async function loadGuildLevelTracker(
   if (!viewer) return null;
   try {
     const [stats, profiles] = await Promise.all([
-      getGuildStats(fetchImpl, { allowStale: false }),
-      getLinkedRankProfilesResult(fetchImpl, { allowStale: false }),
+      getGuildStats(fetchImpl, { allowStale: viewer.websiteAdmin }),
+      viewer.websiteAdmin
+        ? Promise.resolve(null)
+        : getLinkedRankProfilesResult(fetchImpl, { allowStale: false }),
     ]);
-    if (stats.stale || profiles.stale) {
+    if (!viewer.websiteAdmin && (stats.stale || profiles === null || profiles.stale)) {
       console.warn("guild level tracker: gate reads are stale, denying");
       return null;
     }
-    if (!isBranchMemberViewer(profiles.data, stats.members, viewer)) return null;
+    if (!isBranchMemberViewer(profiles?.data ?? null, stats.members, viewer)) return null;
 
     // Fetched only once the gate has passed, so an ineligible viewer costs no
     // upstream call. The backend times level-ups from its own ten-minute

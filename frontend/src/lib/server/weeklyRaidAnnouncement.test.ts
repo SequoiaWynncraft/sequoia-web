@@ -309,6 +309,12 @@ describe("isAnnouncementViewer", () => {
     expect(isAnnouncementViewer(profilesWith(UUID, [DEV]), rosterWith(UUID), null)).toBe(false);
   });
 
+  it("admits a website administrator without a guild or branch record", () => {
+    expect(
+      isAnnouncementViewer(null, null, { ...viewer, websiteAdmin: true }),
+    ).toBe(true);
+  });
+
   it("denies branch trainees", () => {
     const trainee = { ...DEV, level: "trainee" as const };
     expect(isAnnouncementViewer(profilesWith(UUID, [trainee]), rosterWith(UUID), viewer)).toBe(
@@ -419,6 +425,19 @@ describe("loadWeeklyRaidAnnouncement", () => {
       "TNA",
       "TWP",
     ]);
+  });
+
+  it("serves a website administrator independently of stale membership sources", async () => {
+    H.rosterStale = true;
+    H.profilesStale = true;
+    stubModLeaderboard();
+
+    const announcement = await loadWeeklyRaidAnnouncement(fetch, {
+      ...VIEWER,
+      websiteAdmin: true,
+    });
+
+    expect(announcement).not.toBeNull();
   });
 
   it("serves the fresh cached build to the next viewer without re-reading the tracker", async () => {
