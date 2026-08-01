@@ -103,12 +103,24 @@ input[type="number"]::-webkit-inner-spin-button {
   padding-top: 0;
 }
 
+/* Manage pages carry their own gutters for the shell-less gate render
+   (signed-out viewers get no .manage-shell); inside the console the shell
+   already provides them, so the inner rules zero these out. */
 .mg-page {
-  width: min(1100px, 100%);
+  width: min(1100px, 100% - 3rem);
   margin-inline: auto;
 }
 
 .mg-page-wide {
+  width: calc(100% - 3rem);
+  margin-inline: auto;
+}
+
+.manage-content .mg-page {
+  width: min(1100px, 100%);
+}
+
+.manage-content .mg-page-wide {
   width: 100%;
 }
 
