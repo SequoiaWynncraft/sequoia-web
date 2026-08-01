@@ -387,6 +387,49 @@ describe("buildExport", () => {
     expect(
       isMemberProgressResponse({ ...base, members: [{ ...entry, raids_by_type: { TNA: 1.5 } }] }),
     ).toBe(false);
+    const valid = { ...entry, raids_by_type: {} };
+    expect(
+      isMemberProgressResponse({ ...base, members: [{ ...valid, wars_participated: -1 }] }),
+    ).toBe(false);
+    expect(isMemberProgressResponse({ ...base, members: [{ ...valid, wars: 1.5 }] })).toBe(false);
+    expect(
+      isMemberProgressResponse({ ...base, members: [{ ...valid, playtime_hours: -2 }] }),
+    ).toBe(false);
+    // Playtime stays fractional - only counts require integers.
+    expect(
+      isMemberProgressResponse({ ...base, members: [{ ...valid, playtime_hours: 2.5 }] }),
+    ).toBe(true);
+  });
+
+  it("fails the export when a resolved rank label is not a string", async () => {
+    mockStats.mockResolvedValue({ stale: false, members: [{ uuid: UUID, rank: "recruit" }] } as never);
+    mockProfiles({
+      catalog: {
+        roles: [{ key: "rank.dryad", label: 42, category: "progression_rank", position: 1 }],
+        assets: [],
+        awards: [],
+      },
+      profiles: [
+        {
+          minecraft: { uuid: UNDASHED },
+          award_keys: [],
+          summary: {
+            progression_rank: "rank.dryad",
+            insignia: [],
+            leadership: [],
+            war_honours: [],
+            branches: [],
+          },
+        },
+      ],
+    });
+    const result = await buildExport(fetch, "roster", {
+      from: null,
+      to: null,
+      raid: null,
+      rosterOnly: false,
+    });
+    expect(result).toMatchObject({ ok: false, status: 503 });
   });
 
   it("exports daily runs and surfaces backend absence as 503", async () => {

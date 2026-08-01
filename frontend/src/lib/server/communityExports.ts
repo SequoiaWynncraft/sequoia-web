@@ -181,13 +181,14 @@ async function buildRoster(fetchImpl: typeof fetch): Promise<ExportRows> {
       const uuid = profile.minecraft?.uuid;
       if (!uuid) continue;
       const entry = ranks[uuid.toLowerCase()];
-      // A declared progression rank that cannot resolve to a catalog label
-      // must fail the export - a blank org_rank cell is indistinguishable
-      // from a member genuinely holding none.
-      if (profile.summary?.progression_rank != null && !entry?.rank) {
+      // A declared progression rank must resolve to a real catalog label - a
+      // blank org_rank cell is indistinguishable from a member genuinely
+      // holding none, and a shallow-valid catalog can carry a non-string one.
+      const label = typeof entry?.rank === "string" && entry.rank !== "" ? entry.rank : null;
+      if (profile.summary?.progression_rank != null && label === null) {
         throw new Error("unresolved org rank");
       }
-      if (entry?.rank) orgRankByUuid.set(normalize(uuid), entry.rank);
+      if (label !== null) orgRankByUuid.set(normalize(uuid), label);
     }
     for (const profile of profiles.profiles) {
       const uuid = profile.minecraft?.uuid;

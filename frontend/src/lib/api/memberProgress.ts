@@ -19,14 +19,16 @@ export interface MemberProgressEntry {
   wars_participated: number;
 }
 
-/** Raid breakdowns are counts: nonnegative safe integers only - a negative
- * or fractional value is upstream corruption, not data. */
+/** Counts are nonnegative safe integers - a negative or fractional value is
+ * upstream corruption, not data. */
+function isCount(value: unknown): boolean {
+  return Number.isSafeInteger(value) && (value as number) >= 0;
+}
+
 function isCountRecord(value: unknown): value is Record<string, number> {
   return (
-    typeof value === "object" &&
-    value !== null &&
-    !Array.isArray(value) &&
-    Object.values(value).every((entry) => Number.isSafeInteger(entry) && (entry as number) >= 0)
+    typeof value === "object" && value !== null && !Array.isArray(value) &&
+    Object.values(value).every(isCount)
   );
 }
 
@@ -46,13 +48,16 @@ export function isMemberProgressResponse(value: unknown): value is MemberProgres
         member !== null &&
         typeof (member as Record<string, unknown>).player_uuid === "string" &&
         typeof (member as Record<string, unknown>).player_name === "string" &&
+        // Playtime is fractional but never negative; the rest are counts.
         typeof (member as Record<string, unknown>).playtime_hours === "number" &&
-        typeof (member as Record<string, unknown>).raids === "number" &&
+        Number.isFinite((member as Record<string, unknown>).playtime_hours) &&
+        ((member as Record<string, unknown>).playtime_hours as number) >= 0 &&
+        isCount((member as Record<string, unknown>).raids) &&
         // Raffle eligibility thresholds and weights read this directly - a
         // missing count must fail validation, not read as zero wars.
-        typeof (member as Record<string, unknown>).wars === "number" &&
-        typeof (member as Record<string, unknown>).wars_participated === "number" &&
-        typeof (member as Record<string, unknown>).war_points === "number" &&
+        isCount((member as Record<string, unknown>).wars) &&
+        isCount((member as Record<string, unknown>).wars_participated) &&
+        isCount((member as Record<string, unknown>).war_points) &&
         // The progress export dereferences the per-raid breakdown; a payload
         // without it must fail validation, not 500 the download.
         isCountRecord((member as Record<string, unknown>).raids_by_type),

@@ -44,6 +44,20 @@ describe("loadModRunCounts", () => {
     ).toBeNull();
   });
 
+  it("rejects duplicate days - one aggregate per day is the contract", async () => {
+    expect(
+      await loadModRunCounts(
+        fetchReturning({
+          days: [
+            { day: "2026-07-02", runs: 1 },
+            { day: "2026-07-02", runs: 2 },
+          ],
+        }),
+        RANGE,
+      ),
+    ).toBeNull();
+  });
+
   it("accepts full-timestamp windows from the event path", async () => {
     const days = await loadModRunCounts(
       fetchReturning({ days: [{ day: "2026-07-05", runs: 2 }] }),

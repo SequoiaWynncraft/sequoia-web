@@ -37,10 +37,15 @@ export async function loadModRunCounts(
     const fromDay = options.from.slice(0, 10);
     const toDay = options.to.slice(0, 10);
     const days: EventDayCount[] = [];
+    const seen = new Set<string>();
     for (const entry of body.days as Record<string, unknown>[]) {
       if (!entry || typeof entry.day !== "string" || typeof entry.runs !== "number") return null;
       if (!isRealIsoDay(entry.day) || entry.day < fromDay || entry.day > toDay) return null;
       if (!Number.isInteger(entry.runs) || entry.runs < 0) return null;
+      // One aggregate per day is the endpoint's contract; a duplicate would
+      // double-count in goal progress and the export alike.
+      if (seen.has(entry.day)) return null;
+      seen.add(entry.day);
       days.push({ day: entry.day, value: entry.runs });
     }
     return days;
