@@ -6,7 +6,10 @@ export const prerender = false;
 
 export const load: PageServerLoad = async ({ fetch }) => {
   try {
-    const overview = await getGuildOverview(fetch, { allowStale: true });
+    const overview = await getGuildOverview(fetch, {
+      allowStale: true,
+      includeBranchmasters: false,
+    });
     return { homepageStats: overview.stats };
   } catch {
     return { homepageStats: null };

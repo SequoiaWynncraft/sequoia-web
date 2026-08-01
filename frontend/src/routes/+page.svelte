@@ -218,20 +218,28 @@
 
   type BranchmasterCard = {
     username: string;
+    role: BranchmasterMember["rank"];
     rank: string;
+    rankColor: string | null;
     online: boolean;
     avatarUrl: string;
     stats: Record<string, string>;
   };
   const branchmasters = $state<{ members: BranchmasterCard[] }>({ members: [] });
   let branchmastersLoaded = $state(false);
-  const branchmasterTopLane = $derived(branchmasters.members.filter((member) => member.rank !== "strategist"));
-  const branchmasterBottomLane = $derived(branchmasters.members.filter((member) => member.rank === "strategist"));
+  const branchmasterTopLane = $derived(
+    branchmasters.members.filter((member) => member.role === "branchmaster"),
+  );
+  const branchmasterBottomLane = $derived(
+    branchmasters.members.filter((member) => member.role === "branch_novice"),
+  );
 
   function branchmasterCard(member: BranchmasterMember): BranchmasterCard {
     return {
       username: member.username,
-      rank: member.rank,
+      role: member.rank,
+      rank: member.rank_label,
+      rankColor: member.rank_color,
       online: member.online === true,
       avatarUrl: nmsrHeadIsoUrl(member.username),
       stats: {
