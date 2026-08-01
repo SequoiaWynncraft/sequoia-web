@@ -128,8 +128,11 @@ export async function buildExport(
 }
 
 async function loadRoster(fetchImpl: typeof fetch): Promise<GuildMemberStats[] | null> {
-  return getGuildStats(fetchImpl, { allowStale: true })
-    .then((stats) => stats.members)
+  // Fresh only: these exports advertise the CURRENT roster, and a stale
+  // snapshot survives an outage for days - it would export departed members
+  // in a successful-looking file. Matches the strict roster consumers.
+  return getGuildStats(fetchImpl, { allowStale: false })
+    .then((stats) => (stats.stale ? null : stats.members))
     .catch(() => null);
 }
 

@@ -142,6 +142,19 @@ describe("buildExport", () => {
     expect(result.rows[1]).toContain("treasury:member");
   });
 
+  it("refuses to export a stale roster as current members", async () => {
+    mockStats.mockResolvedValue({ stale: true, members: [{ uuid: UUID, rank: "recruit" }] } as never);
+    mockProfiles.mockResolvedValue({ profiles: [] } as never);
+    const result = await buildExport(fetch, "roster", {
+      from: null,
+      to: null,
+      raid: null,
+      rosterOnly: false,
+    });
+    expect(result).toMatchObject({ ok: false, status: 503 });
+    expect(mockStats).toHaveBeenCalledWith(fetch, { allowStale: false });
+  });
+
   it("reports the roster unavailable instead of an empty file", async () => {
     mockStats.mockRejectedValue(new Error("wynn down"));
     mockProfiles.mockResolvedValue({ profiles: [] } as never);
