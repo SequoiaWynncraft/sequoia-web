@@ -674,7 +674,6 @@
     font-family: var(--font-display);
     font-size: var(--text-xs);
     letter-spacing: var(--tracking-wide);
-    text-transform: uppercase;
   }
 
   .ev-prize-what {
