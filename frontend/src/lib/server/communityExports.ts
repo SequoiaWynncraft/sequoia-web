@@ -177,6 +177,9 @@ async function buildRoster(fetchImpl: typeof fetch): Promise<ExportRows> {
   const branchesByUuid = new Map<string, string>();
   try {
     const ranks = memberRanksByUuid(profiles);
+    const roleCategories = new Map(
+      profiles.catalog.roles.map((role) => [role.key, role.category]),
+    );
     for (const profile of profiles.profiles) {
       const uuid = profile.minecraft?.uuid;
       if (!uuid) continue;
@@ -184,9 +187,15 @@ async function buildRoster(fetchImpl: typeof fetch): Promise<ExportRows> {
       // A declared progression rank must resolve to a real catalog label - a
       // blank org_rank cell is indistinguishable from a member genuinely
       // holding none, and a shallow-valid catalog can carry a non-string one.
+      // It must also actually BE a progression role: a key pointing at, say,
+      // a branch role would export that branch's label as an org rank.
+      const declared = profile.summary?.progression_rank;
       const label = typeof entry?.rank === "string" && entry.rank !== "" ? entry.rank : null;
-      if (profile.summary?.progression_rank != null && label === null) {
-        throw new Error("unresolved org rank");
+      if (declared != null) {
+        if (label === null) throw new Error("unresolved org rank");
+        if (roleCategories.get(declared) !== "progression_rank") {
+          throw new Error("non-progression org rank");
+        }
       }
       if (label !== null) orgRankByUuid.set(normalize(uuid), label);
     }
@@ -198,8 +207,12 @@ async function buildRoster(fetchImpl: typeof fetch): Promise<ExportRows> {
         profile.summary.branches
           .map((entry) => {
             // The shallow validator lets `{}` entries through; those must
-            // read as unavailable, not export as "undefined:undefined".
-            if (typeof entry.branch !== "string" || typeof entry.level !== "string") {
+            // read as unavailable, not export as "undefined:undefined" - and
+            // the level is a closed enum, not any string.
+            if (
+              typeof entry.branch !== "string" ||
+              (entry.level !== "member" && entry.level !== "trainee")
+            ) {
               throw new Error("malformed branch entry");
             }
             return `${entry.branch}:${entry.level}`;

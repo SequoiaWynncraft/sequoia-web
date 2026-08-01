@@ -183,6 +183,65 @@ describe("buildExport", () => {
     expect(result).toMatchObject({ ok: false, status: 503 });
   });
 
+  it("fails the export when the declared rank is not a progression role", async () => {
+    mockStats.mockResolvedValue({ stale: false, members: [{ uuid: UUID, rank: "recruit" }] } as never);
+    mockProfiles({
+      catalog: {
+        // Resolvable label, wrong category - must not export as an org rank.
+        roles: [{ key: "branch.community", label: "Community", category: "branch", position: 1 }],
+        assets: [],
+        awards: [],
+      },
+      profiles: [
+        {
+          minecraft: { uuid: UNDASHED },
+          award_keys: [],
+          summary: {
+            progression_rank: "branch.community",
+            insignia: [],
+            leadership: [],
+            war_honours: [],
+            branches: [],
+          },
+        },
+      ],
+    });
+    const result = await buildExport(fetch, "roster", {
+      from: null,
+      to: null,
+      raid: null,
+      rosterOnly: false,
+    });
+    expect(result).toMatchObject({ ok: false, status: 503 });
+  });
+
+  it("rejects branch levels outside the member/trainee enum", async () => {
+    mockStats.mockResolvedValue({ stale: false, members: [{ uuid: UUID, rank: "recruit" }] } as never);
+    mockProfiles({
+      catalog: { roles: [], assets: [], awards: [] },
+      profiles: [
+        {
+          minecraft: { uuid: UNDASHED },
+          award_keys: [],
+          summary: {
+            progression_rank: null,
+            insignia: [],
+            leadership: [],
+            war_honours: [],
+            branches: [{ key: "b", branch: "community", level: "owner" }],
+          },
+        },
+      ],
+    });
+    const result = await buildExport(fetch, "roster", {
+      from: null,
+      to: null,
+      raid: null,
+      rosterOnly: false,
+    });
+    expect(result).toMatchObject({ ok: false, status: 503 });
+  });
+
   it("fails the export when a declared org rank cannot resolve to a label", async () => {
     mockStats.mockResolvedValue({ stale: false, members: [{ uuid: UUID, rank: "recruit" }] } as never);
     mockProfiles({
