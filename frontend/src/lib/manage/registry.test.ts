@@ -37,7 +37,18 @@ describe("registry", () => {
 
   it("contentAreas lists only areas with a landing route", () => {
     expect(contentAreas().every((area) => area.href !== null)).toBe(true);
-    expect(contentAreas().map((area) => area.id)).toEqual(["events", "treasury"]);
+    expect(contentAreas().map((area) => area.id)).toEqual(["events", "treasury", "community"]);
+  });
+
+  it("names every tool as a sub-link under its category", () => {
+    const treasury = MANAGE_AREAS.find((area) => area.id === "treasury");
+    expect(treasury?.links.map((link) => link.label)).toEqual(["Bag shop"]);
+    const community = MANAGE_AREAS.find((area) => area.id === "community");
+    expect(community?.links.map((link) => link.label)).toEqual([
+      "Stats exports",
+      "Announcements",
+      "Blog",
+    ]);
   });
 
   it("firstAccessible follows registry order and null when locked out", () => {
