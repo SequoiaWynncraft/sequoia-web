@@ -89,6 +89,7 @@
       label: "Rank",
       nameStyle: true,
       value: (member) => orgRankOf(member)?.rank ?? guildRankLabel(member.rank),
+      valueColor: (member) => orgRankOf(member)?.rankColor ?? null,
       // Org positions and in-game equivalents share one scale; without the
       // catalog every row falls back to the plain in-game ladder.
       sortValue: (member) =>
