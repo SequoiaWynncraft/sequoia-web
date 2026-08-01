@@ -8,6 +8,7 @@
   import Field from "$lib/design-system/components/forms/Field.svelte";
   import FormSection from "$lib/design-system/components/forms/FormSection.svelte";
   import InstantField from "$lib/design-system/components/forms/InstantField.svelte";
+  import Select from "$lib/design-system/components/forms/Select.svelte";
   import Toggle from "$lib/design-system/components/forms/Toggle.svelte";
 
   import { EDITOR_KEY, EventDraft, RAFFLE_MAX_WINNERS, type ManualRow, type RaffleRow, type RuleType } from "../draft.svelte";
@@ -171,25 +172,25 @@
       </Field>
 
       <Field label="Wheel shows">
-        <select class="seq-input evf-wheel-style" bind:value={raffle.wheelStyle}>
+        <Select class="evf-wheel-style" bind:value={raffle.wheelStyle}>
           <option value="heads">Player heads on the rim</option>
           <option value="names">Names on the wedges</option>
-        </select>
+        </Select>
       </Field>
 
       <Field label="Tickets" element="div">
         <div class="evf-weight-row">
-          <select class="seq-input evf-weight-mode" bind:value={raffle.weightMode}>
+          <Select class="evf-weight-mode" bind:value={raffle.weightMode}>
             <option value="perRaid">Per raid on the standings board</option>
             <option value="perStat">Per stat over a window</option>
             <option value="flat">One ticket each</option>
-          </select>
+          </Select>
           {#if raffle.weightMode === "perStat"}
-            <select class="seq-input evf-weight-stat" bind:value={raffle.weightStat}>
+            <Select class="evf-weight-stat" bind:value={raffle.weightStat}>
               <option value="raids">raids</option>
               <option value="playtime">hours played</option>
               <option value="wars">wars</option>
-            </select>
+            </Select>
           {/if}
           {#if raffle.weightMode !== "flat"}
             <label class="evf-weight-per">
@@ -274,11 +275,11 @@
               {/if}
             {:else if rule.type === "stat"}
               <div class="evf-rule-stat">
-                <select class="seq-input" bind:value={rule.stat} aria-label="Stat to threshold">
+                <Select bind:value={rule.stat} aria-label="Stat to threshold">
                   <option value="raids">raids</option>
                   <option value="playtime">hours played</option>
                   <option value="wars">wars</option>
-                </select>
+                </Select>
                 <label class="evf-weight-per">
                   <span class="evf-weight-per-label">at least</span>
                   <input class="seq-input" type="number" min="1" bind:value={rule.min} aria-label="Minimum" />
@@ -294,12 +295,12 @@
               </div>
             {:else if rule.type === "milestone"}
               {#if draft.milestoneOptions.length > 0}
-                <select class="seq-input" bind:value={rule.milestoneId} aria-label="Required milestone">
+                <Select bind:value={rule.milestoneId} aria-label="Required milestone">
                   <option value="">Pick a milestone</option>
                   {#each draft.milestoneOptions as option (option.id)}
                     <option value={option.id}>{option.label}</option>
                   {/each}
-                </select>
+                </Select>
               {:else}
                 <p class="evf-hint">Add a personal milestone above first.</p>
               {/if}

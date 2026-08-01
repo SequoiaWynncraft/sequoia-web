@@ -3,6 +3,7 @@
 
   import Field from "$lib/design-system/components/forms/Field.svelte";
   import FormSection from "$lib/design-system/components/forms/FormSection.svelte";
+  import Select from "$lib/design-system/components/forms/Select.svelte";
   import { KNOWN_RAIDS } from "$lib/site/raids";
 
   import { EDITOR_KEY, EventDraft } from "../draft.svelte";
@@ -18,21 +19,21 @@
 <FormSection id="activity" title="Activity chart">
   <div class="evf-grid-2">
     <Field label="Daily bars show">
-      <select class="seq-input" bind:value={draft.chartSource}>
+      <Select bind:value={draft.chartSource}>
         <option value="goal">Match the goal</option>
         <option value="raids">Raid feed - member credits</option>
         <option value="raidRuns">Mod completions - unique runs</option>
         <option value="off">Hidden</option>
-      </select>
+      </Select>
     </Field>
     {#if draft.chartSource === "raids" || draft.chartSource === "raidRuns"}
       <Field label="Which raids">
-        <select class="seq-input" bind:value={draft.chartRaid}>
+        <Select bind:value={draft.chartRaid}>
           <option value="">All guild raids</option>
           {#each chartRaidOptions as raid (raid)}
             <option value={raid}>{raid}</option>
           {/each}
-        </select>
+        </Select>
       </Field>
     {/if}
   </div>

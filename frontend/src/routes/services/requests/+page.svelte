@@ -4,6 +4,7 @@
 
   import PageScaffold from "$lib/components/PageScaffold.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
+  import Button from "$lib/design-system/components/Button.svelte";
   import Card from "$lib/design-system/components/Card.svelte";
   import SectionHeading from "$lib/design-system/components/SectionHeading.svelte";
   import { pageView } from "$lib/site/nav";
@@ -79,16 +80,16 @@
     {#if data.access === "signin"}
       <Card hoverEffect={false}>
         <p class="req-notice">Sign in with Discord to request Aspects and Tomes from the guild reward queue.</p>
-        <a class="seq-button seq-button-primary seq-button-md" href={webAuthStartUrl(page.url.href)}>
+        <Button href={webAuthStartUrl(page.url.href)}>
           Sign in with Discord
-        </a>
+        </Button>
       </Card>
     {:else if data.access === "unverified"}
       <Card hoverEffect={false}>
         <p class="req-notice req-notice-error">
           We couldn't verify your guild membership right now. Nothing was submitted — refresh in a moment to try again.
         </p>
-        <a class="seq-button seq-button-secondary seq-button-md" href="/services/requests">Retry</a>
+        <Button variant="secondary" href="/services/requests">Retry</Button>
       </Card>
     {:else if data.access === "notMember"}
       <Card hoverEffect={false}>
@@ -109,9 +110,9 @@
           <p class="req-card-lead">Join the aspect queue. Staff hand out aspects in order.</p>
 
           <form method="POST" action="?/aspect" use:enhance={submitHandler("aspect")}>
-            <button type="submit" class="seq-button seq-button-primary seq-button-md" disabled={submitting !== null}>
+            <Button type="submit" disabled={submitting !== null}>
               {submitting === "aspect" ? "Requesting…" : "Request Aspects"}
-            </button>
+            </Button>
           </form>
 
           {#if aspectNotice}
@@ -128,19 +129,19 @@
 
           <form method="POST" action="?/tome" use:enhance={submitHandler("tome")}>
             <label class="req-field">
-              <span class="req-field-label">Reason</span>
+              <span class="seq-field-label">Reason</span>
               <textarea
                 name="reason"
-                class="req-textarea"
+                class="seq-input req-textarea"
                 rows="3"
                 maxlength={MAX_TOME_REASON_LENGTH}
                 required
                 placeholder="Which tome, and why you need it"
               ></textarea>
             </label>
-            <button type="submit" class="seq-button seq-button-primary seq-button-md" disabled={submitting !== null}>
+            <Button type="submit" disabled={submitting !== null}>
               {submitting === "tome" ? "Requesting…" : "Request Tome"}
-            </button>
+            </Button>
           </form>
 
           {#if tomeNotice}
@@ -181,26 +182,8 @@
     gap: 0.35rem;
     margin-bottom: 1rem;
   }
-  .req-field-label {
-    font-family: var(--font-display);
-    font-size: 0.7rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--color-text-dim);
-  }
   .req-textarea {
-    padding: 0.55rem 0.7rem;
-    background: var(--color-abyss);
-    border: 1px solid var(--color-border-subtle);
-    border-radius: 0.4rem;
-    color: var(--color-text-primary);
-    font: inherit;
-    resize: vertical;
     min-height: 3.5rem;
-  }
-  .req-textarea:focus {
-    outline: none;
-    border-color: var(--color-gold);
   }
 
   .req-notice {

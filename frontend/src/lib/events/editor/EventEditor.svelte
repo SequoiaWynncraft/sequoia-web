@@ -8,6 +8,8 @@
   import type { EventFormContext, TrackerOption } from "$lib/server/eventFormContext";
   import type { RaffleRoll as RaffleRollRecord } from "$lib/server/raffleRolls";
 
+  import Button from "$lib/design-system/components/Button.svelte";
+  import Select from "$lib/design-system/components/forms/Select.svelte";
   import { EDITOR_KEY, EventDraft } from "./draft.svelte";
   import PreviewPane from "./PreviewPane.svelte";
   import SectionRail from "./SectionRail.svelte";
@@ -157,8 +159,8 @@
   <div class="evf-main">
     <div class="evf-toolbar">
       <div class="evf-presets">
-        <select
-          class="seq-input evf-preset-select"
+        <Select
+          class="evf-preset-select"
           bind:value={draft.selectedPreset}
           onchange={() => (draft.confirmingPresetDelete = false)}
           aria-label="Saved presets"
@@ -167,37 +169,37 @@
           {#each draft.presetChoices as preset (preset.name)}
             <option value={preset.name}>{preset.name}</option>
           {/each}
-        </select>
-        <button
-          type="button"
-          class="seq-button seq-button-secondary seq-button-sm"
+        </Select>
+        <Button
+          size="sm"
+          variant="secondary"
           onclick={() => draft.loadPreset()}
           disabled={!draft.selectedPreset}
         >
           Load
-        </button>
+        </Button>
         <form method="POST" action="?/deletePreset" use:enhance={draft.presetDelete}>
           <input type="hidden" name="presetName" value={draft.selectedPreset} />
           {#if draft.confirmingPresetDelete}
-            <button type="submit" class="seq-button seq-button-ghost seq-button-sm evf-preset-confirm">
+            <Button type="submit" size="sm" variant="ghost" class="evf-preset-confirm">
               Confirm delete
-            </button>
-            <button
-              type="button"
-              class="seq-button seq-button-ghost seq-button-sm"
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
               onclick={() => (draft.confirmingPresetDelete = false)}
             >
               Keep
-            </button>
+            </Button>
           {:else}
-            <button
-              type="button"
-              class="seq-button seq-button-ghost seq-button-sm"
+            <Button
+              size="sm"
+              variant="ghost"
               onclick={() => (draft.confirmingPresetDelete = true)}
               disabled={!draft.selectedPreset}
             >
               Delete
-            </button>
+            </Button>
           {/if}
         </form>
         <form class="evf-preset-save" method="POST" action="?/savePreset" use:enhance={draft.presetSubmit}>
@@ -209,13 +211,14 @@
             placeholder="Preset name"
             maxlength="60"
           />
-          <button
+          <Button
             type="submit"
-            class="seq-button seq-button-secondary seq-button-sm"
+            size="sm"
+            variant="secondary"
             disabled={!draft.newPresetName.trim()}
           >
             Save preset
-          </button>
+          </Button>
         </form>
       </div>
     </div>
@@ -246,9 +249,9 @@
       <RafflesSection />
 
       <div class="evf-footer">
-        <button type="submit" class="seq-button seq-button-primary seq-button-md" disabled={draft.saving}>
+        <Button type="submit" disabled={draft.saving}>
           {mode === "create" ? "Create event" : "Save changes"}
-        </button>
+        </Button>
         {#if mode === "edit"}
           <a class="evf-view focus-ring" href={`/events/${draft.slug}`}>View page</a>
         {/if}
@@ -286,21 +289,21 @@
         {#if draft.confirmingDelete}
           <span class="evf-error">This permanently removes the event.</span>
           <button type="submit" class="evf-delete focus-ring">Confirm delete</button>
-          <button
-            type="button"
-            class="seq-button seq-button-ghost seq-button-sm"
+          <Button
+            size="sm"
+            variant="ghost"
             onclick={() => (draft.confirmingDelete = false)}
           >
             Keep
-          </button>
+          </Button>
         {:else}
-          <button
-            type="button"
-            class="seq-button seq-button-ghost seq-button-sm"
+          <Button
+            size="sm"
+            variant="ghost"
             onclick={() => (draft.confirmingDelete = true)}
           >
             Delete event
-          </button>
+          </Button>
         {/if}
       </form>
     {/if}

@@ -3,6 +3,7 @@
 
   import Field from "$lib/design-system/components/forms/Field.svelte";
   import FormSection from "$lib/design-system/components/forms/FormSection.svelte";
+  import Select from "$lib/design-system/components/forms/Select.svelte";
   import TextInput from "$lib/design-system/components/forms/TextInput.svelte";
   import Toggle from "$lib/design-system/components/forms/Toggle.svelte";
 
@@ -37,10 +38,10 @@
   </Field>
   <div class="evf-grid-2">
     <Field label="Access" element="label">
-      <select class="seq-input" bind:value={draft.access}>
+      <Select bind:value={draft.access}>
         <option value="members">Members</option>
         <option value="public">Public</option>
-      </select>
+      </Select>
     </Field>
     <Toggle
       bind:checked={draft.published}

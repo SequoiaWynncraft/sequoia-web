@@ -11,7 +11,7 @@
   <meta name="robots" content="noindex" />
 </svelte:head>
 
-<div class="mg-page">
+<div class="mg-page-wide">
   <ManageHeader area="Events" title="New event" />
 
   {#if data.access !== "granted"}
@@ -31,15 +31,7 @@
 </div>
 
 <style>
-  .mg-page {
-    width: 100%;
-    margin: 0 auto;
+  .mg-page-wide {
     padding-bottom: 48px;
-  }
-
-  @media (max-width: 640px) {
-    .mg-page {
-      width: 100%;
-    }
   }
 </style>

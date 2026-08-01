@@ -11,7 +11,7 @@
   <meta name="robots" content="noindex" />
 </svelte:head>
 
-<div class="mg-page">
+<div class="mg-page-wide">
   {#if data.access !== "granted"}
     <ManageHeader area="Events" title="Edit event" />
     <EventsGate access={data.access} returnTo="/manage/events" />
@@ -42,9 +42,7 @@
 </div>
 
 <style>
-  .mg-page {
-    width: 100%;
-    margin: 0 auto;
+  .mg-page-wide {
     padding-bottom: 48px;
   }
 
@@ -64,11 +62,5 @@
 
   .mg-back a:hover {
     color: var(--color-gold);
-  }
-
-  @media (max-width: 640px) {
-    .mg-page {
-      width: 100%;
-    }
   }
 </style>
