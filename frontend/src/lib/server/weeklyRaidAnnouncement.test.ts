@@ -124,10 +124,21 @@ describe("weekWindows", () => {
   });
 });
 
+/**
+ * Fixed windows, so a build never depends on the wall clock. Each case that
+ * builds a *previous* week picks its own pair: a closed week is memoized once
+ * built, so cases sharing a window would stop issuing the reads they assert on.
+ */
+const WEEKS = weekWindows(Date.parse("2026-07-25T12:27:18Z"));
+const FAILING_WEEKS = weekWindows(Date.parse("2026-06-25T12:27:18Z"));
+const REUSE_WEEKS = weekWindows(Date.parse("2026-05-25T12:27:18Z"));
+/** NOTG, NOL, TCC, TNA, TWP - each read once per week, plus the total. */
+const ANNOUNCED_RAID_COUNT = 5;
+
 describe("buildWeeklyRaidAnnouncement", () => {
   it("groups ties into places and totals completions", async () => {
     stubModLeaderboard();
-    const announcement = await buildWeeklyRaidAnnouncement(fetch);
+    const announcement = await buildWeeklyRaidAnnouncement(fetch, WEEKS);
     expect(announcement).not.toBeNull();
     const current = announcement!.current;
     expect(current.completions).toBe(438);
@@ -141,7 +152,7 @@ describe("buildWeeklyRaidAnnouncement", () => {
 
   it("renders the Discord text exactly, escaping names and pinging first place only", async () => {
     stubModLeaderboard();
-    const announcement = await buildWeeklyRaidAnnouncement(fetch);
+    const announcement = await buildWeeklyRaidAnnouncement(fetch, WEEKS);
     expect(announcement!.current.discordText).toBe(
       [
         "# **<:Aspect:1351246116024352818> Weekly Guild Raid Leaderboard <:Aspect:1351246116024352818>**",
@@ -166,12 +177,34 @@ describe("buildWeeklyRaidAnnouncement", () => {
   });
 
   it("keeps the current week when the previous week's read fails", async () => {
-    const now = Date.now();
-    stubModLeaderboardCurrentWeekOnly(weekWindows(now).previous.start);
-    const announcement = await buildWeeklyRaidAnnouncement(fetch);
+    stubModLeaderboardCurrentWeekOnly(FAILING_WEEKS.previous.start);
+    const announcement = await buildWeeklyRaidAnnouncement(fetch, FAILING_WEEKS);
     expect(announcement).not.toBeNull();
     expect(announcement!.previous).toBeNull();
     expect(announcement!.current.completions).toBe(438);
+  });
+
+  it("reuses a previous week it already built instead of re-reading its boards", async () => {
+    const first = stubModLeaderboard();
+    await buildWeeklyRaidAnnouncement(fetch, REUSE_WEEKS);
+    const previousReads = first.mock.calls.filter(
+      (call) =>
+        new URL(call[0].toString()).searchParams.get("from") === REUSE_WEEKS.previous.start,
+    );
+    // One unfiltered total plus one read per announced raid.
+    expect(previousReads).toHaveLength(ANNOUNCED_RAID_COUNT + 1);
+
+    // The window is closed, so a rebuild must not touch it again.
+    const second = stubModLeaderboard();
+    const announcement = await buildWeeklyRaidAnnouncement(fetch, REUSE_WEEKS);
+    expect(announcement!.previous).not.toBeNull();
+    expect(announcement!.previous!.start).toBe(REUSE_WEEKS.previous.start);
+    expect(
+      second.mock.calls.filter(
+        (call) =>
+          new URL(call[0].toString()).searchParams.get("from") === REUSE_WEEKS.previous.start,
+      ),
+    ).toHaveLength(0);
   });
 });
 

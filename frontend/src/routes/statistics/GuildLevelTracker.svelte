@@ -158,10 +158,22 @@
       <ul class="history">
         {#each tracker.history as entry, i (entry.level)}
           {@const older = tracker.history[i + 1]}
+          <!-- The oldest row is when tracking began, not a recorded level-up, so
+               the row measured from it runs short however long the list gets. -->
+          {@const fromTrackingStart = older !== undefined && older.fromLevel == null}
           <li>
             <span class="entry-level">Level {entry.level}</span>
-            <span class="entry-gap">
-              {older ? `${dayGap(older.reachedAt, entry.reachedAt)} days` : "—"}
+            <span class="entry-gap" class:approximate={fromTrackingStart}>
+              {#if older}
+                {fromTrackingStart ? "~" : ""}{dayGap(older.reachedAt, entry.reachedAt)} days
+                {#if fromTrackingStart}
+                  <span class="entry-note" title="Measured from when tracking began">
+                    since tracking began
+                  </span>
+                {/if}
+              {:else}
+                —
+              {/if}
             </span>
             <span class="entry-time">{stamp(entry.reachedAt)}</span>
           </li>
@@ -342,6 +354,16 @@
   .entry-gap {
     color: var(--color-enchant);
     font-variant-numeric: tabular-nums;
+  }
+
+  .entry-gap.approximate {
+    color: var(--color-gold-dark, var(--color-gold));
+  }
+
+  .entry-note {
+    color: var(--text-muted);
+    font-size: var(--text-2xs);
+    font-variant-numeric: normal;
   }
 
   .entry-time {

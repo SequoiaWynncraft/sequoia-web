@@ -4,7 +4,7 @@ import type { PageServerLoad } from "./$types";
 import { eventChart, eventStatus } from "$lib/events/helpers";
 import type { GuildEvent } from "$lib/events/types";
 import { getGuildStats } from "$lib/server/guildStats";
-import { checkEventManager } from "$lib/server/eventManagers";
+import { canSeeEvent, eventAudience } from "$lib/server/eventVisibility";
 import { eventStore } from "$lib/server/eventStore";
 import { loadEventRaidCounts, sumCounts, type EventDayCount } from "$lib/server/eventActivity";
 import { loadGoalProgress } from "$lib/server/goalProgress";
@@ -35,49 +35,46 @@ export const load: PageServerLoad = async ({ fetch, params, parent }) => {
   if (!stored) error(404, "No such event");
   const event = stored.event;
 
-  // Unpublished events stay invisible except as a manager preview.
-  if (!stored.published) {
-    const { viewer } = await parent();
-    if ((await checkEventManager(fetch, viewer)) !== "manager") error(404, "No such event");
-  }
-
   const now = new Date();
+
+  // Whether this viewer may know the event exists is the hub's question, asked
+  // the same way - a slug that was guessed or forwarded must not reveal an
+  // event the hub would never have listed. Authorized against a *fresh* roster
+  // only: a stale one outlives the departure that should have closed access,
+  // so an unverifiable viewer is turned away rather than trusted.
+  const { viewer } = await parent();
+  const stats = viewer ? await getGuildStats(fetch, { allowStale: false }).catch(() => null) : null;
+  const freshRoster = stats !== null && !stats.stale ? stats.members : null;
+  const audience = eventAudience(viewer, freshRoster);
+  if (!canSeeEvent(event, stored.published, audience, now)) error(404, "No such event");
+
   const status = eventStatus(event, now);
   const today = now.toISOString().slice(0, 10);
 
-  // Membership mirrors the raid page's trust rules: it is only ever
-  // authorized against a fresh roster.
-  let membership: Membership | null = null;
-  let roster: GuildMemberStats[] = [];
-  if (event.access === "members" || event.tracker) {
-    const { viewer } = await parent();
-    if (!viewer) {
-      membership = "signin";
-    } else {
-      const stats = await getGuildStats(fetch, { allowStale: false }).catch(() => null);
-      const freshRoster = stats !== null && !stats.stale ? stats.members : null;
-      if (freshRoster === null) {
-        membership = "unverified";
-      } else {
-        roster = freshRoster;
-        membership = freshRoster.some(
-          (member) => member.uuid !== null && sameUuid(member.uuid, viewer.minecraftUuid),
-        )
-          ? "member"
-          : "notMember";
-      }
-    }
-  }
+  // Gated sections reuse the audience the gate above already resolved, so the
+  // roster is read once per request. `signin` survives only as the type-level
+  // companion to a null viewer - the gate rejects anonymous viewers outright.
+  const roster: GuildMemberStats[] = freshRoster ?? [];
+  const membership: Membership = !viewer
+    ? "signin"
+    : freshRoster === null
+      ? "unverified"
+      : audience === "member" || audience === "manager"
+        ? "member"
+        : "notMember";
 
   // Member events keep a public hero; everything below it is stripped
-  // server-side so gated content never reaches a non-member response.
+  // server-side so gated content never reaches a non-member response. The gate
+  // above already turns a non-member away from a member event, so this is
+  // defence in depth: content stripping must not depend on `canSeeEvent`
+  // continuing to deny existence.
   if (event.access === "members" && membership !== "member") {
     return {
       event: publicView(event),
       status,
       draft: false,
       locked: true as const,
-      lockReason: membership ?? ("signin" as const),
+      lockReason: membership,
       chart: null,
       days: null,
       progress: null,
@@ -124,7 +121,6 @@ export const load: PageServerLoad = async ({ fetch, params, parent }) => {
     if (membership === "member") {
       const result = await loadTrackerStandings(fetch, event.tracker, roster);
       standings = { state: "board", leaderboard: result.leaderboard, error: result.error };
-      const { viewer } = await parent();
       const mine = viewer
         ? result.leaderboard.find((entry) => sameUuid(entry.player_uuid, viewer.minecraftUuid))
         : undefined;
@@ -133,7 +129,7 @@ export const load: PageServerLoad = async ({ fetch, params, parent }) => {
       // error state. A real member with no raids still reads 0.
       viewerRaids = result.error ? null : (mine?.raids ?? 0);
     } else {
-      standings = { state: membership ?? "signin" };
+      standings = { state: membership };
     }
   }
 

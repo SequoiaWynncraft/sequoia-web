@@ -139,19 +139,28 @@ let announcementCache: {
 
 /**
  * The shared build for one week window. One build serves every eligible viewer:
- * each issues 12 internal leaderboard requests, and the previous week's window
- * is already closed. Keyed by the week's start so a stale entry can never be
- * served across the reset and labelled as the new week; only the current week is
- * ever asked for, so the previous week's resource is simply replaced.
+ * a cold one issues up to 12 internal leaderboard requests, six of them for the
+ * previous week's already-closed window. Keyed by the week's start so a stale
+ * entry can never be served across the reset and labelled as the new week; only
+ * the current week is ever asked for, so the previous week's resource is simply
+ * replaced.
+ *
+ * Takes the whole window pair, not just the key, so the build resolves the same
+ * weeks the key names. Deriving them again inside the build would re-read the
+ * clock at load time, which can land on the far side of the Sunday reset.
  */
-function announcementCacheFor(weekStart: string): CachedResource<WeeklyRaidAnnouncement> {
+function announcementCacheFor(windows: {
+  current: Window;
+  previous: Window;
+}): CachedResource<WeeklyRaidAnnouncement> {
+  const weekStart = windows.current.start;
   if (announcementCache?.weekStart === weekStart) return announcementCache.resource;
   const resource = createCachedResource<WeeklyRaidAnnouncement>({
     key: `sequoia-weekly-raid-announcement:v1:${weekStart}`,
     freshMs: ANNOUNCEMENT_FRESH_MS,
     staleMs: ANNOUNCEMENT_STALE_MS,
     load: async (fetchImpl) => {
-      const built = await buildWeeklyRaidAnnouncement(fetchImpl);
+      const built = await buildWeeklyRaidAnnouncement(fetchImpl, windows);
       // Nothing worth caching - let the resource surface the failure instead.
       if (!built) throw new Error("Weekly raid announcement is unavailable.");
       return built;
@@ -188,7 +197,7 @@ export async function loadWeeklyRaidAnnouncement(
       return null;
     }
     if (!isAnnouncementViewer(profiles.data, stats.members, viewer)) return null;
-    const cache = announcementCacheFor(weekWindows(Date.now()).current.start);
+    const cache = announcementCacheFor(weekWindows(Date.now()));
     return (await cache.get(fetchImpl, { allowStale: true })).data;
   } catch (error) {
     // The section is dropped silently for the viewer; without this line an
@@ -255,27 +264,53 @@ function isWeeklyRaidRank(value: unknown): value is WeeklyRaidRank {
  */
 export async function buildWeeklyRaidAnnouncement(
   fetchImpl: typeof fetch,
+  windows: { current: Window; previous: Window } = weekWindows(Date.now()),
 ): Promise<WeeklyRaidAnnouncement | null> {
   const stats = await getGuildStats(fetchImpl, { allowStale: true }).catch((error: unknown) => {
     console.warn("weekly raid announcement: guild roster read failed:", error);
     return null;
   });
   if (!stats) return null;
-  const { current, previous } = weekWindows(Date.now());
+  const { current, previous } = windows;
   const [currentWeek, previousWeek] = await Promise.all([
     buildWeek(fetchImpl, current, stats.members),
-    buildWeek(fetchImpl, previous, stats.members),
+    // A closed window's boards cannot move, so a week already built once is
+    // reused rather than re-read every refresh.
+    closedWeeks.get(previous.start) ?? buildWeek(fetchImpl, previous, stats.members),
   ]);
   if (!currentWeek) {
     console.warn("weekly raid announcement: current week unavailable", current);
     return null;
   }
+  rememberClosedWeek(previousWeek, Date.now());
+  rememberClosedWeek(currentWeek, Date.now());
   return { current: currentWeek, previous: previousWeek };
 }
 
 /**
+ * Memo of weeks whose window has closed, keyed by the week's start. Bounded to a
+ * couple of entries: only the previous week is ever read back, and the entry
+ * ahead of it exists so the current week can carry over as `previous` at the
+ * reset instead of being re-read.
+ */
+const closedWeeks = new Map<string, WeeklyRaidWeek>();
+const CLOSED_WEEK_MEMO_LIMIT = 2;
+
+/** Memoizes a built week once its window has passed; open weeks still move. */
+function rememberClosedWeek(week: WeeklyRaidWeek | null, nowMs: number): void {
+  if (!week || Date.parse(week.end) > nowMs || closedWeeks.has(week.start)) return;
+  closedWeeks.set(week.start, week);
+  // Map iterates in insertion order, so the oldest entry is the first key.
+  while (closedWeeks.size > CLOSED_WEEK_MEMO_LIMIT) {
+    const oldest = closedWeeks.keys().next().value;
+    if (oldest === undefined) break;
+    closedWeeks.delete(oldest);
+  }
+}
+
+/**
  * Builds one week: the total completions, each raid's grouped top-three board,
- * and the Discord text. Returns null when any of the seven reads fails - the
+ * and the Discord text. Returns null when any of the reads fails - the
  * whole-window total or any single raid.
  *
  * A failed raid read is not survivable here: `loadModLeaderboard` reports it as

@@ -23,17 +23,22 @@ export const load: PageServerLoad = async ({ fetch, parent }) => {
   const audience = eventAudience(viewer, stats !== null && !stats.stale ? stats.members : null);
 
   const stored = audience === "anonymous" ? [] : await eventStore.list();
-  const visible = stored
-    .filter((entry) => canSeeEvent(entry.event, entry.published, audience, now))
-    .map((entry) => entry.event);
+  const visible = stored.filter((entry) =>
+    canSeeEvent(entry.event, entry.published, audience, now),
+  );
   const groups = hubGroups(visible, now);
 
   return {
     groups,
     manager: audience === "manager",
     // Optional live progress streams after the hub instead of delaying its
-    // first response when the activity feed is slow or unavailable.
-    progress: loadProgress(fetch, groups.live, now),
+    // first response when the activity feed is slow or unavailable. A draft is
+    // only ever a manager's preview, so it is not worth a feed request.
+    progress: loadProgress(
+      fetch,
+      groups.live.filter((event) => !event.draft),
+      now,
+    ),
   };
 };
 
