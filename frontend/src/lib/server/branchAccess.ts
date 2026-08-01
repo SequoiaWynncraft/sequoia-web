@@ -119,12 +119,47 @@ export function branchAccessFrom(
   return granted ? "granted" : "denied";
 }
 
+/** A branch decision together with the roster it was judged against. */
+export interface BranchAreaResult {
+  access: AreaAccess;
+  roster: GuildMemberStats[] | null;
+}
+
 /**
- * Strict resolution for protected pages and endpoints: fresh data only. The
- * roster alone settles admins, leadership, and off-roster viewers; only an
- * ordinary member's answer waits for the rank profiles, so a slow profile
- * service cannot delay a decision that never needed it. Both reads still
- * start together - the profile fetch is not serialized behind the roster.
+ * Strict resolution that hands the roster back, for callers who need both the
+ * branch answer and the membership behind it - resolving them separately would
+ * cost a second roster read and could straddle a refresh.
+ *
+ * Fresh data only. The roster alone settles admins, leadership, and off-roster
+ * viewers; only an ordinary member's answer waits for the rank profiles, so a
+ * slow profile service cannot delay a decision that never needed it. Both
+ * reads still start together - the profile fetch is not serialized behind the
+ * roster.
+ */
+export async function checkBranchAreaWithRoster(
+  fetchImpl: typeof fetch,
+  viewer: Viewer | null,
+  branch: ManageBranchKey,
+): Promise<BranchAreaResult> {
+  if (!viewer) return { access: "signin", roster: null };
+  // An admin's access is settled by the session, so no profile lookup is
+  // started for them; the roster is still read because the caller asked for it.
+  const profilesPromise = viewer.websiteAdmin ? null : loadProfilesHalf(fetchImpl, false);
+  const roster = await loadRosterHalf(fetchImpl, false);
+  const rosterOnly = branchAccessFrom({ roster, profiles: null }, viewer, branch);
+  if (profilesPromise === null || roster === null || rosterOnly !== "unverified") {
+    return { access: rosterOnly, roster };
+  }
+  return {
+    access: branchAccessFrom({ roster, profiles: await profilesPromise }, viewer, branch),
+    roster,
+  };
+}
+
+/**
+ * Strict resolution for protected pages and endpoints, for callers that need
+ * only the verdict: an admin is answered from the session without any read at
+ * all, otherwise this is `checkBranchAreaWithRoster` with the roster dropped.
  */
 export async function checkBranchArea(
   fetchImpl: typeof fetch,
@@ -133,11 +168,7 @@ export async function checkBranchArea(
 ): Promise<AreaAccess> {
   if (!viewer) return "signin";
   if (viewer.websiteAdmin) return "granted";
-  const profilesPromise = loadProfilesHalf(fetchImpl, false);
-  const roster = await loadRosterHalf(fetchImpl, false);
-  const rosterOnly = branchAccessFrom({ roster, profiles: null }, viewer, branch);
-  if (roster === null || rosterOnly !== "unverified") return rosterOnly;
-  return branchAccessFrom({ roster, profiles: await profilesPromise }, viewer, branch);
+  return (await checkBranchAreaWithRoster(fetchImpl, viewer, branch)).access;
 }
 
 /**

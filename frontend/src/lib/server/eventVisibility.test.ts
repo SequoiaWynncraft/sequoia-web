@@ -1,9 +1,19 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { GuildMemberStats } from "$lib/api/guildStats";
 import type { GuildEvent } from "$lib/events/types";
-import { canSeeEvent, eventAudience, type EventAudience } from "$lib/server/eventVisibility";
+import { checkBranchAreaWithRoster } from "$lib/server/branchAccess";
+import {
+  canSeeEvent,
+  eventAudience,
+  resolveEventAudience,
+  type EventAudience,
+} from "$lib/server/eventVisibility";
 import type { Viewer } from "$lib/site/viewer";
+
+vi.mock("$lib/server/branchAccess", () => ({ checkBranchAreaWithRoster: vi.fn() }));
+
+const mockBranchArea = vi.mocked(checkBranchAreaWithRoster);
 
 const NOW = new Date("2026-07-10T00:00:00Z");
 const VIEWER_UUID = "11111111-1111-1111-1111-111111111111";
@@ -39,31 +49,77 @@ const EVERYONE: EventAudience[] = ["anonymous", "signedIn", "member", "manager"]
 
 describe("eventAudience", () => {
   it("reads an anonymous viewer as anonymous", () => {
-    expect(eventAudience(null, [rosterEntry("recruit")])).toBe("anonymous");
+    expect(eventAudience(null, [rosterEntry("recruit")], false)).toBe("anonymous");
   });
 
   it("separates roster members from signed-in outsiders", () => {
-    expect(eventAudience(VIEWER, [rosterEntry("recruit")])).toBe("member");
-    expect(eventAudience(VIEWER, [rosterEntry("recruit", "99999999-9999-9999-9999-999999999999")])).toBe(
-      "signedIn",
-    );
+    expect(eventAudience(VIEWER, [rosterEntry("recruit")], false)).toBe("member");
+    expect(
+      eventAudience(VIEWER, [rosterEntry("recruit", "99999999-9999-9999-9999-999999999999")], false),
+    ).toBe("signedIn");
   });
 
-  it("promotes only the manager ranks", () => {
-    expect(eventAudience(VIEWER, [rosterEntry("strategist")])).toBe("manager");
-    expect(eventAudience(VIEWER, [rosterEntry("captain")])).toBe("member");
+  it("promotes whoever the event-manager rule granted, whatever their rank", () => {
+    // The rule is broader than guild leadership: an Events-branch member or a
+    // website admin manages events on an ordinary rank, and demoting them here
+    // would hide the drafts their management actions still authorize.
+    expect(eventAudience(VIEWER, [rosterEntry("recruit")], true)).toBe("manager");
+    expect(eventAudience(VIEWER, [rosterEntry("captain")], false)).toBe("member");
+  });
+
+  it("keeps a manager whose roster could not be verified", () => {
+    // Their grant never came from the roster, so losing it changes nothing.
+    expect(eventAudience(VIEWER, null, true)).toBe("manager");
   });
 
   it("degrades to signedIn when the roster could not be verified", () => {
     // A null roster is the caller reporting a stale or failed refresh. Keeping
     // the membership would let a departure survive in cache as access.
-    expect(eventAudience(VIEWER, null)).toBe("signedIn");
+    expect(eventAudience(VIEWER, null, false)).toBe("signedIn");
   });
 
   it("matches uuids across dash formats, as the two APIs disagree", () => {
-    expect(eventAudience(VIEWER, [rosterEntry("recruit", VIEWER_UUID.replaceAll("-", ""))])).toBe(
-      "member",
-    );
+    expect(
+      eventAudience(VIEWER, [rosterEntry("recruit", VIEWER_UUID.replaceAll("-", ""))], false),
+    ).toBe("member");
+  });
+});
+
+describe("resolveEventAudience", () => {
+  const noFetch = (() => {
+    throw new Error("unexpected fetch");
+  }) as unknown as typeof fetch;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("asks the events branch, so its answer matches the management gate", async () => {
+    // A full Events-branch member on an ordinary guild rank manages events;
+    // reading ranks alone would have called them a plain member.
+    mockBranchArea.mockResolvedValue({ access: "granted", roster: [rosterEntry("recruit")] });
+
+    await expect(resolveEventAudience(fetch, VIEWER)).resolves.toEqual({
+      audience: "manager",
+      roster: [rosterEntry("recruit")],
+    });
+    expect(mockBranchArea).toHaveBeenCalledWith(fetch, VIEWER, "events");
+  });
+
+  it("reads a denied branch answer as membership off the roster", async () => {
+    mockBranchArea.mockResolvedValue({ access: "denied", roster: [rosterEntry("captain")] });
+
+    await expect(resolveEventAudience(fetch, VIEWER)).resolves.toMatchObject({
+      audience: "member",
+    });
+  });
+
+  it("answers an anonymous viewer without any upstream read", async () => {
+    await expect(resolveEventAudience(noFetch, null)).resolves.toEqual({
+      audience: "anonymous",
+      roster: null,
+    });
+    expect(mockBranchArea).not.toHaveBeenCalled();
   });
 });
 

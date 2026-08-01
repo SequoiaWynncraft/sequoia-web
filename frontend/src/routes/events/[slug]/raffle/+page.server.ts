@@ -1,8 +1,7 @@
 import type { PageServerLoad } from "./$types";
 
 import { eventStatus } from "$lib/events/helpers";
-import { checkEventManager } from "$lib/server/eventManagers";
-import { checkEventMembership } from "$lib/server/eventMembership";
+import { canSeeEvent, resolveEventAudience } from "$lib/server/eventVisibility";
 import { eventStore, type StoredEvent } from "$lib/server/eventStore";
 import { raffleRollStore, toStageRoll } from "$lib/server/raffleRolls";
 import { requestError } from "$lib/server/requestError";
@@ -11,8 +10,18 @@ export const prerender = false;
 
 const MAX_ACCESS_RETRIES = 3;
 
-/** The live raffle stage. Access mirrors the event page and its stream. */
+/**
+ * The live raffle stage. Access mirrors the event page exactly, through the
+ * same `canSeeEvent` rule: a viewer who may not know the event exists must not
+ * reach its rolls by way of the stage either, so every rejection here is the
+ * event page's 404 rather than a message that would confirm the slug.
+ */
 export const load: PageServerLoad = async ({ fetch, locals, params, parent }) => {
+  // The audience depends on the viewer, not on the event, so it is resolved
+  // once; only the event side of the decision is re-judged below.
+  const { viewer } = await parent();
+  const { audience } = await resolveEventAudience(fetch, viewer);
+
   // The access checks await network; a manager can tighten visibility and
   // roll again in that window, and the snapshot read below must never serve
   // entrant names under the older, looser decision. Authorization is
@@ -23,15 +32,8 @@ export const load: PageServerLoad = async ({ fetch, locals, params, parent }) =>
   for (let attempt = 0; attempt < MAX_ACCESS_RETRIES; attempt++) {
     stored = await eventStore.get(params.slug);
     if (!stored) requestError(locals, 404, "No such event");
-    const { viewer } = await parent();
-    if (!stored.published && (await checkEventManager(fetch, viewer)) !== "manager") {
+    if (!canSeeEvent(stored.event, stored.published, audience, new Date())) {
       requestError(locals, 404, "No such event");
-    }
-    if (stored.event.access === "members") {
-      const { membership } = await checkEventMembership(fetch, viewer);
-      if (membership !== "member") {
-        requestError(locals, 403, "This event's raffles are for guild members.");
-      }
     }
     // Projected: the persisted rows carry manager identifiers the wire must not.
     rolls = (await raffleRollStore.latestForEvent(params.slug))

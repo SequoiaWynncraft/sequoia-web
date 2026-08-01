@@ -2,8 +2,7 @@ import type { PageServerLoad } from "./$types";
 
 import { hubGroups, type HubEvent } from "$lib/events/helpers";
 import type { EventGoal } from "$lib/events/types";
-import { canSeeEvent, eventAudience } from "$lib/server/eventVisibility";
-import { getGuildStats } from "$lib/server/guildStats";
+import { canSeeEvent, resolveEventAudience } from "$lib/server/eventVisibility";
 import { loadGoalProgress } from "$lib/server/goalProgress";
 import { eventStore } from "$lib/server/eventStore";
 
@@ -17,10 +16,7 @@ export const load: PageServerLoad = async ({ fetch, parent }) => {
   // against a fresh roster and fails closed - a stale one outlives the
   // departure that should have closed access. Anonymous viewers are turned away
   // before the roster costs anything, since they see no events either way.
-  const stats = viewer
-    ? await getGuildStats(fetch, { allowStale: false }).catch(() => null)
-    : null;
-  const audience = eventAudience(viewer, stats !== null && !stats.stale ? stats.members : null);
+  const { audience } = await resolveEventAudience(fetch, viewer);
 
   const stored = audience === "anonymous" ? [] : await eventStore.list();
   const visible = stored.filter((entry) =>

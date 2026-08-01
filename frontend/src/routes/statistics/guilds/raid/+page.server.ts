@@ -2,7 +2,7 @@ import type { PageServerLoad } from "./$types";
 
 import { createSequoiaApiClient } from "$lib/api/client";
 import { eventStore, type StoredEvent } from "$lib/server/eventStore";
-import { canSeeEvent, eventAudience } from "$lib/server/eventVisibility";
+import { canSeeEvent, resolveEventAudience } from "$lib/server/eventVisibility";
 import { getGuildStats } from "$lib/server/guildStats";
 import {
   loadModLeaderboard,
@@ -60,26 +60,23 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
     .then(memberRanksByUuid)
     .catch(() => EMPTY_RANKS);
   const { viewer } = await parent();
-// Regular signed-in viewers await a roster refresh because membership is                                                                                    
-    // authorized against it; administrators and anonymous visitors may use stale                                                                                
-    // display data.                                                                                                                                             
-    const [events, stats, storedEvents] = await Promise.all([                                                                                                    
-      loadRaidEvents(fetch),                                                                                                                                     
-      getGuildStats(fetch, { allowStale: viewer === null || viewer.websiteAdmin }).catch(() => null),                                                            
-      // The hub decides who may know an event exists; this page only mirrors it.                                                                                
-      eventStore.list().catch(() => [] as StoredEvent[]),                                                                                                        
-    ]);  
+  // The audience is authorized on its own fresh reads; `stats` here is the
+  // page's display data, which anonymous visitors and administrators may take
+  // stale. Both share one cached roster fetch, so this is not a second call out.
+  const [events, stats, storedEvents, { audience, roster: freshRoster }] = await Promise.all([
+    loadRaidEvents(fetch),
+    getGuildStats(fetch, { allowStale: viewer === null || viewer.websiteAdmin }).catch(() => null),
+    // The hub decides who may know an event exists; this page only mirrors it.
+    eventStore.list().catch(() => [] as StoredEvent[]),
+    resolveEventAudience(fetch, viewer),
+  ]);
 
   const now = new Date();
 
   // Event contributions are member-only; the tracker trusts this check, so it
   // must not authorize from a stale roster (stale stats are display-only).
-  // With a viewer present the roster was requested fresh, so stale here means
-  // the refresh actually failed.
-  const freshRoster = stats !== null && !stats.stale ? stats.members : null;
-  const audience = eventAudience(viewer, freshRoster);
   const isMember = audience === "member" || audience === "manager";
-  const membershipUnverified = viewer !== null && freshRoster === null;
+  const membershipUnverified = viewer !== null && freshRoster === null && !isMember;
 
   // A tracker structure is created before the event it belongs to is announced,
   // and this page named every one of them to anyone who loaded it. Each is now

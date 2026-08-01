@@ -1,7 +1,7 @@
 import type { GuildMemberStats } from "$lib/api/guildStats";
 import { eventStatus } from "$lib/events/helpers";
 import type { GuildEvent } from "$lib/events/types";
-import { MANAGER_RANKS } from "$lib/server/eventManagers";
+import { checkBranchAreaWithRoster } from "$lib/server/branchAccess";
 import { sameUuid } from "$lib/server/raidEventBoards";
 import type { Viewer } from "$lib/site/viewer";
 
@@ -15,25 +15,55 @@ import type { Viewer } from "$lib/site/viewer";
  */
 export type EventAudience = "anonymous" | "signedIn" | "member" | "manager";
 
+/** The audience of a request, with the roster the decision was made against. */
+export interface AudienceResult {
+  audience: EventAudience;
+  /** Fresh roster, or null when it could not be verified. */
+  roster: GuildMemberStats[] | null;
+}
+
 /**
  * Resolves the viewer's audience against the guild roster.
+ *
+ * `manager` is the event-manager verdict, which is broader than any guild
+ * rank: website administrators and full Events-branch members manage events
+ * too, and demoting them here would hide from them exactly the drafts and
+ * unannounced events their management actions still authorize. Callers get it
+ * from `resolveEventAudience` rather than re-deriving it from ranks.
  *
  * `roster` must be a *fresh* read: pass null when the refresh failed or came
  * back stale. A cached roster outlives the departure or demotion that should
  * have closed access, so an unverifiable viewer degrades to `signedIn` rather
- * than keeping the membership they had last time anyone looked.
+ * than keeping the membership they had last time anyone looked. A manager is
+ * unaffected - their grant did not come from the roster in the first place.
  */
 export function eventAudience(
   viewer: Viewer | null,
   roster: GuildMemberStats[] | null,
+  manager: boolean,
 ): EventAudience {
   if (!viewer) return "anonymous";
+  if (manager) return "manager";
   if (roster === null) return "signedIn";
-  const member = roster.find(
+  const member = roster.some(
     (entry) => entry.uuid !== null && sameUuid(entry.uuid, viewer.minecraftUuid),
   );
-  if (!member) return "signedIn";
-  return MANAGER_RANKS.includes(member.rank) ? "manager" : "member";
+  return member ? "member" : "signedIn";
+}
+
+/**
+ * The one way a request resolves its audience: one roster read, judged by the
+ * same rule that guards the management console, so every events surface agrees
+ * on who is a manager. Anonymous viewers are answered without any read, since
+ * they see no events either way.
+ */
+export async function resolveEventAudience(
+  fetchImpl: typeof fetch,
+  viewer: Viewer | null,
+): Promise<AudienceResult> {
+  if (!viewer) return { audience: "anonymous", roster: null };
+  const { access, roster } = await checkBranchAreaWithRoster(fetchImpl, viewer, "events");
+  return { audience: eventAudience(viewer, roster, access === "granted"), roster };
 }
 
 /**

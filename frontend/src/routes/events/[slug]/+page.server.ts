@@ -2,9 +2,8 @@ import type { PageServerLoad } from "./$types";
 
 import { eventChart, eventStatus } from "$lib/events/helpers";
 import type { GuildEvent } from "$lib/events/types";
-import { getGuildStats } from "$lib/server/guildStats";                                                                                                        
-import type { Membership } from "$lib/server/eventMembership";                                                                                                 
-import { canSeeEvent, eventAudience } from "$lib/server/eventVisibility";
+import type { Membership } from "$lib/server/eventMembership";
+import { canSeeEvent, resolveEventAudience } from "$lib/server/eventVisibility";
 import { eventStore } from "$lib/server/eventStore";
 import { loadEventRaidCounts, sumCounts, type EventDayCount } from "$lib/server/eventActivity";
 import { loadGoalProgress } from "$lib/server/goalProgress";
@@ -51,11 +50,10 @@ export const load: PageServerLoad = async ({ fetch, locals, params, parent }) =>
   // only: a stale one outlives the departure that should have closed access,
   // so an unverifiable viewer is turned away rather than trusted.
   const { viewer } = await parent();
-  const stats = viewer ? await getGuildStats(fetch, { allowStale: false }).catch(() => null) : null;
-  const freshRoster = stats !== null && !stats.stale ? stats.members : null;
-  const audience = eventAudience(viewer, freshRoster);
-  if (!canSeeEvent(event, stored.published, audience, now))                                                                                                    
-      requestError(locals, 404, "No such event");
+  const { audience, roster: freshRoster } = await resolveEventAudience(fetch, viewer);
+  if (!canSeeEvent(event, stored.published, audience, now)) {
+    requestError(locals, 404, "No such event");
+  }
 
   const status = eventStatus(event, now);
   const today = now.toISOString().slice(0, 10);
@@ -66,11 +64,13 @@ export const load: PageServerLoad = async ({ fetch, locals, params, parent }) =>
   const roster: GuildMemberStats[] = freshRoster ?? [];
   const membership: Membership = !viewer
     ? "signin"
-    : freshRoster === null
-      ? "unverified"
-      : audience === "member" || audience === "manager"
-        ? "member"
-        : "notMember";
+    : audience === "manager"
+      ? "member"
+      : freshRoster === null
+        ? "unverified"
+        : audience === "member"
+          ? "member"
+          : "notMember";
 
   // Member events keep a public hero; everything below it is stripped
   // server-side so gated content never reaches a non-member response. The gate
