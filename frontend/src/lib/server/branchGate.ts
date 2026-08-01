@@ -10,25 +10,28 @@ import type { Viewer } from "$lib/site/viewer";
 export const GATED_BRANCHES = ["development", "community"];
 
 /**
- * Returns whether the viewer is a full member (not a trainee) of the
- * Development or Community branch who is also still on the guild roster.
- * Anonymous viewers are denied.
+ * Returns whether the viewer is a website administrator, or a full member
+ * (not a trainee) of the Development or Community branch who is also still on
+ * the guild roster. Anonymous viewers are denied.
  *
  * The roster half matters: the sections behind this gate carry per-member
  * tracker data and staff payout text, and a Discord branch role outlives
  * leaving the guild.
  *
- * Callers must read both `profiles` and `roster` fresh and refuse to use a
- * stale copy of either - a cached roster or profile outlives the revocation
- * that removed the viewer, so authorizing from one would keep serving them
- * through an upstream outage.
+ * Non-administrator callers must read both `profiles` and `roster` fresh and
+ * refuse a stale copy of either. Administrator access comes from the verified
+ * session and therefore does not depend on either snapshot.
  */
 export function isBranchMemberViewer(
-  profiles: RankProfilesResponse,
-  roster: GuildMemberStats[],
+  profiles: RankProfilesResponse | null,
+  roster: GuildMemberStats[] | null,
   viewer: Viewer | null,
 ): boolean {
   if (!viewer) return false;
+  // Website administrators are the application-wide guild-member override.
+  // Their grant comes from the verified session, not either guild snapshot.
+  if (viewer.websiteAdmin) return true;
+  if (roster === null || profiles === null) return false;
   const onRoster = roster.some(
     (member) => member.uuid !== null && sameUuid(member.uuid, viewer.minecraftUuid),
   );
