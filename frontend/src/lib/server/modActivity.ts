@@ -22,9 +22,16 @@ export async function loadModRunCounts(
       signal: AbortSignal.timeout(6000),
     });
     if (!response.ok) return null;
-    const body = (await response.json()) as { days?: { day: string; runs: number }[] };
+    const body = (await response.json()) as { days?: unknown };
     if (!Array.isArray(body.days)) return null;
-    return body.days.map((entry) => ({ day: entry.day, value: entry.runs }));
+    // Validate every row, not just the envelope: a malformed entry must read
+    // as an outage, not flow blank values into charts and exports.
+    const days: EventDayCount[] = [];
+    for (const entry of body.days as Record<string, unknown>[]) {
+      if (!entry || typeof entry.day !== "string" || typeof entry.runs !== "number") return null;
+      days.push({ day: entry.day, value: entry.runs });
+    }
+    return days;
   } catch {
     return null;
   }

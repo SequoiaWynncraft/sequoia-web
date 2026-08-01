@@ -160,7 +160,16 @@ async function buildRoster(fetchImpl: typeof fetch): Promise<ExportRows> {
       if (!uuid) continue;
       branchesByUuid.set(
         normalize(uuid),
-        profile.summary.branches.map((entry) => `${entry.branch}:${entry.level}`).join("; "),
+        profile.summary.branches
+          .map((entry) => {
+            // The shallow validator lets `{}` entries through; those must
+            // read as unavailable, not export as "undefined:undefined".
+            if (typeof entry.branch !== "string" || typeof entry.level !== "string") {
+              throw new Error("malformed branch entry");
+            }
+            return `${entry.branch}:${entry.level}`;
+          })
+          .join("; "),
       );
     }
   } catch {

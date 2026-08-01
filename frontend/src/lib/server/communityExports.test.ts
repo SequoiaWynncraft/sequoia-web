@@ -154,6 +154,33 @@ describe("buildExport", () => {
     expect(result).toMatchObject({ ok: false, status: 503 });
   });
 
+  it("reads a malformed branch entry as unavailable, not undefined:undefined", async () => {
+    mockStats.mockResolvedValue({ stale: false, members: [{ uuid: UUID, rank: "recruit" }] } as never);
+    mockProfiles.mockResolvedValue({
+      catalog: { roles: [], assets: [], awards: [] },
+      profiles: [
+        {
+          minecraft: { uuid: UNDASHED },
+          award_keys: [],
+          summary: {
+            progression_rank: null,
+            insignia: [],
+            leadership: [],
+            war_honours: [],
+            branches: [{}],
+          },
+        },
+      ],
+    } as never);
+    const result = await buildExport(fetch, "roster", {
+      from: null,
+      to: null,
+      raid: null,
+      rosterOnly: false,
+    });
+    expect(result).toMatchObject({ ok: false, status: 503 });
+  });
+
   it("reads a version-skewed rank profile as unavailable, not a crash", async () => {
     mockStats.mockResolvedValue({ stale: false, members: [{ uuid: UUID, rank: "recruit" }] } as never);
     mockProfiles.mockResolvedValue({
