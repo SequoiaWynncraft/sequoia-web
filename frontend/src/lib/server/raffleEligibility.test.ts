@@ -136,8 +136,22 @@ describe("resolveEligibility", () => {
   it("filters by Sequoia ladder rank, case-insensitively, dropping unlinked members", async () => {
     mockProfiles.mockResolvedValue({ data: {}, stale: false, updatedAt: 0 } as never);
     mockRanks.mockReturnValue({
-      "uuid-a": { rank: "Druid", rankOrder: 5, insignia: null, insigniaUrl: null, honours: 0 },
-      "uuid-b": { rank: "Leafkin", rankOrder: 1, insignia: null, insigniaUrl: null, honours: 0 },
+      "uuid-a": {
+        rank: "Druid",
+        rankColor: null,
+        rankOrder: 5,
+        insignia: null,
+        insigniaUrl: null,
+        honours: 0,
+      },
+      "uuid-b": {
+        rank: "Leafkin",
+        rankColor: null,
+        rankOrder: 1,
+        insignia: null,
+        insigniaUrl: null,
+        honours: 0,
+      },
     });
     const result = await resolveEligibility(
       fetch,
@@ -385,7 +399,14 @@ describe("strict resolution for rolls", () => {
 
     mockProfiles.mockResolvedValue({ data: {}, stale: true, updatedAt: 0 } as never);
     mockRanks.mockReturnValue({
-      "uuid-a": { rank: "Druid", rankOrder: 5, insignia: null, insigniaUrl: null, honours: 0 },
+      "uuid-a": {
+        rank: "Druid",
+        rankColor: null,
+        rankOrder: 5,
+        insignia: null,
+        insigniaUrl: null,
+        honours: 0,
+      },
     });
     const ranks = await resolveEligibility(
       fetch,

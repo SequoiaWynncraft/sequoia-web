@@ -51,7 +51,10 @@ const response: RankProfilesResponse = {
   source: { stale: false, guilds: [] },
   catalog: {
     roles: [
-      role("rank.treant", "Treant", "progression_rank", { position: 105 }),
+      role("rank.treant", "Treant", "progression_rank", {
+        position: 105,
+        colors: { primary: "#A855F7", secondary: null, tertiary: null },
+      }),
       role("rank.spriggan", "Spriggan", "progression_rank", { legacy: true, position: 104 }),
       role("rank.verdant", "Verdant", "progression_rank", { legacy: true }),
       role("rank.dryad", "Dryad", "progression_rank", { position: 94 }),
@@ -141,6 +144,7 @@ describe("honoursForMinecraft", () => {
   it("projects rank, insignia, and tier-sorted event badges from one rank response", () => {
     expect(honoursForMinecraft(response, MEMBER)).toEqual({
       rank: "Treant",
+      rankColor: "#A855F7",
       insignia: {
         tier: "GOLD",
         assetUrl: "https://assets.seqwawa.com/v1/gold/insignia-gold.png",
@@ -169,6 +173,17 @@ describe("honoursForMinecraft", () => {
     expect(honoursForMinecraft(response, RETIRED).rank).toBe("Treant");
   });
 
+  it("ignores malformed role colors before they reach CSS", () => {
+    const malformed = structuredClone(response);
+    malformed.catalog.roles[0].colors = {
+      primary: "red; display: none",
+      secondary: null,
+      tertiary: null,
+    };
+
+    expect(honoursForMinecraft(malformed, MEMBER).rankColor).toBeNull();
+  });
+
   it("keeps a legacy rank without an equivalent as-is", () => {
     const verdant = structuredClone(response);
     verdant.profiles[1].summary.progression_rank = "rank.verdant";
@@ -179,12 +194,20 @@ describe("honoursForMinecraft", () => {
     expect(memberRanksByUuid(response)).toEqual({
       [MEMBER]: {
         rank: "Treant",
+        rankColor: "#A855F7",
         rankOrder: 105,
         insignia: "GOLD",
         insigniaUrl: "https://assets.seqwawa.com/v1/gold/insignia-gold.png",
         honours: 4,
       },
-      [RETIRED]: { rank: "Treant", rankOrder: 105, insignia: null, insigniaUrl: null, honours: 0 },
+      [RETIRED]: {
+        rank: "Treant",
+        rankColor: "#A855F7",
+        rankOrder: 105,
+        insignia: null,
+        insigniaUrl: null,
+        honours: 0,
+      },
     });
   });
 
@@ -203,6 +226,7 @@ describe("honoursForMinecraft", () => {
   it("returns empty honours for an unlinked UUID", () => {
     expect(honoursForMinecraft(response, "22222222-2222-2222-2222-222222222222")).toEqual({
       rank: null,
+      rankColor: null,
       insignia: null,
       leadership: null,
       branches: [],
