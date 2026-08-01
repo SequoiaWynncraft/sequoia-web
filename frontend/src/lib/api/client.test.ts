@@ -18,7 +18,9 @@ const guildOverviewBody: GuildOverviewResponse = {
   branchmasters: [
     {
       username: "Branchmaster",
-      rank: "chief",
+      rank: "branchmaster",
+      rank_label: "Branchmaster",
+      rank_color: "#DBD1C7",
       online: true,
       contributed: 1200,
       contribution_rank: 2,

@@ -5,6 +5,7 @@
   let {
     username,
     rank = "recruit",
+    rankColor = null,
     online = false,
     avatarUrl,
     avatarLoading = "eager",
@@ -12,6 +13,7 @@
   }: {
     username: string;
     rank?: string;
+    rankColor?: string | null;
     online?: boolean;
     avatarUrl?: string;
     avatarLoading?: "eager" | "lazy";
@@ -21,12 +23,15 @@
   let avatarFailed = $state(false);
   const initial = $derived((username || "?").charAt(0).toUpperCase());
   const entries = $derived(Object.entries(stats));
+  const roleColor = $derived(
+    rankColor && /^#[0-9a-f]{6}$/i.test(rankColor) ? rankColor : null,
+  );
 </script>
 
 <div
   class="seq-officer-card"
   data-officer-card="true"
-  style="--seq-officer-border:{borderColor(rank)}"
+  style="--seq-officer-border:{roleColor ?? borderColor(rank)}"
 >
   {#if online}
     <span class="seq-officer-status" title={`${username} is online`} aria-label={`${username} is online`}>
@@ -52,7 +57,7 @@
     <div class="seq-officer-name">
       {username}
     </div>
-    <span class="seq-officer-rank"><RankBadge {rank} /></span>
+    <span class="seq-officer-rank"><RankBadge {rank} color={roleColor} /></span>
   </div>
   {#if entries.length > 0}
     <div class="seq-officer-stats">

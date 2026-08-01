@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  import { rankColor } from "$lib/site/rankColors";
+  import { rankColor as sharedRankColor } from "$lib/site/rankColors";
 
   // Backgrounds are badge-local; foregrounds come from the shared rank
   // vocabulary so a rank never renders two colors on two pages.
@@ -27,9 +27,14 @@
 </script>
 
 <script lang="ts">
-  let { rank = "recruit" }: { rank?: string } = $props();
-  const bg = $derived(RANK_BACKGROUNDS[rank] ?? RANK_BACKGROUNDS.recruit);
-  const fg = $derived(rankColor(rank) ?? "var(--color-text-dim)");
+  let { rank = "recruit", color = null }: { rank?: string; color?: string | null } = $props();
+  const roleColor = $derived(color && /^#[0-9a-f]{6}$/i.test(color) ? color : null);
+  const bg = $derived(
+    roleColor
+      ? `color-mix(in srgb, ${roleColor} 20%, transparent)`
+      : (RANK_BACKGROUNDS[rank] ?? RANK_BACKGROUNDS.recruit),
+  );
+  const fg = $derived(roleColor ?? sharedRankColor(rank) ?? "var(--color-text-dim)");
 </script>
 
 <span style="display:inline-block;font-family:var(--font-display);font-size:0.7rem;letter-spacing:0.1em;text-transform:uppercase;padding:0.15rem 0.5rem;border-radius:var(--radius-sm);background:{bg};color:{fg};line-height:1.5">
