@@ -1,5 +1,5 @@
 <script lang="ts">
-  import ManageGate from "$lib/manage/ManageGate.svelte";
+  import AreaGate from "$lib/manage/AreaGate.svelte";
   import ManageHeader from "$lib/manage/ManageHeader.svelte";
 
   let { data } = $props();
@@ -13,15 +13,7 @@
 <div class="mg-page">
   <ManageHeader area="Community" title="Blog" />
   {#if data.access !== "granted"}
-    <ManageGate
-      access={data.access}
-      returnTo="/manage/community/blog"
-      title="Community branch only"
-      signinText="Sign in to manage blog posts."
-      deniedText="The blog is for the Community branch and guild leadership."
-      backHref="/manage"
-      backLabel="Back to manage"
-    />
+    <AreaGate area="community" access={data.access} returnTo="/manage/community/blog" />
   {:else}
     <p class="mg-muted">Not built yet - posts will be authored here once the blog ships.</p>
   {/if}
