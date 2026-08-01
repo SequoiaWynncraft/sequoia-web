@@ -94,3 +94,34 @@ export function canSeeEvent(
   if (eventStatus(event, now) === "tba") return false;
   return event.access === "public" || audience === "member";
 }
+
+/**
+ * The audiences a save can take visibility away from. Managers clear every rule
+ * and anonymous viewers clear none, so neither can change verdict across an
+ * edit - only these two can lose an event they could previously see.
+ */
+const LOSABLE_AUDIENCES: EventAudience[] = ["signedIn", "member"];
+
+/**
+ * Whether a save narrows who may know the event exists.
+ *
+ * Asked as a *difference in `canSeeEvent`* rather than as a list of the
+ * transitions that happen to tighten it (publishing to draft, public to
+ * members, clearing the dates back to "tba"), because a viewer who loses the
+ * event must lose the live stage feed with it whichever rule dropped them, and
+ * a rule added to `canSeeEvent` later is then covered without a second edit.
+ *
+ * Both sides are judged against the same `now`: this asks what the edit
+ * changed, not what the passage of time will.
+ */
+export function visibilityTightened(
+  before: { event: GuildEvent; published: boolean },
+  after: { event: GuildEvent; published: boolean },
+  now: Date,
+): boolean {
+  return LOSABLE_AUDIENCES.some(
+    (audience) =>
+      canSeeEvent(before.event, before.published, audience, now) &&
+      !canSeeEvent(after.event, after.published, audience, now),
+  );
+}

@@ -7,6 +7,7 @@ import {
   canSeeEvent,
   eventAudience,
   resolveEventAudience,
+  visibilityTightened,
   type EventAudience,
 } from "$lib/server/eventVisibility";
 import type { Viewer } from "$lib/site/viewer";
@@ -170,5 +171,72 @@ describe("canSeeEvent", () => {
     const hidden = makeEvent({ access: "members", startsAt: undefined, endsAt: undefined });
 
     expect(canSeeEvent(hidden, false, "manager", NOW)).toBe(true);
+  });
+});
+
+describe("visibilityTightened", () => {
+  const live = (event: GuildEvent) => ({ event, published: true });
+
+  it("catches a published event dropped back to a draft", () => {
+    expect(visibilityTightened(live(makeEvent()), { event: makeEvent(), published: false }, NOW)).toBe(
+      true,
+    );
+  });
+
+  it("catches a public event narrowed to members", () => {
+    expect(
+      visibilityTightened(live(makeEvent()), live(makeEvent({ access: "members" })), NOW),
+    ).toBe(true);
+  });
+
+  it("catches a dated event whose dates are cleared back to tba", () => {
+    // The transition a transition-by-transition predicate misses: the event
+    // stays published and public, but "tba" makes it manager-only, so a
+    // connected non-manager stage has to lose its feed here too.
+    const cleared = makeEvent({ startsAt: undefined, endsAt: undefined });
+
+    expect(visibilityTightened(live(makeEvent()), live(cleared), NOW)).toBe(true);
+  });
+
+  it("catches a member event losing just one of its dates", () => {
+    const members = makeEvent({ access: "members" });
+
+    expect(visibilityTightened(live(members), live({ ...members, endsAt: undefined }), NOW)).toBe(
+      true,
+    );
+  });
+
+  it("leaves a widening save alone", () => {
+    const tba = makeEvent({ startsAt: undefined, endsAt: undefined });
+
+    expect(visibilityTightened(live(makeEvent({ access: "members" })), live(makeEvent()), NOW)).toBe(
+      false,
+    );
+    expect(visibilityTightened({ event: makeEvent(), published: false }, live(makeEvent()), NOW)).toBe(
+      false,
+    );
+    expect(visibilityTightened(live(tba), live(makeEvent()), NOW)).toBe(false);
+  });
+
+  it("leaves an edit that changes nothing visible alone", () => {
+    expect(visibilityTightened(live(makeEvent()), live(makeEvent({ tagline: "New." })), NOW)).toBe(
+      false,
+    );
+  });
+
+  it("does not call an edit between two drafts a tightening", () => {
+    // Nobody but a manager could see either side, so there is no stream to cut.
+    const draft = (event: GuildEvent) => ({ event, published: false });
+
+    expect(visibilityTightened(draft(makeEvent()), draft(makeEvent({ access: "members" })), NOW)).toBe(
+      false,
+    );
+  });
+
+  it("judges both versions against the same now", () => {
+    // An event that merely ended between saves is not a visibility change.
+    const ended = makeEvent({ startsAt: "2026-01-01T00:00:00Z", endsAt: "2026-01-02T00:00:00Z" });
+
+    expect(visibilityTightened(live(ended), live(ended), NOW)).toBe(false);
   });
 });

@@ -86,6 +86,25 @@ function stubModLeaderboard() {
   return spy;
 }
 
+/** As above, but over an explicit player list, so a case can move the roster
+ * without moving what the tracker recorded in the window. */
+function stubModLeaderboardFor(players: typeof H.players) {
+  const spy = vi.fn(async (input: string | URL) => {
+    const url = new URL(input.toString());
+    const raid = url.searchParams.get("raid");
+    const entries =
+      raid === null || raid === "Nest of the Grootslangs"
+        ? players.map((p) => ({ player_uuid: p.uuid, username: p.username, raids: p.count }))
+        : [];
+    return new Response(JSON.stringify({ entries }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  });
+  vi.stubGlobal("fetch", spy);
+  return spy;
+}
+
 /** Routes the mod leaderboard as above, but fails every read in the previous
  * week's window - the two weeks must degrade independently. */
 function stubModLeaderboardCurrentWeekOnly(previousStart: string) {
@@ -132,6 +151,7 @@ describe("weekWindows", () => {
 const WEEKS = weekWindows(Date.parse("2026-07-25T12:27:18Z"));
 const FAILING_WEEKS = weekWindows(Date.parse("2026-06-25T12:27:18Z"));
 const REUSE_WEEKS = weekWindows(Date.parse("2026-05-25T12:27:18Z"));
+const ROSTER_MOVE_WEEKS = weekWindows(Date.parse("2026-04-25T12:27:18Z"));
 /** NOTG, NOL, TCC, TNA, TWP - each read once per week, plus the total. */
 const ANNOUNCED_RAID_COUNT = 5;
 
@@ -205,6 +225,45 @@ describe("buildWeeklyRaidAnnouncement", () => {
           new URL(call[0].toString()).searchParams.get("from") === REUSE_WEEKS.previous.start,
       ),
     ).toHaveLength(0);
+  });
+
+  it("re-applies the current roster to a previous week it is reusing", async () => {
+    // What the tracker recorded in a closed window is settled; who is on the
+    // roster and what they are called is not. A departure or a rename after the
+    // week was first read must reach the reused board and its Discord text.
+    const tracked = H.players.map((player) => ({ ...player }));
+    stubModLeaderboardFor(tracked);
+    const before = await buildWeeklyRaidAnnouncement(fetch, ROSTER_MOVE_WEEKS);
+    expect(before!.previous!.raids.find((raid) => raid.short === "NOTG")!.ranks[0]).toEqual({
+      count: 104,
+      players: ["Aylin", "Boreas"],
+    });
+
+    const roster = H.players;
+    // Boreas leaves the guild; Aylin is renamed.
+    H.players = [{ ...roster[0], username: "Aylin2" }, ...roster.slice(2)];
+    try {
+      const spy = stubModLeaderboardFor(tracked);
+      const after = await buildWeeklyRaidAnnouncement(fetch, ROSTER_MOVE_WEEKS);
+      // Still served from the memo - this is the reuse path, not a re-read.
+      expect(
+        spy.mock.calls.filter(
+          (call) =>
+            new URL(call[0].toString()).searchParams.get("from") ===
+            ROSTER_MOVE_WEEKS.previous.start,
+        ),
+      ).toHaveLength(0);
+      const previous = after!.previous!;
+      expect(previous.raids.find((raid) => raid.short === "NOTG")!.ranks[0]).toEqual({
+        count: 104,
+        players: ["Aylin2"],
+      });
+      expect(previous.completions).toBe(438 - 104);
+      expect(previous.discordText).toContain("Aylin2 - 104");
+      expect(previous.discordText).not.toContain("Boreas");
+    } finally {
+      H.players = roster;
+    }
   });
 });
 
