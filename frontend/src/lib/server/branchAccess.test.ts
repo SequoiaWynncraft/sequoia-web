@@ -120,6 +120,24 @@ describe("checkBranchArea", () => {
     expect(await checkBranchArea(fetch, viewer(), "treasury")).toBe("unverified");
   });
 
+  it("fails closed to unverified on malformed entries inside the branches array", async () => {
+    mockProfiles.mockResolvedValue({
+      stale: false,
+      updatedAt: 0,
+      data: {
+        source: { stale: false },
+        profiles: [
+          {
+            minecraft: { uuid: UNDASHED },
+            // A null neighbour must not throw past an otherwise valid grant.
+            summary: { branches: [null, { key: "b", branch: "treasury", level: "member" }] },
+          },
+        ],
+      },
+    } as never);
+    expect(await checkBranchArea(fetch, viewer(), "treasury")).toBe("unverified");
+  });
+
   it("denies a viewer whose rank profile is not linked to their account", async () => {
     profilesWith([{ branch: "treasury", level: "member" }], { linked: false });
     expect(await checkBranchArea(fetch, viewer(), "treasury")).toBe("denied");
