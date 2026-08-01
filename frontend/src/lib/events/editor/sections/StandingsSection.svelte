@@ -68,23 +68,23 @@
           {/each}
         </Select>
       </Field>
-      <p class="evf-hint">
+      <p class="seq-hint">
         {draft.trackerEventId
           ? `Counts ${draft.selectedTracker?.raid ?? "all guild raids"} via ${draft.trackerTracking === "mod" ? "the guild mod" : "the Wynncraft API"}.`
           : "Standings show each member's contribution inside the tracker window."}
         {#if draft.selectedTracker}
-          <button type="button" class="evf-inline-link focus-ring" onclick={() => draft.openTrackerEdit()}>
+          <button type="button" class="seq-inline-link focus-ring" onclick={() => draft.openTrackerEdit()}>
             Edit tracker
           </button>
         {/if}
-        <button type="button" class="evf-inline-link focus-ring" onclick={() => (draft.trackerManual = true)}>
+        <button type="button" class="seq-inline-link focus-ring" onclick={() => (draft.trackerManual = true)}>
           Enter an id manually
         </button>
         {#if draft.mode === "edit" && draft.trackerEventId}
           <!-- Server endpoint streams the full board - every roster member for
                mod-tracked windows - so managers get the raw numbers. -->
           <a
-            class="evf-inline-link focus-ring"
+            class="seq-inline-link focus-ring"
             href={`/manage/events/${draft.liveInitial?.slug ?? draft.slug}/export?tracker=${encodeURIComponent(draft.trackerEventId)}`}
             download
           >
@@ -105,8 +105,8 @@
         </Field>
       </div>
       {#if draft.trackerChoices.length > 0}
-        <p class="evf-hint">
-          <button type="button" class="evf-inline-link focus-ring" onclick={() => draft.leaveManualMode()}>
+        <p class="seq-hint">
+          <button type="button" class="seq-inline-link focus-ring" onclick={() => draft.leaveManualMode()}>
             Pick from the tracker events instead
           </button>
         </p>
@@ -146,7 +146,7 @@
             </Field>
           {/if}
         </div>
-        <p class="evf-hint">
+        <p class="seq-hint">
           {draft.newTrackerTracking === "mod"
             ? "The guild mod attributes completions per raid, so mod trackers can scope to one raid."
             : "API counter diffs count all guild raids together - no per-raid scoping."}
@@ -170,17 +170,17 @@
             Cancel
           </Button>
           {#if draft.trackerAttempted && draft.trackerDraftError}
-            <span class="evf-error" role="alert">{draft.trackerDraftError}</span>
+            <span class="seq-field-error" role="alert">{draft.trackerDraftError}</span>
           {:else if draft.serverTrackerError}
-            <span class="evf-error" role="alert">{draft.serverTrackerError}</span>
+            <span class="seq-field-error" role="alert">{draft.serverTrackerError}</span>
           {/if}
         </div>
       </div>
     {:else}
-      <p class="evf-hint">
+      <p class="seq-hint">
         <button
           type="button"
-          class="evf-inline-link evf-inline-link-solo focus-ring"
+          class="seq-inline-link seq-inline-link-solo focus-ring"
           onclick={() => draft.openTrackerCreator()}
         >
           + New tracker event

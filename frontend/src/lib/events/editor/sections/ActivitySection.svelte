@@ -16,7 +16,7 @@
   });
 </script>
 
-<FormSection id="activity" title="Activity chart">
+<FormSection id="activity" title="Activity chart" class="evf-half">
   <div class="evf-grid-2">
     <Field label="Daily bars show">
       <Select bind:value={draft.chartSource}>
@@ -37,7 +37,7 @@
       </Field>
     {/if}
   </div>
-  <p class="evf-hint">
+  <p class="seq-hint">
     Wars and playtime have no daily feed - those goals show no chart unless a raid source
     is chosen here.
   </p>

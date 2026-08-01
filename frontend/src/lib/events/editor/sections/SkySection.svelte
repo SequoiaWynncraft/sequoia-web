@@ -9,7 +9,7 @@
   const draft = getContext<EventDraft>(EDITOR_KEY);
 </script>
 
-<FormSection id="sky" title="Sky">
+<FormSection id="sky" title="Sky" class="evf-half">
   <div class="evf-grid-colors">
     <Field label="Sky top">
       <span class="evf-color-pair">

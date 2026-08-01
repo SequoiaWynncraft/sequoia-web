@@ -12,7 +12,7 @@
   const draft = getContext<EventDraft>(EDITOR_KEY);
 </script>
 
-<FormSection id="identity" title="Identity">
+<FormSection id="identity" title="Identity" class="evf-half">
   <div class="evf-grid-2">
     <Field label="Name">
       <TextInput bind:value={draft.name} oninput={() => draft.syncSlug()} maxlength={80} />

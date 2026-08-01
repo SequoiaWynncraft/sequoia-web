@@ -9,13 +9,13 @@
 </script>
 
 <FormSection id="milestones" title="Personal milestones">
-  <p class="evf-hint">
+  <p class="seq-hint">
     Per-member raid targets on the standings board - each member sees their own progress on
     the event page, and a raffle below can require one to enter. Needs a tracker (set under
     Standings) to count raids.
   </p>
   {#each draft.personalMilestones as milestone (milestone.key)}
-    <div class="evf-repeat-row evf-repeat-milestone">
+    <div class="seq-repeat-row seq-repeat-row-milestone">
       <input
         class="seq-input"
         type="number"
@@ -33,7 +33,7 @@
       />
       <button
         type="button"
-        class="evf-remove focus-ring"
+        class="seq-row-remove focus-ring"
         onclick={() =>
           (draft.personalMilestones = draft.personalMilestones.filter(
             (entry) => entry.key !== milestone.key,
@@ -44,12 +44,12 @@
   {/each}
   <button
     type="button"
-    class="evf-add focus-ring"
+    class="seq-row-add focus-ring"
     onclick={() => draft.personalMilestones.push(draft.newPersonalMilestoneRow())}
   >
     + Add personal milestone
   </button>
   {#if draft.personalMilestones.length > 1}
-    <p class="evf-hint">Targets must ascend.</p>
+    <p class="seq-hint">Targets must ascend.</p>
   {/if}
 </FormSection>
