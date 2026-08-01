@@ -30,6 +30,8 @@ export interface RaidLeaderboardEntry {
   insignia?: string | null;
   /** Sequoia internal/progression rank label (e.g. "Druid"), when known. */
   progressionRank?: string | null;
+  /** Primary color of the authoritative Discord progression role, when known. */
+  progressionRankColor?: string | null;
 }
 
 export type LeaderboardResult = { leaderboard: RaidLeaderboardEntry[]; error: string | null };

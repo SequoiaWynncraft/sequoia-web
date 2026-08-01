@@ -94,6 +94,7 @@
       avatar: (entry) => entry.insigniaUrl ?? null,
       avatarAlt: (entry) => (entry.insignia ? `${entry.insignia.toLowerCase()} insignia` : null),
       secondary: (entry) => entry.progressionRank ?? null,
+      secondaryColor: (entry) => entry.progressionRankColor ?? null,
       href: (entry) => `/statistics/player/playercard?player=${encodeURIComponent(entry.username)}`,
     },
     {
