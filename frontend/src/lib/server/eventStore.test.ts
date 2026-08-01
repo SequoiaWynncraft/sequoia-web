@@ -45,7 +45,7 @@ describe("event store", () => {
     expect(published.map((event) => event.slug)).not.toContain("draft-event");
     expect((await store.list()).map((entry) => entry.event.slug)).toContain("draft-event");
 
-    expect(await store.update({ ...DRAFT, name: "Ready Event" }, { published: true })).toBe(true);
+    expect(await store.update({ ...DRAFT, name: "Ready Event" }, { published: true })).not.toBeNull();
     const updated = await store.get("draft-event");
     expect(updated?.event.name).toBe("Ready Event");
     expect(updated?.published).toBe(true);
@@ -59,7 +59,28 @@ describe("event store", () => {
     expect(await store.insert({ ...DRAFT, name: "Impostor" }, { published: true })).toBe(false);
     expect((await store.get("draft-event"))?.event.name).toBe("Draft Event");
 
-    expect(await store.update({ ...DRAFT, slug: "never-created" }, { published: true })).toBe(false);
+    expect(await store.update({ ...DRAFT, slug: "never-created" }, { published: true })).toBeNull();
+  });
+
+  it("only deletes the version the caller reviewed", async () => {
+    const { store } = memoryStore();
+    expect(await store.insert(DRAFT, { published: true })).toBe(true);
+    const first = await store.get("draft-event");
+    expect(first).not.toBeNull();
+
+    // Another manager improves the event (guarded, as the save action does, so
+    // the version token strictly advances); the stale tab's delete must lose.
+    expect(
+      await store.update({ ...DRAFT, name: "Improved" }, { published: true, ifUpdatedAt: first!.updatedAt }),
+    ).not.toBeNull();
+    expect(await store.remove("draft-event", { ifUpdatedAt: first!.updatedAt })).toBe(false);
+    expect((await store.get("draft-event"))?.event.name).toBe("Improved");
+
+    // Deleting the current version succeeds exactly once.
+    const current = await store.get("draft-event");
+    expect(await store.remove("draft-event", { ifUpdatedAt: current!.updatedAt })).toBe(true);
+    expect(await store.remove("draft-event", { ifUpdatedAt: current!.updatedAt })).toBe(false);
+    expect(await store.get("draft-event")).toBeNull();
   });
 
   it("never resurrects deleted seed events", async () => {

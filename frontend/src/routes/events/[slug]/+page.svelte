@@ -1,5 +1,8 @@
 <script lang="ts">
   import { guildRankLabel } from "$lib/api/guildStats";
+  import PlayerName from "$lib/design-system/components/PlayerName.svelte";
+  import { playercardUrl } from "$lib/site/identity";
+  import { rankColor } from "$lib/site/rankColors";
   import { webAuthStartUrl } from "$lib/site/webAuth";
   import Button from "$lib/design-system/components/Button.svelte";
   import DailyBars from "$lib/design-system/components/charts/DailyBars.svelte";
@@ -7,6 +10,7 @@
   import type { LedgerColumn } from "$lib/design-system/components/ledgerTable";
   import EventMeta from "$lib/events/components/EventMeta.svelte";
   import GoalMeter from "$lib/events/components/GoalMeter.svelte";
+  import PrizeBoard from "$lib/events/components/PrizeBoard.svelte";
   import { themeVars } from "$lib/events/theme";
   import { isoDay } from "$lib/events/format";
   import { nmsrFace } from "$lib/site/nmsr";
@@ -37,13 +41,40 @@
   // a raffle with three winners shows three rows sharing its prize.
   const raffleRows = $derived(
     (event.raffles ?? []).flatMap((raffle) =>
-      Array.from({ length: raffle.winnerCount }, (_unused, slot) => ({
-        key: `${raffle.id}:${slot}`,
-        prize: raffle.prize,
-        winner: raffle.winners?.find((entry) => entry.slot === slot) ?? null,
-      })),
+      Array.from({ length: raffle.winnerCount }, (_unused, slot) => {
+        const key = `${raffle.id}:${slot}`;
+        // A slot still animating on the stage keeps its committed winner
+        // masked here - this page must not spoil the wheel's landing.
+        const spinning = data.spinningSlots.includes(key);
+        const stored = raffle.winners?.find((entry) => entry.slot === slot) ?? null;
+        return {
+          key,
+          prize: raffle.prize,
+          icon: raffle.icon ?? null,
+          spinning,
+          winner:
+            !spinning && stored
+              ? { username: stored.username, uuid: stored.player_uuid }
+              : null,
+        };
+      }),
     ),
   );
+
+  // The most recent draw across the event's raffles, for the meta line.
+  const lastDrawnAt = $derived.by(() => {
+    const times = (event.raffles ?? [])
+      .map((raffle) => (raffle.drawnAt ? Date.parse(raffle.drawnAt) : Number.NaN))
+      .filter((time) => Number.isFinite(time));
+    if (times.length === 0) return null;
+    return new Date(Math.max(...times)).toLocaleString("en-GB", {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: "UTC",
+    });
+  });
 
   // Personal milestones are ascending by target (enforced by the validator), so
   // the last one a member has cleared is their highest tier.
@@ -71,9 +102,17 @@
       nameStyle: true,
       value: (entry) => entry.username,
       sortValue: (entry) => entry.username.toLowerCase(),
-      secondary: (entry) => guildRankLabel(entry.rank),
+      // Role-aware: the Sequoia progression rank when the member is linked,
+      // the in-game rank otherwise - colored from the shared rank vocabulary.
+      secondary: (entry) => entry.progressionRank ?? guildRankLabel(entry.rank),
+      secondaryColor: (entry) =>
+        entry.progressionRankColor ?? rankColor(entry.progressionRank ?? entry.rank),
       avatar: (entry) => nmsrFace(entry.player_uuid, 22),
-      href: (entry) => `/statistics/player/playercard?player=${encodeURIComponent(entry.username)}`,
+      href: (entry) => playercardUrl(entry.username),
+      icon: (entry) =>
+        entry.insigniaUrl && entry.insignia
+          ? { src: entry.insigniaUrl, alt: `${entry.insignia.toLowerCase()} insignia` }
+          : null,
     },
     {
       key: "raids",
@@ -125,7 +164,7 @@
     {#if data.draft}
       <p class="ev-draft-note ev-enter" style="--enter: 3">
         Draft preview - hidden from the hub until it is listed.
-        <a class="focus-ring" href={`/events/manage/${event.slug}`}>Edit</a>
+        <a class="focus-ring" href={`/manage/events/${event.slug}`}>Edit</a>
       </p>
     {/if}
     {#if event.about}
@@ -252,10 +291,9 @@
               {#each event.prizes as entry (entry.donor + entry.prize)}
                 <li class="ev-prize">
                   {#if entry.donorPlayer}
-                    <a
-                      class="ev-prize-donor ev-prize-donor-link focus-ring"
-                      href={`/statistics/player/playercard?player=${encodeURIComponent(entry.donorPlayer)}`}
-                    >{entry.donor}</a>
+                    <span class="ev-prize-donor">
+                      <PlayerName username={entry.donor} player={entry.donorPlayer} size={18} />
+                    </span>
                   {:else}
                     <span class="ev-prize-donor">{entry.donor}</span>
                   {/if}
@@ -293,34 +331,20 @@
 
     {#if raffleRows.length > 0}
       <section class="ev-section" aria-label="Raffles">
-        <h2 class="ev-label">
-          <span class="ev-spark" aria-hidden="true">✦</span>{event.raffles && event.raffles.length === 1
-            ? "Raffle"
-            : "Raffles"}
-        </h2>
-        <div class="ev-raffles" role="table" aria-label="Raffle winners">
-          <div class="ev-raffle-row ev-raffle-head" role="row">
-            <span role="columnheader">Winner</span>
-            <span role="columnheader">Prize</span>
-          </div>
-          {#each raffleRows as row (row.key)}
-            <div class="ev-raffle-row" role="row">
-              {#if row.winner}
-                <a
-                  class="ev-raffle-cell ev-raffle-winner focus-ring"
-                  role="cell"
-                  href={`/statistics/player/playercard?player=${encodeURIComponent(row.winner.username)}`}
-                >
-                  <img class="ev-raffle-face" src={nmsrFace(row.winner.player_uuid, 22)} alt="" />
-                  {row.winner.username}
-                </a>
-              {:else}
-                <span class="ev-raffle-cell ev-raffle-unrolled" role="cell">Not rolled</span>
-              {/if}
-              <span class="ev-raffle-cell ev-raffle-prize" role="cell">{row.prize || "—"}</span>
-            </div>
-          {/each}
+        <div class="ev-raffle-heading">
+          <h2 class="ev-label">
+            <span class="ev-spark" aria-hidden="true">✦</span>{event.raffles && event.raffles.length === 1
+              ? "Raffle"
+              : "Raffles"}
+          </h2>
+          <a class="ev-stage-link focus-ring" href={`/events/${event.slug}/raffle`}>
+            <span aria-hidden="true">✦</span> Watch the stage
+          </a>
         </div>
+        <PrizeBoard rows={raffleRows} />
+        {#if lastDrawnAt}
+          <p class="ev-raffle-drawn">Last drawn {lastDrawnAt} UTC</p>
+        {/if}
       </section>
     {/if}
 
@@ -652,17 +676,6 @@
     text-transform: uppercase;
   }
 
-  .ev-prize-donor-link {
-    text-decoration: none;
-    transition: color var(--dur-fast) ease;
-  }
-
-  .ev-prize-donor-link:hover {
-    color: var(--ev-accent);
-    text-decoration: underline;
-    text-underline-offset: 3px;
-  }
-
   .ev-prize-what {
     color: var(--text-body);
     font-family: var(--font-data);
@@ -699,61 +712,32 @@
     font-size: var(--text-sm);
   }
 
-  .ev-raffles {
-    display: grid;
-    gap: 8px;
+  .ev-raffle-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 14px;
   }
 
-  .ev-raffle-row {
-    display: grid;
-    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
-    gap: 12px;
-    align-items: center;
-  }
-
-  .ev-raffle-head {
-    color: var(--text-muted);
+  .ev-stage-link {
+    color: var(--ev-accent, var(--color-gold));
     font-family: var(--font-display);
     font-size: var(--text-2xs);
     letter-spacing: var(--tracking-wider);
-    text-transform: uppercase;
-    padding: 0 2px;
-  }
-
-  .ev-raffle-cell {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 11px 14px;
-    border: 1px solid var(--color-border-subtle);
-    background: color-mix(in srgb, var(--ev-sky-1) 28%, transparent);
-    color: var(--text-body);
-    font-family: var(--font-data);
-    font-size: var(--text-sm);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .ev-raffle-winner {
     text-decoration: none;
+    text-transform: uppercase;
     transition: color var(--dur-fast) ease;
   }
 
-  .ev-raffle-winner:hover {
-    color: var(--ev-accent);
+  .ev-stage-link:hover {
+    color: var(--text-heading);
   }
 
-  .ev-raffle-unrolled {
+  .ev-raffle-drawn {
+    margin: 10px 0 0;
     color: var(--text-muted);
-    font-style: italic;
-  }
-
-  .ev-raffle-face {
-    width: 22px;
-    height: 22px;
-    image-rendering: pixelated;
-    flex-shrink: 0;
+    font-family: var(--font-data);
+    font-size: var(--text-xs);
   }
 
   @media (max-width: 900px) {

@@ -118,6 +118,12 @@ export interface components {
             asset_key?: string;
             /** Format: int64 */
             position?: number;
+            colors?: components["schemas"]["RoleColors"];
+        };
+        RoleColors: {
+            primary: string | null;
+            secondary: string | null;
+            tertiary: string | null;
         };
         AwardDefinition: {
             key: string;

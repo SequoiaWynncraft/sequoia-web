@@ -14,7 +14,7 @@
           <span class="seq-footer-name">SEQUOIA</span>
         </div>
         <p class="seq-footer-copy">
-          Sequoia, rooted together in purpose. Wynncraft guild resources, guides, and member stats in one place.
+          Sequoia, rooted in purpose. Wynncraft guild resources, guides, and member stats in one place.
         </p>
         <a href={DISCORD} target="_blank" rel="noreferrer" class="seq-text-cta">
           Join us on Discord

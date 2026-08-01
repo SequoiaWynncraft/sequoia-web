@@ -1,0 +1,244 @@
+<script lang="ts">
+  import { getContext } from "svelte";
+
+  import Button from "$lib/design-system/components/Button.svelte";
+  import FormStatus from "$lib/design-system/components/forms/FormStatus.svelte";
+
+  import { EDITOR_KEY, EventDraft } from "./draft.svelte";
+  import { EDITOR_SECTIONS, sectionIssues, type SectionId } from "./issues";
+  import { nearestVisibleSection } from "./sectionRail";
+
+  let { formId }: { formId: string } = $props();
+
+  const draft = getContext<EventDraft>(EDITOR_KEY);
+
+  const issues = $derived(sectionIssues(draft));
+  const statusError = $derived(
+    draft.showValidation && draft.liveError ? draft.liveError : draft.serverError,
+  );
+  const statusWarning = $derived(
+    draft.serverAuditWarning
+      ? "Done, but not recorded in the audit log."
+      : draft.serverRollWarning
+        ? "Rolled, but the stage replay was not recorded."
+        : null,
+  );
+
+  let active = $state<SectionId>(EDITOR_SECTIONS[0].id);
+  /** Click target whose smooth scroll is still traveling; observer holds. */
+  let navigatingTo: SectionId | null = null;
+  let navigationTimer: ReturnType<typeof setTimeout> | undefined;
+  const visible = new Set<string>();
+
+  function reconcileActive() {
+    const next = nearestVisibleSection(visible, active);
+    if (next !== null) active = next;
+  }
+
+  // Scrollspy: the topmost section intersecting the upper viewport band wins.
+  // One observer over the stable section anchors; sections never unmount.
+  $effect(() => {
+    const anchors = EDITOR_SECTIONS.map((section) => document.getElementById(section.id)).filter(
+      (element): element is HTMLElement => element !== null,
+    );
+    if (anchors.length === 0) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) visible.add(entry.target.id);
+          else visible.delete(entry.target.id);
+        }
+        // A click's smooth scroll crosses every section between here and the
+        // target - the observer must not fight the explicit choice while the
+        // scroll is still traveling.
+        if (navigatingTo !== null) return;
+        reconcileActive();
+      },
+      { rootMargin: "-15% 0px -70% 0px" },
+    );
+    for (const anchor of anchors) observer.observe(anchor);
+    return () => observer.disconnect();
+  });
+
+  function jump(event: MouseEvent, id: SectionId) {
+    event.preventDefault();
+    const target = document.getElementById(id);
+    if (!target) return;
+    // Explicit intent beats the observer: side-by-side sections can share a
+    // scroll interval, and the click must win the tie. The suppression lifts
+    // when the scroll settles (scrollend where supported, a timer where not).
+    active = id;
+    navigatingTo = id;
+    clearTimeout(navigationTimer);
+    const settle = () => {
+      navigatingTo = null;
+      reconcileActive();
+      window.removeEventListener("scrollend", settle);
+    };
+    if ("onscrollend" in window) {
+      window.addEventListener("scrollend", settle, { once: true });
+      // A no-op scroll (target already in view) never fires scrollend.
+      navigationTimer = setTimeout(settle, 1200);
+    } else {
+      navigationTimer = setTimeout(settle, 900);
+    }
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    target.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
+    history.replaceState(history.state, "", `#${id}`);
+  }
+</script>
+
+<nav class="rail" aria-label="Editor sections">
+  <ul class="rail-list">
+    {#each EDITOR_SECTIONS as section, index (section.id)}
+      {@const count = issues[section.id]?.length ?? 0}
+      {#if index === 0 || EDITOR_SECTIONS[index - 1].category !== section.category}
+        <li class="rail-cat" aria-hidden="true">{section.category}</li>
+      {/if}
+      <li>
+        <a
+          href="#{section.id}"
+          class="rail-link"
+          class:rail-link-active={active === section.id}
+          aria-current={active === section.id ? "true" : undefined}
+          onclick={(event) => jump(event, section.id)}
+        >
+          <span class="rail-label">{section.label}</span>
+          {#if count > 0}
+            <span class="rail-badge" title={issues[section.id]?.join("\n")}>{count}</span>
+          {/if}
+        </a>
+      </li>
+    {/each}
+  </ul>
+  <div class="rail-actions">
+    <Button
+      type="submit"
+      form={formId}
+      size="sm"
+      disabled={draft.saving}
+    >
+      {draft.mode === "create" ? "Create event" : "Save changes"}
+    </Button>
+    <!-- The footer renders the same outcome, but it sits below thirteen
+         sections - a rejected save must be visible where the button is. -->
+    {#if statusError || statusWarning || draft.serverSaved}
+      <div class="rail-status">
+        <FormStatus error={statusError} warning={statusWarning} saved={draft.serverSaved} compact size="xs" />
+      </div>
+    {/if}
+    <div class="rail-history" role="group" aria-label="Edit history">
+      <Button
+        size="sm"
+        variant="ghost"
+        onclick={() => draft.undo()}
+        disabled={draft.undoStack.length === 0 && !draft.hasPendingEdit}
+      >
+        Undo
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        onclick={() => draft.redo()}
+        disabled={draft.redoStack.length === 0}
+      >
+        Redo
+      </Button>
+    </div>
+  </div>
+</nav>
+
+<style>
+  .rail-list {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .rail-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 6px 10px 6px 12px;
+    border-left: 2px solid transparent;
+    color: var(--text-muted);
+    font-family: var(--font-display);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-wider);
+    text-decoration: none;
+    text-transform: uppercase;
+    transition: color var(--dur-fast) ease, border-color var(--dur-fast) ease;
+  }
+
+  .rail-link:hover {
+    color: var(--text-heading);
+  }
+
+  .rail-link:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--color-gold) 50%, transparent);
+    outline-offset: -2px;
+  }
+
+  .rail-link-active {
+    border-left-color: var(--color-gold);
+    color: var(--color-gold);
+  }
+
+  .rail-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border: 1px solid color-mix(in srgb, var(--status-error) 60%, transparent);
+    color: var(--status-error);
+    font-family: var(--font-data);
+    font-size: var(--text-2xs);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .rail-actions {
+    display: grid;
+    justify-items: start;
+    gap: 10px;
+    margin-top: 16px;
+    padding: 14px 0 0 14px;
+    border-top: 1px solid var(--color-border-subtle);
+  }
+
+  .rail-history {
+    display: flex;
+    gap: 6px;
+  }
+
+  .rail-status {
+    max-width: 300px;
+  }
+
+  @media (max-width: 1000px) {
+    /* The side column moves above the form: the rail becomes a wrap of
+       jump chips and the sticky save moves back into the page flow. */
+    .rail-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2px;
+    }
+
+    .rail-link {
+      border-left: 0;
+      border-bottom: 2px solid transparent;
+      white-space: nowrap;
+    }
+
+    .rail-link-active {
+      border-bottom-color: var(--color-gold);
+    }
+
+    .rail-actions {
+      padding-left: 0;
+    }
+  }
+</style>

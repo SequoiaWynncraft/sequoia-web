@@ -20,7 +20,12 @@ interface TrackerRequest {
   raid?: string;
 }
 
-type ManageRequest = { request: Request; cookies: Cookies; fetch: typeof fetch };
+type ManageRequest = {
+  request: Request;
+  cookies: Cookies;
+  fetch: typeof fetch;
+  locals: App.Locals;
+};
 
 /**
  * Shared ?/createTracker form action for the event editor: creates a raid
@@ -39,8 +44,8 @@ export async function createTrackerAction(event: ManageRequest) {
     raid: parsed.raid,
   });
   if (typeof result === "string") return fail(400, { trackerError: result });
-  await recordAudit(authorized.manager, "tracker.create", result.id, parsed.name);
-  return { trackerCreated: result };
+  const audited = await recordAudit(authorized.manager, "tracker.create", result.id, parsed.name);
+  return { trackerCreated: result, auditWarning: !audited };
 }
 
 /** Shared ?/updateTracker form action: full update of an existing tracker. */
@@ -62,8 +67,8 @@ export async function updateTrackerAction(event: ManageRequest) {
     },
   );
   if (typeof result === "string") return fail(400, { trackerError: result });
-  await recordAudit(authorized.manager, "tracker.update", parsed.id, parsed.name);
-  return { trackerUpdated: result };
+  const audited = await recordAudit(authorized.manager, "tracker.update", parsed.id, parsed.name);
+  return { trackerUpdated: result, auditWarning: !audited };
 }
 
 async function authorizeAndParse(

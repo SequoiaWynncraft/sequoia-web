@@ -91,6 +91,7 @@ const VIEWER = {
   discordUsername: "aylin",
   minecraftUuid: VIEWER_UUID,
   minecraftUsername: "Aylin",
+  websiteAdmin: false,
 };
 
 beforeEach(() => {

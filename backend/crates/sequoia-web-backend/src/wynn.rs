@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
+use std::time::Duration;
 
-use anyhow::{Context, bail};
+use anyhow::Context;
 use reqwest::StatusCode;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
@@ -8,6 +9,23 @@ use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 use uuid::Uuid;
 
 use crate::model::{GuildSnapshot, MemberRaidCounter};
+
+/// A stalled upstream must never hang polling forever: connections and whole
+/// requests are bounded so both the scheduled loop and manual polls resolve.
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+
+#[derive(Debug, thiserror::Error)]
+pub enum WynnError {
+    #[error("Wynncraft rate limited the guild snapshot request")]
+    RateLimited { retry_after: Option<Duration> },
+    #[error("Wynncraft guild snapshot request failed with status {0}")]
+    Status(StatusCode),
+    #[error("failed to request Wynncraft guild snapshot: {0}")]
+    Request(#[from] reqwest::Error),
+    #[error("invalid Wynncraft guild snapshot: {0}")]
+    Invalid(#[source] anyhow::Error),
+}
 
 #[derive(Clone)]
 pub struct WynnClient {
@@ -17,40 +35,62 @@ pub struct WynnClient {
 }
 
 impl WynnClient {
-    pub fn new(base_url: String, access_token: String) -> Self {
-        Self {
-            http: reqwest::Client::new(),
+    pub fn new(base_url: String, access_token: String) -> anyhow::Result<Self> {
+        let http = reqwest::Client::builder()
+            .connect_timeout(CONNECT_TIMEOUT)
+            .timeout(REQUEST_TIMEOUT)
+            .build()
+            .context("failed to build Wynncraft HTTP client")?;
+        Ok(Self {
+            http,
             base_url: base_url.trim_end_matches('/').to_owned(),
             access_token,
-        }
+        })
     }
 
-    pub async fn fetch_guild_snapshot(&self, prefix: &str) -> anyhow::Result<GuildSnapshot> {
+    pub async fn fetch_guild_snapshot(&self, prefix: &str) -> Result<GuildSnapshot, WynnError> {
         let url = format!("{}/guild/prefix/{}", self.base_url, prefix);
+        // Stamped before the request goes out: the payload can only reflect
+        // server state from before this instant, so ordering snapshots by a
+        // request-start time keeps a stalled older request older than any
+        // faster later one - stamping on receipt would let it leapfrog the
+        // monotonic admission check.
+        let fetched_at = OffsetDateTime::now_utc();
         let response = self
             .http
             .get(url)
             .bearer_auth(&self.access_token)
             .query(&[("identifier", "uuid")])
             .send()
-            .await
-            .context("failed to request Wynncraft guild snapshot")?;
+            .await?;
 
         let status = response.status();
         if status == StatusCode::TOO_MANY_REQUESTS {
-            bail!("Wynncraft guild snapshot request was rate limited");
+            return Err(WynnError::RateLimited {
+                retry_after: retry_after(response.headers()),
+            });
         }
         if !status.is_success() {
-            bail!("Wynncraft guild snapshot request failed with status {status}");
+            return Err(WynnError::Status(status));
         }
 
-        let fetched_at = OffsetDateTime::now_utc();
-        let raw_payload = response
-            .json::<serde_json::Value>()
-            .await
-            .context("failed to decode Wynncraft guild snapshot JSON")?;
-        parse_guild_snapshot(raw_payload, fetched_at)
+        let raw_payload = response.json::<serde_json::Value>().await?;
+        parse_guild_snapshot(raw_payload, fetched_at).map_err(WynnError::Invalid)
     }
+}
+
+/// Seconds-form `Retry-After`, with Wynncraft's `RateLimit-Reset` as fallback.
+fn retry_after(headers: &reqwest::header::HeaderMap) -> Option<Duration> {
+    ["retry-after", "ratelimit-reset"].iter().find_map(|name| {
+        let seconds = headers
+            .get(*name)?
+            .to_str()
+            .ok()?
+            .trim()
+            .parse::<u64>()
+            .ok()?;
+        Some(Duration::from_secs(seconds))
+    })
 }
 
 pub fn parse_guild_snapshot(
@@ -193,11 +233,56 @@ fn parse_rfc3339(value: &str) -> Option<OffsetDateTime> {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use anyhow::Context;
+    use axum::http::StatusCode;
     use serde_json::json;
     use time::macros::datetime;
 
-    use super::parse_guild_snapshot;
+    use super::{WynnClient, WynnError, parse_guild_snapshot, retry_after};
+
+    #[test]
+    fn parses_retry_after_and_ratelimit_reset_headers() {
+        use reqwest::header::HeaderValue;
+
+        let mut headers = reqwest::header::HeaderMap::new();
+        assert_eq!(retry_after(&headers), None);
+
+        headers.insert("ratelimit-reset", HeaderValue::from_static("42"));
+        assert_eq!(retry_after(&headers), Some(Duration::from_secs(42)));
+
+        // Retry-After wins over the fallback; a non-numeric value is skipped.
+        headers.insert("retry-after", HeaderValue::from_static("7"));
+        assert_eq!(retry_after(&headers), Some(Duration::from_secs(7)));
+        headers.insert(
+            "retry-after",
+            HeaderValue::from_static("Wed, 21 Oct 2026 07:28:00 GMT"),
+        );
+        assert_eq!(retry_after(&headers), Some(Duration::from_secs(42)));
+    }
+
+    #[tokio::test]
+    async fn surfaces_rate_limits_as_typed_errors_with_retry_after() -> anyhow::Result<()> {
+        let app = axum::Router::new().route(
+            "/guild/prefix/SEQ",
+            axum::routing::get(|| async {
+                (StatusCode::TOO_MANY_REQUESTS, [("retry-after", "7")], "")
+            }),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
+        let base_url = format!("http://{}", listener.local_addr()?);
+        tokio::spawn(axum::serve(listener, app).into_future());
+
+        let client = WynnClient::new(base_url, "token".to_owned())?;
+        match client.fetch_guild_snapshot("SEQ").await {
+            Err(WynnError::RateLimited { retry_after }) => {
+                assert_eq!(retry_after, Some(Duration::from_secs(7)));
+            }
+            other => anyhow::bail!("expected RateLimited, got {other:?}"),
+        }
+        Ok(())
+    }
 
     #[test]
     fn parses_current_guild_raid_totals_from_rank_maps() -> anyhow::Result<()> {

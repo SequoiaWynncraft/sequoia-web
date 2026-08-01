@@ -19,6 +19,24 @@
   /** Milestones before the last one become ticks on the track. */
   const ticks = $derived(goal.milestones.slice(0, -1));
   const nextLocked = $derived(goal.milestones.find((milestone) => !reached(milestone.at)) ?? null);
+
+  // The band strip always keeps its one-line summary; the style only shapes
+  // the full-size meter.
+  const style = $derived(goal.milestoneStyle ?? "list");
+  const showMarkers = $derived(size === "full" && (style === "markers" || style === "both"));
+  const showList = $derived(size === "full" && (style === "list" || style === "both"));
+
+  /** Anchor markers and tooltips inward near the edges so nothing clips. */
+  function anchor(at: number): "start" | "middle" | "end" {
+    const percent = (at / finalAt) * 100;
+    if (percent <= 10) return "start";
+    if (percent >= 90) return "end";
+    return "middle";
+  }
+
+  // A tap pins the tooltip open (hover does not exist on touch); blur,
+  // Escape, or a second tap releases it.
+  let pinned = $state<number | null>(null);
 </script>
 
 <div class="goal goal-{size}">
@@ -44,11 +62,43 @@
         class="goal-tick"
         class:goal-tick-reached={reached(milestone.at)}
         style="left:{Math.min(100, (milestone.at / finalAt) * 100)}%"
-        title="{milestone.unlock} at {milestone.at.toLocaleString()}"
+        title={showMarkers ? undefined : `${milestone.unlock} at ${milestone.at.toLocaleString()}`}
       ></div>
     {/each}
   </div>
-  {#if size === "band" || goal.milestones.length === 1}
+  {#if showMarkers}
+    <div class="goal-waypoints">
+      {#each goal.milestones as milestone (milestone.at)}
+        <button
+          type="button"
+          class="goal-marker goal-marker-{anchor(milestone.at)}"
+          class:goal-marker-reached={reached(milestone.at)}
+          class:goal-marker-pinned={pinned === milestone.at}
+          style="left:{Math.min(100, (milestone.at / finalAt) * 100)}%"
+          aria-label="{milestone.unlock} at {milestone.at.toLocaleString()} {goal.metricLabel}"
+          onclick={() => (pinned = pinned === milestone.at ? null : milestone.at)}
+          onblur={() => (pinned = null)}
+          onmouseleave={() => pinned === milestone.at && (pinned = null)}
+          onkeydown={(event) => {
+            // Blur too: the focus-visible tooltip is independent of the pin,
+            // so Escape must actually dismiss what the keyboard user sees.
+            if (event.key === "Escape") {
+              pinned = null;
+              event.currentTarget.blur();
+            }
+          }}
+        >
+          <span class="goal-node" aria-hidden="true"></span>
+          <span class="goal-marker-label">{milestone.label ?? milestone.at.toLocaleString()}</span>
+          <span class="goal-tip" aria-hidden="true">
+            {milestone.unlock}
+            <span class="goal-tip-at">{milestone.at.toLocaleString()}</span>
+          </span>
+        </button>
+      {/each}
+    </div>
+  {/if}
+  {#if size === "band" || (showList && goal.milestones.length === 1)}
     {@const last = goal.milestones.at(-1)}
     <div class="goal-unlock" class:goal-unlock-reached={nextLocked === null}>
       <span class="goal-spark" aria-hidden="true">✦</span>
@@ -58,7 +108,7 @@
         {nextLocked.unlock} at {nextLocked.at.toLocaleString()}
       {/if}
     </div>
-  {:else}
+  {:else if showList}
     <ul class="goal-milestones">
       {#each goal.milestones as milestone (milestone.at)}
         <li class="goal-unlock" class:goal-unlock-reached={reached(milestone.at)}>
@@ -136,6 +186,133 @@
   .goal-tick-reached {
     background: var(--ev-accent, var(--color-gold));
   }
+
+  /* ── Waypoint markers ─────────────────────────────────────────────── */
+
+  .goal-waypoints {
+    position: relative;
+    height: 34px;
+    margin-top: -4px;
+  }
+
+  .goal-marker {
+    position: absolute;
+    top: 0;
+    display: grid;
+    justify-items: center;
+    gap: 4px;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: default;
+    font: inherit;
+  }
+
+  .goal-marker-middle {
+    transform: translateX(-50%);
+  }
+
+  .goal-marker-start {
+    transform: translateX(-4px);
+    justify-items: start;
+  }
+
+  .goal-marker-end {
+    transform: translateX(calc(-100% + 4px));
+    justify-items: end;
+  }
+
+  /* The waypoint node: the site's ✦ spark reduced to a solid diamond. */
+  .goal-node {
+    width: 7px;
+    height: 7px;
+    transform: rotate(45deg);
+    border: 1px solid var(--ev-accent, var(--color-gold));
+    background: transparent;
+  }
+
+  .goal-marker-reached .goal-node {
+    background: var(--ev-accent, var(--color-gold));
+  }
+
+  .goal-marker-label {
+    color: var(--text-muted);
+    font-family: var(--font-display);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .goal-marker-reached .goal-marker-label {
+    color: var(--ev-accent, var(--color-gold));
+  }
+
+  .goal-marker:focus-visible {
+    outline: none;
+  }
+
+  .goal-marker:focus-visible .goal-node {
+    outline: 2px solid var(--ev-accent, var(--color-gold));
+    outline-offset: 3px;
+  }
+
+  .goal-tip {
+    position: absolute;
+    bottom: calc(100% + 14px);
+    z-index: 3;
+    max-width: 240px;
+    padding: 6px 10px;
+    border: 1px solid var(--color-border-subtle);
+    background: rgba(12, 14, 23, 0.94);
+    color: var(--text-body);
+    font-family: var(--font-data);
+    font-size: var(--text-xs);
+    line-height: 1.4;
+    text-align: left;
+    text-transform: none;
+    letter-spacing: normal;
+    white-space: normal;
+    width: max-content;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 120ms ease;
+    pointer-events: none;
+  }
+
+  .goal-marker-middle .goal-tip {
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  .goal-marker-start .goal-tip {
+    left: 0;
+  }
+
+  .goal-marker-end .goal-tip {
+    right: 0;
+  }
+
+  .goal-tip-at {
+    margin-left: 6px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .goal-marker:hover .goal-tip,
+  .goal-marker:focus-visible .goal-tip,
+  .goal-marker-pinned .goal-tip {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .goal-tip {
+      transition: none;
+    }
+  }
+
+  /* ── Unlock list ──────────────────────────────────────────────────── */
 
   .goal-milestones {
     display: grid;

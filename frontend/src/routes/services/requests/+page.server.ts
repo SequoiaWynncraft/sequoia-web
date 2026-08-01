@@ -24,6 +24,7 @@ export type RequestsAccess = "signin" | "unverified" | "notMember" | "member";
 export const load: PageServerLoad = async ({ fetch, parent }) => {
   const { viewer } = await parent();
   if (!viewer) return { access: "signin" as const };
+  if (viewer.websiteAdmin) return { access: "member" as const };
 
   const stats = await getGuildStats(fetch, { allowStale: false }).catch(() => null);
   const freshRoster = stats !== null && !stats.stale ? stats.members : null;

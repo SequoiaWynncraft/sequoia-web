@@ -1,7 +1,7 @@
 {
   "name": "seqwebsite",
   "version": "2.0.0",
-  "description": "Sequoia — Wynncraft guild website (statistics, community, legal).",
+  "description": "Sequoia - Wynncraft guild website (statistics, community, legal).",
   "type": "module",
   "private": true,
   "engines": {

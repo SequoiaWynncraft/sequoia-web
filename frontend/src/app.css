@@ -103,6 +103,27 @@ input[type="number"]::-webkit-inner-spin-button {
   padding-top: 0;
 }
 
+/* Manage pages carry their own gutters for the shell-less gate render
+   (signed-out viewers get no .manage-shell); inside the console the shell
+   already provides them, so the inner rules zero these out. */
+.mg-page {
+  width: min(1100px, 100% - 3rem);
+  margin-inline: auto;
+}
+
+.mg-page-wide {
+  width: calc(100% - 3rem);
+  margin-inline: auto;
+}
+
+.manage-content .mg-page {
+  width: min(1100px, 100%);
+}
+
+.manage-content .mg-page-wide {
+  width: 100%;
+}
+
 /* Data-table row hover */
 .seq-row { transition: background var(--dur-base) ease; }
 .seq-row:hover { background: var(--color-surface-hover); }
@@ -380,6 +401,257 @@ input[type="number"]::-webkit-inner-spin-button {
   background: rgba(168,85,247,0.2);
   color: #c084fc;
   border-color: rgba(168,85,247,0.6);
+}
+
+/* Shared form controls. Global rather than component-scoped so composite
+   widgets (date pairs, color pairs, datalist inputs) can put the same skin
+   on their own native inputs. */
+.seq-field-label {
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+}
+
+.seq-input {
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid var(--color-border-subtle);
+  background: color-mix(in srgb, var(--color-abyss) 65%, transparent);
+  color: var(--text-body);
+  font-family: var(--font-data);
+  font-size: var(--text-sm);
+  transition: border-color var(--dur-fast) ease;
+}
+
+.seq-input:focus-visible {
+  outline: none;
+  border-color: color-mix(in srgb, var(--color-gold) 55%, var(--color-border-subtle));
+}
+
+.seq-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.seq-input:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.seq-input[aria-invalid="true"] {
+  border-color: var(--status-error);
+}
+
+select.seq-input {
+  appearance: none;
+  cursor: pointer;
+}
+
+textarea.seq-input {
+  resize: vertical;
+  line-height: var(--leading-normal);
+}
+
+.seq-input-mono {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Shared form composition primitives. These stay global so repeaters and
+   choice controls can be assembled by feature components without duplicating
+   the visual vocabulary. */
+.seq-hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.seq-repeat-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.seq-repeat-row-comp {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) minmax(0, 2fr) auto;
+}
+
+.seq-repeat-row-prize {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 2fr) minmax(0, 3fr) auto;
+}
+
+.seq-repeat-row-milestone {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 3fr) auto;
+  margin-bottom: 8px;
+}
+
+.seq-repeat-row-goal-milestone {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 3fr) minmax(0, 1fr) auto;
+  margin-bottom: 8px;
+}
+
+.seq-repeat-row-raffle {
+  grid-template-columns: minmax(0, 4fr) minmax(0, 1fr) auto;
+  align-items: end;
+}
+
+.seq-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.seq-chip {
+  padding: 5px 11px 4px;
+  border: 1px solid var(--color-border-subtle);
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+
+.seq-chip:hover {
+  border-color: var(--color-border-accent);
+}
+
+.seq-chip-selected,
+.seq-chip-selected:hover {
+  border-color: color-mix(in srgb, var(--color-gold) 55%, var(--color-border-subtle));
+  color: var(--color-gold);
+}
+
+.seq-chip-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.seq-chip:has(.seq-chip-input:focus-visible) {
+  outline: 2px solid var(--color-gold);
+  outline-offset: 2px;
+}
+
+.seq-choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.seq-choice {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border-subtle);
+  cursor: pointer;
+  transition: border-color var(--dur-fast) ease;
+}
+
+.seq-choice:hover {
+  border-color: var(--color-border-accent);
+}
+
+.seq-choice-selected,
+.seq-choice-selected:hover {
+  border-color: color-mix(in srgb, var(--color-gold) 55%, var(--color-border-subtle));
+}
+
+.seq-choice-input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.seq-choice:has(.seq-choice-input:focus-visible) {
+  outline: 2px solid var(--color-gold);
+  outline-offset: 2px;
+}
+
+.seq-choice-title {
+  color: var(--text-body);
+  font-family: var(--font-display);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+}
+
+.seq-choice-selected .seq-choice-title {
+  color: var(--color-gold);
+}
+
+.seq-choice-desc {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.seq-inline-link-solo {
+  margin-left: 0;
+}
+
+.seq-inline-link {
+  margin-left: 6px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-gold);
+  font-family: var(--font-display);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.seq-row-remove {
+  padding: 8px 10px;
+  border: 1px solid var(--color-border-subtle);
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  transition: color var(--dur-fast) ease, border-color var(--dur-fast) ease;
+}
+
+.seq-row-remove:hover {
+  border-color: var(--color-border-accent);
+  color: var(--text-body);
+}
+
+.seq-row-add {
+  justify-self: start;
+  padding: 6px 2px;
+  border: none;
+  background: none;
+  color: var(--color-gold);
+  font-family: var(--font-display);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.seq-field-error {
+  color: var(--status-error);
+  font-size: var(--text-sm);
+}
+
+@media (max-width: 640px) {
+  .seq-repeat-row,
+  .seq-repeat-row-comp,
+  .seq-repeat-row-prize,
+  .seq-choices {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .seq-row-remove {
+    justify-self: start;
+  }
 }
 
 .seq-service-card {

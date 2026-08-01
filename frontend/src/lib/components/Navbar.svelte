@@ -11,7 +11,7 @@
   // Sentinel for `open`; section keys are route paths, so this can't collide.
   const ACCOUNT = "#account";
 
-  let { viewer = null }: { viewer?: Viewer | null } = $props();
+  let { viewer = null, manage = false }: { viewer?: Viewer | null; manage?: boolean } = $props();
 
   const signInUrl = $derived(webAuthStartUrl());
   const signOutUrl = $derived(webAuthLogoutUrl());
@@ -104,6 +104,11 @@
 
       <a href={MAP} target="_blank" rel="noreferrer" class="seq-nav-link seq-nav-accent">Map</a>
       <a href={DISCORD} target="_blank" rel="noreferrer" class="seq-nav-link seq-nav-accent">Discord</a>
+      {#if manage}
+        <a href="/manage" class="seq-nav-link" class:seq-nav-link-active={isActive("/manage")}>
+          Manage
+        </a>
+      {/if}
       {#if viewer}
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <span
@@ -139,6 +144,13 @@
                   <a href={viewerCardUrl} onclick={() => open = null} class="seq-dropdown-item">
                     <span class="seq-dropdown-item-text">
                       <span class="seq-dropdown-item-label">Playercard</span>
+                    </span>
+                  </a>
+                {/if}
+                {#if manage}
+                  <a href="/manage" onclick={() => open = null} class="seq-dropdown-item">
+                    <span class="seq-dropdown-item-text">
+                      <span class="seq-dropdown-item-label">Manage</span>
                     </span>
                   </a>
                 {/if}
@@ -206,6 +218,9 @@
               <img class="seq-nav-face" src={nmsrFace(viewer.minecraftUuid, 18)} alt="" />
               {viewer.minecraftUsername}
             </a>
+          {/if}
+          {#if manage}
+            <a href="/manage" onclick={() => mobileOpen = false} class="seq-mobile-link">Manage</a>
           {/if}
           <a href="/account/settings" onclick={() => mobileOpen = false} class="seq-mobile-link">Settings</a>
           <a href={signOutUrl} class="seq-mobile-link">Sign out</a>

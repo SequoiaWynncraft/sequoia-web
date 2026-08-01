@@ -60,14 +60,15 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
     .then(memberRanksByUuid)
     .catch(() => EMPTY_RANKS);
   const { viewer } = await parent();
-  // Signed-in viewers await a roster refresh because membership is authorized
-  // against it; anonymous visitors take the stale-tolerant fast path.
-  const [events, stats, storedEvents] = await Promise.all([
-    loadRaidEvents(fetch),
-    getGuildStats(fetch, { allowStale: viewer === null }).catch(() => null),
-    // The hub decides who may know an event exists; this page only mirrors it.
-    eventStore.list().catch(() => [] as StoredEvent[]),
-  ]);
+// Regular signed-in viewers await a roster refresh because membership is                                                                                    
+    // authorized against it; administrators and anonymous visitors may use stale                                                                                
+    // display data.                                                                                                                                             
+    const [events, stats, storedEvents] = await Promise.all([                                                                                                    
+      loadRaidEvents(fetch),                                                                                                                                     
+      getGuildStats(fetch, { allowStale: viewer === null || viewer.websiteAdmin }).catch(() => null),                                                            
+      // The hub decides who may know an event exists; this page only mirrors it.                                                                                
+      eventStore.list().catch(() => [] as StoredEvent[]),                                                                                                        
+    ]);  
 
   const now = new Date();
 
@@ -147,21 +148,30 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
     };
   }
 
+  // Administrators are authorized independently and may filter the board from                                                                                 
+  // stale roster data; everyone else needs the fresh roster.                                                                                                  
+  const leaderboardRoster =                                                                                                                                    
+    freshRoster ?? (viewer?.websiteAdmin && stats !== null ? stats.members : null); 
   let leaderboard: RaidLeaderboardEntry[] = [];
   let leaderboardError: string | null = null;
 
   if (isMember && customWindow) {
-    const result = await loadModLeaderboard(
-      fetch,
-      { starts_at: customWindow.from, ends_at: customWindow.to, raid: selectedRaid },
-      freshRoster ?? [],
-    );
+    const result =
+      leaderboardRoster === null
+        ? unavailableLeaderboard()
+        : await loadModLeaderboard(
+            fetch,
+            { starts_at: customWindow.from, ends_at: customWindow.to, raid: selectedRaid },
+            leaderboardRoster,
+          );
     leaderboard = result.leaderboard;
     leaderboardError = result.error;
   } else if (isMember && selectedEvent) {
     const result =
       selectedEvent.tracking === "mod"
-        ? await loadModLeaderboard(fetch, selectedEvent, freshRoster ?? [])
+        ? leaderboardRoster === null
+          ? unavailableLeaderboard()
+          : await loadModLeaderboard(fetch, selectedEvent, leaderboardRoster)
         : await loadTrackerLeaderboard(fetch, selectedEvent.id);
     leaderboard = result.leaderboard;
     leaderboardError = result.error;
@@ -183,6 +193,7 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
         insigniaUrl: standing?.insigniaUrl ?? null,
         insignia: standing?.insignia ?? null,
         progressionRank: standing?.rank ?? null,
+        progressionRankColor: standing?.rankColor ?? null,
       };
     });
   }
@@ -204,6 +215,13 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
     activity,
   };
 };
+
+function unavailableLeaderboard() {
+  return {
+    leaderboard: [] as RaidLeaderboardEntry[],
+    error: "Member contributions are temporarily unavailable.",
+  };
+}
 
 async function loadActivity(fetchImpl: typeof fetch): Promise<ActivityDay[] | null> {
   const timedFetch: typeof fetch = (input, init) =>

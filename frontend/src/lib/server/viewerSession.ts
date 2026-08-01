@@ -1,7 +1,7 @@
 import { SEQUOIA_API_BASE_URL } from "$lib/config/public";
 import type { Viewer } from "$lib/site/viewer";
 
-/** Resolves the seq_session cookie to a verified member identity, or null. */
+/** Resolves the seq_session cookie to a verified website identity, or null. */
 export async function loadViewer(
   token: string | undefined,
   fetchImpl: typeof fetch,
@@ -20,6 +20,7 @@ export async function loadViewer(
       discordUsername: typeof me.discord_username === "string" ? me.discord_username : null,
       minecraftUuid: me.minecraft_uuid,
       minecraftUsername: typeof me.minecraft_username === "string" ? me.minecraft_username : null,
+      websiteAdmin: me.website_admin === true,
     };
   } catch {
     return null;

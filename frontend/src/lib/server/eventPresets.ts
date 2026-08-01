@@ -37,7 +37,12 @@ export async function listPresets(): Promise<EventPreset[]> {
   });
 }
 
-type ManageRequest = { request: Request; cookies: Cookies; fetch: typeof fetch };
+type ManageRequest = {
+  request: Request;
+  cookies: Cookies;
+  fetch: typeof fetch;
+  locals: App.Locals;
+};
 
 /** Shared ?/savePreset form action: upserts a named preset. */
 export async function savePresetAction(event: ManageRequest) {
@@ -67,8 +72,8 @@ export async function savePresetAction(event: ManageRequest) {
     sql: "INSERT OR REPLACE INTO guild_event_presets (name, payload, created_by, updated_at) VALUES (?, ?, ?, ?)",
     args: [name, payload, manager.discordId, Date.now()],
   });
-  await recordAudit(manager, "preset.save", name);
-  return { presetSaved: name };
+  const audited = await recordAudit(manager, "preset.save", name);
+  return { presetSaved: name, auditWarning: !audited };
 }
 
 /** Shared ?/deletePreset form action. */
@@ -79,8 +84,8 @@ export async function deletePresetAction(event: ManageRequest) {
   const db = await presetDb();
   const result = await db.execute({ sql: "DELETE FROM guild_event_presets WHERE name = ?", args: [name] });
   // A stale double-delete removes nothing and must not mint an audit row.
-  if (result.rowsAffected > 0) await recordAudit(manager, "preset.delete", name);
-  return { presetDeleted: name };
+  const audited = result.rowsAffected > 0 ? await recordAudit(manager, "preset.delete", name) : true;
+  return { presetDeleted: name, auditWarning: !audited };
 }
 
 function presetName(value: FormDataEntryValue | null): string | null {

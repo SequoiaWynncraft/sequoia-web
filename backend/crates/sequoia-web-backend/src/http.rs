@@ -12,19 +12,31 @@ use time::OffsetDateTime;
 use tower_http::trace::TraceLayer;
 use uuid::Uuid;
 
-use crate::{config::Config, db::Database, poller::RaidTracker};
+use crate::{
+    config::Config,
+    db::Database,
+    poller::{PollerHealth, PollerHealthSnapshot, RaidTracker},
+};
 
 #[derive(Clone)]
 pub struct AppState {
     pub config: Arc<Config>,
     pub db: Arc<Database>,
     pub tracker: RaidTracker,
+    pub poller_health: Arc<PollerHealth>,
 }
 
 #[derive(Serialize)]
 struct HealthResponse {
     status: &'static str,
     service: &'static str,
+}
+
+#[derive(Serialize)]
+struct ReadyResponse {
+    status: &'static str,
+    problems: Vec<String>,
+    poller: PollerHealthSnapshot,
 }
 
 #[derive(Deserialize)]
@@ -67,6 +79,7 @@ struct ErrorResponse {
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/health", get(health))
+        .route("/ready", get(ready))
         .route("/v1/raid-events", get(list_raid_events))
         .route("/v1/raid-events/{event_id}", get(raid_event))
         .route(
@@ -85,11 +98,93 @@ pub fn router(state: AppState) -> Router {
         .layer(TraceLayer::new_for_http())
 }
 
+/// Liveness only: the process is up and serving HTTP. Routing decisions
+/// belong to `/ready`.
 async fn health() -> Json<HealthResponse> {
     Json(HealthResponse {
         status: "ok",
         service: "sequoia-web-backend",
     })
+}
+
+/// Readiness: the tracker's core function is operating - database reachable,
+/// polling configured, and a successful poll recent enough to trust.
+async fn ready(State(state): State<AppState>) -> Response {
+    let db_ok = match state.db.ping().await {
+        Ok(()) => true,
+        Err(error) => {
+            tracing::warn!(%error, "readiness: database ping failed");
+            false
+        }
+    };
+    let poller = state.poller_health.snapshot();
+    let problems = readiness_problems(
+        db_ok,
+        state.tracker.polling_enabled(),
+        state.config.poll_interval,
+        &poller,
+    );
+
+    let (status, label) = if problems.is_empty() {
+        (StatusCode::OK, "ready")
+    } else {
+        (StatusCode::SERVICE_UNAVAILABLE, "not_ready")
+    };
+    (
+        status,
+        Json(ReadyResponse {
+            status: label,
+            problems,
+            poller,
+        }),
+    )
+        .into_response()
+}
+
+/// Polls that fail this many times in a row before ever succeeding end the
+/// startup readiness grace early.
+const STARTUP_FAILURE_LIMIT: u32 = 3;
+
+/// Pure readiness decision so every branch is unit-testable. Startup gets one
+/// stale-window of grace before "no successful poll yet" turns unready -
+/// unless polling is already observably failing.
+fn readiness_problems(
+    db_ok: bool,
+    polling_enabled: bool,
+    poll_interval: std::time::Duration,
+    poller: &PollerHealthSnapshot,
+) -> Vec<String> {
+    let mut problems = Vec::new();
+    if !db_ok {
+        problems.push("database unreachable".to_owned());
+    }
+    if polling_enabled {
+        let stale_after = (3 * poll_interval)
+            .max(std::time::Duration::from_secs(300))
+            .as_secs();
+        match poller.last_success_age_secs {
+            Some(age) if age > stale_after => {
+                problems.push(format!(
+                    "last successful poll was {age}s ago (limit {stale_after}s)"
+                ));
+            }
+            // Startup grace holds only while polling hasn't demonstrably
+            // failed: a bad token fails on the first attempts and must not
+            // keep routing traffic for a whole grace window.
+            None if poller.seconds_since_start > stale_after
+                || poller.consecutive_failures >= STARTUP_FAILURE_LIMIT =>
+            {
+                problems.push(format!(
+                    "no successful poll yet ({} consecutive failures, {}s since start)",
+                    poller.consecutive_failures, poller.seconds_since_start
+                ));
+            }
+            _ => {}
+        }
+    } else {
+        problems.push("polling disabled: WYNNCRAFT_ACCESS_TOKEN is not configured".to_owned());
+    }
+    problems
 }
 
 async fn list_raid_events(State(state): State<AppState>) -> Result<Response, ApiError> {
@@ -129,8 +224,30 @@ async fn member_raid_history(
 
 async fn poll_now(State(state): State<AppState>, headers: HeaderMap) -> Result<Response, ApiError> {
     require_internal_token(&state, &headers)?;
-    let summary = state.tracker.poll_once().await?;
-    Ok(Json(summary).into_response())
+    match state.tracker.poll_once().await {
+        Ok(summary) => Ok(Json(summary).into_response()),
+        // An upstream rate limit is the caller's signal to back off, not an
+        // internal fault; pass the reset window through so callers can honor it.
+        Err(error) => match error.downcast_ref::<crate::wynn::WynnError>() {
+            Some(crate::wynn::WynnError::RateLimited { retry_after }) => {
+                let mut response = ApiError::new(
+                    StatusCode::TOO_MANY_REQUESTS,
+                    "Wynncraft rate limited the poll - retry later",
+                )
+                .into_response();
+                if let Some(retry) = retry_after
+                    && let Ok(value) =
+                        axum::http::HeaderValue::from_str(&retry.as_secs().to_string())
+                {
+                    response
+                        .headers_mut()
+                        .insert(axum::http::header::RETRY_AFTER, value);
+                }
+                Ok(response)
+            }
+            _ => Err(ApiError::from(error)),
+        },
+    }
 }
 
 async fn create_raid_event(
@@ -288,5 +405,75 @@ impl IntoResponse for ApiError {
             }),
         )
             .into_response()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use crate::poller::PollerHealthSnapshot;
+
+    use super::readiness_problems;
+
+    const INTERVAL: Duration = Duration::from_secs(130);
+
+    fn poller(
+        last_success_age_secs: Option<u64>,
+        seconds_since_start: u64,
+        consecutive_failures: u32,
+    ) -> PollerHealthSnapshot {
+        PollerHealthSnapshot {
+            last_success_age_secs,
+            seconds_since_start,
+            consecutive_failures,
+            task_restarts: 0,
+        }
+    }
+
+    #[test]
+    fn ready_when_db_up_and_poll_recent() {
+        assert!(readiness_problems(true, true, INTERVAL, &poller(Some(10), 1000, 0)).is_empty());
+    }
+
+    #[test]
+    fn unready_when_database_is_down() {
+        let problems = readiness_problems(false, true, INTERVAL, &poller(Some(10), 1000, 0));
+        assert_eq!(problems, vec!["database unreachable".to_owned()]);
+    }
+
+    #[test]
+    fn unready_when_polling_is_not_configured() {
+        let problems = readiness_problems(true, false, INTERVAL, &poller(None, 10, 0));
+        assert_eq!(problems.len(), 1);
+        assert!(problems[0].contains("WYNNCRAFT_ACCESS_TOKEN"));
+    }
+
+    #[test]
+    fn unready_when_last_success_is_stale() {
+        // Stale window for a 130s interval is max(3*130, 300) = 390s.
+        assert!(readiness_problems(true, true, INTERVAL, &poller(Some(390), 10_000, 0)).is_empty());
+        let problems = readiness_problems(true, true, INTERVAL, &poller(Some(391), 10_000, 0));
+        assert_eq!(problems.len(), 1);
+        assert!(problems[0].contains("last successful poll"));
+    }
+
+    #[test]
+    fn startup_failures_end_the_grace_early() {
+        // Two failures could still be transient; three in a row without any
+        // success means polling is observably broken (e.g. a bad token).
+        assert!(readiness_problems(true, true, INTERVAL, &poller(None, 30, 2)).is_empty());
+        let problems = readiness_problems(true, true, INTERVAL, &poller(None, 30, 3));
+        assert_eq!(problems.len(), 1);
+        assert!(problems[0].contains("no successful poll"));
+    }
+
+    #[test]
+    fn startup_gets_one_stale_window_of_grace() {
+        // Covers a dead poll task too: successes stop, age keeps growing.
+        assert!(readiness_problems(true, true, INTERVAL, &poller(None, 390, 0)).is_empty());
+        let problems = readiness_problems(true, true, INTERVAL, &poller(None, 391, 0));
+        assert_eq!(problems.len(), 1);
+        assert!(problems[0].contains("no successful poll"));
     }
 }

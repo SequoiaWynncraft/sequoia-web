@@ -1,0 +1,311 @@
+<script lang="ts">
+  import { setContext } from "svelte";
+  import { enhance } from "$app/forms";
+
+  import "./editor.css";
+
+  import type { GuildEvent } from "$lib/events/types";
+  import type { EventFormContext, TrackerOption } from "$lib/server/eventFormContext";
+  import type { RaffleRoll as RaffleRollRecord } from "$lib/server/raffleRolls";
+
+  import Button from "$lib/design-system/components/Button.svelte";
+  import ConfirmDialog from "$lib/design-system/components/forms/ConfirmDialog.svelte";
+  import FormStatus from "$lib/design-system/components/forms/FormStatus.svelte";
+  import Select from "$lib/design-system/components/forms/Select.svelte";
+  import { EDITOR_KEY, EventDraft } from "./draft.svelte";
+  import PreviewPane from "./PreviewPane.svelte";
+  import SectionRail from "./SectionRail.svelte";
+  import AboutSection from "./sections/AboutSection.svelte";
+  import ActivitySection from "./sections/ActivitySection.svelte";
+  import CompSection from "./sections/CompSection.svelte";
+  import GoalsSection from "./sections/GoalsSection.svelte";
+  import IconSection from "./sections/IconSection.svelte";
+  import IdentitySection from "./sections/IdentitySection.svelte";
+  import MilestonesSection from "./sections/MilestonesSection.svelte";
+  import PrizesSection from "./sections/PrizesSection.svelte";
+  import RafflesSection from "./sections/RafflesSection.svelte";
+  import RulesSection from "./sections/RulesSection.svelte";
+  import ScheduleSection from "./sections/ScheduleSection.svelte";
+  import SkySection from "./sections/SkySection.svelte";
+  import StandingsSection from "./sections/StandingsSection.svelte";
+
+  let {
+    mode,
+    initial = null,
+    initialPublished = false,
+    initialUpdatedAt = null,
+    context = null,
+    rollHistory = null,
+    error = null,
+    saved = false,
+    trackerCreated = null,
+    trackerUpdated = null,
+    trackerError = null,
+    presetError = null,
+    auditWarning = false,
+    rollWarning = false,
+  }: {
+    mode: "create" | "edit";
+    initial?: GuildEvent | null;
+    initialPublished?: boolean;
+    /** Stored version the form loaded from; sent back so the save can reject a
+     * stale draft that would clobber a concurrent edit or roll. */
+    initialUpdatedAt?: number | null;
+    /** Picker data (roster, tracker events); the form degrades without it. */
+    context?: EventFormContext | null;
+    /** Persisted draw records for the raffle history, newest first. */
+    rollHistory?: RaffleRollRecord[] | null;
+    /** Rejection from the last server submission. */
+    error?: string | null;
+    saved?: boolean;
+    /** Result of the last ?/createTracker submission. */
+    trackerCreated?: TrackerOption | null;
+    /** Result of the last ?/updateTracker submission. */
+    trackerUpdated?: TrackerOption | null;
+    trackerError?: string | null;
+    presetError?: string | null;
+    /** The last action succeeded but its audit row did not land. */
+    auditWarning?: boolean;
+    /** The last roll landed but its stage replay record did not. */
+    rollWarning?: boolean;
+  } = $props();
+
+  const FORM_ID = "event-editor-form";
+
+  // The draft deliberately seeds from the props once - the parent remounts
+  // the editor via {#key} when the event changes. Live props (initial,
+  // trackerCreated/Updated, trackerError) are synced by the effects below.
+  // svelte-ignore state_referenced_locally
+  const draft = new EventDraft({ mode, initial, initialPublished, initialUpdatedAt, context });
+  setContext(EDITOR_KEY, draft);
+
+  let presetDeleteForm = $state<HTMLFormElement>();
+  let eventDeleteForm = $state<HTMLFormElement>();
+  let confirmPresetDelete = $state<ConfirmDialog | null>(null);
+  let confirmEventDelete = $state<ConfirmDialog | null>(null);
+
+  const footerError = $derived(
+    draft.showValidation && draft.liveError ? draft.liveError : error,
+  );
+  const footerWarning = $derived(
+    auditWarning
+      ? "Done, but not recorded in the audit log."
+      : rollWarning
+        ? "Rolled, but the stage replay was not recorded - viewers see the winner without a spin."
+        : null,
+  );
+
+  function deletePresetConfirmed() {
+    presetDeleteForm?.requestSubmit();
+  }
+
+  function deleteEventConfirmed() {
+    eventDeleteForm?.requestSubmit();
+  }
+
+  // A save that adds a raffle unlocks its roll button without a full reload -
+  // the rollability checks read the live stored event, never the mount seed.
+  $effect.pre(() => {
+    draft.liveInitial = initial ?? null;
+  });
+
+  $effect.pre(() => {
+    draft.serverTrackerError = trackerError;
+  });
+
+  $effect.pre(() => {
+    draft.serverSaved = saved;
+    draft.serverError = error;
+    draft.serverAuditWarning = auditWarning;
+    draft.serverRollWarning = rollWarning;
+  });
+
+  $effect.pre(() => {
+    draft.rollHistory = rollHistory ?? [];
+  });
+
+  // History capture after a quiet period. Replayed snapshots need no
+  // suppression flag: applySnapshot re-points lastCaptured at the applied
+  // state, so the debounced capture no-ops on equality, while a real edit
+  // in the quiet window still differs and lands.
+  $effect(() => {
+    const current = draft.payload;
+    draft.scheduleCapture(current);
+    return () => draft.cancelCapture();
+  });
+
+  // Adopt a tracker the server just created: list it and select it.
+  $effect(() => {
+    const created = trackerCreated;
+    if (created && !draft.trackerChoices.some((option) => option.id === created.id)) {
+      draft.trackerChoices.push(created);
+      draft.trackerEventId = created.id;
+      draft.trackerTracking = created.tracking;
+      draft.trackerManual = false;
+      draft.trackerEditor = "closed";
+    }
+  });
+
+  // Reflect a server-side tracker update into the picker list. The editor
+  // closes on any update response - a no-op save is still a successful save.
+  // Only the list mutation is guarded by equality, so the effect settles.
+  $effect(() => {
+    const updated = trackerUpdated;
+    if (!updated) return;
+    draft.trackerEditor = "closed";
+    const index = draft.trackerChoices.findIndex((option) => option.id === updated.id);
+    if (index >= 0 && JSON.stringify(draft.trackerChoices[index]) !== JSON.stringify(updated)) {
+      draft.trackerChoices[index] = updated;
+      if (draft.trackerEventId === updated.id) draft.trackerTracking = updated.tracking;
+    }
+  });
+
+  // Removing or emptying a personal milestone drops it from milestoneOptions;
+  // clear any milestone rule that pointed at it so the picker visibly resets
+  // and no stale id lingers until serialization. Setting "" is stable (falsy,
+  // so the effect no-ops on its own re-run).
+  $effect(() => {
+    const valid = new Set(draft.milestoneOptions.map((option) => option.id));
+    for (const raffle of draft.raffles) {
+      for (const rule of raffle.rules) {
+        if (rule.type === "milestone" && rule.milestoneId && !valid.has(rule.milestoneId)) {
+          rule.milestoneId = "";
+        }
+      }
+    }
+  });
+</script>
+
+<div class="evf-editor">
+  <aside class="evf-side" aria-label="Editor navigation and preview">
+    <SectionRail formId={FORM_ID} />
+    <PreviewPane />
+  </aside>
+
+  <div class="evf-main">
+    <div class="evf-toolbar">
+      <div class="evf-presets">
+        <Select
+          class="evf-preset-select"
+          bind:value={draft.selectedPreset}
+          aria-label="Saved presets"
+        >
+          <option value="">Presets…</option>
+          {#each draft.presetChoices as preset (preset.name)}
+            <option value={preset.name}>{preset.name}</option>
+          {/each}
+        </Select>
+        <Button
+          size="sm"
+          variant="secondary"
+          onclick={() => draft.loadPreset()}
+          disabled={!draft.selectedPreset}
+        >
+          Load
+        </Button>
+        <form bind:this={presetDeleteForm} method="POST" action="?/deletePreset" use:enhance={draft.presetDelete}>
+          <input type="hidden" name="presetName" value={draft.selectedPreset} />
+          <Button
+            size="sm"
+            variant="ghost"
+            onclick={() => confirmPresetDelete?.open()}
+            disabled={!draft.selectedPreset}
+          >
+            Delete
+          </Button>
+          <ConfirmDialog
+            bind:this={confirmPresetDelete}
+            title="Delete preset"
+            confirmLabel="Confirm delete"
+            cancelLabel="Keep"
+            danger
+            onconfirm={deletePresetConfirmed}
+          />
+        </form>
+        <form class="evf-preset-save" method="POST" action="?/savePreset" use:enhance={draft.presetSubmit}>
+          <input type="hidden" name="presetPayload" value={draft.presetPayload} />
+          <input
+            class="seq-input"
+            name="presetName"
+            bind:value={draft.newPresetName}
+            placeholder="Preset name"
+            maxlength="60"
+          />
+          <Button
+            type="submit"
+            size="sm"
+            variant="secondary"
+            disabled={!draft.newPresetName.trim()}
+          >
+            Save preset
+          </Button>
+        </form>
+      </div>
+    </div>
+    {#if presetError}
+      <p class="evf-toolbar-error"><span class="seq-field-error" role="alert">{presetError}</span></p>
+    {/if}
+
+    <form id={FORM_ID} class="evf-form" method="POST" action="?/save" use:enhance={draft.submit}>
+      <input type="hidden" name="payload" value={draft.payload} />
+      <!-- The version the visible draft is based on (see knownUpdatedAt): own
+           saves and rolls advance it so follow-up saves aren't rejected as
+           stale, but a change this tab never displayed is. -->
+      <input type="hidden" name="baseUpdatedAt" value={draft.knownUpdatedAt ?? ""} />
+      <input type="hidden" name="trackerPayload" value={draft.trackerPayload} />
+
+      <IdentitySection />
+      <ScheduleSection />
+      <SkySection />
+      <IconSection />
+      <AboutSection />
+      <RulesSection />
+      <ActivitySection />
+      <GoalsSection />
+      <MilestonesSection />
+      <StandingsSection />
+      <PrizesSection />
+      <CompSection />
+      <RafflesSection />
+
+      <div class="evf-footer">
+        <Button type="submit" disabled={draft.saving}>
+          {mode === "create" ? "Create event" : "Save changes"}
+        </Button>
+        {#if mode === "edit"}
+          <a class="evf-view focus-ring" href={`/events/${draft.slug}`}>View page</a>
+        {/if}
+        <FormStatus error={footerError} warning={footerWarning} {saved} compact />
+      </div>
+    </form>
+
+    {#if draft.memberChoices.length > 0}
+      <datalist id="evf-member-list">
+        {#each draft.memberChoices as member (member.username)}
+          <option value={member.username}></option>
+        {/each}
+      </datalist>
+    {/if}
+
+    {#if mode === "edit"}
+      <form bind:this={eventDeleteForm} class="evf-danger" method="POST" action="?/delete" use:enhance>
+        <!-- Same draft-pinned version token as the save form: deleting is only
+             safe against the version the manager actually reviewed. -->
+        <input type="hidden" name="baseUpdatedAt" value={draft.knownUpdatedAt ?? ""} />
+        <Button size="sm" variant="ghost" onclick={() => confirmEventDelete?.open()}>
+          Delete event
+        </Button>
+        <ConfirmDialog
+          bind:this={confirmEventDelete}
+          title="Delete event"
+          body="This permanently removes the event."
+          confirmLabel="Confirm delete"
+          cancelLabel="Keep"
+          danger
+          onconfirm={deleteEventConfirmed}
+        />
+      </form>
+    {/if}
+  </div>
+
+</div>

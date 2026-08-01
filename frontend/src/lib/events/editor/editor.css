@@ -1,0 +1,642 @@
+/* Event editor layout. Imported once by EventEditor.svelte and shared by the
+   section components (Svelte scoping can't reach across files). The input
+   skin itself is the global .seq-input in app.css; the section frame is the
+   FormSection component. */
+
+.evf-editor {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 40px;
+  align-items: start;
+}
+
+/* The rail reads first in DOM order (keyboard users reach navigation before
+   the thirteen sections); the grid pins it to the right column on desktop. */
+.evf-main {
+  container: evf-main / inline-size;
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+}
+
+.evf-side {
+  grid-column: 2;
+  grid-row: 1;
+  position: sticky;
+  top: calc(3.5rem + 20px);
+  display: grid;
+  gap: 26px;
+  max-height: calc(100vh - 3.5rem - 40px);
+  overflow-y: auto;
+}
+
+.evf-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.evf-history {
+  display: flex;
+  gap: 6px;
+}
+
+.evf-presets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.evf-presets form {
+  display: flex;
+  gap: 8px;
+}
+
+.evf-preset-select {
+  width: 170px;
+}
+
+.evf-preset-save .seq-input {
+  width: 160px;
+}
+
+.evf-toolbar-error {
+  margin: 10px 0 0;
+}
+
+.evf-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.evf-grid-colors {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 14px;
+}
+
+.evf-static {
+  padding: 9px 0;
+  color: var(--text-muted);
+  font-family: var(--font-data);
+  font-size: var(--text-sm);
+}
+
+.evf-check {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  color: var(--text-body);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.evf-check input {
+  accent-color: var(--color-gold);
+  translate: 0 1px;
+}
+
+.evf-check small {
+  display: block;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.evf-color-pair {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 8px;
+  align-items: stretch;
+}
+
+.evf-color-pair input[type="color"] {
+  width: 38px;
+  height: 100%;
+  min-height: 38px;
+  padding: 3px;
+  border: 1px solid var(--color-border-subtle);
+  background: transparent;
+  cursor: pointer;
+}
+
+/* ── Eligibility builder ── */
+
+.evf-weight-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.evf-weight-mode {
+  width: auto;
+  min-width: 230px;
+}
+
+.evf-weight-stat {
+  width: auto;
+}
+
+.evf-weight-per {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.evf-weight-per input {
+  width: 74px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.evf-weight-per-label {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+.evf-rule {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border-left: 2px solid color-mix(in srgb, var(--color-gold) 35%, var(--color-border-subtle));
+  background: color-mix(in srgb, var(--color-abyss) 40%, transparent);
+}
+
+.evf-rule-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.evf-rule-type {
+  color: var(--text-heading);
+  font-family: var(--font-display);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+}
+
+.evf-rule-stat {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.evf-rule-stat select {
+  width: auto;
+}
+
+.evf-rule-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+
+.evf-manual-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.evf-manual-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-body);
+  font-family: var(--font-data);
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.evf-manual-add {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.evf-manual-add input {
+  max-width: 220px;
+}
+
+.evf-roll-history {
+  margin-top: 14px;
+}
+
+.evf-roll-history-summary {
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.evf-roll-history-list {
+  display: grid;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.evf-roll-history-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  align-items: baseline;
+  padding: 7px 4px;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.evf-roll-history-when {
+  color: var(--text-muted);
+  font-family: var(--font-data);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.evf-roll-history-what {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--text-body);
+  font-family: var(--font-data);
+  font-size: var(--text-xs);
+}
+
+.evf-roll-history-superseded {
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+}
+
+.evf-raffle {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--color-border-subtle);
+  margin-bottom: 10px;
+}
+
+.evf-raffle-results {
+  display: grid;
+  gap: 8px;
+  margin-top: 22px;
+}
+
+.evf-raffle-result {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) 44px;
+  gap: 10px;
+  align-items: center;
+}
+
+.evf-raffle-result-head {
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+}
+
+.evf-raffle-roll-head {
+  text-align: center;
+}
+
+.evf-raffle-cell {
+  padding: 10px 12px;
+  border: 1px solid var(--color-border-subtle);
+  background: color-mix(in srgb, var(--color-abyss) 45%, transparent);
+  color: var(--text-body);
+  font-family: var(--font-data);
+  font-size: var(--text-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.evf-raffle-unrolled {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.evf-raffle-roll-cell {
+  display: flex;
+  justify-content: center;
+}
+
+.evf-roll-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid color-mix(in srgb, var(--color-gold) 45%, var(--color-border-subtle));
+  background: transparent;
+  color: var(--color-gold);
+  font-size: 1.05rem;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    border-color var(--dur-fast) ease,
+    background var(--dur-fast) ease,
+    transform var(--dur-fast) ease;
+}
+
+.evf-roll-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-gold) 12%, transparent);
+  transform: rotate(-45deg);
+}
+
+.evf-roll-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.evf-raffle-savefirst {
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  text-align: center;
+}
+
+.evf-goal {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--color-border-subtle);
+}
+
+.evf-goal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.evf-goal-preview {
+  display: grid;
+  gap: 18px;
+  padding: 18px;
+  border: 1px solid var(--color-border-subtle);
+  background: rgba(19, 22, 31, 0.5);
+}
+
+.evf-goal-preview-item {
+  display: grid;
+  gap: 12px;
+}
+
+.evf-goal-preview-slider {
+  display: grid;
+  gap: 6px;
+}
+
+.evf-goal-preview-slider input[type="range"] {
+  width: 100%;
+  accent-color: var(--ev-accent, var(--color-gold));
+}
+
+.evf-icon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(86px, 1fr));
+  gap: 10px;
+}
+
+.evf-icon-option {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px 6px 10px;
+  border: 1px solid var(--color-border-subtle);
+  background: none;
+  cursor: pointer;
+  transition: border-color var(--dur-fast) ease;
+}
+
+.evf-icon-option:hover {
+  border-color: var(--color-border-accent);
+}
+
+.evf-icon-option-selected,
+.evf-icon-option-selected:hover {
+  border-color: color-mix(in srgb, var(--color-gold) 55%, var(--color-border-subtle));
+}
+
+.evf-icon-option img {
+  width: 36px;
+  height: 36px;
+  image-rendering: pixelated;
+}
+
+.evf-icon-none {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.evf-icon-label {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-wider);
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.evf-icon-option-selected .evf-icon-label {
+  color: var(--color-gold);
+}
+
+.evf-icon-placements {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 28px;
+}
+
+.evf-tracker-new {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--color-border-subtle);
+}
+
+.evf-tracker-new-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.evf-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+  padding-top: 26px;
+}
+
+.evf-view {
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-wider);
+  text-decoration: none;
+  text-transform: uppercase;
+  transition: color var(--dur-fast) ease;
+}
+
+.evf-view:hover {
+  color: var(--color-gold);
+}
+
+.evf-danger {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-top: 44px;
+  padding-top: 18px;
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.evf-preview {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 34px 22px;
+  text-align: center;
+}
+
+.evf-preview-spark {
+  font-size: var(--text-sm);
+}
+
+.evf-preview-icon {
+  width: 32px;
+  height: 32px;
+  image-rendering: pixelated;
+}
+
+.evf-preview-name {
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  letter-spacing: var(--tracking-wide);
+  line-height: var(--leading-tight);
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+.evf-preview-tagline {
+  color: var(--text-body);
+  font-size: var(--text-sm);
+}
+
+.evf-preview-goal {
+  width: min(280px, 100%);
+  margin-top: 10px;
+}
+
+@media (max-width: 1000px) {
+  .evf-editor {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .evf-main,
+  .evf-side {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .evf-side {
+    position: static;
+    max-height: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .evf-grid-2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Prize art picker: the event-icon grid vocabulary at raffle-card scale. */
+.evf-prize-icons .evf-icon-option img {
+  image-rendering: pixelated;
+}
+
+/* ── Wide viewports ──
+   The console must use a big monitor, not center a phone column on it: the
+   compact "setup" sections pair two across, while the program sections
+   (goals, milestones, prizes, comp, standings, raffles - repeaters and
+   boards) keep the full line. Still ONE form; only the layout changes. */
+/* The editor main column measures itself: media queries can't see how much
+   width survives the management rail + preview column, so the two-column
+   split keys off the form's actual container. ~1080px gives two ~510px
+   columns - below that, pairs would crush nested field grids. */
+@container evf-main (min-width: 1080px) {
+  .evf-form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 56px;
+  }
+
+  .evf-form > * {
+    grid-column: 1 / -1;
+    min-width: 0;
+  }
+
+  .evf-form > .evf-half {
+    grid-column: auto;
+  }
+
+  /* Pairs keep their natural heights: identical stretched rows would give
+     both sections the same scroll interval, and the rail could never
+     activate the right-hand one. A ragged hairline is the cheaper cost. */
+  .evf-form {
+    align-items: start;
+  }
+
+  .evf-form > .form-section {
+    align-content: start;
+  }
+
+  .evf-form > .evf-half:nth-of-type(-n + 2) {
+    padding-top: 0;
+  }
+}
+
+/* Rail category headings: quiet dividers, not navigation. */
+.rail-cat {
+  margin-top: 14px;
+  padding: 0 0 4px 10px;
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-size: 0.55rem;
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+.rail-cat:first-child {
+  margin-top: 0;
+}

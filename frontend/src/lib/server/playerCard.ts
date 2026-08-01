@@ -64,6 +64,7 @@ function playerResource(uuid: string): CachedResource<StoredPlayer> {
 function findMember(members: Record<string, unknown>, name: string): { uuid: string } | null {
   const wanted = name.trim().toLowerCase();
   if (!wanted) return null;
+  const wantedUuid = wanted.replaceAll("-", "");
 
   for (const group of Object.values(members)) {
     if (!isRecord(group)) continue;
@@ -72,7 +73,9 @@ function findMember(members: Record<string, unknown>, name: string): { uuid: str
       const username = stringValue(member.username) ?? stringValue(member.legacyName) ?? identifier;
       const uuid = stringValue(member.uuid);
       if (!uuid) continue;
-      if (username.toLowerCase() === wanted || uuid.toLowerCase() === wanted) return { uuid };
+      if (username.toLowerCase() === wanted || uuid.replaceAll("-", "").toLowerCase() === wantedUuid) {
+        return { uuid };
+      }
     }
   }
   return null;

@@ -30,6 +30,8 @@ export interface RaidLeaderboardEntry {
   insignia?: string | null;
   /** Sequoia internal/progression rank label (e.g. "Druid"), when known. */
   progressionRank?: string | null;
+  /** Primary color of the authoritative Discord progression role, when known. */
+  progressionRankColor?: string | null;
 }
 
 export type LeaderboardResult = { leaderboard: RaidLeaderboardEntry[]; error: string | null };
@@ -162,8 +164,8 @@ export async function loadRaffleEligible(
 ): Promise<RaffleEligibility> {
   // Resolve the tracked event once and reuse it for both board reads below, so a
   // windowed gated raffle doesn't fetch the raid-events list twice.
-  const tracked = (await loadRaidEvents(fetchImpl)).find((entry) => entry.id === tracker.eventId);
-  const board = await loadRaffleLeaderboard(fetchImpl, tracker, roster, options, tracked);
+  const tracked = await resolveTrackedEvent(fetchImpl, tracker.eventId);
+  const board = await loadTrackerBoard(fetchImpl, tracker, roster, options, tracked);
   if (board.error) return { entrants: [], error: board.error };
   // The milestone gate reads the full-window standings. Without a raffle window
   // the ticket board already IS the full board, so reuse it; otherwise fetch the
@@ -171,7 +173,7 @@ export async function loadRaffleEligible(
   let gate: Set<string> | null = null;
   if (options.requiredRaids !== undefined && options.requiredRaids > 0) {
     const fullBoard = options.window
-      ? await loadRaffleLeaderboard(fetchImpl, tracker, roster, {}, tracked)
+      ? await loadTrackerBoard(fetchImpl, tracker, roster, {}, tracked)
       : board;
     if (fullBoard.error) return { entrants: [], error: fullBoard.error };
     gate = new Set(
@@ -190,7 +192,21 @@ export async function loadRaffleEligible(
   return { entrants, error: null };
 }
 
-async function loadRaffleLeaderboard(
+/** Finds the backend raid event a tracker points at, for `loadTrackerBoard`. */
+export async function resolveTrackedEvent(
+  fetchImpl: typeof fetch,
+  eventId: string,
+): Promise<RaidEvent | undefined> {
+  return (await loadRaidEvents(fetchImpl)).find((entry) => entry.id === eventId);
+}
+
+/**
+ * The roster-restricted contribution board a raffle counts raids on,
+ * optionally narrowed to a window (mod trackers only - API trackers expose
+ * whole-window totals, so a window is rejected there). Pass `tracked` when
+ * the caller already resolved it, to avoid refetching the raid-events list.
+ */
+export async function loadTrackerBoard(
   fetchImpl: typeof fetch,
   tracker: NonNullable<GuildEvent["tracker"]>,
   roster: GuildMemberStats[],

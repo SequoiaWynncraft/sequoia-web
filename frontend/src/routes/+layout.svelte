@@ -1,18 +1,29 @@
 <script lang="ts">
   import "$lib/design-system/styles.css";
   import "../app.css";
-  import { page } from "$app/state";
+  import { beforeNavigate } from "$app/navigation";
+  import { page, updated } from "$app/state";
   import { NMSR_PRECONNECT_ORIGIN } from "$lib/config/public";
+  import { staleNavigationUrl } from "$lib/site/deploymentVersion";
   import Navbar from "$lib/components/Navbar.svelte";
   import Footer from "$lib/components/Footer.svelte";
   import type { Snippet } from "svelte";
   import type { Viewer } from "$lib/site/viewer";
 
-  let { children, data }: { children: Snippet; data: { viewer: Viewer | null } } = $props();
+  beforeNavigate(({ willUnload, to }) => {
+    const destination = staleNavigationUrl(updated.current, willUnload, to?.url ?? null);
+    if (destination) location.href = destination;
+  });
+
+  let {
+    children,
+    data,
+  }: { children: Snippet; data: { viewer: Viewer | null; manageVisible: boolean } } = $props();
   const isHome = $derived(page.url.pathname === "/");
   // Event pages open with a full-bleed sky that tucks under the translucent
-  // navbar, exactly like the homepage hero. The manage pages are plain chrome.
-  const isFullBleed = $derived(isHome || /^\/events\/(?!manage(?:\/|$))./.test(page.url.pathname));
+  // navbar, exactly like the homepage hero. (/events/manage/** only issues
+  // server redirects to /manage/**, which stays plain chrome.)
+  const isFullBleed = $derived(isHome || /^\/events\/./.test(page.url.pathname));
 </script>
 
 <svelte:head>
@@ -28,7 +39,7 @@
     <div class="seq-page-backdrop-glow seq-page-backdrop-glow-low"></div>
     <div class="seq-page-backdrop-vignette"></div>
   </div>
-  <Navbar viewer={data.viewer} />
+  <Navbar viewer={data.viewer} manage={data.manageVisible} />
   <main class="seq-main-shell" class:seq-main-home={isFullBleed}>
     {@render children()}
   </main>

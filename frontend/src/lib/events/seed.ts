@@ -3,7 +3,7 @@ import type { GuildEvent } from "./types";
 /**
  * One-time seed for the event store: imported into the database the first
  * time it initializes, then never consulted again - events are managed
- * through /events/manage from that point on. Deleting a seeded event does
+ * through /manage/events from that point on. Deleting a seeded event does
  * not resurrect it.
  */
 export const SEED_EVENTS: GuildEvent[] = [

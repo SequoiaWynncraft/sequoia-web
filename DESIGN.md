@@ -69,18 +69,19 @@ backend's HTTP API (rule stated in `docs/architecture.md`).
 **Stack:** SvelteKit 2.67 / Svelte 5 (runes), TypeScript, Vite 8, `@sveltejs/adapter-node` (run under Bun 1.3).
 No CSS framework and no store library.
 
-**Routing** (`frontend/src/routes/`): file-based, `prerender = true` globally via
-`+layout.ts`; dynamic pages opt out. Public pages:
+**Routing** (`frontend/src/routes/`): file-based, `prerender = false` globally via
+`+layout.ts`. Public pages:
 
 - `/` — hero, live guild stat blocks, service cards, community artwork ("The Sequoian
   Tree"), and "The Branchmasters" leadership grid with 3D skin renders and online status.
 - `/news`, `/legal`, `/services{,/bagshop,/announcements,/requests,/contact}`
 - `/events` — the events hub: full-width "sky bands" grouped by status (live/upcoming/past),
   each rendered in its event's own theme; `/events/{slug}` is the per-event page (themed
-  hero, goal meter, activity chart, member standings, prize pool, comp, rules). Events
+  hero, goal meter, activity chart, member standings, prize pool, comp, rules), and
+  `/events/{slug}/raffle` is the live raffle stage (below). Events
   live as validated JSON rows in the site database (`lib/server/eventStore.ts`, seeded
-  once from `lib/events/seed.ts`) and are managed at `/events/manage` — a dashboard with
-  a live sky preview, gated to strategist+ against a fresh roster
+  once from `lib/events/seed.ts`) and are managed at `/manage/events` — part of the
+  management console, gated to strategist+ against a fresh roster
   (`lib/server/eventManagers.ts`); unpublished drafts stay invisible outside manage
   except as a manager preview. `parseGuildEvent` (`lib/events/validate.ts`) guards both
   the form submissions and the stored rows, so the `GuildEvent` type can grow without
@@ -106,6 +107,77 @@ No CSS framework and no store library.
 - `/statistics/guilds/raid` — the flagship dynamic page: loads raid events and, for
   authenticated guild members, the contribution leaderboard (`+page.server.ts`).
 
+**Management console** (`/manage/**`): every management surface lives under one
+permission-gated shell — a sticky sidebar of areas the viewer can access, driven by a
+registry (`lib/manage/registry.ts`) with one area per org branch (Events, Treasury,
+Military, Community, End-game, Development). An area with `href: null` is defined but
+hidden until its branch gets console content; giving a branch its first page means
+setting `href` (and links) in the registry and gating the page on its capability key
+via `pageAreaAccess`, which every page in an area calls before reading protected data.
+Access is uniform (`lib/server/branchAccess.ts`): a branch area is granted to that
+branch's full members (trainees excluded), guild leadership (strategist+), and website
+admins — always against fresh data; stale or missing roster/profile reads fail closed
+to `unverified`. Only an area with an extra authority needs code in
+`lib/server/manageCapabilities.ts` (treasury also accepts the bag-shop bot's staff
+flag, memoized, failures never cached).
+`routes/manage/+layout.server.ts` calls `peekManageCapabilities` once per request with
+one access vocabulary (`granted/signin/unverified/denied`); all branch areas compute
+from a single bounded stale-tolerant roster + profiles snapshot, so the peek budget
+does not grow with the area count. The navbar's Manage entry (`navManageVisible`) shows
+only when a granted area has content; navbar and sidebar results never authorize a
+page. Legacy URL navigations and other non-POST requests
+(`/events/manage/**`, `/services/bagshop/manage`) 308-redirect via a pure map
+(`lib/manage/redirects.ts`). Legacy management POSTs are deliberately intercepted in
+`hooks.server.ts` and internally re-dispatched to the mapped route with their method and
+body preserved; do not replace that rewrite with an enhanced-action redirect, which would
+turn the submission into a GET and drop it. The event editor (`lib/events/editor/`) is one
+form split into section components sharing an `EventDraft` runes class over context (one
+payload, one undo history, one version token), with a scrollspy rail, per-section issue badges,
+and shared form primitives (`lib/design-system/components/forms/`, skinned by the global
+`seq-input` in `app.css`).
+
+**Raffles**: a raffle's pool is defined by composable eligibility
+(`EventRaffle.eligibility` — AND-composed rules over the fresh roster: guild rank,
+Sequoia ladder rank, windowed stat thresholds from the daily rollups, personal
+milestones; manual include/exclude; flat, per-raid, or per-stat ticket weights), resolved
+server-side in `lib/server/raffleEligibility.ts` (fail-closed; legacy raffles without the
+block keep their exact original semantics). The editor previews the pool via
+`POST /api/manage/raffle-preview` — display-only and stale-tolerant (it accepts a cached
+roster where the roll insists on a fresh one), so its entrants and odds are a guide, not
+the authoritative draw. The roll action draws with the same resolver, builds the wheel snapshot
+(entrants, winner index, spin choreography), and inserts it into `raffle_rolls`
+(`lib/server/raffleRolls.ts`) as PENDING *before* the whole-event CAS grafts the winner.
+That order closes the visibility gap: the pending row masks the slot on the public event
+page while the winner commit and activation complete, but pending rows never reach the
+stage. If the CAS loses, the action supersedes that pending row; if it wins, `markLive`
+conditionally flips the row live and reports whether the transition actually happened.
+Only a successfully flipped row is broadcast over in-process pub/sub. Failed cleanup or
+activation cannot create a false stage result: an abandoned pending row becomes invisible
+to the public page and stage when `latestForEvent` skips it after its settle time expires,
+and it can no longer mask the slot or shadow an older live roll. The management roll
+history uses `listForEvent(slug, 25)` to show the latest 25 records, including abandoned or
+stranded pending rows, without a separate marker. Pending rows abandoned after a lost CAS
+never had a winner committed to the authoritative event JSON; pending rows stranded by an
+activation failure follow a successful CAS and therefore accompany a committed winner. In
+the latter case the event JSON stays authoritative, only the stage replay and live animation
+are lost, and the manager sees a roll warning distinct from an audit failure. A delivery error
+on one subscriber's stream costs only that stream the live push — the persisted live record
+still replays on its reconnect snapshot
+(`lib/server/liveRolls.ts`, single-replica by design) to
+`GET /events/{slug}/raffle/stream` (native SSE, heartbeats). The stream and stage gate
+harder than the event page: a member-only event still serves non-members its public
+hero, but their stream and stage requests are denied outright. Stream authorization is
+judged at CONNECT time — an open stream is not re-checked mid-flight, but every
+visibility change that matters (deletion, unpublishing, public→members) tears the room
+down server-side, and the browser's reconnect lands back in the connect-time check. The
+stage page renders a deterministic SVG wheel (`lib/events/stage/`): every
+viewer computes the same landing from the same roll data, and reduced motion renders the
+parked result. Timed SSE messages carry the server's `now`; `StageFeed` derives the
+client-to-server clock offset when each message arrives, and `RaffleWheel` subtracts it
+when comparing local time with the server's `startedAt` and `settlesAt`. Absolute client
+clock skew therefore cancels. Only message transit latency leaves a small timing offset
+between viewers, and it never changes the winner the wheel lands on.
+
 Several statistics subpages (`rankings`, `playercard`, `player/raids`, `news`) are
 scaffolded placeholders rendered from shared metadata; `frontend/src/lib/site/nav.ts` is the
 single source of truth for navigation, breadcrumbs, tabs, and placeholder copy — route files
@@ -124,8 +196,9 @@ stay thin by calling `pageView(path)`.
   method/path/body with the viewer's `seq_session` cookie attached as a bearer token
   (`lib/server/bagshop.ts`); the bot enforces customer-vs-staff authorization. The typed client
   (`lib/api/bagshop.ts`) consumes it with the same `ApiResult` + runtime-guard discipline as the
-  stats client, and the `/services/bagshop` page (customer ordering) and `/services/bagshop/manage`
-  page (staff, gated on the bot's `GET /me` staff flag) are built on it.
+  stats client, and the `/services/bagshop` page (customer ordering) and `/manage/bagshop`
+  panel (staff, gated on the bot's `GET /me` staff flag via the console's capabilities) are
+  built on it.
 
 **API contract discipline:**
 - `bun run api:types` generates `src/lib/api/generated/public-api.ts` from the sibling
