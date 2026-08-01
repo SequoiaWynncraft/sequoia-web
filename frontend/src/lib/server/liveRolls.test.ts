@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { StageMessage } from "$lib/events/stageProtocol";
 
-import { endRoom, publish, roomEpoch, subscribe, subscriberCount } from "./liveRolls";
+import { endRoom, publish, retireAllRooms, roomEpoch, subscribe, subscriberCount } from "./liveRolls";
 
 const MESSAGE: StageMessage = { type: "event-updated" };
 
@@ -59,6 +59,7 @@ describe("room teardown", () => {
     publish("event-e", MESSAGE);
     expect(listener).not.toHaveBeenCalled();
   });
+
 });
 
 describe("room epochs", () => {
@@ -87,5 +88,22 @@ describe("teardown races", () => {
     publish("event-g", MESSAGE);
     expect(replacement).toHaveBeenCalledWith(MESSAGE);
     newUnsub();
+  });
+});
+
+describe("process retirement", () => {
+  it("ends every room and refuses reconnecting streams", () => {
+    const endHere = vi.fn();
+    const endThere = vi.fn();
+    subscribe("event-h", vi.fn(), endHere);
+    subscribe("event-i", vi.fn(), endThere);
+
+    retireAllRooms();
+
+    expect(endHere).toHaveBeenCalledOnce();
+    expect(endThere).toHaveBeenCalledOnce();
+    expect(subscriberCount("event-h")).toBe(0);
+    expect(subscriberCount("event-i")).toBe(0);
+    expect(subscribe("event-h", vi.fn())).toBeNull();
   });
 });

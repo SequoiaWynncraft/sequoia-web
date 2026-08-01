@@ -14,9 +14,9 @@ FROM oven/bun:1.3.14-alpine AS runtime
 WORKDIR /app/frontend
 ENV NODE_ENV=production
 ENV PORT=3000
-# Coolify keeps the retiring container discoverable until it exits. Bound
-# adapter-node's drain so Traefik cannot route to a closed listener for 30s.
-ENV SHUTDOWN_TIMEOUT=0
+# The app keeps its listener open while active requests finish, then exits in
+# one step so the retiring container is never a dead Traefik endpoint.
+STOPSIGNAL SIGUSR2
 # The container only ever sits behind the reverse proxy, so derive the site
 # origin from its forwarded headers - form actions 403 on a wrong origin.
 ENV PROTOCOL_HEADER=x-forwarded-proto
@@ -26,6 +26,8 @@ COPY --from=deps /app/node_modules /app/node_modules
 COPY --from=deps /app/frontend/node_modules /app/frontend/node_modules
 COPY --from=build /app/frontend/build build
 COPY --from=build /app/frontend/package.json package.json
+COPY frontend/retirement.js retirement.js
+COPY frontend/server.js server.js
 
 EXPOSE 3000
-CMD ["bun", "./build/index.js"]
+CMD ["bun", "./server.js"]

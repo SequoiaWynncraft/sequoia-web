@@ -6,6 +6,7 @@ import { env } from "$env/dynamic/private";
 import { createClient, type Client } from "@libsql/client";
 
 let dbPromise: Promise<Client> | undefined;
+let dbClient: Client | undefined;
 
 /**
  * Shared libsql client for all server-side storage. Each consumer owns its
@@ -19,16 +20,24 @@ export function database(): Promise<Client> {
   return dbPromise;
 }
 
+/** Flushes and releases the local database before the process exits. */
+export function closeDatabase(): void {
+  dbPromise = undefined;
+  dbClient?.close();
+  dbClient = undefined;
+}
+
 async function createDatabase(): Promise<Client> {
   const url = databaseUrl();
   const localPath = localDatabasePath(url);
   if (localPath) await mkdir(path.dirname(localPath), { recursive: true });
 
-  return createClient({
+  dbClient = createClient({
     url,
     authToken: env.TURSO_AUTH_TOKEN?.trim() || undefined,
     timeout: 5000,
   });
+  return dbClient;
 }
 
 function databaseUrl(): string {
