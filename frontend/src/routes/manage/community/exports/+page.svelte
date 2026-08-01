@@ -1,5 +1,5 @@
 <script lang="ts">
-  import ManageGate from "$lib/manage/ManageGate.svelte";
+  import AreaGate from "$lib/manage/AreaGate.svelte";
   import ManageHeader from "$lib/manage/ManageHeader.svelte";
   import Button from "$lib/design-system/components/Button.svelte";
   import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
@@ -22,15 +22,7 @@
   />
 
   {#if data.access !== "granted"}
-    <ManageGate
-      access={data.access}
-      returnTo="/manage/community/exports"
-      title="Community branch only"
-      signinText="Sign in to export guild stats."
-      deniedText="Exports are for the Community branch and guild leadership."
-      backHref="/statistics"
-      backLabel="Back to statistics"
-    />
+    <AreaGate area="community" access={data.access} returnTo="/manage/community/exports" />
   {:else if data.datasets}
     {#each data.datasets as dataset (dataset.id)}
       <section class="export-section">

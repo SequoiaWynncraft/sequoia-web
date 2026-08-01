@@ -1,5 +1,14 @@
 import type { AreaAccess, ManageAreaId, ManageBranchKey, ManageCapabilities } from "./types";
 
+/** The copy an area's access gate shows; rendered by AreaGate. */
+export interface AreaGateCopy {
+  title: string;
+  signinText: string;
+  deniedText: string;
+  backHref: string;
+  backLabel: string;
+}
+
 export interface ManageArea {
   id: ManageAreaId;
   label: string;
@@ -11,6 +20,7 @@ export interface ManageArea {
   marker: string;
   /** Sub-pages listed under the area in the console sidebar. */
   links: { label: string; href: string }[];
+  gate: AreaGateCopy;
 }
 
 /** An area with console content: `href` is narrowed to a real route. */
@@ -32,6 +42,13 @@ export const MANAGE_AREAS: readonly ManageArea[] = [
     href: "/manage/events",
     marker: "✦",
     links: [{ label: "New event", href: "/manage/events/new" }],
+    gate: {
+      title: "Events branch only",
+      signinText: "Sign in to manage guild events.",
+      deniedText: "Events are managed by the Events branch and guild leadership.",
+      backHref: "/events",
+      backLabel: "Back to events",
+    },
   },
   {
     id: "treasury",
@@ -40,6 +57,13 @@ export const MANAGE_AREAS: readonly ManageArea[] = [
     href: "/manage/treasury/bagshop",
     marker: "◆",
     links: [{ label: "Bag shop", href: "/manage/treasury/bagshop" }],
+    gate: {
+      title: "Treasury branch only",
+      signinText: "Sign in to manage the bag shop.",
+      deniedText: "The bag shop is managed by the Treasury branch, shop staff, and guild leadership.",
+      backHref: "/services/bagshop",
+      backLabel: "Back to the shop",
+    },
   },
   {
     id: "military",
@@ -48,6 +72,13 @@ export const MANAGE_AREAS: readonly ManageArea[] = [
     href: null,
     marker: "◆",
     links: [],
+    gate: {
+      title: "Military branch only",
+      signinText: "Sign in to use military tools.",
+      deniedText: "Military tools are for the Military branch and guild leadership.",
+      backHref: "/",
+      backLabel: "Back to home",
+    },
   },
   {
     id: "community",
@@ -60,6 +91,13 @@ export const MANAGE_AREAS: readonly ManageArea[] = [
       { label: "Announcements", href: "/manage/community/announcements" },
       { label: "Blog", href: "/manage/community/blog" },
     ],
+    gate: {
+      title: "Community branch only",
+      signinText: "Sign in to use community tools.",
+      deniedText: "Community tools are for the Community branch and guild leadership.",
+      backHref: "/statistics",
+      backLabel: "Back to statistics",
+    },
   },
   {
     id: "endGame",
@@ -68,6 +106,13 @@ export const MANAGE_AREAS: readonly ManageArea[] = [
     href: null,
     marker: "◆",
     links: [],
+    gate: {
+      title: "End-game branch only",
+      signinText: "Sign in to use end-game tools.",
+      deniedText: "End-game tools are for the End-game branch and guild leadership.",
+      backHref: "/",
+      backLabel: "Back to home",
+    },
   },
   {
     id: "development",
@@ -76,6 +121,13 @@ export const MANAGE_AREAS: readonly ManageArea[] = [
     href: "/manage/development/audit",
     marker: "◆",
     links: [{ label: "Audit log", href: "/manage/development/audit" }],
+    gate: {
+      title: "Development branch only",
+      signinText: "Sign in to use development tools.",
+      deniedText: "Development tools are for the Development branch and guild leadership.",
+      backHref: "/manage",
+      backLabel: "Back to manage",
+    },
   },
 ];
 

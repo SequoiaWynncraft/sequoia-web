@@ -4,9 +4,9 @@
 
   import Button from "$lib/design-system/components/Button.svelte";
   import Card from "$lib/design-system/components/Card.svelte";
-  import SectionHeading from "$lib/design-system/components/SectionHeading.svelte";
+  import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
   import { createBagshopClient, RARITIES, type Order } from "$lib/api/bagshop";
-  import ManageGate from "$lib/manage/ManageGate.svelte";
+  import AreaGate from "$lib/manage/AreaGate.svelte";
   import ManageHeader from "$lib/manage/ManageHeader.svelte";
   import { groupInventoryByRaid } from "$lib/site/bagshop";
   import type { PageData } from "./$types";
@@ -118,21 +118,13 @@
 
 <div class="mg-page">
   <ManageHeader
-    area="Bag shop"
+    area="Treasury"
     title="Orders & stock"
     lead="Claim, fill and decline orders, and edit stock, prices and caps."
   />
 
   {#if data.access !== "granted"}
-    <ManageGate
-      access={data.access}
-      returnTo="/manage/treasury/bagshop"
-      title="Shop staff only"
-      signinText="Sign in to manage the bag shop."
-      deniedText="The bag shop panel is restricted to shop staff."
-      backHref="/services/bagshop"
-      backLabel="Back to the shop"
-    />
+    <AreaGate area="treasury" access={data.access} returnTo="/manage/treasury/bagshop" />
   {:else}
     {#if actionError}
       <p class="mg-error">{actionError}</p>
@@ -140,7 +132,9 @@
 
     <!-- ─── Open orders ───────────────────────────────────────────────── -->
     <section class="mg-section">
-      <SectionHeading kicker="Queue" align="left">Open orders</SectionHeading>
+      <SectionLabel>
+        {#snippet children()}Open orders{/snippet}
+      </SectionLabel>
       {#if data.ordersError}
         <Card hoverEffect={false}>
           <p class="mg-error">Couldn't load the order queue right now. Please try again shortly.</p>
@@ -215,7 +209,9 @@
 
     <!-- ─── Inventory editor ──────────────────────────────────────────── -->
     <section class="mg-section">
-      <SectionHeading kicker="Inventory" align="left">Stock, prices &amp; caps</SectionHeading>
+      <SectionLabel>
+        {#snippet children()}Stock, prices &amp; caps{/snippet}
+      </SectionLabel>
       <p class="mg-lead">Prices are in emerald blocks. A cap of 0 means no limit.</p>
       {#if data.inventoryError}
         <Card hoverEffect={false}>

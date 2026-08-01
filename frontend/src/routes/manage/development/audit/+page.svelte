@@ -5,7 +5,7 @@
   import type { LedgerColumn } from "$lib/design-system/components/ledgerTable";
   import type { AuditEntry } from "$lib/server/auditLog";
   import { nmsrFace } from "$lib/site/nmsr";
-  import ManageGate from "$lib/manage/ManageGate.svelte";
+  import AreaGate from "$lib/manage/AreaGate.svelte";
 
   let { data } = $props();
 
@@ -70,15 +70,7 @@
   <ManageHeader area="Development" title="Audit log" />
 
   {#if data.access !== "granted"}
-    <ManageGate
-      access={data.access}
-      returnTo="/manage/development/audit"
-      title="Development branch only"
-      signinText="Sign in to read the audit log."
-      deniedText="The audit log is for the Development branch and guild leadership."
-      backHref="/manage"
-      backLabel="Back to manage"
-    />
+    <AreaGate area="development" access={data.access} returnTo="/manage/development/audit" />
   {:else if data.entries === null}
     <p class="mg-muted" role="alert">
       The audit log is unavailable right now - actions may be recorded that cannot be shown. Reload to retry.

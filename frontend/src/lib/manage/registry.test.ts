@@ -45,6 +45,16 @@ describe("registry", () => {
     ]);
   });
 
+  it("carries complete gate copy for every area", () => {
+    for (const area of MANAGE_AREAS) {
+      expect(area.gate.title.length, area.id).toBeGreaterThan(0);
+      expect(area.gate.signinText.length, area.id).toBeGreaterThan(0);
+      expect(area.gate.deniedText.length, area.id).toBeGreaterThan(0);
+      expect(area.gate.backHref.startsWith("/"), area.id).toBe(true);
+      expect(area.gate.backLabel.length, area.id).toBeGreaterThan(0);
+    }
+  });
+
   it("names every tool as a sub-link under its category", () => {
     const treasury = MANAGE_AREAS.find((area) => area.id === "treasury");
     expect(treasury?.links).toEqual([{ label: "Bag shop", href: "/manage/treasury/bagshop" }]);

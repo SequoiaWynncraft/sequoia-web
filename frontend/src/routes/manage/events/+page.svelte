@@ -5,7 +5,7 @@
   import { raidIconUrl } from "$lib/events/raidIcons";
   import type { EventStatus } from "$lib/events/types";
   import ManageHeader from "$lib/manage/ManageHeader.svelte";
-  import EventsGate from "./EventsGate.svelte";
+  import AreaGate from "$lib/manage/AreaGate.svelte";
 
   let { data } = $props();
 
@@ -26,7 +26,7 @@
   <ManageHeader area="Events" title="Events" />
 
   {#if data.access !== "granted"}
-    <EventsGate access={data.access} returnTo="/manage/events" />
+    <AreaGate area="events" access={data.access} returnTo="/manage/events" />
   {:else if data.entries}
     {#if data.auditWarning}
       <p class="mg-audit-warning" role="alert">
