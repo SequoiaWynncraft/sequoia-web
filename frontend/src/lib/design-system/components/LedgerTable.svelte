@@ -157,6 +157,7 @@
           {#each columns as column (column.key)}
             {@const mark = column.color?.(row) ?? null}
             {@const link = column.href?.(row) ?? null}
+            {@const valueColor = column.valueColor?.(row) ?? null}
             {@const secondary = column.secondary?.(row) ?? null}
             {@const secondaryColor = column.secondaryColor?.(row) ?? null}
             {@const avatar = column.avatar?.(row) ?? null}
@@ -177,9 +178,11 @@
               {/if}
               {#if mark}<span class="mark" style="background:{mark}" aria-hidden="true"></span>{/if}
               {#if link}
-                <a href={link} class="cell-link">{column.value(row)}</a>
+                <a href={link} class="cell-link" style:color={valueColor ?? undefined}
+                  >{column.value(row)}</a
+                >
               {:else}
-                {column.value(row)}
+                <span style:color={valueColor ?? undefined}>{column.value(row)}</span>
               {/if}
               {#if secondary}<span
                   class="secondary"
