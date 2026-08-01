@@ -6,8 +6,11 @@ import { SEQUOIA_API_BASE_URL, SEQUOIA_GUILD_UUID } from "$lib/config/public";
 import { createCachedResource } from "$lib/server/serverCache";
 
 /**
- * The backend snapshots guild levels every ten minutes, so refetching faster
- * than half that interval only ever returns what is already cached.
+ * Kept short because reloading the page is how staff pick up a level-up, and a
+ * longer cache would make that reload do nothing. The backend observes the
+ * configured guild from Wynncraft's two-minute-cached guild response; this
+ * window decides how much longer the site waits on top of that. Most reads still
+ * land on an unchanged snapshot, which is cheap.
  */
 const FRESH_MS = 5 * 60 * 1000;
 

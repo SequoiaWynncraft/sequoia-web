@@ -22,7 +22,7 @@ const RESPONSE = {
   prefix: "SEQ",
   current_level: 245,
   level_observed_at: "2026-07-30T11:08:51.822744Z",
-  entries: [{ level: 245, observed_at: "2026-07-29T15:59:15.913142Z" }],
+  entries: [{ level: 245, observed_at: "2026-07-29T15:59:15.913142Z", baseline: true }],
 };
 
 /**

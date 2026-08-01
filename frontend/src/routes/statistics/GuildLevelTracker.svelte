@@ -41,7 +41,6 @@
   // span back to it is not a level's worth of raids and must not be offered.
   const canCopyCommand = $derived(tracker.history[1]?.fromLevel != null);
   const canCopyPayout = $derived(tracker.payoutText !== null);
-
   /** Formats an ISO instant as "dd/MM/yyyy, HH:mm:ss" in the resolved timezone. */
   function stamp(iso: string): string {
     return new Intl.DateTimeFormat("en-GB", {
@@ -91,8 +90,11 @@
 
   function copyCommand() {
     const [last, previous] = tracker.history;
-    if (!last || !previous || previous.fromLevel === null) return;
-    copy(`-graids -g SEQ -r ${daysAgo(previous.reachedAt)} ${daysAgo(last.reachedAt)}`, "command");
+    if (!last || !previous) return;
+    copy(
+      `-graids -g SEQ -r ${daysAgo(previous.observedAt)} ${daysAgo(last.observedAt)}`,
+      "command",
+    );
   }
 
   function copyPayout() {
@@ -148,9 +150,13 @@
           <li>
             <span class="entry-level">Level {entry.level}</span>
             <span class="entry-gap">
-              {older ? `${dayGap(older.reachedAt, entry.reachedAt)} days` : "—"}
+              {#if older}
+                {dayGap(older.observedAt, entry.observedAt)} days
+              {:else}
+                —
+              {/if}
             </span>
-            <span class="entry-time">{stamp(entry.reachedAt)}</span>
+            <span class="entry-time">First observed {stamp(entry.observedAt)}</span>
           </li>
         {/each}
       </ul>
@@ -158,7 +164,10 @@
       <p class="empty">No level-ups recorded yet.</p>
     {/if}
 
-    <p class="foot">Sequoia [SEQ] · guild level from the Wynncraft API · refreshed every few minutes</p>
+    <p class="foot">
+      Sequoia [SEQ] · level changes first observed from the Wynncraft API · refreshed every few
+      minutes
+    </p>
   </div>
 </details>
 
