@@ -127,16 +127,18 @@ describe("buildPayoutText", () => {
     ).toBeNull();
   });
 
-  it("will not quote a gap measured from the oldest recorded row", () => {
+  it("still quotes a gap measured from the oldest recorded row", () => {
     // `fromLevel: null` marks a row that may be a first observation rather than
-    // an observed level-up, so the days count would start at "when tracking
-    // began" - and staff pay 0.5LE per raid over whatever window this quotes.
-    expect(
-      buildPayoutText([
-        { level: 245, fromLevel: 244, reachedAt: "2026-07-29T01:45:24.811Z" },
-        { level: 244, fromLevel: null, reachedAt: "2026-07-26T17:45:23.605Z" },
-      ]),
-    ).toBeNull();
+    // an observed level-up, so this gap starts at "when tracking began" and runs
+    // short. The message is built anyway - the tracker says so beside the button
+    // rather than withholding the payout for the level-up that just happened.
+    const text = buildPayoutText([
+      { level: 245, fromLevel: 244, reachedAt: "2026-07-29T01:45:24.811Z" },
+      { level: 244, fromLevel: null, reachedAt: "2026-07-26T17:45:23.605Z" },
+    ]);
+
+    expect(text).toContain("# Level 245 Reached!");
+    expect(text).toContain("2.3333 days");
   });
 });
 
@@ -241,13 +243,17 @@ describe("loadGuildLevelTracker", () => {
     expect(tracker?.payoutText).toBeNull();
   });
 
-  it("has no payout message while the older of two rows is the first observation", async () => {
+  it("has a payout message as soon as the backend has recorded two rows", async () => {
+    // The older row is a first observation, so the quoted window runs short -
+    // this is the shape of the live backend right after tracking begins, and the
+    // buttons have to work in it rather than wait for a third row.
     H.history = historyResponse(TWO_LEVEL_UPS);
 
     const tracker = await loadGuildLevelTracker(fetch, VIEWER);
 
     expect(tracker?.history).toHaveLength(2);
-    expect(tracker?.payoutText).toBeNull();
+    expect(tracker?.history[1]?.fromLevel).toBeNull();
+    expect(tracker?.payoutText).toContain("# Level 245 Reached!");
   });
 
   it("shows an empty history when the backend has recorded no level change", async () => {
