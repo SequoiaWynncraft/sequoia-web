@@ -109,19 +109,23 @@ No CSS framework and no store library.
 
 **Management console** (`/manage/**`): every management surface lives under one
 permission-gated shell — a sticky sidebar of areas the viewer can access, driven by a
-registry (`lib/manage/registry.ts`). Adding an area takes a registry entry and a
-`ManageCapabilities` key, a bounded display-only result in `peekManageCapabilities` for
-the sidebar, and a strict branch in `pageAreaAccess` that every page in the area calls
-before reading protected data. If the area introduces a new privilege, add its bounded
-display check to `navManageVisible` for the navbar too; navbar and sidebar results never
-authorize a page.
-`routes/manage/+layout.server.ts` calls `peekManageCapabilities` once per request
-(`lib/server/manageCapabilities.ts`) with one access vocabulary
-(`granted/signin/unverified/denied`) across areas: events authorize via
-`checkEventManager` (strategist+ against a fresh roster, admins bypass), the bag shop via
-the bot's staff flag (memoized, failures never cached). The navbar's Manage entry uses a
-cheap stale-tolerant variant, while `pageAreaAccess` resolves only the requested area's
-strict authority. Legacy URL navigations and other non-POST requests
+registry (`lib/manage/registry.ts`) with one area per org branch (Events, Treasury,
+Military, Community, End-game, Development). An area with `href: null` is defined but
+hidden until its branch gets console content; giving a branch its first page means
+setting `href` (and links) in the registry and gating the page on its capability key
+via `pageAreaAccess`, which every page in an area calls before reading protected data.
+Access is uniform (`lib/server/branchAccess.ts`): a branch area is granted to that
+branch's full members (trainees excluded), guild leadership (strategist+), and website
+admins — always against fresh data; stale or missing roster/profile reads fail closed
+to `unverified`. Only an area with an extra authority needs code in
+`lib/server/manageCapabilities.ts` (treasury also accepts the bag-shop bot's staff
+flag, memoized, failures never cached).
+`routes/manage/+layout.server.ts` calls `peekManageCapabilities` once per request with
+one access vocabulary (`granted/signin/unverified/denied`); all branch areas compute
+from a single bounded stale-tolerant roster + profiles snapshot, so the peek budget
+does not grow with the area count. The navbar's Manage entry (`navManageVisible`) shows
+only when a granted area has content; navbar and sidebar results never authorize a
+page. Legacy URL navigations and other non-POST requests
 (`/events/manage/**`, `/services/bagshop/manage`) 308-redirect via a pure map
 (`lib/manage/redirects.ts`). Legacy management POSTs are deliberately intercepted in
 `hooks.server.ts` and internally re-dispatched to the mapped route with their method and

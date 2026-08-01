@@ -1,9 +1,9 @@
 import { createBagshopClient } from "$lib/api/bagshop";
-import { MANAGER_RANKS, checkEventManager } from "$lib/server/eventManagers";
-import { getGuildStats } from "$lib/server/guildStats";
-import { sameUuid } from "$lib/server/raidEventBoards";
-import type { AreaAccess, ManageCapabilities } from "$lib/manage/types";
+import { MANAGE_AREAS, accessibleAreas } from "$lib/manage/registry";
+import type { AreaAccess, ManageAreaId, ManageBranchKey, ManageCapabilities } from "$lib/manage/types";
 import type { Viewer } from "$lib/site/viewer";
+
+import { branchAccessFrom, checkBranchArea, loadBranchSnapshot } from "./branchAccess";
 
 type StaffCheck = "staff" | "not-staff" | "unavailable";
 
@@ -71,8 +71,8 @@ function checkBagshopStaff(
   return entry.check;
 }
 
-/** How long the navbar will wait for a cold staff check before rendering
- * without the link; the settled answer shows on the next load. */
+/** How long display callers wait for a cold authority before rendering
+ * without it; the settled answer shows on the next load. */
 const PEEK_WAIT_MS = 150;
 
 /**
@@ -99,47 +99,53 @@ function bagshopAccess(check: StaffCheck): AreaAccess {
   return check === "not-staff" ? "denied" : "unverified";
 }
 
-async function eventsAreaAccess(fetchImpl: typeof fetch, viewer: Viewer): Promise<AreaAccess> {
-  const access = await checkEventManager(fetchImpl, viewer);
-  return access === "manager" ? "granted" : access;
-}
-
-async function bagshopAreaAccess(fetchImpl: typeof fetch, viewer: Viewer): Promise<AreaAccess> {
-  return bagshopAccess(await checkBagshopStaff(fetchImpl, viewer, { fresh: true }));
-}
-
 /**
- * Bounded, stale-tolerant roster read for display-only console navigation.
- * Protected pages use the strict per-area resolver below before reading data.
+ * The better of two authorities' answers, for areas that accept either: a
+ * grant from one side stands regardless of the other, and a retryable
+ * unknown beats a definite denial.
  */
-async function peekEventsAreaAccess(fetchImpl: typeof fetch, viewer: Viewer): Promise<AreaAccess> {
-  if (viewer.websiteAdmin) return "granted";
-  const stats = await Promise.race([
-    getGuildStats(fetchImpl, { allowStale: true }).catch(() => null),
-    new Promise<null>((resolve) => setTimeout(() => resolve(null), PEEK_WAIT_MS)),
-  ]);
-  if (!stats) return "unverified";
-  const member = stats.members.find(
-    (entry) => entry.uuid !== null && sameUuid(entry.uuid, viewer.minecraftUuid),
-  );
-  return member && MANAGER_RANKS.includes(member.rank) ? "granted" : "denied";
+export function combineAccess(a: AreaAccess, b: AreaAccess): AreaAccess {
+  if (a === "granted" || b === "granted") return "granted";
+  if (a === "unverified" || b === "unverified") return "unverified";
+  if (a === "denied" || b === "denied") return "denied";
+  return a;
+}
+
+function areaBranch(area: ManageAreaId): ManageBranchKey {
+  const entry = MANAGE_AREAS.find((candidate) => candidate.id === area);
+  if (!entry) throw new Error(`Unknown manage area: ${area}`);
+  return entry.branch;
 }
 
 /**
- * Resolves the sidebar's area list with bounded display-only peeks. Each area
- * is checked independently and protected pages still resolve only their own
- * authority strictly before consuming data.
+ * Resolves the sidebar's area list with bounded display-only peeks. Every
+ * branch area computes from ONE stale-tolerant roster + profiles snapshot,
+ * so the peek budget does not scale with the number of areas; the bag-shop
+ * staff flag rides its own memo in parallel. Protected pages still resolve
+ * only their own authority strictly before consuming data.
  */
 export async function peekManageCapabilities(
   fetchImpl: typeof fetch,
   viewer: Viewer | null,
 ): Promise<ManageCapabilities> {
-  if (!viewer) return { events: "signin", bagshop: "signin" };
-  const [events, bagshop] = await Promise.all([
-    peekEventsAreaAccess(fetchImpl, viewer),
-    peekBagshopStaff(fetchImpl, viewer).then((check) => bagshopAccess(check ?? "unavailable")),
+  if (!viewer) {
+    const capabilities = {} as ManageCapabilities;
+    for (const area of MANAGE_AREAS) capabilities[area.id] = "signin";
+    return capabilities;
+  }
+  const [snapshot, staff] = await Promise.all([
+    loadBranchSnapshot(fetchImpl, { allowStale: true, waitMs: PEEK_WAIT_MS }),
+    peekBagshopStaff(fetchImpl, viewer),
   ]);
-  return { events, bagshop };
+  const capabilities = {} as ManageCapabilities;
+  for (const area of MANAGE_AREAS) {
+    capabilities[area.id] = branchAccessFrom(snapshot, viewer, area.branch);
+  }
+  capabilities.treasury = combineAccess(
+    capabilities.treasury,
+    bagshopAccess(staff ?? "unavailable"),
+  );
+  return capabilities;
 }
 
 /**
@@ -155,18 +161,37 @@ export async function peekManageCapabilities(
 export async function pageAreaAccess(
   fetchImpl: typeof fetch,
   viewer: Viewer | null,
-  area: keyof ManageCapabilities,
+  area: ManageAreaId,
 ): Promise<AreaAccess> {
   if (!viewer) return "signin";
-  return area === "events"
-    ? eventsAreaAccess(fetchImpl, viewer)
-    : bagshopAreaAccess(fetchImpl, viewer);
+  if (area !== "treasury") return checkBranchArea(fetchImpl, viewer, areaBranch(area));
+  // Treasury accepts either authority: the branch role or the bot's staff
+  // allowlist. A grant from one is conclusive and must not wait out the
+  // other's timeout; only a non-grant waits for both answers to combine.
+  // The bot still re-rejects non-staff mutations itself.
+  const checks = [
+    checkBranchArea(fetchImpl, viewer, "treasury"),
+    checkBagshopStaff(fetchImpl, viewer, { fresh: true }).then(bagshopAccess),
+  ];
+  return new Promise((resolve) => {
+    let remaining = checks.length;
+    const settled: AreaAccess[] = [];
+    for (const check of checks) {
+      void check.then((access) => {
+        if (access === "granted") return resolve("granted");
+        settled.push(access);
+        if (--remaining === 0) resolve(settled.reduce(combineAccess));
+      });
+    }
+  });
 }
 
 /**
- * Cheap check for the navbar's Manage entry: stale-tolerant roster, memoized
- * staff flag. Display-only - the /manage routes re-check strictly, so a stale
- * "true" costs a click into a gate, never access.
+ * Cheap check for the navbar's Manage entry: the same bounded peeks as the
+ * sidebar, true only when some area with console content is granted - a
+ * branch with no pages yet should not dangle a dead link. Display-only: the
+ * /manage routes re-check strictly, so a stale "true" costs a click into a
+ * gate, never access.
  */
 export async function navManageVisible(
   fetchImpl: typeof fetch,
@@ -174,11 +199,6 @@ export async function navManageVisible(
 ): Promise<boolean> {
   if (!viewer) return false;
   if (viewer.websiteAdmin) return true;
-  const [events, bagshop] = await Promise.all([
-    peekEventsAreaAccess(fetchImpl, viewer),
-    peekBagshopStaff(fetchImpl, viewer),
-  ]);
-  // Bounded peek: the first page after sign-in may briefly hide the link;
-  // staff still reach /manage directly, and the next load shows it.
-  return events === "granted" || bagshop === "staff";
+  const capabilities = await peekManageCapabilities(fetchImpl, viewer);
+  return accessibleAreas(capabilities).length > 0;
 }

@@ -9,7 +9,7 @@
 
   const path = $derived(page.url.pathname);
   const capabilities = $derived.by(() => {
-    const currentArea = MANAGE_AREAS.find((area) => activeArea(area.href));
+    const currentArea = MANAGE_AREAS.find((area) => area.href !== null && activeArea(area.href));
     if (!currentArea || page.data.access !== "granted") return data.capabilities;
     return { ...data.capabilities, [currentArea.id]: "granted" as const };
   });

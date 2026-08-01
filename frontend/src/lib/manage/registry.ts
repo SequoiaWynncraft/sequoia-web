@@ -1,24 +1,34 @@
-import type { AreaAccess, ManageAreaId, ManageCapabilities } from "./types";
+import type { AreaAccess, ManageAreaId, ManageBranchKey, ManageCapabilities } from "./types";
 
 export interface ManageArea {
   id: ManageAreaId;
   label: string;
-  href: string;
+  /** The org branch whose members hold this area (leadership holds all). */
+  branch: ManageBranchKey;
+  /** Landing page, or null while the branch has no console content yet. */
+  href: string | null;
   /** Section marker: ◆ for org areas, ✦ for event areas (see DESIGN.md). */
   marker: string;
   /** Sub-pages listed under the area in the console sidebar. */
   links: { label: string; href: string }[];
 }
 
+/** An area with console content: `href` is narrowed to a real route. */
+export interface ManageContentArea extends ManageArea {
+  href: string;
+}
+
 /**
- * Every management area, in sidebar order. Adding an area means one entry
- * here plus one capability key in ManageCapabilities - the console shell,
- * landing redirect, and navbar visibility all derive from this table.
+ * Every management area, in sidebar order - one per org branch. Adding
+ * content to a branch means setting its `href` (and links) here plus a page
+ * gated on its capability key; the console shell, landing redirect, and
+ * navbar visibility all derive from this table.
  */
 export const MANAGE_AREAS: readonly ManageArea[] = [
   {
     id: "events",
     label: "Events",
+    branch: "events",
     href: "/manage/events",
     marker: "✦",
     links: [
@@ -27,19 +37,62 @@ export const MANAGE_AREAS: readonly ManageArea[] = [
     ],
   },
   {
-    id: "bagshop",
-    label: "Bag shop",
+    id: "treasury",
+    label: "Treasury",
+    branch: "treasury",
     href: "/manage/bagshop",
+    marker: "◆",
+    links: [],
+  },
+  {
+    id: "military",
+    label: "Military",
+    branch: "military",
+    href: null,
+    marker: "◆",
+    links: [],
+  },
+  {
+    id: "community",
+    label: "Community",
+    branch: "community",
+    href: null,
+    marker: "◆",
+    links: [],
+  },
+  {
+    id: "endGame",
+    label: "End-game",
+    branch: "end_game",
+    href: null,
+    marker: "◆",
+    links: [],
+  },
+  {
+    id: "development",
+    label: "Development",
+    branch: "development",
+    href: null,
     marker: "◆",
     links: [],
   },
 ];
 
-export function accessibleAreas(capabilities: ManageCapabilities): ManageArea[] {
-  return MANAGE_AREAS.filter((area) => capabilities[area.id] === "granted");
+function hasContent(area: ManageArea): area is ManageContentArea {
+  return area.href !== null;
 }
 
-export function firstAccessible(capabilities: ManageCapabilities): ManageArea | null {
+/** Areas with console content, regardless of access - the landing's checklist. */
+export function contentAreas(): ManageContentArea[] {
+  return MANAGE_AREAS.filter(hasContent);
+}
+
+/** Granted areas with content, in sidebar order. */
+export function accessibleAreas(capabilities: ManageCapabilities): ManageContentArea[] {
+  return MANAGE_AREAS.filter(hasContent).filter((area) => capabilities[area.id] === "granted");
+}
+
+export function firstAccessible(capabilities: ManageCapabilities): ManageContentArea | null {
   return accessibleAreas(capabilities)[0] ?? null;
 }
 
