@@ -52,11 +52,22 @@ async function loadProfilesHalf(
 
 export async function loadBranchSnapshot(
   fetchImpl: typeof fetch,
-  options: { allowStale: boolean },
+  options: { allowStale: boolean; waitMs?: number },
 ): Promise<BranchSnapshot> {
+  // Each half is bounded on its own: a slow profile service must not throw
+  // away a roster that already answered - the roster alone settles
+  // leadership, and losing it would hide the console from owners for the
+  // render. An unbounded caller just awaits both.
+  const bounded = <T>(half: Promise<T | null>): Promise<T | null> =>
+    options.waitMs === undefined
+      ? half
+      : Promise.race([
+          half,
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), options.waitMs)),
+        ]);
   const [roster, profiles] = await Promise.all([
-    loadRosterHalf(fetchImpl, options.allowStale),
-    loadProfilesHalf(fetchImpl, options.allowStale),
+    bounded(loadRosterHalf(fetchImpl, options.allowStale)),
+    bounded(loadProfilesHalf(fetchImpl, options.allowStale)),
   ]);
   return { roster, profiles };
 }

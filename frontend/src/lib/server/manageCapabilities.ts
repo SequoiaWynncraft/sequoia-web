@@ -134,16 +134,12 @@ export async function peekManageCapabilities(
     return capabilities;
   }
   const [snapshot, staff] = await Promise.all([
-    Promise.race([
-      loadBranchSnapshot(fetchImpl, { allowStale: true }),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), PEEK_WAIT_MS)),
-    ]),
+    loadBranchSnapshot(fetchImpl, { allowStale: true, waitMs: PEEK_WAIT_MS }),
     peekBagshopStaff(fetchImpl, viewer),
   ]);
-  const snap = snapshot ?? { roster: null, profiles: null };
   const capabilities = {} as ManageCapabilities;
   for (const area of MANAGE_AREAS) {
-    capabilities[area.id] = branchAccessFrom(snap, viewer, area.branch);
+    capabilities[area.id] = branchAccessFrom(snapshot, viewer, area.branch);
   }
   capabilities.treasury = combineAccess(
     capabilities.treasury,

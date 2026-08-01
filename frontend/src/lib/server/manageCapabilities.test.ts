@@ -143,6 +143,18 @@ describe("peekManageCapabilities", () => {
     expect((await peekManageCapabilities(fetch, who)).treasury).toBe("granted");
   });
 
+  it("keeps a completed roster when only the profiles half times out", async () => {
+    rosterWith("strategist");
+    mockProfiles.mockReturnValue(new Promise(() => undefined) as never);
+    const startedAt = Date.now();
+    const capabilities = await peekManageCapabilities(fetch, viewer());
+    expect(Date.now() - startedAt).toBeLessThan(1000);
+    // Leadership reads from the roster alone; the lost profiles half must
+    // not cost owners their Manage navigation for the render.
+    expect(capabilities.events).toBe("granted");
+    expect(capabilities.development).toBe("granted");
+  });
+
   it("waits the bounded peek, not the full timeout, when the roster hangs", async () => {
     mockStats.mockReturnValue(new Promise(() => undefined) as never);
     mockProfiles.mockReturnValue(new Promise(() => undefined) as never);
