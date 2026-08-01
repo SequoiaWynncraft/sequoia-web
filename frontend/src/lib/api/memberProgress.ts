@@ -49,6 +49,7 @@ export function isMemberProgressResponse(value: unknown): value is MemberProgres
         // Raffle eligibility thresholds and weights read this directly - a
         // missing count must fail validation, not read as zero wars.
         typeof (member as Record<string, unknown>).wars === "number" &&
+        typeof (member as Record<string, unknown>).wars_participated === "number" &&
         typeof (member as Record<string, unknown>).war_points === "number" &&
         // The progress export dereferences the per-raid breakdown; a payload
         // without it must fail validation, not 500 the download.

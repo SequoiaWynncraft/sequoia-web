@@ -226,6 +226,20 @@ describe("buildExport", () => {
       war_points: 0,
       raids: 0,
     };
+    const { wars_participated: _dropped, ...withoutParticipation } = {
+      ...entry,
+      raids_by_type: {},
+    };
+    // Every exported column must be validated - wars_participated included.
+    expect(
+      (await import("$lib/api/memberProgress")).isMemberProgressResponse({
+        generated_at: "now",
+        from: "2026-07-01",
+        to: "2026-07-31",
+        data_since: { activity: "", raids: "", war_points: "" },
+        members: [withoutParticipation],
+      }),
+    ).toBe(false);
     const base = {
       generated_at: "now",
       from: "2026-07-01",
