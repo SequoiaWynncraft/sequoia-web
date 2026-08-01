@@ -3,10 +3,13 @@ import { guildRankLabel } from "$lib/api/guildStats";
 import type { CsvValue } from "$lib/server/csv";
 import { KNOWN_RAIDS } from "$lib/site/raids";
 
+import type { RankProfilesResponse } from "$lib/api/client";
+import type { MemberProgressResponse } from "$lib/api/memberProgress";
+
 import { getGuildStats } from "./guildStats";
 import { loadModRunCounts } from "./modActivity";
-import { getMemberProgress } from "./memberProgress";
-import { getLinkedRankProfiles, memberRanksByUuid } from "./rankProfiles";
+import { getMemberProgressResult } from "./memberProgress";
+import { getLinkedRankProfilesResult, memberRanksByUuid } from "./rankProfiles";
 import { sameUuid } from "./raidEventBoards";
 
 export type ExportDatasetId = "roster" | "progress" | "daily-runs";
@@ -136,10 +139,28 @@ async function loadRoster(fetchImpl: typeof fetch): Promise<GuildMemberStats[] |
     .catch(() => null);
 }
 
+async function loadFreshProfiles(fetchImpl: typeof fetch): Promise<RankProfilesResponse | null> {
+  // Both staleness flags rejected, as the authorization path does: our
+  // cache's and the backend's own Discord snapshot.
+  return getLinkedRankProfilesResult(fetchImpl, { allowStale: false })
+    .then((result) => (result.stale || result.data.source.stale ? null : result.data))
+    .catch(() => null);
+}
+
+async function loadFreshProgress(
+  fetchImpl: typeof fetch,
+  from: string,
+  to: string,
+): Promise<MemberProgressResponse | null> {
+  return getMemberProgressResult(fetchImpl, from, to, { allowStale: false })
+    .then((result) => (result.stale ? null : result.data))
+    .catch(() => null);
+}
+
 async function buildRoster(fetchImpl: typeof fetch): Promise<ExportRows> {
   const [members, profiles] = await Promise.all([
     loadRoster(fetchImpl),
-    getLinkedRankProfiles(fetchImpl).catch(() => null),
+    loadFreshProfiles(fetchImpl),
   ]);
   if (members === null) {
     return { ok: false, status: 503, message: "Member data is temporarily unavailable" };
@@ -222,7 +243,7 @@ async function buildRoster(fetchImpl: typeof fetch): Promise<ExportRows> {
 async function buildProgress(fetchImpl: typeof fetch, params: ExportParams): Promise<ExportRows> {
   if (!params.from || !params.to) return { ok: false, status: 400, message: "Missing date range" };
   const [progress, roster] = await Promise.all([
-    getMemberProgress(fetchImpl, params.from, params.to).catch(() => null),
+    loadFreshProgress(fetchImpl, params.from, params.to),
     params.rosterOnly ? loadRoster(fetchImpl) : Promise.resolve(null),
   ]);
   if (progress === null) {

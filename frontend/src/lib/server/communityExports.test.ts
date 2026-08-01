@@ -7,22 +7,39 @@ import {
   type ExportDataset,
 } from "./communityExports";
 import { getGuildStats } from "./guildStats";
-import { getMemberProgress } from "./memberProgress";
+import { getMemberProgressResult } from "./memberProgress";
 import { loadModRunCounts } from "./modActivity";
-import { getLinkedRankProfiles } from "./rankProfiles";
+import { getLinkedRankProfilesResult } from "./rankProfiles";
 
 vi.mock("./guildStats", () => ({ getGuildStats: vi.fn() }));
-vi.mock("./memberProgress", () => ({ getMemberProgress: vi.fn() }));
+vi.mock("./memberProgress", () => ({ getMemberProgressResult: vi.fn() }));
 vi.mock("./modActivity", () => ({ loadModRunCounts: vi.fn() }));
 vi.mock("./rankProfiles", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./rankProfiles")>()),
-  getLinkedRankProfiles: vi.fn(),
+  getLinkedRankProfilesResult: vi.fn(),
 }));
 
 const mockStats = vi.mocked(getGuildStats);
-const mockProgress = vi.mocked(getMemberProgress);
+const mockProgressResult = vi.mocked(getMemberProgressResult);
 const mockRuns = vi.mocked(loadModRunCounts);
-const mockProfiles = vi.mocked(getLinkedRankProfiles);
+const mockProfilesResult = vi.mocked(getLinkedRankProfilesResult);
+
+/** Wraps profile data in a fresh CachedValue, as the strict loader expects. */
+function mockProfiles(data: unknown, options: { stale?: boolean; sourceStale?: boolean } = {}) {
+  mockProfilesResult.mockResolvedValue({
+    stale: options.stale ?? false,
+    updatedAt: 0,
+    data: { source: { stale: options.sourceStale ?? false }, ...(data as object) },
+  } as never);
+}
+
+function mockProgress(data: unknown, options: { stale?: boolean } = {}) {
+  mockProgressResult.mockResolvedValue({
+    stale: options.stale ?? false,
+    updatedAt: 0,
+    data,
+  } as never);
+}
 
 const UUID = "11111111-2222-3333-4444-555555555555";
 const UNDASHED = UUID.replaceAll("-", "");
@@ -112,8 +129,7 @@ describe("buildExport", () => {
         },
       ],
     } as never);
-    mockProfiles.mockResolvedValue({
-      source: { stale: false },
+    mockProfiles({
       catalog: { roles: [], assets: [], awards: [] },
       profiles: [
         {
@@ -128,7 +144,7 @@ describe("buildExport", () => {
           },
         },
       ],
-    } as never);
+    });
 
     const result = await buildExport(fetch, "roster", {
       from: null,
@@ -144,7 +160,7 @@ describe("buildExport", () => {
 
   it("refuses to export a stale roster as current members", async () => {
     mockStats.mockResolvedValue({ stale: true, members: [{ uuid: UUID, rank: "recruit" }] } as never);
-    mockProfiles.mockResolvedValue({ profiles: [] } as never);
+    mockProfiles({ profiles: [] });
     const result = await buildExport(fetch, "roster", {
       from: null,
       to: null,
@@ -157,7 +173,7 @@ describe("buildExport", () => {
 
   it("reports the roster unavailable instead of an empty file", async () => {
     mockStats.mockRejectedValue(new Error("wynn down"));
-    mockProfiles.mockResolvedValue({ profiles: [] } as never);
+    mockProfiles({ profiles: [] });
     const result = await buildExport(fetch, "roster", {
       from: null,
       to: null,
@@ -169,7 +185,7 @@ describe("buildExport", () => {
 
   it("reads a malformed branch entry as unavailable, not undefined:undefined", async () => {
     mockStats.mockResolvedValue({ stale: false, members: [{ uuid: UUID, rank: "recruit" }] } as never);
-    mockProfiles.mockResolvedValue({
+    mockProfiles({
       catalog: { roles: [], assets: [], awards: [] },
       profiles: [
         {
@@ -184,7 +200,7 @@ describe("buildExport", () => {
           },
         },
       ],
-    } as never);
+    });
     const result = await buildExport(fetch, "roster", {
       from: null,
       to: null,
@@ -196,12 +212,12 @@ describe("buildExport", () => {
 
   it("reads a version-skewed rank profile as unavailable, not a crash", async () => {
     mockStats.mockResolvedValue({ stale: false, members: [{ uuid: UUID, rank: "recruit" }] } as never);
-    mockProfiles.mockResolvedValue({
+    mockProfiles({
       catalog: { roles: [], assets: [], awards: [] },
       // summary.branches missing entirely - the shared validator only checks
       // the shallow response shape.
       profiles: [{ minecraft: { uuid: UNDASHED }, award_keys: [], summary: {} }],
-    } as never);
+    });
     const result = await buildExport(fetch, "roster", {
       from: null,
       to: null,
@@ -213,7 +229,33 @@ describe("buildExport", () => {
 
   it("refuses a roster export with silently blank rank columns", async () => {
     mockStats.mockResolvedValue({ stale: false, members: [] } as never);
-    mockProfiles.mockRejectedValue(new Error("ranks down"));
+    mockProfilesResult.mockRejectedValue(new Error("ranks down"));
+    const result = await buildExport(fetch, "roster", {
+      from: null,
+      to: null,
+      raid: null,
+      rosterOnly: false,
+    });
+    expect(result).toMatchObject({ ok: false, status: 503 });
+  });
+
+  it("refuses a stale progress snapshot for the download path", async () => {
+    mockProgress({ members: [] }, { stale: true });
+    const result = await buildExport(fetch, "progress", {
+      from: "2026-07-01",
+      to: "2026-07-31",
+      raid: null,
+      rosterOnly: false,
+    });
+    expect(result).toMatchObject({ ok: false, status: 503 });
+    expect(mockProgressResult).toHaveBeenCalledWith(fetch, "2026-07-01", "2026-07-31", {
+      allowStale: false,
+    });
+  });
+
+  it("refuses roster enrichment from a stale Discord snapshot", async () => {
+    mockStats.mockResolvedValue({ stale: false, members: [] } as never);
+    mockProfiles({ profiles: [] }, { sourceStale: true });
     const result = await buildExport(fetch, "roster", {
       from: null,
       to: null,
@@ -224,7 +266,7 @@ describe("buildExport", () => {
   });
 
   it("narrows progress columns to the filtered raid and intersects the roster", async () => {
-    mockProgress.mockResolvedValue({
+    mockProgress({
       members: [
         {
           player_uuid: UNDASHED,
