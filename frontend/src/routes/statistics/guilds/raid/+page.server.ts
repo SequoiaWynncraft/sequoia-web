@@ -1,12 +1,13 @@
 import type { PageServerLoad } from "./$types";
 
 import { createSequoiaApiClient } from "$lib/api/client";
+import { eventStore, type StoredEvent } from "$lib/server/eventStore";
+import { canSeeEvent, resolveEventAudience } from "$lib/server/eventVisibility";
 import { getGuildStats } from "$lib/server/guildStats";
 import {
   loadModLeaderboard,
   loadRaidEvents,
   loadTrackerLeaderboard,
-  sameUuid,
   type RaidLeaderboardEntry,
 } from "$lib/server/raidEventBoards";
 import {
@@ -59,18 +60,46 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
     .then(memberRanksByUuid)
     .catch(() => EMPTY_RANKS);
   const { viewer } = await parent();
-  // Regular signed-in viewers await a roster refresh because membership is
-  // authorized against it; administrators and anonymous visitors may use stale display data.
-  const [events, stats] = await Promise.all([
+  // The audience is authorized on its own fresh reads; `stats` here is the
+  // page's display data, which anonymous visitors and administrators may take
+  // stale. Both share one cached roster fetch, so this is not a second call out.
+  const [events, stats, storedEvents, { audience, roster: freshRoster }] = await Promise.all([
     loadRaidEvents(fetch),
     getGuildStats(fetch, { allowStale: viewer === null || viewer.websiteAdmin }).catch(() => null),
+    // The hub decides who may know an event exists; this page only mirrors it.
+    eventStore.list().catch(() => [] as StoredEvent[]),
+    resolveEventAudience(fetch, viewer),
   ]);
+
+  const now = new Date();
+
+  // Event contributions are member-only; the tracker trusts this check, so it
+  // must not authorize from a stale roster (stale stats are display-only).
+  const isMember = audience === "member" || audience === "manager";
+  const membershipUnverified = viewer !== null && freshRoster === null && !isMember;
+
+  // A tracker structure is created before the event it belongs to is announced,
+  // and this page named every one of them to anyone who loaded it. Each is now
+  // shown only to whoever may already see its event on the hub; a tracker with
+  // no event behind it yet is unannounced by definition, so managers only.
+  const eventsByTracker = new Map(
+    storedEvents
+      .filter((stored) => stored.event.tracker !== undefined)
+      .map((stored) => [stored.event.tracker!.eventId, stored]),
+  );
+  const visibleEvents = events.filter((event) => {
+    const stored = eventsByTracker.get(event.id);
+    if (!stored) return audience === "manager";
+    return canSeeEvent(stored.event, stored.published, audience, now);
+  });
 
   // An event drives the board only when explicitly selected; otherwise the
   // board defaults to a timeframe window (below) rather than the first event.
+  // Selection reads the *visible* list, so `?event=` cannot name a tracker the
+  // viewer was not shown.
   const eventParam = url.searchParams.get("event");
   const selectedEvent = eventParam
-    ? (events.find((event) => event.id === eventParam) ?? null)
+    ? (visibleEvents.find((event) => event.id === eventParam) ?? null)
     : null;
 
   // A custom timeframe (e.g. `?window=0.5d`) reuses the mod contribution board
@@ -81,7 +110,6 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
   // page uses this to avoid offering a no-op "Clear timeframe" link on it.
   const windowIsDefault = windowRaw === "" && selectedEvent === null;
   const windowInput = windowIsDefault ? DEFAULT_WINDOW : windowRaw;
-  const now = new Date();
   // The input accepts two forms: a relative duration ("20min", "0.5d") ending
   // now, or a prefixed Unix-timestamp range ("t:1784109600-1784282400").
   const parsedWindow = windowInput ? parseDuration(windowInput) : null;
@@ -117,20 +145,10 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
     };
   }
 
-  // Regular members must be authorized from a fresh roster. Administrators are
-  // authorized independently and may use stale roster data to filter the board.
-  const freshRoster = stats !== null && !stats.stale ? stats.members : null;
-  const leaderboardRoster =
-    freshRoster ?? (viewer?.websiteAdmin && stats !== null ? stats.members : null);
-  const isMember =
-    viewer !== null &&
-    (viewer.websiteAdmin ||
-      (freshRoster !== null &&
-        freshRoster.some(
-          (member) => member.uuid !== null && sameUuid(member.uuid, viewer.minecraftUuid),
-        )));
-  const membershipUnverified = viewer !== null && !viewer.websiteAdmin && freshRoster === null;
-
+  // Administrators are authorized independently and may filter the board from                                                                                 
+  // stale roster data; everyone else needs the fresh roster.                                                                                                  
+  const leaderboardRoster =                                                                                                                                    
+    freshRoster ?? (viewer?.websiteAdmin && stats !== null ? stats.members : null); 
   let leaderboard: RaidLeaderboardEntry[] = [];
   let leaderboardError: string | null = null;
 
@@ -180,7 +198,7 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
   return {
     isMember,
     membershipUnverified,
-    events,
+    events: visibleEvents,
     selectedEvent,
     customWindow,
     windowInput,

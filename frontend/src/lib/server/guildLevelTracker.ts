@@ -27,17 +27,20 @@ const PAYOUT_RATE = "0.5LE per raid";
  * reproducing the reference tracker's wording exactly so the text staff paste
  * does not change.
  *
- * Returns null below two level-ups, where there is no window to pay out, and
- * also when the older of the two is the oldest recorded row (`fromLevel: null`).
- * That row may be a first observation rather than an observed level-up, so the
- * gap would be measured from when tracking started - and staff pay 0.5 LE per
- * raid over whatever window this message quotes.
+ * Returns null below two level-ups, where there is no window to pay out.
+ *
+ * The older of the two may be the oldest recorded row (`fromLevel: null`), which
+ * is a first observation rather than an observed level-up - its gap is measured
+ * from when tracking started and so runs short. That is surfaced to the reader
+ * as a caveat beside the buttons rather than withheld: staff need the message
+ * for the level-up that just happened, and the caveat stops applying on its own
+ * once a further level-up is recorded.
  *
  * `history` must be newest first.
  */
 export function buildPayoutText(history: GuildLevelUp[]): string | null {
   const [last, previous] = history;
-  if (!last || !previous || previous.fromLevel === null) return null;
+  if (!last || !previous) return null;
   const days = dayGap(previous.reachedAt, last.reachedAt);
   const contacts = PAYOUT_CONTACT_IDS.map((id) => `<@${id}>`);
   const contactList = `${contacts.slice(0, -1).join(", ")} or ${contacts.at(-1)}`;

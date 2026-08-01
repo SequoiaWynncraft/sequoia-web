@@ -22,6 +22,11 @@ function makeEvent(overrides: Partial<GuildEvent>): GuildEvent {
   };
 }
 
+/** Wraps bare events as announced store entries - the common case. */
+function published(events: GuildEvent[]): { event: GuildEvent; published: boolean }[] {
+  return events.map((event) => ({ event, published: true }));
+}
+
 describe("event helpers", () => {
   it("seeds unique slugs", () => {
     const slugs = SEED_EVENTS.map((event) => event.slug);
@@ -45,7 +50,7 @@ describe("event helpers", () => {
 
   it("groups the hub with dated upcoming events before TBA entries", () => {
     const now = new Date("2026-07-11T12:00:00Z");
-    const groups = hubGroups(SEED_EVENTS, now);
+    const groups = hubGroups(published(SEED_EVENTS), now);
     expect(groups.live.map((event) => event.slug)).toContain("grootslang-gauntlet");
     expect(groups.past.map((event) => event.slug)).toContain("colossus-sprint");
 
@@ -71,5 +76,15 @@ describe("event helpers", () => {
       startsAt: undefined,
       endsAt: undefined,
     });
+  });
+
+  it("flags unpublished entries so a manager can tell a draft from a live event", () => {
+    const event = makeEvent({ startsAt: "2026-07-05T00:00:00Z", endsAt: "2026-07-19T23:59:59Z" });
+    expect(eventHubView(event, false).draft).toBe(true);
+    expect(eventHubView(event, true).draft).toBeUndefined();
+
+    const now = new Date("2026-07-11T12:00:00Z");
+    const groups = hubGroups([{ event, published: false }], now);
+    expect(groups.live.map((entry) => entry.draft)).toEqual([true]);
   });
 });

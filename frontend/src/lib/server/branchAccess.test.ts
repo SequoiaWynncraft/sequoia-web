@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { branchAccessFrom, checkBranchArea, requireBranchArea } from "./branchAccess";
+import {
+  branchAccessFrom,
+  checkBranchArea,
+  checkBranchAreaWithRoster,
+  requireBranchArea,
+} from "./branchAccess";
 import { getGuildStats } from "./guildStats";
 import { getLinkedRankProfilesResult } from "./rankProfiles";
 import { loadViewer } from "./viewerSession";
@@ -164,6 +169,41 @@ describe("checkBranchArea", () => {
     await checkBranchArea(fetch, viewer(), "treasury");
     expect(mockStats).toHaveBeenCalledWith(fetch, { allowStale: false });
     expect(mockProfiles).toHaveBeenCalledWith(fetch, { allowStale: false });
+  });
+});
+
+describe("checkBranchAreaWithRoster", () => {
+  it("hands back the roster the decision was judged against", async () => {
+    profilesWith([{ branch: "events", level: "member" }]);
+    const result = await checkBranchAreaWithRoster(fetch, viewer(), "events");
+    expect(result.access).toBe("granted");
+    expect(result.roster).toEqual([{ uuid: UUID, rank: "recruit" }]);
+    // One roster read serves both halves of the answer.
+    expect(mockStats).toHaveBeenCalledTimes(1);
+  });
+
+  it("reads the roster for an admin but never their profiles", async () => {
+    // Their access is settled by the session; the roster is the caller's data.
+    const result = await checkBranchAreaWithRoster(fetch, viewer({ websiteAdmin: true }), "events");
+    expect(result.access).toBe("granted");
+    expect(result.roster).toEqual([{ uuid: UUID, rank: "recruit" }]);
+    expect(mockProfiles).not.toHaveBeenCalled();
+  });
+
+  it("reports a null roster when the refresh came back stale", async () => {
+    rosterWith("strategist", true);
+    await expect(checkBranchAreaWithRoster(fetch, viewer(), "events")).resolves.toEqual({
+      access: "unverified",
+      roster: null,
+    });
+  });
+
+  it("answers a signed-out caller without any read", async () => {
+    await expect(checkBranchAreaWithRoster(noFetch, null, "events")).resolves.toEqual({
+      access: "signin",
+      roster: null,
+    });
+    expect(mockStats).not.toHaveBeenCalled();
   });
 });
 

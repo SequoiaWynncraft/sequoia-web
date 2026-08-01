@@ -6,6 +6,7 @@ import { recordAudit } from "$lib/server/auditLog";
 import { drawWinners, drawablePool, secureRng } from "$lib/events/raffle";
 import { parseGuildEvent } from "$lib/events/validate";
 import { eventFormContext } from "$lib/server/eventFormContext";
+import { visibilityTightened } from "$lib/server/eventVisibility";
 import { requireEventManager } from "$lib/server/eventManagers";
 import { getGuildStats } from "$lib/server/guildStats";
 import { withEventLock } from "$lib/server/eventLocks";
@@ -98,10 +99,15 @@ export const actions: Actions = {
     // Tightening visibility cuts existing streams THE MOMENT the new
     // version is committed - a roll under the new version must never reach
     // subscribers authorized against the old one, so no await may sit
-    // between the commit and this teardown.
-    const tightened =
-      (stored.published && !payload.published) ||
-      (stored.event.access === "public" && regrafted.event.access === "members");
+    // between the commit and this teardown. The question is asked as a
+    // difference in canSeeEvent rather than as a list of transitions:
+    // clearing an event's dates back to "tba" hides it just as publishing
+    // to draft does, and an already connected stage must lose it either way.
+    const tightened = visibilityTightened(
+      { event: stored.event, published: stored.published },
+      { event: regrafted.event, published: payload.published },
+      new Date(),
+    );
     if (tightened) endRoom(params.slug);
     const audited = await recordAudit(
       manager,
