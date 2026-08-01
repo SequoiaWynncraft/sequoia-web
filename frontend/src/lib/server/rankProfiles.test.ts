@@ -51,10 +51,10 @@ const response: RankProfilesResponse = {
   source: { stale: false, guilds: [] },
   catalog: {
     roles: [
- role("rank.yggdrasil", "Yggdrasil", "progression_rank", { position: 144 }),                                                                              
-      role("rank.treant", "Treant", "progression_rank", {                                                                                                      
-        position: 105,                                                                                                                                         
-        colors: { primary: "#A855F7", secondary: null, tertiary: null },                                                                                       
+      role("rank.yggdrasil", "Yggdrasil", "progression_rank", { position: 144 }),
+      role("rank.treant", "Treant", "progression_rank", {
+        position: 105,
+        colors: { primary: "#A855F7", secondary: null, tertiary: null },
       }),
       role("rank.spriggan", "Spriggan", "progression_rank", { legacy: true, position: 104 }),
       role("rank.verdant", "Verdant", "progression_rank", { legacy: true }),
@@ -178,7 +178,9 @@ describe("honoursForMinecraft", () => {
 
   it("ignores malformed role colors before they reach CSS", () => {
     const malformed = structuredClone(response);
-    malformed.catalog.roles[0].colors = {
+    const treant = malformed.catalog.roles.find((entry) => entry.key === "rank.treant");
+    expect(treant).toBeDefined();
+    treant!.colors = {
       primary: "red; display: none",
       secondary: null,
       tertiary: null,
