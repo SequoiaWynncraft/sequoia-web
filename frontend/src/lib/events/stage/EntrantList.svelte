@@ -49,7 +49,7 @@
     display: grid;
     margin: 0;
     padding: 0;
-    max-height: min(52vh, 560px);
+    max-height: min(58vh, 600px);
     overflow-y: auto;
     list-style: none;
     border-top: 1px solid var(--color-border-subtle);
@@ -59,7 +59,7 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 7px 6px;
+    padding: 8px 6px;
     border-bottom: 1px solid var(--color-border-subtle);
   }
 
@@ -73,5 +73,25 @@
     font-family: var(--font-data);
     font-size: var(--text-xs);
     font-variant-numeric: tabular-nums;
+  }
+
+  @media (max-width: 1180px) {
+    .entrants-list {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      max-height: min(38vh, 360px);
+      border-right: 1px solid var(--color-border-subtle);
+    }
+
+    .entrants-row {
+      min-width: 0;
+      border-left: 1px solid var(--color-border-subtle);
+    }
+  }
+
+  @media (max-width: 640px) {
+    .entrants-list {
+      grid-template-columns: minmax(0, 1fr);
+      max-height: min(44vh, 420px);
+    }
   }
 </style>

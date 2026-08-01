@@ -23,9 +23,9 @@
     return uuid.replaceAll("-", "").toLowerCase();
   }
 
-  const SIZE = 640;
+  const SIZE = 720;
   const CENTER = SIZE / 2;
-  const RADIUS = CENTER - 12;
+  const RADIUS = CENTER - 16;
   const HEAD_RADIUS = RADIUS * 0.84;
   // Heads mode: names only where an arc can hold one, heads carry the rest.
   // Names mode: labels reach further out and down to slimmer wedges - they
@@ -48,7 +48,7 @@
   // crowded wheels stay quiet instead of shingling. Hover (or winning)
   // overrides, so every entrant is still reachable.
   const headSize = $derived(
-    Math.max(16, Math.min(26, ((2 * Math.PI * HEAD_RADIUS) / Math.max(1, roll.entrants.length)) * 0.9)),
+    Math.max(18, Math.min(30, ((2 * Math.PI * HEAD_RADIUS) / Math.max(1, roll.entrants.length)) * 0.9)),
   );
 
   function headFits(index: number): boolean {
@@ -194,6 +194,7 @@
           </g>
         {/if}
       {/each}
+      <circle cx={CENTER} cy={CENTER} r={RADIUS} class="wheel-rim" />
       <circle cx={CENTER} cy={CENTER} r={RADIUS * 0.21} class="wheel-hub" />
       <path
         d="M {CENTER - 14} 4 L {CENTER + 14} 4 L {CENTER} 34 Z"
@@ -240,14 +241,18 @@
     display: grid;
     justify-items: center;
     gap: 18px;
+    width: 100%;
   }
 
   .wheel-frame {
     position: relative;
+    width: min(760px, 100%, 76vh);
+    filter: drop-shadow(0 26px 52px rgb(0 0 0 / 0.28));
   }
 
   svg {
-    width: min(640px, 82vw, 66vh);
+    display: block;
+    width: 100%;
     height: auto;
   }
 
@@ -279,6 +284,13 @@
     fill: color-mix(in srgb, var(--color-gold) 30%, var(--ev-sky-1, #251b38));
   }
 
+  .wheel-rim {
+    fill: none;
+    stroke: color-mix(in srgb, var(--ev-accent, var(--color-gold)) 46%, transparent);
+    stroke-width: 2;
+    pointer-events: none;
+  }
+
   .wheel-label {
     fill: var(--text-body);
     font-family: var(--font-display);
@@ -304,9 +316,9 @@
   }
 
   .wheel-hub {
-    fill: color-mix(in srgb, var(--color-abyss) 92%, transparent);
+    fill: color-mix(in srgb, var(--color-abyss) 95%, transparent);
     stroke: var(--color-gold);
-    stroke-width: 1.5;
+    stroke-width: 2;
   }
 
   .wheel-pointer {
@@ -358,6 +370,16 @@
     gap: 6px;
     min-height: 64px;
     text-align: center;
+  }
+
+  @media (max-width: 720px) {
+    .wheel-frame {
+      width: min(100%, 82vh);
+    }
+
+    .wheel {
+      gap: 12px;
+    }
   }
 
   .wheel-winner {
