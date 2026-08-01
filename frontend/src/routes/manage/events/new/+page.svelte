@@ -1,7 +1,7 @@
 <script lang="ts">
   import ManageHeader from "$lib/manage/ManageHeader.svelte";
   import EventEditor from "$lib/events/editor/EventEditor.svelte";
-  import EventsGate from "../EventsGate.svelte";
+  import AreaGate from "$lib/manage/AreaGate.svelte";
 
   let { data, form } = $props();
 </script>
@@ -15,7 +15,7 @@
   <ManageHeader area="Events" title="New event" />
 
   {#if data.access !== "granted"}
-    <EventsGate access={data.access} returnTo="/manage/events/new" />
+    <AreaGate area="events" access={data.access} returnTo="/manage/events/new" />
   {:else}
     <EventEditor
       mode="create"
