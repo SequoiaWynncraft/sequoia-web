@@ -310,14 +310,14 @@
                   <th scope="row" class="bag-raid-cell">{group.raid}</th>
                   {#each RARITIES as rarity (rarity)}
                     {@const cell = group.items.find((item) => item.rarity === rarity)}
-                    <td>
+                    <td class="bag-amount-cell">
                       {#if cell}
                         <label class="bag-input-wrap">
                           <input
                             type="number"
                             min="0"
                             inputmode="numeric"
-                            class="bag-input"
+                            class="seq-input seq-input-mono"
                             placeholder="0"
                             aria-label="{orderType === 'buy' ? 'Buy' : 'Sell'} {group.raid} {rarity} amount"
                             bind:value={amounts[cell.key]}
@@ -339,12 +339,12 @@
 
         <div class="bag-form-grid">
           <label class="bag-field">
-            <span class="bag-field-label">Minecraft IGN</span>
-            <input class="bag-text" maxlength="16" bind:value={minecraftIgn} placeholder="Your in-game name" />
+            <span class="seq-field-label">Minecraft IGN</span>
+            <input class="seq-input" maxlength="16" bind:value={minecraftIgn} placeholder="Your in-game name" />
           </label>
           <label class="bag-field bag-field-wide">
-            <span class="bag-field-label">Note (optional)</span>
-            <input class="bag-text" maxlength="200" bind:value={note} placeholder="Anything staff should know" />
+            <span class="seq-field-label">Note (optional)</span>
+            <input class="seq-input" maxlength="200" bind:value={note} placeholder="Anything staff should know" />
           </label>
         </div>
 
@@ -636,18 +636,8 @@
     flex-direction: column;
     gap: 0.2rem;
   }
-  .bag-input {
+  .bag-amount-cell {
     width: 5rem;
-    padding: 0.4rem 0.5rem;
-    background: var(--color-abyss);
-    border: 1px solid var(--color-border-subtle);
-    border-radius: 0.35rem;
-    color: var(--color-text-primary);
-    font-family: var(--font-mono);
-  }
-  .bag-input:focus {
-    outline: none;
-    border-color: var(--color-gold);
   }
   .bag-input-price {
     font-size: 0.7rem;
@@ -670,25 +660,6 @@
   .bag-field-wide {
     flex: 2 1 20rem;
   }
-  .bag-field-label {
-    font-family: var(--font-display);
-    font-size: 0.7rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--color-text-dim);
-  }
-  .bag-text {
-    padding: 0.55rem 0.7rem;
-    background: var(--color-abyss);
-    border: 1px solid var(--color-border-subtle);
-    border-radius: 0.4rem;
-    color: var(--color-text-primary);
-  }
-  .bag-text:focus {
-    outline: none;
-    border-color: var(--color-gold);
-  }
-
   .bag-summary {
     display: flex;
     align-items: center;

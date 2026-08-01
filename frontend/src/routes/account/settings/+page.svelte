@@ -1,6 +1,7 @@
 <script lang="ts">
   import { page } from "$app/state";
   import PageHeader from "$lib/components/PageHeader.svelte";
+  import Button from "$lib/design-system/components/Button.svelte";
   import { webAuthStartUrl } from "$lib/site/webAuth";
 
   let { data, form } = $props();
@@ -47,14 +48,14 @@
       <span class="settings-gate-mark" aria-hidden="true">◆</span>
       <h2>Sign in to tune your signal</h2>
       <p>Your Discord and Minecraft link identifies which Party Finder messages belong to you.</p>
-      <a class="seq-button seq-button-primary seq-button-md" href={webAuthStartUrl(page.url.href)}>Sign in</a>
+      <Button href={webAuthStartUrl(page.url.href)}>Sign in</Button>
     </section>
   {:else if data.access === "unavailable"}
     <section class="settings-gate settings-gate-error">
       <span class="settings-gate-mark" aria-hidden="true">!</span>
       <h2>Settings are temporarily unavailable</h2>
       <p>Nothing was changed. Refresh in a moment to try the connection again.</p>
-      <a class="seq-button seq-button-secondary seq-button-md" href="/account/settings">Retry</a>
+      <Button variant="secondary" href="/account/settings">Retry</Button>
     </section>
   {:else}
     <form method="POST" class="signal-panel">
@@ -102,7 +103,7 @@
             <span>Default: important only</span>
           {/if}
         </div>
-        <button type="submit" class="seq-button seq-button-primary seq-button-md">Save preference</button>
+        <Button type="submit" class="signal-save">Save preference</Button>
       </footer>
     </form>
   {/if}
@@ -308,6 +309,6 @@
     .signal-option { grid-template-columns: auto minmax(0, 1fr); }
     .signal-state { grid-column: 2; text-align: left; }
     .signal-footer { align-items: stretch; flex-direction: column; }
-    .signal-footer button { width: 100%; }
+    :global(.signal-save) { width: 100%; }
   }
 </style>

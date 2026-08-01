@@ -3,6 +3,7 @@
 
   import Field from "$lib/design-system/components/forms/Field.svelte";
   import FormSection from "$lib/design-system/components/forms/FormSection.svelte";
+  import Select from "$lib/design-system/components/forms/Select.svelte";
   import TextInput from "$lib/design-system/components/forms/TextInput.svelte";
   import Toggle from "$lib/design-system/components/forms/Toggle.svelte";
   import { KNOWN_RAIDS } from "$lib/site/raids";
@@ -33,7 +34,7 @@
     {#each draft.goals as goal, goalIndex (goal.id)}
       <div class="evf-goal">
         <div class="evf-goal-head">
-          <span class="evf-goal-label">Goal {goalIndex + 1}</span>
+          <span class="seq-field-label">Goal {goalIndex + 1}</span>
           <button
             type="button"
             class="evf-remove focus-ring"
@@ -144,12 +145,12 @@
         <div class="evf-grid-2">
           {#if goal.source === "raids" || goal.source === "raidRuns"}
             <Field label="Which raids count">
-              <select class="seq-input" bind:value={goal.raid}>
+              <Select bind:value={goal.raid}>
                 <option value="">All guild raids</option>
                 {#each raidOptionsFor(goal.raid) as raid (raid)}
                   <option value={raid}>{raid}</option>
                 {/each}
-              </select>
+              </Select>
             </Field>
           {/if}
           <Field label={goal.source === "manual" ? "Total so far" : "Final total"}>
@@ -168,13 +169,3 @@
     </button>
   {/if}
 </FormSection>
-
-<style>
-  .evf-goal-label {
-    color: var(--text-muted);
-    font-family: var(--font-display);
-    font-size: var(--text-2xs);
-    letter-spacing: var(--tracking-wider);
-    text-transform: uppercase;
-  }
-</style>

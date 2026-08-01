@@ -1,6 +1,8 @@
 <script lang="ts">
   import { getContext } from "svelte";
 
+  import Button from "$lib/design-system/components/Button.svelte";
+
   import { EDITOR_KEY, EventDraft } from "./draft.svelte";
   import { EDITOR_SECTIONS, sectionIssues, type SectionId } from "./issues";
   import { nearestVisibleSection } from "./sectionRail";
@@ -99,14 +101,14 @@
     {/each}
   </ul>
   <div class="rail-actions">
-    <button
+    <Button
       type="submit"
       form={formId}
-      class="seq-button seq-button-primary seq-button-sm"
+      size="sm"
       disabled={draft.saving}
     >
       {draft.mode === "create" ? "Create event" : "Save changes"}
-    </button>
+    </Button>
     <!-- The footer renders the same outcome, but it sits below thirteen
          sections - a rejected save must be visible where the button is. -->
     {#if draft.showValidation && draft.liveError}
@@ -125,22 +127,22 @@
       <span class="rail-status rail-status-saved">Saved</span>
     {/if}
     <div class="rail-history" role="group" aria-label="Edit history">
-      <button
-        type="button"
-        class="seq-button seq-button-ghost seq-button-sm"
+      <Button
+        size="sm"
+        variant="ghost"
         onclick={() => draft.undo()}
         disabled={draft.undoStack.length === 0 && !draft.hasPendingEdit}
       >
         Undo
-      </button>
-      <button
-        type="button"
-        class="seq-button seq-button-ghost seq-button-sm"
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
         onclick={() => draft.redo()}
         disabled={draft.redoStack.length === 0}
       >
         Redo
-      </button>
+      </Button>
     </div>
   </div>
 </nav>

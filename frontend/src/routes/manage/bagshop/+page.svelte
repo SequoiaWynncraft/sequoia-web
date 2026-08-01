@@ -191,8 +191,8 @@
 
               {#if order.claimedByMention}
                 <label class="mg-reason">
-                  <span class="mg-field-label">Decline reason (shown to the customer)</span>
-                  <input class="mg-text" bind:value={declineReasons[order.messageId]} placeholder="Reason" />
+                  <span class="seq-field-label">Decline reason (shown to the customer)</span>
+                  <input class="seq-input seq-input-mono" bind:value={declineReasons[order.messageId]} placeholder="Reason" />
                 </label>
               {/if}
 
@@ -241,9 +241,9 @@
                   {@const draft = draftFor(cell.key, cell.stock, cell.sellPrice, cell.cap)}
                   <tr>
                     <th scope="row" class="mg-bag">{group.raid} · {rarity}</th>
-                    <td><input class="mg-num" type="number" min="0" bind:value={draft.stock} oninput={(e) => (drafts[cell.key] = { ...draft, stock: e.currentTarget.value })} /></td>
-                    <td><input class="mg-num" type="number" min="0" bind:value={draft.price} oninput={(e) => (drafts[cell.key] = { ...draft, price: e.currentTarget.value })} /></td>
-                    <td><input class="mg-num" type="number" min="0" bind:value={draft.cap} oninput={(e) => (drafts[cell.key] = { ...draft, cap: e.currentTarget.value })} /></td>
+                    <td class="mg-number-cell"><input class="seq-input seq-input-mono" type="number" min="0" bind:value={draft.stock} oninput={(e) => (drafts[cell.key] = { ...draft, stock: e.currentTarget.value })} /></td>
+                    <td class="mg-number-cell"><input class="seq-input seq-input-mono" type="number" min="0" bind:value={draft.price} oninput={(e) => (drafts[cell.key] = { ...draft, price: e.currentTarget.value })} /></td>
+                    <td class="mg-number-cell"><input class="seq-input seq-input-mono" type="number" min="0" bind:value={draft.cap} oninput={(e) => (drafts[cell.key] = { ...draft, cap: e.currentTarget.value })} /></td>
                     <td>
                       <Button
                         size="sm"
@@ -345,28 +345,7 @@
     gap: 0.3rem;
     margin: 0.5rem 0;
   }
-  .mg-field-label {
-    font-family: var(--font-display);
-    font-size: 0.68rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--color-text-dim);
-  }
-  .mg-text,
-  .mg-num {
-    padding: 0.4rem 0.55rem;
-    background: var(--color-abyss);
-    border: 1px solid var(--color-border-subtle);
-    border-radius: 0.35rem;
-    color: var(--color-text-primary);
-    font-family: var(--font-mono);
-  }
-  .mg-text:focus,
-  .mg-num:focus {
-    outline: none;
-    border-color: var(--color-gold);
-  }
-  .mg-num {
+  .mg-number-cell {
     width: 6rem;
   }
   .mg-order-foot {

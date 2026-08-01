@@ -77,8 +77,6 @@
 
 <style>
   .mg-page {
-    width: min(940px, 100% - 3rem);
-    margin: 0 auto;
     padding-bottom: 48px;
   }
 
@@ -180,10 +178,6 @@
   }
 
   @media (max-width: 640px) {
-    .mg-page {
-      width: min(940px, 100% - 2rem);
-    }
-
     .mg-row {
       grid-template-columns: auto minmax(0, 1fr) auto;
     }

@@ -103,6 +103,27 @@ input[type="number"]::-webkit-inner-spin-button {
   padding-top: 0;
 }
 
+/* Manage pages carry their own gutters for the shell-less gate render
+   (signed-out viewers get no .manage-shell); inside the console the shell
+   already provides them, so the inner rules zero these out. */
+.mg-page {
+  width: min(1100px, 100% - 3rem);
+  margin-inline: auto;
+}
+
+.mg-page-wide {
+  width: calc(100% - 3rem);
+  margin-inline: auto;
+}
+
+.manage-content .mg-page {
+  width: min(1100px, 100%);
+}
+
+.manage-content .mg-page-wide {
+  width: 100%;
+}
+
 /* Data-table row hover */
 .seq-row { transition: background var(--dur-base) ease; }
 .seq-row:hover { background: var(--color-surface-hover); }
@@ -385,6 +406,14 @@ input[type="number"]::-webkit-inner-spin-button {
 /* Shared form controls. Global rather than component-scoped so composite
    widgets (date pairs, color pairs, datalist inputs) can put the same skin
    on their own native inputs. */
+.seq-field-label {
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+}
+
 .seq-input {
   width: 100%;
   padding: 9px 11px;
