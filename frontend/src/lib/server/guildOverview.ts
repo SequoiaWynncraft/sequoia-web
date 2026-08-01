@@ -4,7 +4,7 @@ import {
   type BranchmasterRank,
   type GuildOverviewResponse,
 } from "$lib/api/guildOverview";
-import { getLinkedRankProfilesResult } from "$lib/server/rankProfiles";
+import { getLinkedRankProfilesResult, resolveRankRole } from "$lib/server/rankProfiles";
 import { getWynncraftGuild } from "$lib/server/wynncraftGuild";
 
 const GUILD_RANKS = ["owner", "chief", "strategist", "captain", "recruiter", "recruit"] as const;
@@ -30,7 +30,10 @@ type GuildOverviewOptions = {
   includeBranchmasters?: boolean;
 };
 
-type WynncraftMember = Omit<BranchmasterMember, "rank" | "rank_label" | "rank_color">;
+type WynncraftMember = Omit<
+  BranchmasterMember,
+  "rank" | "rank_label" | "rank_color" | "progression_rank_label" | "progression_rank_color"
+>;
 
 export async function getGuildOverview(
   fetchImpl: typeof fetch,
@@ -119,11 +122,16 @@ function parseBranchLeadership(
 
     const role = roles.get(roleKey);
     const color = role?.colors?.primary;
+    const progressionRole = resolveRankRole(roles, profile.summary.progression_rank);
+    const progressionColor = progressionRole?.colors?.primary;
     branchmasters.push({
       username,
       rank: branchRole.rank,
       rank_label: stringValue(role?.label) ?? branchRole.fallbackLabel,
       rank_color: color && CSS_HEX_COLOR.test(color) ? color : null,
+      progression_rank_label: stringValue(progressionRole?.label) ?? null,
+      progression_rank_color:
+        progressionColor && CSS_HEX_COLOR.test(progressionColor) ? progressionColor : null,
       online: guildMember?.online ?? null,
       contributed: guildMember?.contributed ?? null,
       contribution_rank: guildMember?.contribution_rank ?? null,

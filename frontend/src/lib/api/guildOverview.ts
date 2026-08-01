@@ -14,6 +14,8 @@ export interface BranchmasterMember {
   rank: BranchmasterRank;
   rank_label: string;
   rank_color: string | null;
+  progression_rank_label?: string | null;
+  progression_rank_color?: string | null;
   online: boolean | null;
   contributed: number | null;
   contribution_rank: number | null;
@@ -27,6 +29,18 @@ export interface GuildOverviewResponse {
   stale: boolean;
   stats: HomepageStats;
   branchmasters: BranchmasterMember[];
+}
+
+export function branchLeadershipBadge(member: BranchmasterMember): {
+  label: string;
+  color: string | null;
+} {
+  return member.progression_rank_label
+    ? {
+        label: member.progression_rank_label,
+        color: member.progression_rank_color ?? null,
+      }
+    : { label: member.rank_label, color: member.rank_color };
 }
 
 export function isGuildOverviewResponse(value: unknown): value is GuildOverviewResponse {
@@ -59,6 +73,10 @@ function isBranchmasterMember(value: unknown): value is BranchmasterMember {
     isBranchmasterRank(value.rank) &&
     typeof value.rank_label === "string" &&
     isOptionalHexColor(value.rank_color) &&
+    (value.progression_rank_label === undefined ||
+      typeof value.progression_rank_label === "string" ||
+      value.progression_rank_label === null) &&
+    (value.progression_rank_color === undefined || isOptionalHexColor(value.progression_rank_color)) &&
     (typeof value.online === "boolean" || value.online === null) &&
     isOptionalNonNegativeInteger(value.contributed) &&
     isOptionalNonNegativeInteger(value.contribution_rank) &&

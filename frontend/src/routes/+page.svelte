@@ -7,7 +7,11 @@
   import SequoianTree from "$lib/components/SequoianTree.svelte";
   import Icon from "$lib/components/Icon.svelte";
   import { createSequoiaApiClient } from "$lib/api/client";
-  import type { BranchmasterMember, HomepageStats } from "$lib/api/guildOverview";
+  import {
+    branchLeadershipBadge,
+    type BranchmasterMember,
+    type HomepageStats,
+  } from "$lib/api/guildOverview";
   import { NMSR_BASE_URL } from "$lib/config/public";
   import { homepageServices, homepageStatistics } from "$lib/site/nav";
 
@@ -235,11 +239,12 @@
   );
 
   function branchmasterCard(member: BranchmasterMember): BranchmasterCard {
+    const badge = branchLeadershipBadge(member);
     return {
       username: member.username,
       role: member.rank,
-      rank: member.rank_label,
-      rankColor: member.rank_color,
+      rank: badge.label,
+      rankColor: badge.color,
       online: member.online === true,
       avatarUrl: nmsrHeadIsoUrl(member.username),
       stats: {

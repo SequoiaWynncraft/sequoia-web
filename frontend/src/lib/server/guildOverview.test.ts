@@ -8,7 +8,7 @@ const NOVICE = "22222222-2222-2222-2222-222222222222";
 const OUTSIDE_GUILD = "33333333-3333-3333-3333-333333333333";
 
 describe("parseWynncraftGuildOverview", () => {
-  it("uses Discord branch leadership for membership, labels, and colors", () => {
+  it("uses Discord branch leadership for membership and synced rank styling", () => {
     const result = parseWynncraftGuildOverview(
       {
         level: 240,
@@ -54,6 +54,8 @@ describe("parseWynncraftGuildOverview", () => {
           rank: "branchmaster",
           rank_label: "Branchmaster",
           rank_color: "#DBD1C7",
+          progression_rank_label: "Druid",
+          progression_rank_color: "#D7BCEA",
           online: false,
           contributed: 500,
           contribution_rank: 1,
@@ -66,6 +68,8 @@ describe("parseWynncraftGuildOverview", () => {
           rank: "branchmaster",
           rank_label: "Branchmaster",
           rank_color: "#DBD1C7",
+          progression_rank_label: "Treant",
+          progression_rank_color: "#1B9056",
           online: true,
           contributed: 300,
           contribution_rank: 2,
@@ -78,6 +82,8 @@ describe("parseWynncraftGuildOverview", () => {
           rank: "branchmaster",
           rank_label: "Branchmaster",
           rank_color: "#DBD1C7",
+          progression_rank_label: "Dryad",
+          progression_rank_color: "#CDECE4",
           online: null,
           contributed: null,
           contribution_rank: null,
@@ -90,6 +96,8 @@ describe("parseWynncraftGuildOverview", () => {
           rank: "branch_novice",
           rank_label: "Branch Novice",
           rank_color: "#5E68DB",
+          progression_rank_label: "Dryad",
+          progression_rank_color: "#CDECE4",
           online: false,
           contributed: 200,
           contribution_rank: 3,
@@ -177,19 +185,30 @@ function rankProfiles(): RankProfilesResponse {
         role("leadership.branchmaster", "Branchmaster", "#DBD1C7"),
         role("leadership.branch_novice", "Branch Novice", "#5E68DB"),
         role("leadership.root", "Root", "#F5C542"),
+        role("rank.spriggan", "Spriggan", "#A855F7", "progression_rank"),
+        role("rank.treant", "Treant", "#1B9056", "progression_rank"),
+        role("rank.druid", "Druid", "#D7BCEA", "progression_rank"),
+        role("rank.dryad", "Dryad", "#CDECE4", "progression_rank"),
       ],
       awards: [],
       assets: [],
     },
     profiles: [
-      profile(BRANCHMASTER, "StaleBranchmasterName", "leadership.branchmaster"),
-      profile(OUTSIDE_GUILD, "OutsideGuild", "leadership.branchmaster"),
-      profile(NOVICE, "NoviceName", "leadership.branch_novice"),
+      profile(
+        BRANCHMASTER,
+        "StaleBranchmasterName",
+        "leadership.branchmaster",
+        undefined,
+        "rank.spriggan",
+      ),
+      profile(OUTSIDE_GUILD, "OutsideGuild", "leadership.branchmaster", undefined, "rank.dryad"),
+      profile(NOVICE, "NoviceName", "leadership.branch_novice", undefined, "rank.dryad"),
       profile(
         "44444444-4444-4444-4444-444444444444",
         "RootMember",
         "leadership.root",
         ["leadership.root", "leadership.branchmaster"],
+        "rank.druid",
       ),
       profile(
         "55555555-5555-5555-5555-555555555555",
@@ -200,11 +219,16 @@ function rankProfiles(): RankProfilesResponse {
   };
 }
 
-function role(key: string, label: string, color: string): RankProfilesResponse["catalog"]["roles"][number] {
+function role(
+  key: string,
+  label: string,
+  color: string,
+  category: "leadership" | "progression_rank" = "leadership",
+): RankProfilesResponse["catalog"]["roles"][number] {
   return {
     key,
     label,
-    category: "leadership",
+    category,
     source_guild: "branchmasters",
     source_guild_id: "722171700960477254",
     source_role_ids: ["1"],
@@ -218,6 +242,7 @@ function profile(
   username: string,
   leadership: string,
   roleKeys: string[] = [leadership],
+  progressionRank: string | null = null,
 ): RankProfilesResponse["profiles"][number] {
   return {
     discord: null,
@@ -225,7 +250,7 @@ function profile(
     role_keys: roleKeys,
     award_keys: [],
     summary: {
-      progression_rank: null,
+      progression_rank: progressionRank,
       in_game_rank: null,
       leadership,
       insignia: null,
