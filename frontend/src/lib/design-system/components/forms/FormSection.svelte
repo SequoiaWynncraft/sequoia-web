@@ -8,6 +8,7 @@
     meta,
     actions,
     badge,
+    class: extraClass = "",
     children,
   }: {
     title: string;
@@ -17,6 +18,7 @@
     actions?: Snippet;
     /** Rendered beside the title, e.g. a validation badge. */
     badge?: Snippet;
+    class?: string;
     children: Snippet;
   } = $props();
 </script>
@@ -26,7 +28,7 @@
   {#if actions}{@render actions()}{/if}
 {/snippet}
 
-<section class="form-section" {id}>
+<section class={["form-section", extraClass]} {id}>
   <SectionLabel {meta} actions={badge || actions ? headerActions : undefined}>{title}</SectionLabel>
   {@render children()}
 </section>

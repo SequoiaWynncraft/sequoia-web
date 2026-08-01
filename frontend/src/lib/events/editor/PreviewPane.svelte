@@ -34,7 +34,7 @@
       {/if}
     </div>
   </EventSky>
-  <p class="evf-hint">How the hub band and page hero pick up the sky.</p>
+  <p class="seq-hint">How the hub band and page hero pick up the sky.</p>
 
   {#if draft.previewGoals.length > 0}
     <div
@@ -55,7 +55,7 @@
           {/if}
         </div>
       {/each}
-      <p class="evf-hint">Drag to see the meter at any point of the event.</p>
+      <p class="seq-hint">Drag to see the meter at any point of the event.</p>
     </div>
   {/if}
 </div>

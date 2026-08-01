@@ -12,13 +12,13 @@
 
 <FormSection id="comp" title="Suggested comp">
   {#each draft.compRoles as role (role.id)}
-    <div class="evf-repeat-row evf-repeat-comp">
+    <div class="seq-repeat-row seq-repeat-row-comp">
       <input class="seq-input" placeholder="Role" bind:value={role.role} maxlength="60" />
       <input class="seq-input" placeholder="Builds" bind:value={role.builds} maxlength="200" />
       <input class="seq-input" placeholder="Note" bind:value={role.note} maxlength="200" />
       <button
         type="button"
-        class="evf-remove focus-ring"
+        class="seq-row-remove focus-ring"
         onclick={() => (draft.compRoles = draft.compRoles.filter((entry) => entry.id !== role.id))}
         aria-label="Remove role"
       >✕</button>
@@ -26,7 +26,7 @@
   {/each}
   <button
     type="button"
-    class="evf-add focus-ring"
+    class="seq-row-add focus-ring"
     onclick={() => draft.compRoles.push({ role: "", builds: "", note: "", id: draft.newRowId() })}
   >
     + Add role

@@ -10,7 +10,7 @@
   const draft = getContext<EventDraft>(EDITOR_KEY);
 </script>
 
-<FormSection id="schedule" title="Schedule">
+<FormSection id="schedule" title="Schedule" class="evf-half">
   <div class="evf-grid-2">
     <Field label="Starts (UTC)">
       <InstantField bind:value={draft.startsAt} name="Start" />
@@ -19,5 +19,5 @@
       <InstantField bind:value={draft.endsAt} name="End" />
     </Field>
   </div>
-  <p class="evf-hint">Leave both empty while dates are TBA.</p>
+  <p class="seq-hint">Leave both empty while dates are TBA.</p>
 </FormSection>

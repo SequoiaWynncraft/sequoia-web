@@ -12,7 +12,7 @@
 
 <FormSection id="prizes" title="Prizes">
   {#each draft.prizes as prize (prize.id)}
-    <div class="evf-repeat-row evf-repeat-prize">
+    <div class="seq-repeat-row seq-repeat-row-prize">
       <input class="seq-input" placeholder="Donor" bind:value={prize.donor} maxlength="80" />
       <input
         class="seq-input"
@@ -26,7 +26,7 @@
       <input class="seq-input" placeholder="Prize" bind:value={prize.prize} maxlength="300" />
       <button
         type="button"
-        class="evf-remove focus-ring"
+        class="seq-row-remove focus-ring"
         onclick={() => (draft.prizes = draft.prizes.filter((entry) => entry.id !== prize.id))}
         aria-label="Remove prize"
       >✕</button>
@@ -34,13 +34,13 @@
   {/each}
   <button
     type="button"
-    class="evf-add focus-ring"
+    class="seq-row-add focus-ring"
     onclick={() => draft.prizes.push({ donor: "", prize: "", donorPlayer: "", id: draft.newRowId() })}
   >
     + Add prize
   </button>
   {#if draft.prizes.length > 0}
-    <p class="evf-hint">Naming a player turns the donor into a link to their playercard.</p>
+    <p class="seq-hint">Naming a player turns the donor into a link to their playercard.</p>
     <Field label="Note">
       <TextInput bind:value={draft.prizesNote} maxlength={500} />
     </Field>

@@ -10,7 +10,7 @@
   const draft = getContext<EventDraft>(EDITOR_KEY);
 </script>
 
-<FormSection id="icon" title="Icon">
+<FormSection id="icon" title="Icon" class="evf-half">
   <div class="evf-icon-grid" role="group" aria-label="Event icon">
     <button
       type="button"
