@@ -37,7 +37,13 @@ export const GET: RequestHandler = async ({ params, cookies, fetch, locals }) =>
   const stored = await eventStore.get(params.slug);
   if (!stored) requestError(locals, 404, "No such event");
   const viewer = await loadViewer(cookies.get("seq_session"), fetch);
-  if (!stored.published && (await checkEventManager(fetch, viewer)) !== "manager") {
+  // Drafts stay invisible, and a hidden wheel keeps its feed to managers -
+  // rolls and entrant lists must not leave by a route the page would have
+  // closed.
+  if (
+    (!stored.published || stored.event.raffleHideWheel === true) &&
+    (await checkEventManager(fetch, viewer)) !== "manager"
+  ) {
     requestError(locals, 404, "No such event");
   }
   if (stored.event.access === "members") {
