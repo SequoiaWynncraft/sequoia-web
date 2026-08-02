@@ -172,11 +172,14 @@ export const load: PageServerLoad = async ({ fetch, locals, params, parent }) =>
   // is masked below so this page can't spoil a wheel that hasn't landed.
   // Load-time only - a reload during the ~9s spin says "Rolling..." and the
   // next reload shows the winner; the stage page carries the live feed.
-  const spinningSlots = event.raffles?.length
-    ? (await raffleRollStore.latestForEvent(params.slug).catch(() => []))
-        .filter((roll) => roll.pending || roll.state === "spinning")
-        .map((roll) => `${roll.raffleId}:${roll.slot}`)
-    : [];
+  // With the wheel hidden there is no spin to spoil - and no stage where a
+  // viewer could watch the mask settle - so results show immediately.
+  const spinningSlots =
+    event.raffles?.length && event.raffleHideWheel !== true
+      ? (await raffleRollStore.latestForEvent(params.slug).catch(() => []))
+          .filter((roll) => roll.pending || roll.state === "spinning")
+          .map((roll) => `${roll.raffleId}:${roll.slot}`)
+      : [];
 
   return {
     event,
