@@ -100,6 +100,7 @@ function parseEvent(value: unknown): GuildEvent {
       }
     }
   }
+  if (raw.raffleHideWheel === true) event.raffleHideWheel = true;
   if (raw.raffleExcludeWinners === true) {
     event.raffleExcludeWinners = true;
     // With exclusion on, every raffle shares one winner pool - a member may hold
