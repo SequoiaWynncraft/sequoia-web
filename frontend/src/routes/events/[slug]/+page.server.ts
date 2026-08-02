@@ -82,6 +82,7 @@ export const load: PageServerLoad = async ({ fetch, locals, params, parent }) =>
       event: publicView(event),
       status,
       draft: false,
+      manager: false,
       locked: true as const,
       lockReason: membership,
       chart: null,
@@ -185,6 +186,9 @@ export const load: PageServerLoad = async ({ fetch, locals, params, parent }) =>
     event,
     status,
     draft: !stored.published,
+    // Lets the page keep manager-only affordances (the hidden-wheel stage
+    // link) without a second audience resolution.
+    manager: audience === "manager",
     locked: false as const,
     lockReason: null,
     chart,

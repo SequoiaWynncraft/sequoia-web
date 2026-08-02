@@ -338,9 +338,10 @@
               ? "Raffle"
               : "Raffles"}
           </h2>
-          {#if event.raffleHideWheel !== true}
+          {#if event.raffleHideWheel !== true || data.manager}
             <a class="ev-stage-link focus-ring" href={`/events/${event.slug}/raffle`}>
-              <span aria-hidden="true">✦</span> Watch the stage
+              <span aria-hidden="true">✦</span> Watch the stage{#if event.raffleHideWheel === true}
+                <span class="ev-stage-hidden">(hidden)</span>{/if}
             </a>
           {/if}
         </div>
@@ -729,6 +730,12 @@
     text-decoration: none;
     text-transform: uppercase;
     transition: color var(--dur-fast) ease;
+  }
+
+  .ev-stage-hidden {
+    margin-left: 6px;
+    color: var(--text-muted);
+    text-transform: none;
   }
 
   .ev-stage-link:hover {
