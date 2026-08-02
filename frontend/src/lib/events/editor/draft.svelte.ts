@@ -678,7 +678,11 @@ export class EventDraft {
       this.trackerEnabled === (initial?.tracker !== undefined) &&
       this.trackerEventId === (initial?.tracker?.eventId ?? "") &&
       this.trackerTracking === (initial?.tracker?.tracking ?? "api") &&
-      this.raffleExcludeWinners === (initial?.raffleExcludeWinners ?? false);
+      this.raffleExcludeWinners === (initial?.raffleExcludeWinners ?? false) &&
+      // An unsaved wheel-visibility change must block rolling too: the roll
+      // publishes to streams authorized against the STORED visibility, and a
+      // manager who just hid the wheel expects no public spin.
+      this.raffleShowWheel === (initial?.raffleHideWheel !== true);
     // The roll resolves milestone rules to the *stored* targets, so every
     // referenced milestone's target must match what the server holds - an
     // unsaved edit to one would draw against a stale threshold.
