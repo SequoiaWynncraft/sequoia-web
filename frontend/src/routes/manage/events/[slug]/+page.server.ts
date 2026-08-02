@@ -101,7 +101,10 @@ export const actions: Actions = {
     // between the commit and this teardown.
     const tightened =
       (stored.published && !payload.published) ||
-      (stored.event.access === "public" && regrafted.event.access === "members");
+      (stored.event.access === "public" && regrafted.event.access === "members") ||
+      // Hiding the wheel tightens the STAGE specifically: streams authorized
+      // while it was visible must not keep receiving rolls.
+      (stored.event.raffleHideWheel !== true && regrafted.event.raffleHideWheel === true);
     if (tightened) endRoom(params.slug);
     const audited = await recordAudit(
       manager,
