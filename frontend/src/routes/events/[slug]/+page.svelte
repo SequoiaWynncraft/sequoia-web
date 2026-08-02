@@ -336,9 +336,11 @@
               ? "Raffle"
               : "Raffles"}
           </h2>
-          <a class="ev-stage-link focus-ring" href={`/events/${event.slug}/raffle`}>
-            <span aria-hidden="true">✦</span> Watch the stage
-          </a>
+          {#if event.raffleHideWheel !== true}
+            <a class="ev-stage-link focus-ring" href={`/events/${event.slug}/raffle`}>
+              <span aria-hidden="true">✦</span> Watch the stage
+            </a>
+          {/if}
         </div>
         <PrizeBoard rows={raffleRows} />
         {#if lastDrawnAt}

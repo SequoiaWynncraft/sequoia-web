@@ -24,7 +24,12 @@ export const load: PageServerLoad = async ({ fetch, locals, params, parent }) =>
     stored = await eventStore.get(params.slug);
     if (!stored) requestError(locals, 404, "No such event");
     const { viewer } = await parent();
-    if (!stored.published && (await checkEventManager(fetch, viewer)) !== "manager") {
+    // Drafts stay invisible, and a hidden wheel keeps its stage to managers -
+    // winners still land on the event page without the spin.
+    if (
+      (!stored.published || stored.event.raffleHideWheel === true) &&
+      (await checkEventManager(fetch, viewer)) !== "manager"
+    ) {
       requestError(locals, 404, "No such event");
     }
     if (stored.event.access === "members") {
