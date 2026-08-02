@@ -43,6 +43,11 @@ export const GET: RequestHandler = async ({ params, cookies, fetch, locals }) =>
   if (!canSeeEvent(stored.event, stored.published, audience, new Date())) {
     requestError(locals, 404, "No such event");
   }
+  // The stage page's hidden-wheel rule, enforced on the feed itself: rolls
+  // and entrant lists must not leave by a route the page would have closed.
+  if (stored.event.raffleHideWheel === true && audience !== "manager") {
+    requestError(locals, 404, "No such event");
+  }
 
   const encoder = new TextEncoder();
   let unsubscribe: (() => void) | null | undefined;

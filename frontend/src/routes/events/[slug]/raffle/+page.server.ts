@@ -35,6 +35,12 @@ export const load: PageServerLoad = async ({ fetch, locals, params, parent }) =>
     if (!canSeeEvent(stored.event, stored.published, audience, new Date())) {
       requestError(locals, 404, "No such event");
     }
+    // A hidden wheel keeps its stage to managers - winners still land on the
+    // event page without the spin. Same 404 as above: the stage's existence
+    // is not the viewer's business either.
+    if (stored.event.raffleHideWheel === true && audience !== "manager") {
+      requestError(locals, 404, "No such event");
+    }
     // Projected: the persisted rows carry manager identifiers the wire must not.
     rolls = (await raffleRollStore.latestForEvent(params.slug))
       // A pending row's winner has not committed yet - not stage material.

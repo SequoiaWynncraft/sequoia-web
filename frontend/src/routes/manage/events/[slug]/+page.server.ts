@@ -108,7 +108,12 @@ export const actions: Actions = {
       { event: regrafted.event, published: payload.published },
       new Date(),
     );
-    if (tightened) endRoom(params.slug);
+    // Hiding the wheel tightens the STAGE specifically: streams authorized
+    // while it was visible must not keep receiving rolls, same rule as
+    // above and equally commit-synchronous.
+    const wheelHidden =
+      stored.event.raffleHideWheel !== true && regrafted.event.raffleHideWheel === true;
+    if (tightened || wheelHidden) endRoom(params.slug);
     const audited = await recordAudit(
       manager,
       "event.update",

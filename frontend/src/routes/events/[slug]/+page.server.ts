@@ -82,6 +82,7 @@ export const load: PageServerLoad = async ({ fetch, locals, params, parent }) =>
       event: publicView(event),
       status,
       draft: false,
+      manager: false,
       locked: true as const,
       lockReason: membership,
       chart: null,
@@ -172,16 +173,23 @@ export const load: PageServerLoad = async ({ fetch, locals, params, parent }) =>
   // is masked below so this page can't spoil a wheel that hasn't landed.
   // Load-time only - a reload during the ~9s spin says "Rolling..." and the
   // next reload shows the winner; the stage page carries the live feed.
-  const spinningSlots = event.raffles?.length
-    ? (await raffleRollStore.latestForEvent(params.slug).catch(() => []))
-        .filter((roll) => roll.pending || roll.state === "spinning")
-        .map((roll) => `${roll.raffleId}:${roll.slot}`)
-    : [];
+  // With the wheel hidden there is no spin to spoil FOR VIEWERS - they have
+  // no stage where the mask could settle, so their results show immediately.
+  // Managers keep the stage (and the mask): their own reveal still animates.
+  const spinningSlots =
+    event.raffles?.length && (event.raffleHideWheel !== true || audience === "manager")
+      ? (await raffleRollStore.latestForEvent(params.slug).catch(() => []))
+          .filter((roll) => roll.pending || roll.state === "spinning")
+          .map((roll) => `${roll.raffleId}:${roll.slot}`)
+      : [];
 
   return {
     event,
     status,
     draft: !stored.published,
+    // Lets the page keep manager-only affordances (the hidden-wheel stage
+    // link) without a second audience resolution.
+    manager: audience === "manager",
     locked: false as const,
     lockReason: null,
     chart,
