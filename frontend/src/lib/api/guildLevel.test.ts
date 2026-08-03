@@ -14,7 +14,7 @@ const RESPONSE = {
   prefix: "SEQ",
   current_level: 245,
   level_observed_at: "2026-07-30T11:08:51.822744Z",
-  entries: [{ level: 245, observed_at: "2026-07-29T15:59:15.913142Z" }],
+  entries: [{ level: 245, observed_at: "2026-07-29T15:59:15.913142Z", baseline: true }],
 };
 
 describe("isGuildLevelHistoryResponse", () => {
@@ -40,6 +40,12 @@ describe("isGuildLevelHistoryResponse", () => {
       isGuildLevelHistoryResponse({ ...RESPONSE, entries: [{ level: "245", observed_at: "x" }] }),
     ).toBe(false);
     expect(isGuildLevelHistoryResponse({ ...RESPONSE, entries: [{ level: 245 }] })).toBe(false);
+    expect(
+      isGuildLevelHistoryResponse({
+        ...RESPONSE,
+        entries: [{ level: 245, observed_at: "2026-07-29T15:59:15Z", baseline: "yes" }],
+      }),
+    ).toBe(false);
   });
 });
 
@@ -52,17 +58,13 @@ describe("toLevelUps", () => {
     ]);
 
     expect(history).toEqual([
-      { level: 246, fromLevel: 245, reachedAt: "2026-08-01T09:00:00.000Z" },
-      { level: 245, fromLevel: 244, reachedAt: "2026-07-29T15:59:15.913Z" },
-      // The oldest row has no predecessor on record to have come from.
-      { level: 244, fromLevel: null, reachedAt: "2026-07-26T17:45:23.605Z" },
+      { level: 246, fromLevel: 245, observedAt: "2026-08-01T09:00:00.000Z" },
+      { level: 245, fromLevel: 244, observedAt: "2026-07-29T15:59:15.913Z" },
     ]);
   });
 
-  it("leaves the only row of a one-entry history without a previous level", () => {
-    expect(toLevelUps(RESPONSE.entries)).toEqual([
-      { level: 245, fromLevel: null, reachedAt: "2026-07-29T15:59:15.913Z" },
-    ]);
+  it("does not present the initial observation as a level-up", () => {
+    expect(toLevelUps(RESPONSE.entries)).toEqual([]);
   });
 
   it("orders by observation rather than trusting the order it is given", () => {
@@ -72,8 +74,8 @@ describe("toLevelUps", () => {
       { level: 245, observed_at: "2026-07-29T15:59:15.913Z" },
     ]);
 
-    expect(history.map((entry) => entry.level)).toEqual([246, 245, 244]);
-    expect(history.map((entry) => entry.fromLevel)).toEqual([245, 244, null]);
+    expect(history.map((entry) => entry.level)).toEqual([246, 245]);
+    expect(history.map((entry) => entry.fromLevel)).toEqual([245, 244]);
   });
 
   it("drops entries it cannot trust", () => {
@@ -84,9 +86,7 @@ describe("toLevelUps", () => {
       { level: 246, observed_at: "not a date" },
     ] as GuildLevelHistoryEntry[];
 
-    expect(toLevelUps(entries)).toEqual([
-      { level: 244, fromLevel: null, reachedAt: "2026-07-26T17:45:23.605Z" },
-    ]);
+    expect(toLevelUps(entries)).toEqual([]);
   });
 
   it("keeps only the first of a repeated or falling level", () => {
@@ -97,8 +97,20 @@ describe("toLevelUps", () => {
       { level: 245, observed_at: "2026-07-29T15:59:15.913Z" },
     ]);
 
-    expect(history.map((entry) => entry.level)).toEqual([245, 244]);
+    expect(history.map((entry) => entry.level)).toEqual([245]);
     expect(history[0]?.fromLevel).toBe(244);
+  });
+
+  it("uses an explicitly labelled baseline when present", () => {
+    const history = toLevelUps([
+      { level: 100, observed_at: "2026-07-01T00:00:00.000Z" },
+      { level: 244, observed_at: "2026-07-26T17:45:23.605Z", baseline: true },
+      { level: 245, observed_at: "2026-07-29T15:59:15.913Z", baseline: false },
+    ]);
+
+    expect(history).toEqual([
+      { level: 245, fromLevel: 244, observedAt: "2026-07-29T15:59:15.913Z" },
+    ]);
   });
 
   it("has nothing to show for an empty history", () => {

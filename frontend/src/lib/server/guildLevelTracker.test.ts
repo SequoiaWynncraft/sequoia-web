@@ -5,7 +5,7 @@ import type { GuildLevelHistoryResponse } from "$lib/api/guildLevel";
 const VIEWER_UUID = "11111111-1111-1111-1111-111111111111";
 
 /** The backend history the tracker reads, oldest entry first as it is sent. */
-function historyResponse(entries: { level: number; observed_at: string }[]) {
+function historyResponse(entries: { level: number; observed_at: string; baseline?: boolean }[]) {
   return {
     guild_uuid: "ee860b7c-9a1d-49cf-9f19-ab673ba0f23b",
     name: "Sequoia",
@@ -27,7 +27,7 @@ const TWO_LEVEL_UPS = [
  * gap is a real level-up window.
  */
 const RECORDED_LEVEL_UPS = [
-  { level: 243, observed_at: "2026-07-24T12:00:00.000Z" },
+  { level: 243, observed_at: "2026-07-24T12:00:00.000Z", baseline: true },
   ...TWO_LEVEL_UPS,
 ];
 
@@ -108,8 +108,8 @@ beforeEach(() => {
 describe("buildPayoutText", () => {
   it("reproduces the reference message with a four-decimal day gap", () => {
     const text = buildPayoutText([
-      { level: 245, fromLevel: 244, reachedAt: "2026-07-29T01:45:24.811Z" },
-      { level: 244, fromLevel: 243, reachedAt: "2026-07-26T17:45:23.605Z" },
+      { level: 245, fromLevel: 244, observedAt: "2026-07-29T01:45:24.811Z" },
+      { level: 244, fromLevel: 243, observedAt: "2026-07-26T17:45:23.605Z" },
     ]);
 
     expect(text).toBe(
@@ -124,19 +124,7 @@ describe("buildPayoutText", () => {
   it("has no window to pay out below two level-ups", () => {
     expect(buildPayoutText([])).toBeNull();
     expect(
-      buildPayoutText([{ level: 245, fromLevel: 244, reachedAt: "2026-07-29T01:45:24.811Z" }]),
-    ).toBeNull();
-  });
-
-  it("will not quote a gap measured from the oldest recorded row", () => {
-    // `fromLevel: null` marks a row that may be a first observation rather than
-    // an observed level-up, so the days count would start at "when tracking
-    // began" - and staff pay 0.5LE per raid over whatever window this quotes.
-    expect(
-      buildPayoutText([
-        { level: 245, fromLevel: 244, reachedAt: "2026-07-29T01:45:24.811Z" },
-        { level: 244, fromLevel: null, reachedAt: "2026-07-26T17:45:23.605Z" },
-      ]),
+      buildPayoutText([{ level: 245, fromLevel: 244, observedAt: "2026-07-29T01:45:24.811Z" }]),
     ).toBeNull();
   });
 });
@@ -213,15 +201,14 @@ describe("loadGuildLevelTracker", () => {
     const tracker = await loadGuildLevelTracker(fetch, VIEWER);
 
     expect(tracker?.history).toEqual([
-      { level: 246, fromLevel: 245, reachedAt: "2026-08-01T09:00:00.000Z" },
-      { level: 245, fromLevel: 244, reachedAt: "2026-07-29T01:45:24.811Z" },
-      { level: 244, fromLevel: null, reachedAt: "2026-07-26T17:45:23.605Z" },
+      { level: 246, fromLevel: 245, observedAt: "2026-08-01T09:00:00.000Z" },
+      { level: 245, fromLevel: 244, observedAt: "2026-07-29T01:45:24.811Z" },
     ]);
   });
 
   it("takes the current level and XP from the guild stats, not the history payload", async () => {
     H.guild = { level: 246, xp_percent: 37 };
-    // The backend snapshots every ten minutes, so its view of "current" lags.
+    // Current level and XP still come from the guild stats response.
     H.history = historyResponse(TWO_LEVEL_UPS);
 
     const tracker = await loadGuildLevelTracker(fetch, VIEWER);
@@ -238,16 +225,17 @@ describe("loadGuildLevelTracker", () => {
 
     const tracker = await loadGuildLevelTracker(fetch, VIEWER);
 
-    expect(tracker?.history).toHaveLength(1);
+    expect(tracker?.history).toHaveLength(0);
     expect(tracker?.payoutText).toBeNull();
   });
 
-  it("has no payout message while the older of two rows is the first observation", async () => {
+  it("does not quote a payout window from a baseline and one level-up", async () => {
     H.history = historyResponse(TWO_LEVEL_UPS);
 
     const tracker = await loadGuildLevelTracker(fetch, VIEWER);
 
-    expect(tracker?.history).toHaveLength(2);
+    expect(tracker?.history).toHaveLength(1);
+    expect(tracker?.history[0]?.fromLevel).toBe(244);
     expect(tracker?.payoutText).toBeNull();
   });
 

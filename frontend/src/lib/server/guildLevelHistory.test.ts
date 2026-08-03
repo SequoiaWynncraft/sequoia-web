@@ -1,5 +1,5 @@
 import type { Client } from "@libsql/client";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SEQUOIA_API_BASE_URL, SEQUOIA_GUILD_UUID } from "$lib/config/public";
 
@@ -22,7 +22,7 @@ const RESPONSE = {
   prefix: "SEQ",
   current_level: 245,
   level_observed_at: "2026-07-30T11:08:51.822744Z",
-  entries: [{ level: 245, observed_at: "2026-07-29T15:59:15.913142Z" }],
+  entries: [{ level: 245, observed_at: "2026-07-29T15:59:15.913142Z", baseline: true }],
 };
 
 /**
@@ -45,6 +45,10 @@ function stubFetch(body: string, status = 200) {
 beforeEach(() => {
   H.db = null;
   vi.restoreAllMocks();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("getGuildLevelHistory", () => {
@@ -70,6 +74,111 @@ describe("getGuildLevelHistory", () => {
     await getGuildLevelHistory(fetchImpl);
 
     expect(fetchImpl.mock.calls).toHaveLength(1);
+  });
+
+  it("refreshes an expired copy before returning it", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-03T06:00:00Z"));
+    const getGuildLevelHistory = await freshFetcher();
+    const updated = {
+      ...RESPONSE,
+      current_level: 246,
+      entries: [
+        ...RESPONSE.entries,
+        { level: 246, observed_at: "2026-08-03T06:10:00Z", baseline: false },
+      ],
+    };
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(RESPONSE), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(updated), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      ) as unknown as typeof fetch & { mock: { calls: unknown[][] } };
+
+    expect(await getGuildLevelHistory(fetchImpl)).toEqual(RESPONSE);
+    vi.advanceTimersByTime(60_001);
+
+    expect(await getGuildLevelHistory(fetchImpl)).toEqual(updated);
+    expect(fetchImpl.mock.calls).toHaveLength(2);
+  });
+
+  it("backs off after a failed refresh serves the stale copy", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-03T06:00:00Z"));
+    const getGuildLevelHistory = await freshFetcher();
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(RESPONSE), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      )
+      .mockRejectedValueOnce(new Error("network down")) as unknown as typeof fetch & {
+      mock: { calls: unknown[][] };
+    };
+
+    expect(await getGuildLevelHistory(fetchImpl)).toEqual(RESPONSE);
+    vi.advanceTimersByTime(60_001);
+    expect(await getGuildLevelHistory(fetchImpl)).toEqual(RESPONSE);
+    expect(await getGuildLevelHistory(fetchImpl)).toEqual(RESPONSE);
+    expect(fetchImpl.mock.calls).toHaveLength(2);
+  });
+
+  it("does not serve the fallback beyond the stale window", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-03T06:00:00Z"));
+    const getGuildLevelHistory = await freshFetcher();
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(RESPONSE), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      )
+      .mockRejectedValueOnce(new Error("network down")) as unknown as typeof fetch & {
+      mock: { calls: unknown[][] };
+    };
+
+    expect(await getGuildLevelHistory(fetchImpl)).toEqual(RESPONSE);
+    vi.advanceTimersByTime(24 * 60 * 60 * 1000);
+
+    expect(await getGuildLevelHistory(fetchImpl)).toBeNull();
+    expect(await getGuildLevelHistory(fetchImpl)).toBeNull();
+    expect(fetchImpl.mock.calls).toHaveLength(2);
+  });
+
+  it("rechecks the stale deadline after a failed refresh", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-03T06:00:00Z"));
+    const getGuildLevelHistory = await freshFetcher();
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(RESPONSE), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      )
+      .mockImplementationOnce(async () => {
+        vi.advanceTimersByTime(2);
+        throw new Error("network down");
+      }) as unknown as typeof fetch & { mock: { calls: unknown[][] } };
+
+    expect(await getGuildLevelHistory(fetchImpl)).toEqual(RESPONSE);
+    vi.advanceTimersByTime(24 * 60 * 60 * 1000 - 1);
+
+    expect(await getGuildLevelHistory(fetchImpl)).toBeNull();
+    expect(fetchImpl.mock.calls).toHaveLength(2);
   });
 
   it("reports an unknown history rather than throwing when the guild is not found", async () => {
