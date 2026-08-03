@@ -32,7 +32,7 @@ const FAILURE_BACKOFF_MS = 60 * 1000;
 const HISTORY_PATH = `/public/global/guilds/${SEQUOIA_GUILD_UUID}/level-history`;
 
 let failedUntil = 0;
-let lastKnown: GuildLevelHistoryResponse | null = null;
+let lastKnown: { data: GuildLevelHistoryResponse; updatedAt: number } | null = null;
 
 const historyResource = createCachedResource<GuildLevelHistoryResponse>({
   key: `guild-level-history:${SEQUOIA_GUILD_UUID}:v1`,
@@ -58,20 +58,25 @@ const historyResource = createCachedResource<GuildLevelHistoryResponse>({
 export async function getGuildLevelHistory(
   fetchImpl: typeof fetch,
 ): Promise<GuildLevelHistoryResponse | null> {
-  if (Date.now() < failedUntil) return lastKnown;
+  if (Date.now() < failedUntil) return staleFallback();
   try {
     // Refresh an expired entry before rendering so the first visit after a quiet
     // period sees a level-up the backend has already recorded. The cache helper
     // still falls back to the stale entry if that refresh fails.
-    const { data, stale } = await historyResource.get(fetchImpl);
-    lastKnown = data;
+    const { data, stale, updatedAt } = await historyResource.get(fetchImpl);
+    lastKnown = { data, updatedAt };
     failedUntil = stale ? Date.now() + FAILURE_BACKOFF_MS : 0;
     return data;
   } catch (error) {
     failedUntil = Date.now() + FAILURE_BACKOFF_MS;
     console.warn("guild level history unavailable:", error);
-    return lastKnown;
+    return staleFallback();
   }
+}
+
+function staleFallback(): GuildLevelHistoryResponse | null {
+  if (!lastKnown || Date.now() - lastKnown.updatedAt >= STALE_MS) return null;
+  return lastKnown.data;
 }
 
 async function loadHistory(fetchImpl: typeof fetch): Promise<GuildLevelHistoryResponse> {

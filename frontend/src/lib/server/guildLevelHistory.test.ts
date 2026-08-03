@@ -133,6 +133,30 @@ describe("getGuildLevelHistory", () => {
     expect(fetchImpl.mock.calls).toHaveLength(2);
   });
 
+  it("does not serve the fallback beyond the stale window", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-03T06:00:00Z"));
+    const getGuildLevelHistory = await freshFetcher();
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(RESPONSE), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      )
+      .mockRejectedValueOnce(new Error("network down")) as unknown as typeof fetch & {
+      mock: { calls: unknown[][] };
+    };
+
+    expect(await getGuildLevelHistory(fetchImpl)).toEqual(RESPONSE);
+    vi.advanceTimersByTime(24 * 60 * 60 * 1000);
+
+    expect(await getGuildLevelHistory(fetchImpl)).toBeNull();
+    expect(await getGuildLevelHistory(fetchImpl)).toBeNull();
+    expect(fetchImpl.mock.calls).toHaveLength(2);
+  });
+
   it("reports an unknown history rather than throwing when the guild is not found", async () => {
     const getGuildLevelHistory = await freshFetcher();
 
