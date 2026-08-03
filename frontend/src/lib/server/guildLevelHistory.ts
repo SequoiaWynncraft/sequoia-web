@@ -66,7 +66,7 @@ export async function getGuildLevelHistory(
     const { data, stale, updatedAt } = await historyResource.get(fetchImpl);
     lastKnown = { data, updatedAt };
     failedUntil = stale ? Date.now() + FAILURE_BACKOFF_MS : 0;
-    return data;
+    return stale ? staleFallback() : data;
   } catch (error) {
     failedUntil = Date.now() + FAILURE_BACKOFF_MS;
     console.warn("guild level history unavailable:", error);
