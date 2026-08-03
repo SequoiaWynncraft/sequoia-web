@@ -1,5 +1,5 @@
 import type { Client } from "@libsql/client";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SEQUOIA_API_BASE_URL, SEQUOIA_GUILD_UUID } from "$lib/config/public";
 
@@ -47,6 +47,10 @@ beforeEach(() => {
   vi.restoreAllMocks();
 });
 
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 describe("getGuildLevelHistory", () => {
   it("reads the history from the public route for the configured guild", async () => {
     const getGuildLevelHistory = await freshFetcher();
@@ -70,6 +74,40 @@ describe("getGuildLevelHistory", () => {
     await getGuildLevelHistory(fetchImpl);
 
     expect(fetchImpl.mock.calls).toHaveLength(1);
+  });
+
+  it("refreshes an expired copy before returning it", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-03T06:00:00Z"));
+    const getGuildLevelHistory = await freshFetcher();
+    const updated = {
+      ...RESPONSE,
+      current_level: 246,
+      entries: [
+        ...RESPONSE.entries,
+        { level: 246, observed_at: "2026-08-03T06:10:00Z", baseline: false },
+      ],
+    };
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(RESPONSE), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(updated), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      ) as unknown as typeof fetch & { mock: { calls: unknown[][] } };
+
+    expect(await getGuildLevelHistory(fetchImpl)).toEqual(RESPONSE);
+    vi.advanceTimersByTime(60_001);
+
+    expect(await getGuildLevelHistory(fetchImpl)).toEqual(updated);
+    expect(fetchImpl.mock.calls).toHaveLength(2);
   });
 
   it("reports an unknown history rather than throwing when the guild is not found", async () => {

@@ -12,7 +12,7 @@ import { createCachedResource } from "$lib/server/serverCache";
  * window decides how much longer the site waits on top of that. Most reads still
  * land on an unchanged snapshot, which is cheap.
  */
-const FRESH_MS = 5 * 60 * 1000;
+const FRESH_MS = 60 * 1000;
 
 /**
  * Level history is append-only: a day-old copy is missing at most the newest
@@ -59,9 +59,10 @@ export async function getGuildLevelHistory(
 ): Promise<GuildLevelHistoryResponse | null> {
   if (Date.now() < failedUntil) return null;
   try {
-    // Stale is acceptable here because the history gates nothing - the section's
-    // authorization is decided entirely by the caller's branch gate.
-    const { data } = await historyResource.get(fetchImpl, { allowStale: true });
+    // Refresh an expired entry before rendering so the first visit after a quiet
+    // period sees a level-up the backend has already recorded. The cache helper
+    // still falls back to the stale entry if that refresh fails.
+    const { data } = await historyResource.get(fetchImpl);
     failedUntil = 0;
     return data;
   } catch (error) {
