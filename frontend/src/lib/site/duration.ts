@@ -1,8 +1,27 @@
 export interface ParsedDuration {
   /** Length of the window in milliseconds. */
   ms: number;
-  /** Compact human label for the window, e.g. "20 min" or "0.5 d". */
+  /** Compact human label for the window, e.g. "20min" or "0.5d". */
   label: string;
+}
+
+/**
+ * Timeframe presets the raid board offers, mirroring `RANKING_WINDOWS` so the
+ * two pages read as one system. Keys are valid {@link parseDuration} inputs, so
+ * a preset chip and a typed custom window resolve through the same parser.
+ */
+export const RAID_WINDOWS = [
+  { key: "1d", label: "24h" },
+  { key: "7d", label: "7 days" },
+  { key: "30d", label: "30 days" },
+  { key: "90d", label: "90 days" },
+] as const;
+
+export type RaidWindow = (typeof RAID_WINDOWS)[number]["key"];
+
+/** The preset a timeframe input names, or null when it is a custom window. */
+export function raidWindowPreset(input: string): (typeof RAID_WINDOWS)[number] | null {
+  return RAID_WINDOWS.find((window) => window.key === input.trim().toLowerCase()) ?? null;
 }
 
 /** Milliseconds per supported unit. A month is treated as 30 days. */
@@ -30,6 +49,10 @@ const MAX_MS = 366 * UNIT_MS.d;
  * (months); `min` is matched ahead of `m` so minute inputs are never read as
  * months. Returns `null` for anything unparseable, non-positive, or beyond the
  * maximum window.
+ *
+ * The label keeps the number and unit unspaced (`7d`, not `7 d`), because it is
+ * rendered through the uppercase pixel display face where a space between the
+ * two reads as two separate words.
  */
 export function parseDuration(input: string): ParsedDuration | null {
   const match = input.trim().toLowerCase().match(/^(\d+(?:\.\d+)?)\s*(min|m|h|d)$/);
@@ -42,7 +65,7 @@ export function parseDuration(input: string): ParsedDuration | null {
   const ms = value * UNIT_MS[unit];
   if (ms > MAX_MS) return null;
 
-  return { ms, label: `${match[1]} ${UNIT_LABEL[unit]}` };
+  return { ms, label: `${match[1]}${UNIT_LABEL[unit]}` };
 }
 
 /** An explicit start/end window resolved from a Unix-timestamp range. */

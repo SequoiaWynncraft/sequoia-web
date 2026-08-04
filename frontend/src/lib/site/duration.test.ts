@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseDuration, parseTimestampRange } from "$lib/site/duration";
+import { RAID_WINDOWS, parseDuration, parseTimestampRange, raidWindowPreset } from "$lib/site/duration";
 
 const MIN = 60_000;
 const HOUR = 3_600_000;
@@ -24,10 +24,10 @@ describe("parseDuration", () => {
     expect(parseDuration("30 MIN")?.ms).toBe(30 * MIN);
   });
 
-  it("keeps the original number in the label", () => {
-    expect(parseDuration("0.5d")?.label).toBe("0.5 d");
-    expect(parseDuration("20min")?.label).toBe("20 min");
-    expect(parseDuration("1m")?.label).toBe("1 mo");
+  it("keeps the original number in the label, unspaced for the display face", () => {
+    expect(parseDuration("0.5d")?.label).toBe("0.5d");
+    expect(parseDuration("20min")?.label).toBe("20min");
+    expect(parseDuration("1m")?.label).toBe("1mo");
   });
 
   it("rejects malformed, non-positive, and unknown-unit inputs", () => {
@@ -42,6 +42,25 @@ describe("parseDuration", () => {
   it("rejects windows longer than about a year", () => {
     expect(parseDuration("400d")).toBeNull();
     expect(parseDuration("13m")).toBeNull();
+  });
+});
+
+describe("raidWindowPreset", () => {
+  it("names the preset an input matches", () => {
+    expect(raidWindowPreset("7d")?.label).toBe("7 days");
+    expect(raidWindowPreset(" 30D ")?.key).toBe("30d");
+  });
+
+  it("returns null for a custom window", () => {
+    expect(raidWindowPreset("0.5d")).toBeNull();
+    expect(raidWindowPreset("t:1784109600-1784282400")).toBeNull();
+    expect(raidWindowPreset("")).toBeNull();
+  });
+
+  it("offers only windows the duration parser accepts", () => {
+    for (const window of RAID_WINDOWS) {
+      expect(parseDuration(window.key)).not.toBeNull();
+    }
   });
 });
 

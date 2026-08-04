@@ -284,8 +284,32 @@
     { src: "nolers3.avif", title: "Nolers III", desc: "Fan art" },
   ];
   let lightbox = $state<number | null>(null);
+  let lightboxClose = $state<HTMLButtonElement | null>(null);
+  // Where focus sat before the lightbox opened, so closing returns it there
+  // instead of dumping the keyboard user back at the top of the page.
+  let lightboxOpener: HTMLElement | null = null;
+
+  $effect(() => {
+    if (lightbox !== null) lightboxClose?.focus();
+  });
+
+  function openLightbox(index: number, opener: HTMLElement) {
+    lightboxOpener = opener;
+    lightbox = index;
+  }
+
+  function closeLightbox() {
+    lightbox = null;
+    lightboxOpener?.focus();
+  }
 
 </script>
+
+<svelte:window
+  onkeydown={(event) => {
+    if (event.key === "Escape" && lightbox !== null) closeLightbox();
+  }}
+/>
 
 <!-- Hero -->
 <section class="seq-hero seq-home-page">
@@ -389,22 +413,41 @@
     <SectionHeading kicker="Community" gradient="enchant" style="margin-bottom:2.5rem">Exhibition</SectionHeading>
     <div style="columns:auto 260px;column-gap:1rem">
       {#each ART as a, i}
-        <!-- svelte-ignore a11y_no_static_element_interactions -->
-        <div onclick={() => lightbox = i} class="seq-art-frame" style="break-inside:avoid;margin-bottom:1rem;border-radius:0.75rem;overflow:hidden;border:1px solid rgba(40,44,62,0.6);cursor:pointer;position:relative" role="button" tabindex="0" onkeydown={(e) => { if (e.key === 'Enter') lightbox = i; }}>
+        <button type="button" onclick={(event) => openLightbox(i, event.currentTarget)} class="seq-art-frame" aria-label={`View ${a.title} full size`} style="break-inside:avoid;margin-bottom:1rem;padding:0;width:100%;text-align:left;border-radius:0.75rem;overflow:hidden;border:1px solid rgba(40,44,62,0.6);background:none;cursor:zoom-in;position:relative">
           <img src={IMG + a.src} alt={a.title} loading="lazy" decoding="async" style="width:100%;display:block;filter:brightness(0.92) saturate(0.95)" />
           <div class="seq-art-cap" style="position:absolute;bottom:0;left:0;right:0;padding:0.7rem 0.85rem;background:linear-gradient(to top,rgba(12,14,23,0.9),transparent)">
             <div style="font-family:var(--font-display);font-size:0.8rem;letter-spacing:0.08em;text-transform:uppercase;color:rgba(245,197,66,0.9)">{a.title}</div>
             <div style="font-size:0.72rem;color:rgba(154,149,144,0.8)">{a.desc}</div>
           </div>
-        </div>
+        </button>
       {/each}
     </div>
   </div>
 
   {#if lightbox !== null}
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div onclick={() => lightbox = null} style="position:fixed;inset:0;z-index:1000;background:rgba(12,14,23,0.92);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:2rem;animation:seq-fade-in 0.2s ease both" role="button" tabindex="0" onkeydown={(e) => { if (e.key === 'Escape') lightbox = null; }}>
-      <img src={IMG + ART[lightbox].src} alt={ART[lightbox].title} style="max-width:90vw;max-height:85vh;object-fit:contain;border-radius:4px;box-shadow:var(--shadow-lg)" />
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={ART[lightbox].title}
+      style="position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:2rem;animation:seq-fade-in 0.2s ease both"
+    >
+      <!-- The scrim is the click-anywhere-to-close target, so it has to be a real control. -->
+      <button
+        type="button"
+        onclick={closeLightbox}
+        aria-label="Close image"
+        style="position:absolute;inset:0;border:0;background:rgba(12,14,23,0.92);backdrop-filter:blur(8px);cursor:zoom-out"
+      ></button>
+      <img src={IMG + ART[lightbox].src} alt={ART[lightbox].title} style="position:relative;max-width:90vw;max-height:85vh;object-fit:contain;border-radius:4px;box-shadow:var(--shadow-lg)" />
+      <button
+        bind:this={lightboxClose}
+        type="button"
+        onclick={closeLightbox}
+        class="seq-button seq-button-secondary seq-button-sm"
+        style="position:absolute;top:1.5rem;right:1.5rem"
+      >
+        Close
+      </button>
     </div>
   {/if}
 </section>
