@@ -121,7 +121,7 @@
           style="position:relative"
         >
           <a href={viewerCardUrl ?? signOutUrl} class="seq-nav-link seq-nav-viewer">
-            <img class="seq-nav-face" src={nmsrFace(viewer.minecraftUuid, 18)} alt="" />
+            <img class="seq-nav-face" src={nmsrFace(viewer.minecraftUuid, 18)} alt="" width="18" height="18" />
             {viewer.minecraftUsername ?? "Account"}
             <svg class="seq-nav-chevron" class:seq-nav-chevron-open={open === ACCOUNT} width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6" />
@@ -132,7 +132,7 @@
             <div class="seq-dropdown" use:clampToViewport>
               <div class="seq-dropdown-col seq-account-col">
                 <div class="seq-account-identity">
-                  <img class="seq-account-face" src={nmsrFace(viewer.minecraftUuid, 36)} alt="" />
+                  <img class="seq-account-face" src={nmsrFace(viewer.minecraftUuid, 36)} alt="" width="36" height="36" />
                   <span class="seq-account-names">
                     <span class="seq-account-minecraft">{viewer.minecraftUsername ?? "No linked player"}</span>
                     {#if viewer.discordUsername}
@@ -215,7 +215,7 @@
         {#if viewer}
           {#if viewerCardUrl}
             <a href={viewerCardUrl} onclick={() => mobileOpen = false} class="seq-mobile-link seq-mobile-viewer">
-              <img class="seq-nav-face" src={nmsrFace(viewer.minecraftUuid, 18)} alt="" />
+              <img class="seq-nav-face" src={nmsrFace(viewer.minecraftUuid, 18)} alt="" width="18" height="18" />
               {viewer.minecraftUsername}
             </a>
           {/if}

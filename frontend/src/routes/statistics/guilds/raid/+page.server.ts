@@ -93,19 +93,23 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
     return canSeeEvent(stored.event, stored.published, audience, now);
   });
 
-  // An event drives the board only when explicitly selected; otherwise the
-  // board defaults to a timeframe window (below) rather than the first event.
-  // Selection reads the *visible* list, so `?event=` cannot name a tracker the
-  // viewer was not shown.
-  const eventParam = url.searchParams.get("event");
-  const selectedEvent = eventParam
-    ? (visibleEvents.find((event) => event.id === eventParam) ?? null)
-    : null;
-
   // A custom timeframe (e.g. `?window=0.5d`) reuses the mod contribution board
   // over an ad-hoc window ending now. With no window and no event selected the
   // board falls back to the default window, so it always shows something.
   const windowRaw = url.searchParams.get("window")?.trim() ?? "";
+
+  // An event drives the board only when explicitly selected; otherwise the
+  // board defaults to a timeframe window (above) rather than the first event.
+  // Selection reads the *visible* list, so `?event=` cannot name a tracker the
+  // viewer was not shown - and an explicit window outranks it, because the
+  // board below is built from the window whenever there is one. Resolving the
+  // precedence here keeps it in one place: a page given both params would
+  // otherwise render an event's chips over a window's numbers.
+  const eventParam = windowRaw === "" ? url.searchParams.get("event") : null;
+  const selectedEvent = eventParam
+    ? (visibleEvents.find((event) => event.id === eventParam) ?? null)
+    : null;
+
   // The default window is implicit (no explicit input, no event selected); the
   // page uses this to avoid offering a no-op "Clear timeframe" link on it.
   const windowIsDefault = windowRaw === "" && selectedEvent === null;
@@ -145,7 +149,13 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
     };
   }
 
-  // Administrators are authorized independently and may filter the board from                                                                                 
+  // The raid filter only means something where completions are attributed per
+  // raid: any mod-tracked window, unless the event already fixes its own raid.
+  // API counter diffs cannot be split by raid, so the chips stay hidden there.
+  const raidFilterAvailable =
+    customWindow !== null || (selectedEvent?.tracking === "mod" && !selectedEvent.raid);
+
+  // Administrators are authorized independently and may filter the board from                                                                               
   // stale roster data; everyone else needs the fresh roster.                                                                                                  
   const leaderboardRoster =                                                                                                                                    
     freshRoster ?? (viewer?.websiteAdmin && stats !== null ? stats.members : null); 
@@ -168,7 +178,13 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
       selectedEvent.tracking === "mod"
         ? leaderboardRoster === null
           ? unavailableLeaderboard()
-          : await loadModLeaderboard(fetch, selectedEvent, leaderboardRoster)
+          : await loadModLeaderboard(
+              fetch,
+              // An event that scopes its own raid keeps it; the chip filter only
+              // applies where the event counts every raid.
+              { ...selectedEvent, raid: selectedEvent.raid ?? selectedRaid },
+              leaderboardRoster,
+            )
         : await loadTrackerLeaderboard(fetch, selectedEvent.id);
     leaderboard = result.leaderboard;
     leaderboardError = result.error;
@@ -206,6 +222,7 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
     windowInvalid,
     windowError: rangeError,
     selectedRaid,
+    raidFilterAvailable,
     leaderboard,
     leaderboardError,
     stats,

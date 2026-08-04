@@ -6,10 +6,14 @@ import { sameUuid } from "$lib/server/raidEventBoards";
 import { loadViewer } from "$lib/server/viewerSession";
 import {
   createRewardQueueRequest,
+  fetchRewardQueueEligibility,
+  fetchRewardQueues,
   type CreateRewardQueueResult,
+  type RewardQueueSourceEntry,
+  type RewardQueuesResult,
   type RewardRequestType,
 } from "$lib/server/rewardQueue";
-import { MAX_TOME_REASON_LENGTH } from "$lib/rewardQueue";
+import { MAX_TOME_REASON_LENGTH, type RewardQueueEntry } from "$lib/rewardQueue";
 
 export const prerender = false;
 
@@ -17,23 +21,71 @@ export const prerender = false;
 export type RequestsAccess = "signin" | "unverified" | "notMember" | "member";
 
 /**
+ * Drops every requester's Discord id on the way to the browser, keeping only the one bit the
+ * page actually renders from it: whether a given row is the viewer's own. The match happens
+ * here, on the id, so it survives an in-game rename without the id itself being serialized
+ * into the page for every other member to read.
+ */
+function toViewerQueue(entries: RewardQueueSourceEntry[], viewerDiscordId: string): RewardQueueEntry[] {
+  return entries.map(({ discordId, ...entry }) => ({ ...entry, isViewer: discordId === viewerDiscordId }));
+}
+
+/** Applies {@link toViewerQueue} to both queues, passing a failed read through untouched. */
+function toViewerQueues(result: RewardQueuesResult, viewerDiscordId: string) {
+  if (result.status !== "ok") return { status: "unavailable" as const };
+  return {
+    status: "ok" as const,
+    queues: {
+      aspect: toViewerQueue(result.queues.aspect, viewerDiscordId),
+      tome: toViewerQueue(result.queues.tome, viewerDiscordId),
+    },
+  };
+}
+
+/**
  * Resolves the viewer's UI access to the requests page. Mirrors the raid/event pages' trust
  * rules: a signed-out viewer gets "signin", a stale or unreachable roster fails closed to
  * "unverified", and only a fresh-roster match is treated as a "member".
+ *
+ * A member additionally gets the live queues, which are awaited because they are what the
+ * page is for, and their eligibility as an *unawaited* promise. Eligibility can cost the
+ * backend a Discord role lookup, so it streams in beside the rendered page rather than
+ * holding it up. The page renders complete without it: the request forms are server-rendered
+ * either way, and a slow or failed check leaves them enabled with the submission as the
+ * authority.
  */
-export const load: PageServerLoad = async ({ fetch, parent }) => {
+export const load: PageServerLoad = async ({ fetch, parent, cookies, depends }) => {
   const { viewer } = await parent();
   if (!viewer) return { access: "signin" as const };
-  if (viewer.websiteAdmin) return { access: "member" as const };
 
-  const stats = await getGuildStats(fetch, { allowStale: false }).catch(() => null);
-  const freshRoster = stats !== null && !stats.stale ? stats.members : null;
-  if (freshRoster === null) return { access: "unverified" as const };
+  if (!viewer.websiteAdmin) {
+    const stats = await getGuildStats(fetch, { allowStale: false }).catch(() => null);
+    const freshRoster = stats !== null && !stats.stale ? stats.members : null;
+    if (freshRoster === null) return { access: "unverified" as const };
 
-  const isMember = freshRoster.some(
-    (member) => member.uuid !== null && sameUuid(member.uuid, viewer.minecraftUuid),
-  );
-  return { access: (isMember ? "member" : "notMember") as RequestsAccess };
+    const isMember = freshRoster.some(
+      (member) => member.uuid !== null && sameUuid(member.uuid, viewer.minecraftUuid),
+    );
+    if (!isMember) return { access: "notMember" as const };
+  }
+
+  // Lets the page refresh the queues without invalidating every load on the route tree.
+  // It does re-run this whole function - `depends` scopes which loads re-run, never which
+  // parts of one - so a refresh repeats the membership check and the eligibility read too.
+  // The roster comes back off a two-minute server cache, so that part is nearly free; the
+  // eligibility call is the one that costs the backend a Discord lookup, and paying it per
+  // refresh is accepted rather than accidental.
+  depends("app:reward-queue");
+
+  const token = cookies.get("seq_session");
+  const queues = token ? await fetchRewardQueues(token, fetch) : ({ status: "unavailable" } as const);
+  return {
+    access: "member" as const,
+    queues: toViewerQueues(queues, viewer.discordId),
+    eligibility: token
+      ? fetchRewardQueueEligibility(token, fetch)
+      : Promise.resolve({ status: "unavailable" } as const),
+  };
 };
 
 /** Turns a forwarder result into a SvelteKit action return, attributed to the request `type`. */

@@ -40,6 +40,32 @@ input[type="number"]::-webkit-inner-spin-button {
   position: relative;
 }
 
+/* Off-screen until focused, so a keyboard visitor can jump the whole navbar. */
+.seq-skip-link {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 101;
+  padding: 0.6rem 1.2rem;
+  border: 1px solid var(--color-gold);
+  border-radius: var(--radius-md);
+  background: var(--color-abyss);
+  color: var(--color-gold);
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  text-decoration: none;
+  transform: translateY(-200%);
+}
+
+/* :focus, not :focus-visible — a skip link must appear whenever it is focused. */
+.seq-skip-link:focus {
+  outline: 2px solid rgba(245, 197, 66, 0.5);
+  outline-offset: 2px;
+  transform: translateY(0);
+}
+
 .seq-page-backdrop {
   position: fixed;
   inset: 0;
@@ -426,7 +452,8 @@ input[type="number"]::-webkit-inner-spin-button {
 }
 
 .seq-input:focus-visible {
-  outline: none;
+  outline: 2px solid rgba(245, 197, 66, 0.5);
+  outline-offset: 2px;
   border-color: color-mix(in srgb, var(--color-gold) 55%, var(--color-border-subtle));
 }
 
