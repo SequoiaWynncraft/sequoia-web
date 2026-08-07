@@ -262,22 +262,24 @@
       {#if data.selectedRaid}
         <input type="hidden" name="raid" value={data.selectedRaid} />
       {/if}
-      <label class="timeframe-label" for="raid-window">Duration or timestamp range</label>
       <div class="timeframe-row">
-        <input
-          class="timeframe-input"
-          class:invalid={data.windowInvalid}
-          id="raid-window"
-          type="text"
-          name="window"
-          placeholder="e.g. 0.5d"
-          value={customActive ? data.windowInput : ""}
-          aria-invalid={data.windowInvalid}
-          aria-describedby="raid-window-help"
-          autocomplete="off"
-          spellcheck="false"
-        />
-        <button class="timeframe-submit" type="submit">Show</button>
+        <label class="timeframe-label" for="raid-window">Duration or timestamp range</label>
+        <div class="timeframe-field">
+          <input
+            class="timeframe-input"
+            class:invalid={data.windowInvalid}
+            id="raid-window"
+            type="text"
+            name="window"
+            placeholder="e.g. 0.5d"
+            value={customActive ? data.windowInput : ""}
+            aria-invalid={data.windowInvalid}
+            aria-describedby="raid-window-help"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button class="timeframe-submit" type="submit">Show</button>
+        </div>
       </div>
     </form>
     <p class="muted timeframe-help" id="raid-window-help">
@@ -464,10 +466,10 @@
   }
 
   .timeframe-label {
-    display: block;
-    margin-bottom: 6px;
+    flex: 0 0 auto;
     color: var(--text-muted);
     font-size: var(--text-xs);
+    white-space: nowrap;
   }
 
   .timeframe-help {
@@ -490,9 +492,21 @@
     margin-top: 12px;
   }
 
+  /* Label and field share one row while they fit; the field's flex-basis makes
+     it wrap underneath the label as a unit once space runs out. */
   .timeframe-row {
     display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+    max-width: 560px;
+  }
+
+  .timeframe-field {
+    display: flex;
+    flex: 1 1 240px;
     gap: 8px;
+    min-width: 0;
     max-width: 420px;
   }
 

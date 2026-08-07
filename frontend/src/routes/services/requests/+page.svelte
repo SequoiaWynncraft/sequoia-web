@@ -219,7 +219,7 @@
   }
 </script>
 
-<PageScaffold crumbs={view.crumbs} tabs={view.tabs} width="lg">
+<PageScaffold crumbs={view.crumbs} tabs={view.tabs} width="xl">
   {#snippet children()}
     <PageHeader kicker={view.kicker} title={view.title} lead={view.lead} />
 
