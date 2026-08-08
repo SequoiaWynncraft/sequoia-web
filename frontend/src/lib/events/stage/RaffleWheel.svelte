@@ -1,5 +1,6 @@
 <script lang="ts">
   import PlayerName from "$lib/design-system/components/PlayerName.svelte";
+  import { canonicalUuid } from "$lib/events/raffle";
   import type { StageRoll } from "$lib/events/stageProtocol";
   import { nmsrFace } from "$lib/site/nmsr";
 
@@ -18,10 +19,6 @@
     /** The signed-in viewer - their own slice glows a touch warmer. */
     viewerUuid?: string | null;
   } = $props();
-
-  function canonicalUuid(uuid: string): string {
-    return uuid.replaceAll("-", "").toLowerCase();
-  }
 
   const SIZE = 640;
   const CENTER = SIZE / 2;

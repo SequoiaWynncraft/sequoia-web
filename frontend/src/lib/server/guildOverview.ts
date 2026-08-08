@@ -4,6 +4,7 @@ import {
   type GuildOverviewResponse,
 } from "$lib/api/guildOverview";
 import { getWynncraftGuild } from "$lib/server/wynncraftGuild";
+import { isRecord, nonNegativeInteger, booleanValue, stringValue } from "$lib/server/guards";
 
 const RANKS = ["owner", "chief", "strategist"] as const;
 const RANK_ORDER = new Map<BranchmasterRank, number>(RANKS.map((rank, index) => [rank, index]));
@@ -94,20 +95,4 @@ function requiredNumber(value: unknown): number {
   const number = nonNegativeInteger(value);
   if (number === undefined) throw new Error("Unexpected Wynncraft numeric field.");
   return number;
-}
-
-function nonNegativeInteger(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : undefined;
-}
-
-function booleanValue(value: unknown): boolean | null {
-  return typeof value === "boolean" ? value : null;
-}
-
-function stringValue(value: unknown): string | undefined {
-  return typeof value === "string" ? value : undefined;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }

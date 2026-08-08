@@ -5,6 +5,8 @@
  * response, so contract drift surfaces as a typed error instead of a render crash.
  */
 
+import { isRecord } from "$lib/api/guards";
+
 export type BagshopErrorCode =
   | "http_error"
   | "invalid_response"
@@ -104,11 +106,6 @@ export interface InventoryPatch {
 }
 
 // ─── Type guards ─────────────────────────────────────────────────────────────
-
-/** True if the value is a non-null object usable as a keyed record. */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
 
 /** Runtime guard for an {@link InventoryItem} shape. */
 function isInventoryItem(value: unknown): value is InventoryItem {

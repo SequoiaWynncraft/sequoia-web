@@ -1,4 +1,5 @@
 import { type HeldTerritoriesResponse, type HeldTerritory } from "$lib/api/territories";
+import { isRecord } from "$lib/server/guards";
 import { createCachedResource } from "$lib/server/serverCache";
 import { fetchWynncraftJson } from "$lib/server/wynncraft";
 
@@ -60,8 +61,4 @@ function isTerritoryList(value: unknown): value is HeldTerritory[] {
       (entry) => isRecord(entry) && typeof entry.name === "string" && typeof entry.acquired === "string",
     )
   );
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }

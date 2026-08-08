@@ -5,6 +5,7 @@ import {
   type GuildStatsResponse,
 } from "$lib/api/guildStats";
 import { getWynncraftGuild } from "$lib/server/wynncraftGuild";
+import { isRecord, nonNegativeInteger, nonNegativeNumber, booleanValue, stringValue } from "$lib/server/guards";
 
 type GuildStatsOptions = { allowStale?: boolean };
 
@@ -132,24 +133,4 @@ function requiredNumber(value: unknown): number {
   const number = nonNegativeInteger(value);
   if (number === undefined) throw new Error("Unexpected Wynncraft numeric field.");
   return number;
-}
-
-function nonNegativeInteger(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : undefined;
-}
-
-function nonNegativeNumber(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : undefined;
-}
-
-function booleanValue(value: unknown): boolean | null {
-  return typeof value === "boolean" ? value : null;
-}
-
-function stringValue(value: unknown): string | undefined {
-  return typeof value === "string" ? value : undefined;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }

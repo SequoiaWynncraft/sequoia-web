@@ -1,3 +1,5 @@
+import { isRecord, isNonNegativeInteger } from "$lib/api/guards";
+
 export interface SeasonRankingEntry {
   position: number;
   name: string;
@@ -33,10 +35,3 @@ function isSeasonRankingEntry(value: unknown): value is SeasonRankingEntry {
   );
 }
 
-function isNonNegativeInteger(value: unknown): value is number {
-  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}

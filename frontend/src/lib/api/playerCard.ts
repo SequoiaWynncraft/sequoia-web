@@ -1,3 +1,5 @@
+import { isRecord, isNonNegativeInteger } from "$lib/api/guards";
+
 export interface PlayerCharacterSummary {
   type: string;
   reskin: string | null;
@@ -33,6 +35,17 @@ export interface PlayerCardResponse {
   dungeons: Record<string, number>;
   raids_total: number | null;
   raids: Record<string, number>;
+  /**
+   * Raids completed while in the player's current guild. Only the Wynncraft guild
+   * endpoint reports it, so it is null for players read through the global profile
+   * and for members whose profile hides their global data.
+   */
+  current_guild_raids: number | null;
+  /**
+   * When the player joined their current guild. Only the Wynncraft guild roster reports
+   * it, so it is null for players read through the global profile.
+   */
+  guild_joined: string | null;
   pvp_kills: number | null;
   pvp_deaths: number | null;
   rankings: Record<string, number>;
@@ -67,6 +80,8 @@ export function isPlayerCardResponse(value: unknown): value is PlayerCardRespons
     isNumberRecord(value.dungeons) &&
     isNullableNonNegativeInteger(value.raids_total) &&
     isNumberRecord(value.raids) &&
+    isNullableNonNegativeInteger(value.current_guild_raids) &&
+    isNullableString(value.guild_joined) &&
     isNullableNonNegativeInteger(value.pvp_kills) &&
     isNullableNonNegativeInteger(value.pvp_deaths) &&
     isNumberRecord(value.rankings) &&
@@ -102,12 +117,4 @@ function isNullableNonNegativeInteger(value: unknown): value is number | null {
 
 function isNullableNonNegativeNumber(value: unknown): value is number | null {
   return value === null || (typeof value === "number" && Number.isFinite(value) && value >= 0);
-}
-
-function isNonNegativeInteger(value: unknown): value is number {
-  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }

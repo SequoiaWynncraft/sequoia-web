@@ -4,6 +4,7 @@
   import Icon from "$lib/components/Icon.svelte";
   import StatBlock from "$lib/design-system/components/StatBlock.svelte";
   import { pageView } from "$lib/site/nav";
+  import { compact } from "$lib/site/format";
   import type { GuildMemberStats } from "$lib/api/guildStats";
 
   import GuildLevelTracker from "./GuildLevelTracker.svelte";
@@ -52,10 +53,6 @@
           )
       : [],
   );
-
-  function compact(value: number): string {
-    return Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(value);
-  }
 
   function playercardHref(username: string): string {
     return `/statistics/player/playercard?player=${encodeURIComponent(username)}`;

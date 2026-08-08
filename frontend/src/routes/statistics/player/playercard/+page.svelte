@@ -46,6 +46,13 @@
     }));
   }
 
+  /** Meta line for the Raids section: lifetime total, plus the Sequoia share when known. */
+  function raidsMeta(card: PlayerCardResponse): string {
+    const total = `${(card.raids_total ?? 0).toLocaleString()} total`;
+    if (card.current_guild_raids === null) return total;
+    return `${total} · ${card.current_guild_raids.toLocaleString()} in SEQ`;
+  }
+
 
   const CLASS_LABELS: Record<string, string> = {
     WARRIOR: "Warrior",
@@ -238,6 +245,7 @@
 
           <dl class="meta">
             <div class="meta-row"><dt>First joined Wynncraft</dt><dd>{formatDate(card.first_join)}</dd></div>
+            <div class="meta-row"><dt>Joined Sequoia</dt><dd>{formatDate(card.guild_joined)}</dd></div>
             <div class="meta-row">
               <dt>Last seen</dt>
               <dd>
@@ -341,7 +349,7 @@
 
           {#if Object.keys(card.raids).length > 0}
             <div class="card-section">
-              <SectionLabel meta="{(card.raids_total ?? 0).toLocaleString()} total">
+              <SectionLabel meta={raidsMeta(card)}>
                 {#snippet children()}Raids{/snippet}
               </SectionLabel>
               <BarList items={raidBars(card)} />

@@ -1,3 +1,5 @@
+import { isRecord } from "$lib/api/guards";
+
 /** Milliseconds in a day, the unit every gap in the level tracker is expressed in. */
 const DAY_MS = 86_400_000;
 
@@ -123,8 +125,4 @@ export function toLevelUps(entries: readonly GuildLevelHistoryEntry[]): GuildLev
     });
   }
   return oldestFirst.reverse();
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }

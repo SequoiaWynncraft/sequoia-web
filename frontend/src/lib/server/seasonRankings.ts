@@ -1,4 +1,5 @@
 import { type SeasonRankingEntry, type SeasonRankingsResponse } from "$lib/api/seasonRankings";
+import { isRecord } from "$lib/server/guards";
 import { createCachedResource, type CachedResource } from "$lib/server/serverCache";
 import { fetchWynncraftJson } from "$lib/server/wynncraft";
 
@@ -93,8 +94,4 @@ function isEntryList(value: unknown): value is SeasonRankingEntry[] {
         typeof entry.rating === "number",
     )
   );
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }
