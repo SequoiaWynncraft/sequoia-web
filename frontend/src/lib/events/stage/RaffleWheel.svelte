@@ -20,10 +20,6 @@
     viewerUuid?: string | null;
   } = $props();
 
-  function canonicalUuid(uuid: string): string {
-    return uuid.replaceAll("-", "").toLowerCase();
-  }
-
   const SIZE = 720;
   const CENTER = SIZE / 2;
   const RADIUS = CENTER - 16;
