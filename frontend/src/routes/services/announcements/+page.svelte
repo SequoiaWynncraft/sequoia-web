@@ -2,4 +2,4 @@
   import RegistryPage from "$lib/components/RegistryPage.svelte";
 </script>
 
-<RegistryPage path="/services/announcements" />
+<RegistryPage path="/services/announcements" width="xl" />

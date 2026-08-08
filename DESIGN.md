@@ -253,6 +253,20 @@ entrance fades and status-dot pulses rather than scattered scroll effects.
 "Rankings"), breadcrumbs on every subpage, hairline `--color-border-subtle` dividers, and
 key–value rows with right-aligned mono values for data panels.
 
+**Container widths:** every page's max content width is a `width` prop (`"md" | "lg" | "xl"`)
+passed to `PageScaffold`/`Container` (`lib/components/{PageScaffold,Container}.svelte`),
+resolving to `--container-{md,lg,xl}` in `tokens/spacing.css` (48/64/80rem). Three tiers, by
+decision:
+- `md` (48rem) — narrow single-column pages: `/legal`.
+- `lg` (64rem), `RegistryPage`'s default — `statistics/*`, `/news`, `/services/contact`.
+- `xl` (80rem) — the `/services` section (`/services`, `requests`, `bagshop`, `announcements`),
+  chosen because `bagshop` holds wide data tables (explicit `min-width: 40rem` each) and an
+  auto-fill order-card grid that need the extra room; the other three pages in the section were
+  widened to match so the section reads as one column, not four.
+- Known gap: `/services/contact` still sits at the `lg` default, one tier narrower than its
+  `/services` siblings. Not yet reconciled — a candidate for either bumping to `xl` or splitting
+  `/services/contact` out of the "one section, one width" rule explicitly.
+
 **Signature moments** (observed live): the full-bleed hero with the gold pixel wordmark
 over the abyss backdrop; the six-up live stat blocks (pixel numerals, icon chips); "The
 Sequoian Tree" — a wide commissioned illustration of the membership as characters; and
