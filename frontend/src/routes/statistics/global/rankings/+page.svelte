@@ -10,6 +10,7 @@
   import { RANKING_WINDOWS, type GlobalRaidRankingEntry } from "$lib/api/globalRankings";
   import type { SeasonRankingEntry } from "$lib/api/seasonRankings";
   import { KNOWN_RAIDS } from "$lib/site/raids";
+  import { compact } from "$lib/site/format";
 
   let { data } = $props();
 
@@ -90,10 +91,6 @@
     if (activeWarWindow !== "7d") query.set("wwindow", activeWarWindow);
     if (season !== null) query.set("season", String(season));
     return `?${query}`;
-  }
-
-  function compact(value: number): string {
-    return Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(value);
   }
 
   /** Gambits per completion, the efficiency measure raiders compare. */

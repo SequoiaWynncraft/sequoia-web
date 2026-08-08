@@ -1,3 +1,5 @@
+import { isRecord } from "$lib/api/guards";
+
 /** Sort orders the guild directory offers; keys match the backend grammar. */
 export const DIRECTORY_SORTS = [
   { key: "members", label: "Members" },
@@ -56,8 +58,4 @@ export function isGlobalDirectoryPage(value: unknown): value is GlobalDirectoryP
         typeof entry.raids_30d === "number",
     )
   );
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }

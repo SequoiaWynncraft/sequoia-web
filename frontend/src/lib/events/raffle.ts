@@ -22,7 +22,7 @@ export interface DrawOptions {
 
 /** Uuid identity tolerates spelling differences (case, hyphens): stored
  * winners, manual includes, and roster entries do not all share a format. */
-function canonicalUuid(uuid: string): string {
+export function canonicalUuid(uuid: string): string {
   return uuid.replaceAll("-", "").toLowerCase();
 }
 

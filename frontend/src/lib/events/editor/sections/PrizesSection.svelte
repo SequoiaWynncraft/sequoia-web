@@ -13,7 +13,7 @@
 <FormSection id="prizes" title="Prizes">
   {#each draft.prizes as prize (prize.id)}
     <div class="seq-repeat-row seq-repeat-row-prize">
-      <input class="seq-input" placeholder="Donor" bind:value={prize.donor} maxlength="80" />
+      <input class="seq-input" aria-label="Donor" placeholder="Donor" bind:value={prize.donor} maxlength="80" />
       <input
         class="seq-input"
         placeholder="Player (links the donor)"
@@ -23,7 +23,7 @@
         spellcheck="false"
         aria-label="Donor's Minecraft player"
       />
-      <input class="seq-input" placeholder="Prize" bind:value={prize.prize} maxlength="300" />
+      <input class="seq-input" aria-label="Prize" placeholder="Prize" bind:value={prize.prize} maxlength="300" />
       <button
         type="button"
         class="seq-row-remove focus-ring"

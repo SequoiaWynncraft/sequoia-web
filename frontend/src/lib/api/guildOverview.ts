@@ -1,3 +1,5 @@
+import { isRecord, isNonNegativeInteger } from "$lib/api/guards";
+
 export interface HomepageStats {
   members: number;
   guild_level: number;
@@ -96,12 +98,4 @@ function isOptionalHexColor(value: unknown): value is string | null {
 
 function isOptionalNonNegativeInteger(value: unknown): value is number | null {
   return value === null || isNonNegativeInteger(value);
-}
-
-function isNonNegativeInteger(value: unknown): value is number {
-  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }

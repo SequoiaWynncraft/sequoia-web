@@ -13,9 +13,9 @@
 <FormSection id="comp" title="Suggested comp">
   {#each draft.compRoles as role (role.id)}
     <div class="seq-repeat-row seq-repeat-row-comp">
-      <input class="seq-input" placeholder="Role" bind:value={role.role} maxlength="60" />
-      <input class="seq-input" placeholder="Builds" bind:value={role.builds} maxlength="200" />
-      <input class="seq-input" placeholder="Note" bind:value={role.note} maxlength="200" />
+      <input class="seq-input" aria-label="Role" placeholder="Role" bind:value={role.role} maxlength="60" />
+      <input class="seq-input" aria-label="Builds" placeholder="Builds" bind:value={role.builds} maxlength="200" />
+      <input class="seq-input" aria-label="Note" placeholder="Note" bind:value={role.note} maxlength="200" />
       <button
         type="button"
         class="seq-row-remove focus-ring"

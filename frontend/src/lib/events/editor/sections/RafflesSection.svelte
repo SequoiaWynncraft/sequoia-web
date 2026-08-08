@@ -3,6 +3,7 @@
 
   import { GUILD_RANKS } from "$lib/api/guildStats";
   import PlayerName from "$lib/design-system/components/PlayerName.svelte";
+  import { canonicalUuid } from "$lib/events/raffle";
   import { PRIZE_ICONS, prizeIconUrl } from "$lib/events/prizeIcons";
   import ConfirmDialog from "$lib/design-system/components/forms/ConfirmDialog.svelte";
   import Field from "$lib/design-system/components/forms/Field.svelte";
@@ -30,13 +31,6 @@
 
   function manualKey(row: RaffleRow, list: "include" | "exclude") {
     return `${row.key}:${list}`;
-  }
-
-  /** Uuid identity tolerates spelling (case, hyphens): a stored pick and the
-   * roster can format the same player differently, and a raw-equality dup
-   * check would add both - which the validator then rejects as a duplicate. */
-  function canonicalUuid(uuid: string): string {
-    return uuid.replaceAll("-", "").toLowerCase();
   }
 
   function addManual(row: RaffleRow, list: "include" | "exclude") {
@@ -133,7 +127,7 @@
   {#each draft.raffles as raffle (raffle.key)}
     <div class="evf-raffle">
       <div class="seq-repeat-row seq-repeat-row-raffle">
-        <input class="seq-input" placeholder="Prize" bind:value={raffle.prize} maxlength="300" />
+        <input class="seq-input" aria-label="Prize" placeholder="Prize" bind:value={raffle.prize} maxlength="300" />
         <Field label="Winners" tight>
           <input
             class="seq-input"

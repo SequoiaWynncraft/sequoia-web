@@ -1,6 +1,7 @@
 import { SEQUOIA_API_BASE_URL } from "$lib/config/public";
 import type { components, operations } from "$lib/api/generated/public-api";
 import { isGuildOverviewResponse, type GuildOverviewResponse } from "$lib/api/guildOverview";
+import { isRecord } from "$lib/api/guards";
 
 export type SeasonRaidActivityResponse = components["schemas"]["SeasonRaidActivityResponse"];
 export type GetSeasonRaidActivityQuery = operations["getSeasonRaidActivity"]["parameters"]["query"];
@@ -199,8 +200,4 @@ function isRaidCount(value: unknown): value is SeasonRaidActivityResponse["entri
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }

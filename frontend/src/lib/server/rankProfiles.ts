@@ -1,4 +1,5 @@
 import { createSequoiaApiClient, type RankProfilesResponse } from "$lib/api/client";
+import { isRecord } from "$lib/server/guards";
 import { GUILD_RANKS, type GuildRankName } from "$lib/api/guildStats";
 import { SEQUOIA_API_BASE_URL } from "$lib/config/public";
 import { createCachedResource, type CachedValue } from "$lib/server/serverCache";
@@ -294,8 +295,4 @@ function isBadgeTier(value: string | null | undefined): value is BadgeTier {
 
 function tierOrder(value: BadgeTier): number {
   return { BRONZE: 1, SILVER: 2, GOLD: 3, DIAMOND: 4 }[value];
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }
