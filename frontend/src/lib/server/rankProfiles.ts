@@ -187,7 +187,7 @@ type RoleMap = Map<string, Catalog["roles"][number]>;
 type AssetMap = Map<string, Catalog["assets"][number]>;
 type AwardMap = Map<string, Catalog["awards"][number]>;
 
-function resolveRankRole(roles: RoleMap, key: string | null) {
+export function resolveRankRole(roles: RoleMap, key: string | null) {
   if (!key) return undefined;
   return roles.get(LEGACY_RANK_EQUIVALENTS[key] ?? key) ?? roles.get(key);
 }

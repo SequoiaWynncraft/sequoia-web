@@ -181,11 +181,9 @@ function announcementCacheFor(windows: {
  * viewers before any board data is read, then serves the shared cached build.
  * Returns null on any failure, so the section is simply absent.
  *
- * Both halves of the gate are read fresh and fail closed when they come back
- * stale, matching the member-only raid page. A cached roster or profile outlives
- * the revocation that removed the viewer from the guild or their branch - by up
- * to three days and 30 minutes respectively - so authorizing from one would keep
- * serving them per-member tracker data through an upstream outage.
+ * Regular viewers read both halves of the gate fresh and fail closed when they
+ * come back stale. Website administrators are members by session grant, so
+ * they skip the branch-profile read and may use stale roster display data.
  */
 export async function loadWeeklyRaidAnnouncement(
   fetchImpl: typeof fetch,
@@ -194,14 +192,16 @@ export async function loadWeeklyRaidAnnouncement(
   if (!viewer) return null;
   try {
     const [stats, profiles] = await Promise.all([
-      getGuildStats(fetchImpl, { allowStale: false }),
-      getLinkedRankProfilesResult(fetchImpl, { allowStale: false }),
+      getGuildStats(fetchImpl, { allowStale: viewer.websiteAdmin }),
+      viewer.websiteAdmin
+        ? Promise.resolve(null)
+        : getLinkedRankProfilesResult(fetchImpl, { allowStale: false }),
     ]);
-    if (stats.stale || profiles.stale) {
+    if (!viewer.websiteAdmin && (stats.stale || profiles === null || profiles.stale)) {
       console.warn("weekly raid announcement: gate reads are stale, denying");
       return null;
     }
-    if (!isAnnouncementViewer(profiles.data, stats.members, viewer)) return null;
+    if (!isAnnouncementViewer(profiles?.data ?? null, stats.members, viewer)) return null;
     const cache = announcementCacheFor(weekWindows(Date.now()));
     return (await cache.get(fetchImpl, { allowStale: true })).data;
   } catch (error) {

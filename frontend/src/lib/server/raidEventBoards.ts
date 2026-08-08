@@ -1,6 +1,7 @@
 import type { GuildMemberStats } from "$lib/api/guildStats";
 import type { GuildEvent } from "$lib/events/types";
 import type { RaffleEntrant } from "$lib/events/raffle";
+import type { BadgeTier } from "$lib/site/honours";
 import { sequoiaBackendInternalHeaders, sequoiaBackendOrigin } from "$lib/server/sequoiaBackend";
 import {
   sequoiaWebBackendInternalHeaders,
@@ -27,7 +28,7 @@ export interface RaidLeaderboardEntry {
   /** Honour insignia artwork URL, when the member holds a graded insignia. */
   insigniaUrl?: string | null;
   /** Insignia grade (e.g. "GOLD"), used for the image alt text. */
-  insignia?: string | null;
+  insignia?: BadgeTier | null;
   /** Sequoia internal/progression rank label (e.g. "Druid"), when known. */
   progressionRank?: string | null;
   /** Primary color of the authoritative Discord progression role, when known. */

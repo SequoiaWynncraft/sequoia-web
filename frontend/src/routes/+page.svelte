@@ -7,7 +7,11 @@
   import SequoianTree from "$lib/components/SequoianTree.svelte";
   import Icon from "$lib/components/Icon.svelte";
   import { createSequoiaApiClient } from "$lib/api/client";
-  import type { BranchmasterMember, HomepageStats } from "$lib/api/guildOverview";
+  import {
+    branchLeadershipBadge,
+    type BranchmasterMember,
+    type HomepageStats,
+  } from "$lib/api/guildOverview";
   import { NMSR_BASE_URL } from "$lib/config/public";
   import { homepageServices, homepageStatistics } from "$lib/site/nav";
 
@@ -218,20 +222,29 @@
 
   type BranchmasterCard = {
     username: string;
+    role: BranchmasterMember["rank"];
     rank: string;
+    rankColor: string | null;
     online: boolean;
     avatarUrl: string;
     stats: Record<string, string>;
   };
   const branchmasters = $state<{ members: BranchmasterCard[] }>({ members: [] });
   let branchmastersLoaded = $state(false);
-  const branchmasterTopLane = $derived(branchmasters.members.filter((member) => member.rank !== "strategist"));
-  const branchmasterBottomLane = $derived(branchmasters.members.filter((member) => member.rank === "strategist"));
+  const branchmasterTopLane = $derived(
+    branchmasters.members.filter((member) => member.role === "branchmaster"),
+  );
+  const branchmasterBottomLane = $derived(
+    branchmasters.members.filter((member) => member.role === "branch_novice"),
+  );
 
   function branchmasterCard(member: BranchmasterMember): BranchmasterCard {
+    const badge = branchLeadershipBadge(member);
     return {
       username: member.username,
-      rank: member.rank,
+      role: member.rank,
+      rank: badge.label,
+      rankColor: badge.color,
       online: member.online === true,
       avatarUrl: nmsrHeadIsoUrl(member.username),
       stats: {

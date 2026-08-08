@@ -1,8 +1,26 @@
-import type { Handle, HandleServerError } from "@sveltejs/kit";
+import type { Handle, HandleServerError, ServerInit } from "@sveltejs/kit";
 
 import { legacyManageRedirect } from "$lib/manage/redirects";
+import { closeDatabase } from "$lib/server/db";
+import { retireAllRooms } from "$lib/server/liveRolls";
+import { REQUEST_FINISHED, REQUEST_STARTED } from "../retirement.js";
 
-export const handle: Handle = async ({ event, resolve }) => {
+/** Docker uses a signal adapter-node does not consume so its listener stays live during the drain. */
+export const init: ServerInit = () => {
+  process.once("SIGUSR2", retireAllRooms);
+  process.once("sveltekit:shutdown", closeDatabase);
+};
+
+export const handle: Handle = async (input) => {
+  process.emit(REQUEST_STARTED);
+  try {
+    return await handleRequest(input);
+  } finally {
+    process.emit(REQUEST_FINISHED);
+  }
+};
+
+const handleRequest: Handle = async ({ event, resolve }) => {
   const requestId = crypto.randomUUID();
   const startedAt = performance.now();
   event.locals.requestId = requestId;

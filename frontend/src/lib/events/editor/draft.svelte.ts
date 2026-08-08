@@ -289,6 +289,9 @@ export class EventDraft {
   trackerManual = $state(false);
 
   raffleExcludeWinners = $state(false);
+  // UI-positive ("show the wheel"); stored inverted as raffleHideWheel so
+  // existing events keep their wheel without a migration.
+  raffleShowWheel = $state(true);
   raffles = $state<RaffleRow[]>([]);
   rollingId = $state<string | null>(null);
   rollError = $state<string | null>(null);
@@ -407,6 +410,7 @@ export class EventDraft {
         !this.trackerChoices.some((option) => option.id === initial.tracker?.eventId));
 
     this.raffleExcludeWinners = initial?.raffleExcludeWinners ?? false;
+    this.raffleShowWheel = initial?.raffleHideWheel !== true;
     this.raffles = initial?.raffles?.map((raffle) => this.seedRaffleRow(raffle)) ?? [];
 
     this.lastCaptured = this.payload;
@@ -672,7 +676,11 @@ export class EventDraft {
       this.trackerEnabled === (initial?.tracker !== undefined) &&
       this.trackerEventId === (initial?.tracker?.eventId ?? "") &&
       this.trackerTracking === (initial?.tracker?.tracking ?? "api") &&
-      this.raffleExcludeWinners === (initial?.raffleExcludeWinners ?? false);
+      this.raffleExcludeWinners === (initial?.raffleExcludeWinners ?? false) &&
+      // An unsaved wheel-visibility change must block rolling too: the roll
+      // publishes to streams authorized against the STORED visibility, and a
+      // manager who just hid the wheel expects no public spin.
+      this.raffleShowWheel === (initial?.raffleHideWheel !== true);
     // The roll resolves milestone rules to the *stored* targets, so every
     // referenced milestone's target must match what the server holds - an
     // unsaved edit to one would draw against a stale threshold.
@@ -891,6 +899,7 @@ export class EventDraft {
       });
     if (filledRaffles.length > 0) event.raffles = filledRaffles;
     if (this.raffleExcludeWinners) event.raffleExcludeWinners = true;
+    if (!this.raffleShowWheel) event.raffleHideWheel = true;
     return event;
   });
 
@@ -1210,6 +1219,7 @@ export class EventDraft {
       });
     });
     this.raffleExcludeWinners = draft.raffleExcludeWinners === true;
+    this.raffleShowWheel = draft.raffleHideWheel !== true;
   }
 
   // ── Presets ─────────────────────────────────────────────────────────

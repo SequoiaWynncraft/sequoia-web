@@ -14,6 +14,7 @@
   import { themeVars } from "$lib/events/theme";
   import { isoDay } from "$lib/events/format";
   import { nmsrFace } from "$lib/site/nmsr";
+  import { insigniaLabel } from "$lib/site/honours";
   import { raidIconUrl } from "$lib/events/raidIcons";
   import type { RaidLeaderboardEntry } from "$lib/server/raidEventBoards";
 
@@ -111,7 +112,7 @@
       href: (entry) => playercardUrl(entry.username),
       icon: (entry) =>
         entry.insigniaUrl && entry.insignia
-          ? { src: entry.insigniaUrl, alt: `${entry.insignia.toLowerCase()} insignia` }
+          ? { src: entry.insigniaUrl, alt: insigniaLabel(entry.insignia) }
           : null,
     },
     {
@@ -337,9 +338,12 @@
               ? "Raffle"
               : "Raffles"}
           </h2>
-          <a class="ev-stage-link focus-ring" href={`/events/${event.slug}/raffle`}>
-            <span aria-hidden="true">✦</span> Watch the stage
-          </a>
+          {#if event.raffleHideWheel !== true || data.manager}
+            <a class="ev-stage-link focus-ring" href={`/events/${event.slug}/raffle`}>
+              <span aria-hidden="true">✦</span> Watch the stage{#if event.raffleHideWheel === true}
+                <span class="ev-stage-hidden">(hidden)</span>{/if}
+            </a>
+          {/if}
         </div>
         <PrizeBoard rows={raffleRows} />
         {#if lastDrawnAt}
@@ -673,7 +677,6 @@
     font-family: var(--font-display);
     font-size: var(--text-xs);
     letter-spacing: var(--tracking-wide);
-    text-transform: uppercase;
   }
 
   .ev-prize-what {
@@ -727,6 +730,12 @@
     text-decoration: none;
     text-transform: uppercase;
     transition: color var(--dur-fast) ease;
+  }
+
+  .ev-stage-hidden {
+    margin-left: 6px;
+    color: var(--text-muted);
+    text-transform: none;
   }
 
   .ev-stage-link:hover {

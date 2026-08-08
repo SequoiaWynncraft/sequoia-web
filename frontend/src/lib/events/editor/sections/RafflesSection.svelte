@@ -110,6 +110,13 @@
     save, then roll each winner below - the preview shows the exact pool a
     roll would draw from.
   </p>
+  {#if draft.raffles.length > 0}
+    <Toggle
+      bind:checked={draft.raffleShowWheel}
+      label="Show the wheel stage"
+      hint="Off hides the live wheel page - winners still appear on the event page."
+    />
+  {/if}
   {#if draft.raffles.length > 1}
     <Toggle
       bind:checked={draft.raffleExcludeWinners}

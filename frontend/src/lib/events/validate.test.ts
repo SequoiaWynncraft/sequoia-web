@@ -838,4 +838,15 @@ describe("parseGuildEvent", () => {
     expectError({ ...VALID, comp: { roles: [] } }, "role");
     expectError({ ...VALID, tracker: { eventId: "abc", tracking: "webhook" } }, "tracking");
   });
+
+  it("stores the wheel toggle only when hidden", () => {
+    const hidden = parseGuildEvent({ ...VALID, raffleHideWheel: true });
+    expect(hidden.ok).toBe(true);
+    if (hidden.ok) expect(hidden.event.raffleHideWheel).toBe(true);
+    // Anything but literal true - including false - stays absent, so old
+    // events and sloppy payloads keep their wheel.
+    const shown = parseGuildEvent({ ...VALID, raffleHideWheel: false });
+    expect(shown.ok).toBe(true);
+    if (shown.ok) expect(shown.event.raffleHideWheel).toBeUndefined();
+  });
 });

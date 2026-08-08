@@ -11,6 +11,7 @@
   import { nmsrFullBodyIso } from "$lib/site/nmsr";
   import type { PlayerCardResponse } from "$lib/api/playerCard";
   import type { PlayerSeriesResponse } from "$lib/api/playerSeries";
+  import { insigniaLabel } from "$lib/site/honours";
 
   let { data } = $props();
 
@@ -215,16 +216,17 @@
                   </span>
                 {/if}
                 {#if honours.insignia}
+                  {@const label = insigniaLabel(honours.insignia.tier)}
                   {#if honours.insignia.assetUrl}
                     <img
                       class="insignia-icon"
                       src={honours.insignia.assetUrl}
-                      alt="{honours.insignia.tier.toLowerCase()} insignia"
-                      title="{honours.insignia.tier.toLowerCase()} insignia"
+                      alt={label}
+                      title={label}
                     />
                   {:else}
                     <span class="insignia" style="--tier-color:{tierColor(honours.insignia.tier)}">
-                      ◆ {honours.insignia.tier.toLowerCase()}
+                      ◆ {label}
                     </span>
                   {/if}
                 {/if}

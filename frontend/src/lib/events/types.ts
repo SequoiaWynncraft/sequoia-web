@@ -237,4 +237,7 @@ export interface GuildEvent {
   raffles?: EventRaffle[];
   /** When set, a winner of any raffle is excluded from the rest of this event. */
   raffleExcludeWinners?: boolean;
+  /** When set, the live wheel stage is hidden from non-managers - winners
+   * appear on the event page without the spin. */
+  raffleHideWheel?: boolean;
 }
