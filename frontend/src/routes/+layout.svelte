@@ -18,7 +18,10 @@
   let {
     children,
     data,
-  }: { children: Snippet; data: { viewer: Viewer | null; manageVisible: boolean } } = $props();
+  }: {
+    children: Snippet;
+    data: { viewer: Viewer | null; manageVisible: boolean; navHidden: string[] };
+  } = $props();
   const isHome = $derived(page.url.pathname === "/");
   // Event pages open with a full-bleed sky that tucks under the translucent
   // navbar, exactly like the homepage hero. (/events/manage/** only issues
@@ -40,7 +43,7 @@
     <div class="seq-page-backdrop-glow seq-page-backdrop-glow-low"></div>
     <div class="seq-page-backdrop-vignette"></div>
   </div>
-  <Navbar viewer={data.viewer} manage={data.manageVisible} />
+  <Navbar viewer={data.viewer} manage={data.manageVisible} navHidden={data.navHidden} />
   <main id="main-content" tabindex="-1" class="seq-main-shell" class:seq-main-home={isFullBleed}>
     {@render children()}
   </main>

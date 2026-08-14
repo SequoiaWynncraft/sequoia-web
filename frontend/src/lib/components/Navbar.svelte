@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page } from "$app/state";
   import Icon from "./Icon.svelte";
-  import { SECTIONS } from "$lib/site/nav";
+  import { DEFAULT_HIDDEN_NAV, visibleSections } from "$lib/site/navPreferences";
   import { nmsrFace } from "$lib/site/nmsr";
   import { webAuthLogoutUrl, webAuthStartUrl } from "$lib/site/webAuth";
   import type { Viewer } from "$lib/site/viewer";
@@ -11,7 +11,15 @@
   // Sentinel for `open`; section keys are route paths, so this can't collide.
   const ACCOUNT = "#account";
 
-  let { viewer = null, manage = false }: { viewer?: Viewer | null; manage?: boolean } = $props();
+  let {
+    viewer = null,
+    manage = false,
+    navHidden = [...DEFAULT_HIDDEN_NAV],
+  }: { viewer?: Viewer | null; manage?: boolean; navHidden?: string[] } = $props();
+
+  // The menu the viewer chose in account settings. Hidden pages keep their
+  // routes, tabs, and breadcrumbs - they just are not listed up here.
+  const sections = $derived(visibleSections(navHidden));
 
   const signInUrl = $derived(webAuthStartUrl());
   const signOutUrl = $derived(webAuthLogoutUrl());
@@ -45,7 +53,7 @@
     </a>
 
     <div class="seq-nav-desktop">
-      {#each SECTIONS as s}
+      {#each sections as s}
         {@const hasMenu = !!(s.groups || s.items)}
         {@const active = isActive(s.to)}
         {@const isOpen = open === s.to}
@@ -188,7 +196,7 @@
   {#if mobileOpen}
     <div class="seq-nav-mobile-panel">
       <div class="seq-nav-mobile-links">
-        {#each SECTIONS as s}
+        {#each sections as s}
           <a
             href={s.to}
             onclick={() => mobileOpen = false}
