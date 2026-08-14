@@ -4,6 +4,7 @@
   import Icon from "$lib/components/Icon.svelte";
   import StatBlock from "$lib/design-system/components/StatBlock.svelte";
   import { pageView } from "$lib/site/nav";
+  import { visibleCards } from "$lib/site/navPreferences";
   import { compact } from "$lib/site/format";
   import type { GuildMemberStats } from "$lib/api/guildStats";
 
@@ -13,6 +14,8 @@
 
   const page = pageView("/statistics");
   const stats = $derived(data.stats);
+  // Outage fallback grid, filtered like the navbar and the other overviews.
+  const cards = $derived(visibleCards(page.cards, data.navHidden));
 
   const currentSeason = $derived(stats?.season_ranks.at(-1) ?? null);
   const currentPosition = $derived(
@@ -174,7 +177,7 @@
     <p class="stale-note">Live data is currently unavailable - showing the last recorded snapshot.</p>
   {/if}
 {:else}
-  <SubpageGrid items={page.cards} />
+  <SubpageGrid items={cards} />
   <p class="stale-note">Live statistics are temporarily unavailable.</p>
 {/if}
 

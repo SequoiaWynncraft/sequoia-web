@@ -6,6 +6,12 @@ import {
   parsePartyFinderDmLevel,
   setPartyFinderDmLevel,
 } from "$lib/server/partyFinderPreferences";
+import {
+  NAV_PREFERENCE_COOKIE,
+  NAV_PREFERENCE_MAX_AGE,
+  navToggleIds,
+  serializeHiddenNav,
+} from "$lib/site/navPreferences";
 
 export const prerender = false;
 
@@ -23,17 +29,45 @@ export const load: PageServerLoad = async ({ parent, cookies, fetch }) => {
 };
 
 export const actions: Actions = {
-  default: async ({ request, cookies, fetch }) => {
+  notifications: async ({ request, cookies, fetch }) => {
     const token = cookies.get("seq_session");
-    if (!token) return fail(401, { error: "signin", dmLevel: null });
+    if (!token) return fail(401, { section: "notifications", error: "signin", dmLevel: null });
 
     const formData = await request.formData();
     const dmLevel = parsePartyFinderDmLevel(formData.get("dm_level"));
-    if (!dmLevel) return fail(400, { error: "invalid", dmLevel: null });
+    if (!dmLevel) return fail(400, { section: "notifications", error: "invalid", dmLevel: null });
 
     const result = await setPartyFinderDmLevel(token, dmLevel, fetch);
-    if (result === "unauthorized") return fail(401, { error: "signin", dmLevel });
-    if (result === "unavailable") return fail(503, { error: "unavailable", dmLevel });
-    return { saved: true, dmLevel };
+    if (result === "unauthorized") {
+      return fail(401, { section: "notifications", error: "signin", dmLevel });
+    }
+    if (result === "unavailable") {
+      return fail(503, { section: "notifications", error: "unavailable", dmLevel });
+    }
+    return { section: "notifications", saved: true, dmLevel };
+  },
+
+  /**
+   * Store which navbar entries this browser shows. The form submits the entries
+   * to keep, because unchecked boxes send nothing - hiding is therefore the
+   * absence of a value, which works with JavaScript off. Deleting the cookie
+   * restores the trimmed default menu.
+   */
+  navigation: async ({ request, cookies }) => {
+    const formData = await request.formData();
+    if (formData.has("reset")) {
+      cookies.delete(NAV_PREFERENCE_COOKIE, { path: "/" });
+      return { section: "navigation", saved: true, reset: true };
+    }
+
+    const visible = new Set(formData.getAll("visible").map(String));
+    const hidden = navToggleIds().filter((id) => !visible.has(id));
+    cookies.set(NAV_PREFERENCE_COOKIE, serializeHiddenNav(hidden), {
+      path: "/",
+      maxAge: NAV_PREFERENCE_MAX_AGE,
+      httpOnly: true,
+      sameSite: "lax",
+    });
+    return { section: "navigation", saved: true, reset: false };
   },
 };
