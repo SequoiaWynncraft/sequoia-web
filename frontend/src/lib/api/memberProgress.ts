@@ -1,3 +1,5 @@
+import { isNonNegativeInteger, isNonNegativeNumber } from "./guards";
+
 /** Per-member gains over a UTC date range, summed from the backend's daily rollups. */
 export interface MemberProgressResponse {
   generated_at: string;
@@ -15,20 +17,15 @@ export interface MemberProgressEntry {
   wars: number;
   raids: number;
   raids_by_type: Record<string, number>;
+  /** Decay-weighted score, not a count - fractional values are normal. */
   war_points: number;
   wars_participated: number;
-}
-
-/** Counts are nonnegative safe integers - a negative or fractional value is
- * upstream corruption, not data. */
-function isCount(value: unknown): boolean {
-  return Number.isSafeInteger(value) && (value as number) >= 0;
 }
 
 function isCountRecord(value: unknown): value is Record<string, number> {
   return (
     typeof value === "object" && value !== null && !Array.isArray(value) &&
-    Object.values(value).every(isCount)
+    Object.values(value).every(isNonNegativeInteger)
   );
 }
 
@@ -48,16 +45,14 @@ export function isMemberProgressResponse(value: unknown): value is MemberProgres
         member !== null &&
         typeof (member as Record<string, unknown>).player_uuid === "string" &&
         typeof (member as Record<string, unknown>).player_name === "string" &&
-        // Playtime is fractional but never negative; the rest are counts.
-        typeof (member as Record<string, unknown>).playtime_hours === "number" &&
-        Number.isFinite((member as Record<string, unknown>).playtime_hours) &&
-        ((member as Record<string, unknown>).playtime_hours as number) >= 0 &&
-        isCount((member as Record<string, unknown>).raids) &&
+        // Playtime and war points are fractional amounts; the rest are counts.
+        isNonNegativeNumber((member as Record<string, unknown>).playtime_hours) &&
+        isNonNegativeNumber((member as Record<string, unknown>).war_points) &&
+        isNonNegativeInteger((member as Record<string, unknown>).raids) &&
         // Raffle eligibility thresholds and weights read this directly - a
         // missing count must fail validation, not read as zero wars.
-        isCount((member as Record<string, unknown>).wars) &&
-        isCount((member as Record<string, unknown>).wars_participated) &&
-        isCount((member as Record<string, unknown>).war_points) &&
+        isNonNegativeInteger((member as Record<string, unknown>).wars) &&
+        isNonNegativeInteger((member as Record<string, unknown>).wars_participated) &&
         // The progress export dereferences the per-raid breakdown; a payload
         // without it must fail validation, not 500 the download.
         isCountRecord((member as Record<string, unknown>).raids_by_type),
