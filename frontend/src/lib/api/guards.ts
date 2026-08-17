@@ -7,3 +7,12 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 export function isNonNegativeInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
 }
+
+/**
+ * True if the value is a finite number that is zero or greater. For measured
+ * amounts rather than tallies - playtime and decay-weighted scores are
+ * legitimately fractional, so they must not be held to whole numbers.
+ */
+export function isNonNegativeNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
