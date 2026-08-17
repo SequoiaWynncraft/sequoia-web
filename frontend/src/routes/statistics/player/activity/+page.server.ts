@@ -23,8 +23,12 @@ const ALL_DAYS = 399;
 
 export const load: PageServerLoad = async ({ fetch, url, parent }) => {
   const requested = url.searchParams.get("range") ?? "now";
+  // hasOwn, not `in`: prototype keys ("constructor") would otherwise pass as a
+  // preset and resolve to a NaN window.
   const range =
-    requested in PRESET_DAYS || requested === "ytd" || requested === "all" ? requested : "now";
+    Object.hasOwn(PRESET_DAYS, requested) || requested === "ytd" || requested === "all"
+      ? requested
+      : "now";
 
   // The Weekly Raid Announcement is for full Development/Community members only.
   // Streamed, never awaited: the gate reads the rank API, and holding the ledger
@@ -45,7 +49,12 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
     from,
     to,
     raidAnnouncement,
-    progress: await getMemberProgress(fetch, from, to).catch(() => null),
+    // The page degrades to a generic panel either way, so log the cause -
+    // otherwise a schema mismatch is indistinguishable from an upstream outage.
+    progress: await getMemberProgress(fetch, from, to).catch((error) => {
+      console.warn(`member progress load failed (${from}..${to}):`, error);
+      return null;
+    }),
   };
 };
 
