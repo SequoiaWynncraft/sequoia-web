@@ -1,3 +1,4 @@
+import type { RankProfilesResponse } from "$lib/api/client";
 import { formatWindow } from "$lib/events/format";
 
 import { listPresets, type EventPreset } from "./eventPresets";
@@ -54,8 +55,20 @@ export async function eventFormContext(fetchImpl: typeof fetch): Promise<EventFo
       .sort((a, b) => a.username.localeCompare(b.username)),
     trackerEvents: raidEvents.map(trackerOption),
     presets,
-    seqRanks: profiles ? progressionRankLabels(profiles) : [],
+    // A keyless catalog role throws out of `progressionRankLabels`; the picker
+    // it feeds is optional, so a skewed snapshot loses the rank list rather
+    // than the whole editor.
+    seqRanks: profiles ? rankLabelsOrNone(profiles) : [],
   };
+}
+
+/** The org rank ladder's labels, or none when the catalog cannot be read. */
+function rankLabelsOrNone(profiles: RankProfilesResponse): string[] {
+  try {
+    return progressionRankLabels(profiles);
+  } catch {
+    return [];
+  }
 }
 
 export function trackerOption(event: {

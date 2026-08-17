@@ -155,6 +155,40 @@ describe("parseWynncraftGuildOverview", () => {
 
     expect(result.branchmasters).toEqual([]);
   });
+
+  it("keeps the guild stats when a version-skewed profile snapshot cannot be read", () => {
+    // The shared validator checks only that `catalog.roles` and `profiles` are
+    // arrays, so a skewed snapshot reaches the parser and throws on the first
+    // dereference. The stats do not depend on profiles at all and must survive.
+    const guild = {
+      level: 240,
+      territories: 60,
+      wars: 149_330,
+      raids: 142_884,
+      online: 19,
+      members: { total: 1, chief: { SomeName: member(BRANCHMASTER, 500, 1) } },
+    };
+    const stats = {
+      members: 1,
+      guild_level: 240,
+      territories: 60,
+      total_wars: 149_330,
+      raids: 142_884,
+      online_now: 19,
+    };
+
+    const nullRole = rankProfiles();
+    (nullRole.catalog.roles as unknown[])[0] = null;
+    const withNullRole = parseWynncraftGuildOverview(guild, undefined, nullRole);
+    expect(withNullRole.stats).toEqual(stats);
+    expect(withNullRole.branchmasters).toEqual([]);
+
+    const noRoleKeys = rankProfiles();
+    delete (noRoleKeys.profiles[0] as Partial<RankProfilesResponse["profiles"][number]>).role_keys;
+    const withoutRoleKeys = parseWynncraftGuildOverview(guild, undefined, noRoleKeys);
+    expect(withoutRoleKeys.stats).toEqual(stats);
+    expect(withoutRoleKeys.branchmasters).toEqual([]);
+  });
 });
 
 function member(

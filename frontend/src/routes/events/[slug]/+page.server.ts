@@ -23,6 +23,7 @@ import {
   type LeaderboardResult,
   type RaidLeaderboardEntry,
 } from "$lib/server/raidEventBoards";
+import { getGuildStats } from "$lib/server/guildStats";
 import type { GuildMemberStats } from "$lib/api/guildStats";
 
 export const prerender = false;
@@ -50,7 +51,17 @@ export const load: PageServerLoad = async ({ fetch, locals, params, parent }) =>
   // only: a stale one outlives the departure that should have closed access,
   // so an unverifiable viewer is turned away rather than trusted.
   const { viewer } = await parent();
-  const { audience, roster: freshRoster } = await resolveEventAudience(fetch, viewer);
+  // The audience is authorized on its own fresh read. `staleStats` is display
+  // data for the one viewer whose access never came from the roster - an
+  // administrator, who would otherwise be shown a board filtered against
+  // nothing. Both share one cached roster fetch, so this is not a second call
+  // out, and nobody else pays for it.
+  const [{ audience, roster: freshRoster }, staleStats] = await Promise.all([
+    resolveEventAudience(fetch, viewer),
+    viewer?.websiteAdmin
+      ? getGuildStats(fetch, { allowStale: true }).catch(() => null)
+      : Promise.resolve(null),
+  ]);
   if (!canSeeEvent(event, stored.published, audience, now)) {
     requestError(locals, 404, "No such event");
   }
@@ -61,7 +72,11 @@ export const load: PageServerLoad = async ({ fetch, locals, params, parent }) =>
   // Gated sections reuse the audience the gate above already resolved, so the
   // roster is read once per request. `signin` survives only as the type-level
   // companion to a null viewer - the gate rejects anonymous viewers outright.
-  const roster: GuildMemberStats[] = freshRoster ?? [];
+  //
+  // The display roster stays nullable: an unavailable roster must remain
+  // distinguishable from an empty one, or the board below filters every row
+  // away and reports a successful empty standing instead of an outage.
+  const roster: GuildMemberStats[] | null = freshRoster ?? staleStats?.members ?? null;
   const membership: Membership = !viewer
     ? "signin"
     : audience === "manager"
