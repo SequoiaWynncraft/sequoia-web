@@ -63,6 +63,8 @@ describe("parsePlayerCard", () => {
       total_level: 5328,
       raids_total: 19_694,
       raids: { "The Canyon Colossus": 5580 },
+      // The player endpoint never reports the in-guild counter; the roster supplies it.
+      current_guild_raids: null,
       pvp_kills: 0,
       pvp_deaths: 0,
       rankings: { colossusSrGPlayers: 1 },
@@ -79,6 +81,24 @@ describe("parsePlayerCard", () => {
 
     expect(result.online).toBeNull();
     expect(result.server).toBeNull();
+  });
+
+  it("carries the roster's in-guild raid count and join date when the caller supplies them", () => {
+    const result = parsePlayerCard(playerPayload, "2026-07-09T20:00:00.000Z", {
+      currentGuildRaids: 17_041,
+      guildJoined: "2023-03-14T19:21:11.556000Z",
+    });
+
+    expect(result.current_guild_raids).toBe(17_041);
+    expect(result.guild_joined).toBe("2023-03-14T19:21:11.556000Z");
+    expect(isPlayerCardResponse(result)).toBe(true);
+  });
+
+  it("leaves the guild join date null without roster extras", () => {
+    const result = parsePlayerCard(playerPayload, "2026-07-09T20:00:00.000Z");
+
+    expect(result.guild_joined).toBeNull();
+    expect(isPlayerCardResponse(result)).toBe(true);
   });
 
   it("rejects payloads without identity fields", () => {

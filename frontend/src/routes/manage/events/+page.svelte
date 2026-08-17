@@ -5,7 +5,7 @@
   import { raidIconUrl } from "$lib/events/raidIcons";
   import type { EventStatus } from "$lib/events/types";
   import ManageHeader from "$lib/manage/ManageHeader.svelte";
-  import EventsGate from "./EventsGate.svelte";
+  import AreaGate from "$lib/manage/AreaGate.svelte";
 
   let { data } = $props();
 
@@ -26,7 +26,7 @@
   <ManageHeader area="Events" title="Events" />
 
   {#if data.access !== "granted"}
-    <EventsGate access={data.access} returnTo="/manage/events" />
+    <AreaGate area="events" access={data.access} returnTo="/manage/events" />
   {:else if data.entries}
     {#if data.auditWarning}
       <p class="mg-audit-warning" role="alert">
@@ -36,7 +36,6 @@
     <SectionLabel meta={String(data.entries.length)}>
       {#snippet children()}All events{/snippet}
       {#snippet actions()}
-        <Button size="sm" variant="ghost" href="/manage/events/audit">Audit log</Button>
         <Button size="sm" href="/manage/events/new">New event</Button>
       {/snippet}
     </SectionLabel>
@@ -77,8 +76,6 @@
 
 <style>
   .mg-page {
-    width: min(940px, 100% - 3rem);
-    margin: 0 auto;
     padding-bottom: 48px;
   }
 
@@ -180,10 +177,6 @@
   }
 
   @media (max-width: 640px) {
-    .mg-page {
-      width: min(940px, 100% - 2rem);
-    }
-
     .mg-row {
       grid-template-columns: auto minmax(0, 1fr) auto;
     }

@@ -2,8 +2,8 @@ import type { PageServerLoad } from "./$types";
 
 import { eventChart, eventStatus } from "$lib/events/helpers";
 import type { GuildEvent } from "$lib/events/types";
-import { checkEventManager } from "$lib/server/eventManagers";
-import { checkEventMembership, type Membership } from "$lib/server/eventMembership";
+import type { Membership } from "$lib/server/eventMembership";
+import { canSeeEvent, resolveEventAudience } from "$lib/server/eventVisibility";
 import { eventStore } from "$lib/server/eventStore";
 import { loadEventRaidCounts, sumCounts, type EventDayCount } from "$lib/server/eventActivity";
 import { loadGoalProgress } from "$lib/server/goalProgress";
@@ -23,6 +23,7 @@ import {
   type LeaderboardResult,
   type RaidLeaderboardEntry,
 } from "$lib/server/raidEventBoards";
+import { getGuildStats } from "$lib/server/guildStats";
 import type { GuildMemberStats } from "$lib/api/guildStats";
 
 export const prerender = false;
@@ -42,37 +43,63 @@ export const load: PageServerLoad = async ({ fetch, locals, params, parent }) =>
   const stored = await eventStore.get(params.slug);
   if (!stored) requestError(locals, 404, "No such event");
   const event = stored.event;
+  const now = new Date();
 
-  // Unpublished events stay invisible except as a manager preview.
-  if (!stored.published) {
-    const { viewer } = await parent();
-    if ((await checkEventManager(fetch, viewer)) !== "manager") {
-      requestError(locals, 404, "No such event");
-    }
+  // Whether this viewer may know the event exists is the hub's question, asked
+  // the same way - a slug that was guessed or forwarded must not reveal an
+  // event the hub would never have listed. Authorized against a *fresh* roster
+  // only: a stale one outlives the departure that should have closed access,
+  // so an unverifiable viewer is turned away rather than trusted.
+  const { viewer } = await parent();
+  // The audience is authorized on its own fresh read. `staleStats` is display
+  // data for the one viewer whose access never came from the roster - an
+  // administrator, who would otherwise be shown a board filtered against
+  // nothing. Both share one cached roster fetch, so this is not a second call
+  // out, and nobody else pays for it.
+  const [{ audience, roster: freshRoster }, staleStats] = await Promise.all([
+    resolveEventAudience(fetch, viewer),
+    viewer?.websiteAdmin
+      ? getGuildStats(fetch, { allowStale: true }).catch(() => null)
+      : Promise.resolve(null),
+  ]);
+  if (!canSeeEvent(event, stored.published, audience, now)) {
+    requestError(locals, 404, "No such event");
   }
 
-  const now = new Date();
   const status = eventStatus(event, now);
   const today = now.toISOString().slice(0, 10);
 
-  let membership: Membership | null = null;
-  let roster: GuildMemberStats[] | null = null;
-  if (event.access === "members" || event.tracker) {
-    const { viewer } = await parent();
-    const result = await checkEventMembership(fetch, viewer);
-    membership = result.membership;
-    roster = result.roster;
-  }
+  // Gated sections reuse the audience the gate above already resolved, so the
+  // roster is read once per request. `signin` survives only as the type-level
+  // companion to a null viewer - the gate rejects anonymous viewers outright.
+  //
+  // The display roster stays nullable: an unavailable roster must remain
+  // distinguishable from an empty one, or the board below filters every row
+  // away and reports a successful empty standing instead of an outage.
+  const roster: GuildMemberStats[] | null = freshRoster ?? staleStats?.members ?? null;
+  const membership: Membership = !viewer
+    ? "signin"
+    : audience === "manager"
+      ? "member"
+      : freshRoster === null
+        ? "unverified"
+        : audience === "member"
+          ? "member"
+          : "notMember";
 
   // Member events keep a public hero; everything below it is stripped
-  // server-side so gated content never reaches a non-member response.
+  // server-side so gated content never reaches a non-member response. The gate
+  // above already turns a non-member away from a member event, so this is
+  // defence in depth: content stripping must not depend on `canSeeEvent`
+  // continuing to deny existence.
   if (event.access === "members" && membership !== "member") {
     return {
       event: publicView(event),
       status,
       draft: false,
+      manager: false,
       locked: true as const,
-      lockReason: membership ?? ("signin" as const),
+      lockReason: membership,
       chart: null,
       days: null,
       progress: null,
@@ -140,11 +167,11 @@ export const load: PageServerLoad = async ({ fetch, locals, params, parent }) =>
             insigniaUrl: standing?.insigniaUrl ?? null,
             insignia: standing?.insignia ?? null,
             progressionRank: standing?.rank ?? null,
+            progressionRankColor: standing?.rankColor ?? null,
           };
         });
       }
       standings = { state: "board", leaderboard: result.leaderboard, error: result.error };
-      const { viewer } = await parent();
       const mine = viewer
         ? result.leaderboard.find((entry) => sameUuid(entry.player_uuid, viewer.minecraftUuid))
         : undefined;
@@ -153,7 +180,7 @@ export const load: PageServerLoad = async ({ fetch, locals, params, parent }) =>
       // error state. A real member with no raids still reads 0.
       viewerRaids = result.error ? null : (mine?.raids ?? 0);
     } else {
-      standings = { state: membership ?? "signin" };
+      standings = { state: membership };
     }
   }
 
@@ -161,10 +188,11 @@ export const load: PageServerLoad = async ({ fetch, locals, params, parent }) =>
   // is masked below so this page can't spoil a wheel that hasn't landed.
   // Load-time only - a reload during the ~9s spin says "Rolling..." and the
   // next reload shows the winner; the stage page carries the live feed.
-  // With the wheel hidden there is no spin to spoil - and no stage where a
-  // viewer could watch the mask settle - so results show immediately.
+  // With the wheel hidden there is no spin to spoil FOR VIEWERS - they have
+  // no stage where the mask could settle, so their results show immediately.
+  // Managers keep the stage (and the mask): their own reveal still animates.
   const spinningSlots =
-    event.raffles?.length && event.raffleHideWheel !== true
+    event.raffles?.length && (event.raffleHideWheel !== true || audience === "manager")
       ? (await raffleRollStore.latestForEvent(params.slug).catch(() => []))
           .filter((roll) => roll.pending || roll.state === "spinning")
           .map((roll) => `${roll.raffleId}:${roll.slot}`)
@@ -174,6 +202,9 @@ export const load: PageServerLoad = async ({ fetch, locals, params, parent }) =>
     event,
     status,
     draft: !stored.published,
+    // Lets the page keep manager-only affordances (the hidden-wheel stage
+    // link) without a second audience resolution.
+    manager: audience === "manager",
     locked: false as const,
     lockReason: null,
     chart,

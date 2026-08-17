@@ -10,22 +10,29 @@ describe("legacyManageRedirect", () => {
   it("maps deep event paths with the sub-path intact", () => {
     expect(legacyManageRedirect("/events/manage/summer-raid")).toBe("/manage/events/summer-raid");
     expect(legacyManageRedirect("/events/manage/new")).toBe("/manage/events/new");
-    expect(legacyManageRedirect("/events/manage/audit")).toBe("/manage/events/audit");
+  });
+
+  it("maps every audit generation to its development home in one hop", () => {
+    // Single hop is the point: bouncing through /manage/events/audit's own
+    // stub would 308 twice.
+    expect(legacyManageRedirect("/events/manage/audit")).toBe("/manage/development/audit");
+    expect(legacyManageRedirect("/manage/events/audit")).toBe("/manage/development/audit");
+  });
+
+  it("maps every bagshop generation to its treasury home in one hop", () => {
+    expect(legacyManageRedirect("/services/bagshop/manage")).toBe("/manage/treasury/bagshop");
+    expect(legacyManageRedirect("/services/bagshop/manage/anything")).toBe(
+      "/manage/treasury/bagshop/anything",
+    );
+    expect(legacyManageRedirect("/manage/bagshop")).toBe("/manage/treasury/bagshop");
   });
 
   it("preserves the query string", () => {
     expect(legacyManageRedirect("/events/manage", "?audit=unrecorded")).toBe(
       "/manage/events?audit=unrecorded",
     );
-    expect(legacyManageRedirect("/events/manage/audit", "?a=1&b=2")).toBe(
-      "/manage/events/audit?a=1&b=2",
-    );
-  });
-
-  it("maps the bagshop panel", () => {
-    expect(legacyManageRedirect("/services/bagshop/manage")).toBe("/manage/bagshop");
-    expect(legacyManageRedirect("/services/bagshop/manage/anything")).toBe(
-      "/manage/bagshop/anything",
+    expect(legacyManageRedirect("/manage/bagshop", "?a=1&b=2")).toBe(
+      "/manage/treasury/bagshop?a=1&b=2",
     );
   });
 
@@ -35,5 +42,7 @@ describe("legacyManageRedirect", () => {
     expect(legacyManageRedirect("/events")).toBeNull();
     expect(legacyManageRedirect("/services/bagshop")).toBeNull();
     expect(legacyManageRedirect("/manage/events")).toBeNull();
+    expect(legacyManageRedirect("/manage/events/audit-x")).toBeNull();
+    expect(legacyManageRedirect("/manage/bagshopx")).toBeNull();
   });
 });

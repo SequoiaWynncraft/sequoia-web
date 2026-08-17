@@ -7,13 +7,30 @@
   import BarList from "$lib/design-system/components/BarList.svelte";
   import StackedColumns from "$lib/design-system/components/charts/StackedColumns.svelte";
   import ScopeChips from "$lib/design-system/components/ScopeChips.svelte";
+  import DeferredPanel from "$lib/design-system/components/DeferredPanel.svelte";
+  import { RAID_WINDOWS, raidWindowPreset } from "$lib/site/duration";
   import { KNOWN_RAIDS, raidSeriesFor } from "$lib/site/raids";
+  import { insigniaLabel } from "$lib/site/honours";
 
   let { data } = $props();
 
   const stats = $derived(data.stats);
   const customWindow = $derived(data.customWindow);
   const signInUrl = $derived(webAuthStartUrl());
+
+  /** The window a bare URL resolves to, so its chip link can stay clean. */
+  const DEFAULT_WINDOW = "7d";
+
+  const windowScopes = RAID_WINDOWS.map((window) => ({ key: window.key, label: window.label }));
+  /** Preset the current timeframe names, or null when it is custom or an event. */
+  const activePreset = $derived(
+    data.selectedEvent ? null : raidWindowPreset(data.windowInput ?? ""),
+  );
+  const activeWindow = $derived(activePreset?.key ?? "");
+  /** A typed window that is not one of the presets, so the disclosure opens on it. */
+  const customActive = $derived(
+    !data.selectedEvent && data.windowInput !== "" && activePreset === null,
+  );
 
   /** Raid filter chips for the timeframe board: "all" plus each known raid. */
   const raidScopes = [
@@ -26,10 +43,23 @@
     KNOWN_RAIDS.find((raid) => raid.key === data.selectedRaid)?.short ?? null,
   );
 
-  /** Link for a raid chip, preserving the active timeframe and clearing "all". */
+  /** Link for a timeframe chip, keeping the raid filter and dropping any event. */
+  function windowHref(key: string): string {
+    const params = new URLSearchParams();
+    if (key !== DEFAULT_WINDOW) params.set("window", key);
+    if (data.selectedRaid) params.set("raid", data.selectedRaid);
+    const query = params.toString();
+    return query ? `?${query}` : "?";
+  }
+
+  /** Link for a raid chip, preserving whichever timeframe currently drives the board. */
   function raidHref(key: string): string {
     const params = new URLSearchParams();
-    if (data.windowInput && data.windowInput !== "7d") params.set("window", data.windowInput);
+    if (data.selectedEvent) {
+      params.set("event", data.selectedEvent.id);
+    } else if (data.windowInput && data.windowInput !== DEFAULT_WINDOW) {
+      params.set("window", data.windowInput);
+    }
     if (key !== "all") params.set("raid", key);
     const query = params.toString();
     return query ? `?${query}` : "?";
@@ -92,8 +122,9 @@
       value: (entry) => entry.username,
       sortValue: (entry) => entry.username.toLowerCase(),
       avatar: (entry) => entry.insigniaUrl ?? null,
-      avatarAlt: (entry) => (entry.insignia ? `${entry.insignia.toLowerCase()} insignia` : null),
+      avatarAlt: (entry) => (entry.insignia ? insigniaLabel(entry.insignia) : null),
       secondary: (entry) => entry.progressionRank ?? null,
+      secondaryColor: (entry) => entry.progressionRankColor ?? null,
       href: (entry) => `/statistics/player/playercard?player=${encodeURIComponent(entry.username)}`,
     },
     {
@@ -119,11 +150,33 @@
       minute: "2-digit",
     }).format(new Date(value));
   }
+
+  /** What the board is scoped to: an explicit range, a duration, or an event. */
+  const boardTitle = $derived.by(() => {
+    if (customWindow?.kind === "range") {
+      return `${formatDate(customWindow.from)} – ${formatDate(customWindow.to)}`;
+    }
+    if (customWindow) return `Last ${activePreset?.label ?? customWindow.label}`;
+    return data.selectedEvent?.name ?? "Contributions";
+  });
+
+  /** The resolved dates behind that scope, plus how it was tracked. */
+  const boardMeta = $derived.by(() => {
+    if (customWindow?.kind === "range") return "in-game tracked";
+    if (customWindow) {
+      return `${formatDate(customWindow.from)} – ${formatDate(customWindow.to)} · in-game tracked`;
+    }
+    const event = data.selectedEvent;
+    if (!event) return undefined;
+    const tracked = event.tracking === "mod" ? " · in-game tracked" : "";
+    return `${formatDate(event.starts_at)} – ${formatDate(event.ends_at)}${tracked}`;
+  });
 </script>
 
 <StatsHeader
   kicker="Guilds"
   title="Raid"
+  lead="Sequoia's raid completions: guild totals, the last two weeks of daily activity, and member contributions over any timeframe or event."
 />
 
 {#if stats}
@@ -140,7 +193,7 @@
     {#if topRaider}
       <div class="raid-vital">
         <span class="raid-vital-value raid-vital-name">{topRaider.username}</span>
-        <span class="raid-vital-label">{(topRaider.raids_total ?? 0).toLocaleString()} completions - most in guild</span>
+        <span class="raid-vital-label">Most in guild · {(topRaider.raids_total ?? 0).toLocaleString()} completions</span>
       </div>
     {/if}
   </div>
@@ -152,10 +205,14 @@
     </SectionLabel>
     <BarList items={raidTotals} />
   </section>
+{:else}
+  <DeferredPanel title="Data unavailable">
+    {#snippet children()}Guild statistics are temporarily unavailable. Try again shortly.{/snippet}
+  </DeferredPanel>
 {/if}
 
 <section class="block" aria-label="Daily raid activity">
-  <SectionLabel meta="last 14 days">
+  <SectionLabel meta="last 14 days, UTC">
     {#snippet children()}Daily activity{/snippet}
   </SectionLabel>
   {#await data.activity}
@@ -164,47 +221,73 @@
     {#if activity === null}
       <p class="muted">The daily activity feed is temporarily unavailable.</p>
     {:else if activity.length === 0}
-      <p class="muted">No raid activity recorded in this window yet - the feed is collecting.</p>
+      <p class="muted">No raid activity recorded yet. The feed is still collecting.</p>
     {:else}
       <StackedColumns series={activitySeries(activity)} columns={activityColumns(activity)} height={190} />
       {#if activity.length < 3}
-        <p class="muted accumulating">Daily history is accumulating - this feed started recording in July 2026.</p>
+        <p class="muted accumulating">Daily history is still accumulating. Recording started in July 2026.</p>
       {/if}
     {/if}
+  {:catch}
+    <p class="muted">The daily activity feed is temporarily unavailable.</p>
   {/await}
 </section>
 
-<div class="event-grid">
-  <section class="block" aria-label="Raid events">
-    <SectionLabel>
-      {#snippet children()}Timeframe{/snippet}
-    </SectionLabel>
-    <p class="muted timeframe-help">
-      Enter a timeframe. Use <code>min</code> (minutes), <code>h</code> (hours),
-      <code>d</code> (days), or <code>m</code> (months) — e.g. <code>20min</code>,
-      <code>7h</code>, <code>0.5d</code>, <code>1m</code>. Or enter a Unix-timestamp
-      range prefixed with <code>t:</code>, like <code>t:1784109600-1784282400</code>,
-      to set an explicit start and end — timestamps are in seconds (not
-      milliseconds), and an end past now is clamped to now.
-    </p>
+<section class="block" aria-label="Member contributions">
+  <SectionLabel meta={boardMeta}>
+    {#snippet children()}{boardTitle}{/snippet}
+  </SectionLabel>
+
+  <div class="board-controls">
+    <div class="control-group">
+      <span class="control-label">Timeframe</span>
+      <ScopeChips
+        scopes={windowScopes}
+        active={activeWindow}
+        href={windowHref}
+        label="Timeframe"
+        note={data.selectedEvent ? "An event is driving the board" : null}
+      />
+    </div>
+    {#if data.raidFilterAvailable}
+      <div class="control-group">
+        <span class="control-label">Raid</span>
+        <ScopeChips scopes={raidScopes} active={activeRaid} href={raidHref} label="Raid filter" />
+      </div>
+    {/if}
+  </div>
+
+  <details class="timeframe-custom" open={data.windowInvalid || customActive}>
+    <summary class="timeframe-summary">Custom range</summary>
     <form class="timeframe-form" method="GET" action="/statistics/guilds/raid">
       {#if data.selectedRaid}
         <input type="hidden" name="raid" value={data.selectedRaid} />
       {/if}
-      <input
-        class="timeframe-input"
-        class:invalid={data.windowInvalid}
-        type="text"
-        name="window"
-        placeholder="e.g. 0.5d"
-        value={data.windowInput}
-        aria-label="Custom raid timeframe"
-        aria-invalid={data.windowInvalid}
-        autocomplete="off"
-        spellcheck="false"
-      />
-      <button class="timeframe-submit" type="submit">Show</button>
+      <div class="timeframe-row">
+        <label class="timeframe-label" for="raid-window">Duration or timestamp range</label>
+        <div class="timeframe-field">
+          <input
+            class="timeframe-input"
+            class:invalid={data.windowInvalid}
+            id="raid-window"
+            type="text"
+            name="window"
+            placeholder="e.g. 0.5d"
+            value={customActive ? data.windowInput : ""}
+            aria-invalid={data.windowInvalid}
+            aria-describedby="raid-window-help"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button class="timeframe-submit" type="submit">Show</button>
+        </div>
+      </div>
     </form>
+    <p class="muted timeframe-help" id="raid-window-help">
+      Durations: <code>20min</code>, <code>7h</code>, <code>0.5d</code>, <code>1m</code>, up to
+      366 days. Exact range: <code>t:1784109600-1784282400</code>, in Unix seconds. An end in the
+      future is clamped to now.
+    </p>
     {#if data.windowInvalid}
       <p class="muted error timeframe-note">
         {#if data.windowError}
@@ -214,79 +297,59 @@
           or a <code>t:</code> timestamp range.
         {/if}
       </p>
-    {:else if data.customWindow && !data.windowIsDefault}
-      <a class="timeframe-clear" href="/statistics/guilds/raid">Clear timeframe</a>
+    {:else if customActive}
+      <a class="timeframe-clear" href={windowHref(DEFAULT_WINDOW)}>Back to 7 days</a>
     {/if}
+  </details>
 
-    <div class="events-heading">
-      <SectionLabel>
-        {#snippet children()}Events{/snippet}
-      </SectionLabel>
+  {#if !data.viewer}
+    <p class="muted"><a class="auth-link" href={signInUrl}>Sign in</a> to see member contributions{data.selectedEvent ? " for this event" : " for this timeframe"}.</p>
+  {:else if data.membershipUnverified}
+    <p class="muted">Membership can't be verified right now. Try again shortly.</p>
+  {:else if !data.isMember}
+    <p class="muted">Contributions are visible to current Sequoia members.</p>
+  {:else if data.leaderboardError}
+    <p class="muted error">{data.leaderboardError}</p>
+  {:else if data.leaderboard.length > 0}
+    <LedgerTable
+      columns={eventColumns}
+      rows={data.leaderboard}
+      rowKey={(entry) => entry.player_uuid}
+      defaultSort="raids"
+      maxHeight="min(72vh, 760px)"
+    />
+  {:else if customWindow}
+    <p class="muted">
+      No {activeRaidShort ? `${activeRaidShort} ` : ""}member raids were tracked
+      {customWindow.kind === "range" ? "in this timeframe" : `in the last ${activePreset?.label ?? customWindow.label}`}.
+    </p>
+  {:else}
+    <p class="muted">No raid deltas have been observed for this event yet.</p>
+  {/if}
+</section>
+
+<section class="block" aria-label="Raid events">
+  <SectionLabel meta="score the board over an event's window instead">
+    {#snippet children()}Events{/snippet}
+  </SectionLabel>
+  {#if data.events.length > 0}
+    <div class="event-stack">
+      {#each data.events as event (event.id)}
+        <a
+          class="event-row"
+          class:selected={!customWindow && data.selectedEvent?.id === event.id}
+          aria-current={!customWindow && data.selectedEvent?.id === event.id ? "page" : undefined}
+          href={`/statistics/guilds/raid?event=${event.id}`}
+        >
+          <span class="event-name">{event.name}</span>
+          <time class="event-time">{formatDate(event.starts_at)} – {formatDate(event.ends_at)}</time>
+        </a>
+      {/each}
     </div>
-    {#if data.events.length > 0}
-      <div class="event-stack">
-        {#each data.events as event (event.id)}
-          <a
-            class="event-row"
-            class:selected={!customWindow && data.selectedEvent?.id === event.id}
-            href={`/statistics/guilds/raid?event=${event.id}`}
-          >
-            <span class="event-name">{event.name}</span>
-            <time class="event-time">{formatDate(event.starts_at)} – {formatDate(event.ends_at)}</time>
-          </a>
-        {/each}
-      </div>
-    {:else}
-      <p class="muted">No raid events are configured yet.</p>
-    {/if}
-  </section>
-
-  <section class="block" aria-label="Event contribution leaderboard">
-    {#if customWindow && customWindow.kind === "range"}
-      <SectionLabel meta="in-game tracked">
-        {#snippet children()}{formatDate(customWindow.from)} – {formatDate(customWindow.to)}{/snippet}
-        {#snippet actions()}
-          <ScopeChips scopes={raidScopes} active={activeRaid} href={raidHref} label="Raid filter" />
-        {/snippet}
-      </SectionLabel>
-    {:else if customWindow}
-      <SectionLabel meta={`${formatDate(customWindow.from)} – ${formatDate(customWindow.to)} · in-game tracked`}>
-        {#snippet children()}Last {customWindow.label}{/snippet}
-        {#snippet actions()}
-          <ScopeChips scopes={raidScopes} active={activeRaid} href={raidHref} label="Raid filter" />
-        {/snippet}
-      </SectionLabel>
-    {:else}
-      <SectionLabel meta={data.selectedEvent ? `${formatDate(data.selectedEvent.starts_at)} – ${formatDate(data.selectedEvent.ends_at)}${data.selectedEvent.tracking === "mod" ? " · in-game tracked" : ""}` : undefined}>
-        {#snippet children()}{data.selectedEvent?.name ?? "Contribution"}{/snippet}
-      </SectionLabel>
-    {/if}
-    {#if !data.viewer}
-      <p class="muted"><a class="auth-link" href={signInUrl}>Sign in</a> to see member contributions{customWindow ? " for this timeframe" : " for this event"}.</p>
-    {:else if data.membershipUnverified}
-      <p class="muted">Membership can't be verified right now - try again shortly.</p>
-    {:else if !data.isMember}
-      <p class="muted">Contributions are visible to current Sequoia members.</p>
-    {:else if data.leaderboardError}
-      <p class="muted error">{data.leaderboardError}</p>
-    {:else if data.leaderboard.length > 0}
-      <LedgerTable
-        columns={eventColumns}
-        rows={data.leaderboard}
-        rowKey={(entry) => entry.player_uuid}
-        defaultSort="raids"
-        maxHeight="480px"
-      />
-    {:else if customWindow}
-      <p class="muted">
-        No {activeRaidShort ? `${activeRaidShort} ` : ""}member raids were tracked
-        {customWindow.kind === "range" ? "in this timeframe" : `in the last ${customWindow.label}`}.
-      </p>
-    {:else}
-      <p class="muted">No raid deltas have been observed for this event yet.</p>
-    {/if}
-  </section>
-</div>
+  {:else}
+    <p class="muted">No raid events are configured yet.</p>
+  {/if}
+</section>
 
 <style>
   .auth-link {
@@ -358,15 +421,63 @@
     font-size: var(--text-xs);
   }
 
-  .event-grid {
-    display: grid;
-    grid-template-columns: minmax(240px, 340px) minmax(0, 1fr);
-    gap: 40px;
+  .board-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 32px;
+    margin-bottom: 14px;
+  }
+
+  .control-group {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .control-label {
+    color: var(--text-muted);
+    font-family: var(--font-display);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+  }
+
+  .timeframe-custom {
+    margin-bottom: 18px;
+  }
+
+  .timeframe-summary {
+    width: fit-content;
+    color: var(--text-muted);
+    font-family: var(--font-display);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  .timeframe-summary:hover {
+    color: var(--color-gold);
+  }
+
+  .timeframe-summary:focus-visible {
+    outline: 2px solid rgba(245, 197, 66, 0.5);
+    outline-offset: 2px;
+  }
+
+  .timeframe-label {
+    flex: 0 0 auto;
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+    white-space: nowrap;
   }
 
   .timeframe-help {
-    margin-bottom: 12px;
+    margin-top: 8px;
+    max-width: 60ch;
     line-height: var(--leading-normal);
+    font-size: var(--text-xs);
   }
 
   .timeframe-help code {
@@ -379,8 +490,25 @@
   }
 
   .timeframe-form {
+    margin-top: 12px;
+  }
+
+  /* Label and field share one row while they fit; the field's flex-basis makes
+     it wrap underneath the label as a unit once space runs out. */
+  .timeframe-row {
     display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+    max-width: 560px;
+  }
+
+  .timeframe-field {
+    display: flex;
+    flex: 1 1 240px;
     gap: 8px;
+    min-width: 0;
+    max-width: 420px;
   }
 
   .timeframe-input {
@@ -396,7 +524,8 @@
 
   .timeframe-input:focus-visible {
     border-color: rgba(245, 197, 66, 0.55);
-    outline: none;
+    outline: 2px solid rgba(245, 197, 66, 0.5);
+    outline-offset: 2px;
   }
 
   .timeframe-input.invalid {
@@ -442,12 +571,10 @@
     color: var(--color-gold);
   }
 
-  .events-heading {
-    margin-top: 28px;
-  }
-
   .event-stack {
     display: grid;
+    /* min() so a 320px viewport shrinks the track instead of overflowing. */
+    grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
     gap: 8px;
   }
 
@@ -484,12 +611,5 @@
     color: var(--text-muted);
     font-family: var(--font-data);
     font-size: var(--text-2xs);
-  }
-
-  @media (max-width: 860px) {
-    .event-grid {
-      grid-template-columns: 1fr;
-      gap: 0;
-    }
   }
 </style>

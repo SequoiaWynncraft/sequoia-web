@@ -36,10 +36,9 @@
   const stale = $derived(now !== null && now - observedAtMs > STALE_AFTER_MS);
   // The bar is a share of one level, so a payload over 100 cannot overflow it.
   const xpWidth = $derived(Math.min(100, Math.max(0, tracker.current.xpPercent)));
-  // The second-newest row is the window's start. When it carries no `fromLevel`
-  // it is only the oldest observation the backend holds, not a level-up, so the
-  // span back to it is not a level's worth of raids and must not be offered.
-  const canCopyCommand = $derived(tracker.history[1]?.fromLevel != null);
+  // Two level-ups bound one window, which is all either button needs - the same
+  // rule the reference tracker applies.
+  const canCopyCommand = $derived(tracker.history.length >= 2);
   const canCopyPayout = $derived(tracker.payoutText !== null);
   /** Formats an ISO instant as "dd/MM/yyyy, HH:mm:ss" in the resolved timezone. */
   function stamp(iso: string): string {

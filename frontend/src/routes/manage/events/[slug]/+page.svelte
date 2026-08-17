@@ -1,7 +1,7 @@
 <script lang="ts">
   import ManageHeader from "$lib/manage/ManageHeader.svelte";
   import EventEditor from "$lib/events/editor/EventEditor.svelte";
-  import EventsGate from "../EventsGate.svelte";
+  import AreaGate from "$lib/manage/AreaGate.svelte";
 
   let { data, form } = $props();
 </script>
@@ -11,10 +11,10 @@
   <meta name="robots" content="noindex" />
 </svelte:head>
 
-<div class="mg-page">
+<div class="mg-page-wide">
   {#if data.access !== "granted"}
     <ManageHeader area="Events" title="Edit event" />
-    <EventsGate access={data.access} returnTo="/manage/events" />
+    <AreaGate area="events" access={data.access} returnTo="/manage/events" />
   {:else if data.stored}
     <ManageHeader area="Events" title={data.stored.event.name} />
     <nav class="mg-back">
@@ -42,9 +42,7 @@
 </div>
 
 <style>
-  .mg-page {
-    width: 100%;
-    margin: 0 auto;
+  .mg-page-wide {
     padding-bottom: 48px;
   }
 
@@ -64,11 +62,5 @@
 
   .mg-back a:hover {
     color: var(--color-gold);
-  }
-
-  @media (max-width: 640px) {
-    .mg-page {
-      width: 100%;
-    }
   }
 </style>

@@ -298,7 +298,6 @@ export class EventDraft {
 
   showValidation = $state(false);
   saving = $state(false);
-  confirmingDelete = $state(false);
 
   // Inline tracker editor inside the standings section - creates new
   // tracker events or edits the selected one.
@@ -327,7 +326,6 @@ export class EventDraft {
   presetChoices = $state<{ name: string; payload: string; updatedAt: number }[]>([]);
   selectedPreset = $state("");
   newPresetName = $state("");
-  confirmingPresetDelete = $state(false);
 
   constructor(seed: EventDraftSeed) {
     this.mode = seed.mode;
@@ -1254,8 +1252,6 @@ export class EventDraft {
       if (result.type === "success") {
         const saved = (result.data as { presetSaved?: unknown } | undefined)?.presetSaved;
         if (typeof saved === "string") {
-          // Selection is about to move - an armed delete must not carry over.
-          this.confirmingPresetDelete = false;
           const entry = { name: saved, payload: payloadAtSubmit, updatedAt: Date.now() };
           const index = this.presetChoices.findIndex((candidate) => candidate.name === saved);
           if (index >= 0) this.presetChoices[index] = entry;
@@ -1273,7 +1269,6 @@ export class EventDraft {
 
   readonly presetDelete: SubmitFunction = () => {
     return async ({ result, update }) => {
-      this.confirmingPresetDelete = false;
       if (result.type === "success") {
         const deleted = (result.data as { presetDeleted?: unknown } | undefined)?.presetDeleted;
         if (typeof deleted === "string") {

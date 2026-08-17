@@ -16,7 +16,7 @@ describe("requireEventManager", () => {
     ).rejects.toMatchObject({
       status: 403,
       body: {
-        message: "Event management is restricted to guild leadership",
+        message: "Event management is restricted to the Events branch and guild leadership",
         requestId: "request-403",
       },
     });

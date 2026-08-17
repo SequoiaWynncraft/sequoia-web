@@ -1,3 +1,5 @@
+import { isRecord } from "$lib/api/guards";
+
 /** Delta windows the rankings page offers; keys match the backend's range grammar. */
 export const RANKING_WINDOWS = [
   { key: "1d", label: "24h" },
@@ -64,8 +66,4 @@ export function isGlobalRaidRankings(value: unknown): value is GlobalRaidRanking
         typeof entry.leaderboard_rank === "number",
     )
   );
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }

@@ -52,7 +52,8 @@
   }
 
   function sortRank(column: LedgerColumn<Row>, row: Row): number | string | null {
-    return column.sortValue ? column.sortValue(row) : column.value(row);
+    if (column.sortValue) return column.sortValue(row);
+    return column.value ? column.value(row) : null;
   }
 
   function toggleSort(column: LedgerColumn<Row>) {
@@ -157,45 +158,52 @@
           {#each columns as column (column.key)}
             {@const mark = column.color?.(row) ?? null}
             {@const link = column.href?.(row) ?? null}
+            {@const valueColor = column.valueColor?.(row) ?? null}
             {@const secondary = column.secondary?.(row) ?? null}
             {@const secondaryColor = column.secondaryColor?.(row) ?? null}
             {@const avatar = column.avatar?.(row) ?? null}
             {@const avatarAlt = column.avatarAlt?.(row) ?? null}
             {@const icon = column.icon?.(row) ?? null}
             <td class:numeric={column.numeric} class:name-cell={column.nameStyle}>
-              {#if avatar}
-                <!-- svelte-ignore a11y_no_noninteractive_tabindex — focusable on purpose, so the label is keyboard-reachable -->
-                <span
-                  class="tip-anchor"
-                  role={avatarAlt ? "img" : undefined}
-                  aria-label={avatarAlt ?? undefined}
-                  tabindex={avatarAlt ? 0 : undefined}
-                  use:tooltip={avatarAlt}
-                >
-                  <img class="avatar" src={avatar} alt="" loading="lazy" width="22" height="22" />
-                </span>
-              {/if}
-              {#if mark}<span class="mark" style="background:{mark}" aria-hidden="true"></span>{/if}
-              {#if link}
-                <a href={link} class="cell-link">{column.value(row)}</a>
+              {#if column.cell}
+                {@render column.cell(row)}
               {:else}
-                {column.value(row)}
-              {/if}
-              {#if secondary}<span
-                  class="secondary"
-                  style={secondaryColor ? `color:${secondaryColor}` : undefined}>{secondary}</span
-                >{/if}
-              {#if icon}
-                <!-- svelte-ignore a11y_no_noninteractive_tabindex — focusable on purpose, so the label is keyboard-reachable -->
-                <span
-                  class="tip-anchor"
-                  role={icon.alt ? "img" : undefined}
-                  aria-label={icon.alt || undefined}
-                  tabindex={icon.alt ? 0 : undefined}
-                  use:tooltip={icon.alt}
-                >
-                  <img class="cell-icon" src={icon.src} alt="" loading="lazy" width="16" height="16" />
-                </span>
+                {#if avatar}
+                  <!-- svelte-ignore a11y_no_noninteractive_tabindex — focusable on purpose, so the label is keyboard-reachable -->
+                  <span
+                    class="tip-anchor"
+                    role={avatarAlt ? "img" : undefined}
+                    aria-label={avatarAlt ?? undefined}
+                    tabindex={avatarAlt ? 0 : undefined}
+                    use:tooltip={avatarAlt}
+                  >
+                    <img class="avatar" src={avatar} alt="" loading="lazy" width="22" height="22" />
+                  </span>
+                {/if}
+                {#if mark}<span class="mark" style="background:{mark}" aria-hidden="true"></span>{/if}
+                {#if link}
+                  <a href={link} class="cell-link" style:color={valueColor ?? undefined}
+                    >{column.value?.(row)}</a
+                  >
+                {:else}
+                  <span style:color={valueColor ?? undefined}>{column.value?.(row)}</span>
+                {/if}
+                {#if secondary}<span
+                    class="secondary"
+                    style={secondaryColor ? `color:${secondaryColor}` : undefined}>{secondary}</span
+                  >{/if}
+                {#if icon}
+                  <!-- svelte-ignore a11y_no_noninteractive_tabindex — focusable on purpose, so the label is keyboard-reachable -->
+                  <span
+                    class="tip-anchor"
+                    role={icon.alt ? "img" : undefined}
+                    aria-label={icon.alt || undefined}
+                    tabindex={icon.alt ? 0 : undefined}
+                    use:tooltip={icon.alt}
+                  >
+                    <img class="cell-icon" src={icon.src} alt="" loading="lazy" width="16" height="16" />
+                  </span>
+                {/if}
               {/if}
             </td>
           {/each}

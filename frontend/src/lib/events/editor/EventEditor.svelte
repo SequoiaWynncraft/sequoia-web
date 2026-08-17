@@ -8,6 +8,10 @@
   import type { EventFormContext, TrackerOption } from "$lib/server/eventFormContext";
   import type { RaffleRoll as RaffleRollRecord } from "$lib/server/raffleRolls";
 
+  import Button from "$lib/design-system/components/Button.svelte";
+  import ConfirmDialog from "$lib/design-system/components/forms/ConfirmDialog.svelte";
+  import FormStatus from "$lib/design-system/components/forms/FormStatus.svelte";
+  import Select from "$lib/design-system/components/forms/Select.svelte";
   import { EDITOR_KEY, EventDraft } from "./draft.svelte";
   import PreviewPane from "./PreviewPane.svelte";
   import SectionRail from "./SectionRail.svelte";
@@ -74,6 +78,30 @@
   // svelte-ignore state_referenced_locally
   const draft = new EventDraft({ mode, initial, initialPublished, initialUpdatedAt, context });
   setContext(EDITOR_KEY, draft);
+
+  let presetDeleteForm = $state<HTMLFormElement>();
+  let eventDeleteForm = $state<HTMLFormElement>();
+  let confirmPresetDelete = $state<ConfirmDialog | null>(null);
+  let confirmEventDelete = $state<ConfirmDialog | null>(null);
+
+  const footerError = $derived(
+    draft.showValidation && draft.liveError ? draft.liveError : error,
+  );
+  const footerWarning = $derived(
+    auditWarning
+      ? "Done, but not recorded in the audit log."
+      : rollWarning
+        ? "Rolled, but the stage replay was not recorded - viewers see the winner without a spin."
+        : null,
+  );
+
+  function deletePresetConfirmed() {
+    presetDeleteForm?.requestSubmit();
+  }
+
+  function deleteEventConfirmed() {
+    eventDeleteForm?.requestSubmit();
+  }
 
   // A save that adds a raffle unlocks its roll button without a full reload -
   // the rollability checks read the live stored event, never the mount seed.
@@ -157,48 +185,42 @@
   <div class="evf-main">
     <div class="evf-toolbar">
       <div class="evf-presets">
-        <select
-          class="seq-input evf-preset-select"
+        <Select
+          class="evf-preset-select"
           bind:value={draft.selectedPreset}
-          onchange={() => (draft.confirmingPresetDelete = false)}
           aria-label="Saved presets"
         >
           <option value="">Presets…</option>
           {#each draft.presetChoices as preset (preset.name)}
             <option value={preset.name}>{preset.name}</option>
           {/each}
-        </select>
-        <button
-          type="button"
-          class="seq-button seq-button-secondary seq-button-sm"
+        </Select>
+        <Button
+          size="sm"
+          variant="secondary"
           onclick={() => draft.loadPreset()}
           disabled={!draft.selectedPreset}
         >
           Load
-        </button>
-        <form method="POST" action="?/deletePreset" use:enhance={draft.presetDelete}>
+        </Button>
+        <form bind:this={presetDeleteForm} method="POST" action="?/deletePreset" use:enhance={draft.presetDelete}>
           <input type="hidden" name="presetName" value={draft.selectedPreset} />
-          {#if draft.confirmingPresetDelete}
-            <button type="submit" class="seq-button seq-button-ghost seq-button-sm evf-preset-confirm">
-              Confirm delete
-            </button>
-            <button
-              type="button"
-              class="seq-button seq-button-ghost seq-button-sm"
-              onclick={() => (draft.confirmingPresetDelete = false)}
-            >
-              Keep
-            </button>
-          {:else}
-            <button
-              type="button"
-              class="seq-button seq-button-ghost seq-button-sm"
-              onclick={() => (draft.confirmingPresetDelete = true)}
-              disabled={!draft.selectedPreset}
-            >
-              Delete
-            </button>
-          {/if}
+          <Button
+            size="sm"
+            variant="ghost"
+            onclick={() => confirmPresetDelete?.open()}
+            disabled={!draft.selectedPreset}
+          >
+            Delete
+          </Button>
+          <ConfirmDialog
+            bind:this={confirmPresetDelete}
+            title="Delete preset"
+            confirmLabel="Confirm delete"
+            cancelLabel="Keep"
+            danger
+            onconfirm={deletePresetConfirmed}
+          />
         </form>
         <form class="evf-preset-save" method="POST" action="?/savePreset" use:enhance={draft.presetSubmit}>
           <input type="hidden" name="presetPayload" value={draft.presetPayload} />
@@ -209,18 +231,19 @@
             placeholder="Preset name"
             maxlength="60"
           />
-          <button
+          <Button
             type="submit"
-            class="seq-button seq-button-secondary seq-button-sm"
+            size="sm"
+            variant="secondary"
             disabled={!draft.newPresetName.trim()}
           >
             Save preset
-          </button>
+          </Button>
         </form>
       </div>
     </div>
     {#if presetError}
-      <p class="evf-toolbar-error"><span class="evf-error" role="alert">{presetError}</span></p>
+      <p class="evf-toolbar-error"><span class="seq-field-error" role="alert">{presetError}</span></p>
     {/if}
 
     <form id={FORM_ID} class="evf-form" method="POST" action="?/save" use:enhance={draft.submit}>
@@ -246,27 +269,13 @@
       <RafflesSection />
 
       <div class="evf-footer">
-        <button type="submit" class="seq-button seq-button-primary seq-button-md" disabled={draft.saving}>
+        <Button type="submit" disabled={draft.saving}>
           {mode === "create" ? "Create event" : "Save changes"}
-        </button>
+        </Button>
         {#if mode === "edit"}
           <a class="evf-view focus-ring" href={`/events/${draft.slug}`}>View page</a>
         {/if}
-        {#if draft.showValidation && draft.liveError}
-          <span class="evf-error" role="alert">{draft.liveError}</span>
-        {:else if error}
-          <span class="evf-error" role="alert">{error}</span>
-        {:else if saved}
-          <span class="evf-saved">Saved</span>
-        {/if}
-        {#if auditWarning}
-          <span class="evf-error" role="alert">Done, but not recorded in the audit log.</span>
-        {/if}
-        {#if rollWarning}
-          <span class="evf-error" role="alert">
-            Rolled, but the stage replay was not recorded - viewers see the winner without a spin.
-          </span>
-        {/if}
+        <FormStatus error={footerError} warning={footerWarning} {saved} compact />
       </div>
     </form>
 
@@ -279,29 +288,22 @@
     {/if}
 
     {#if mode === "edit"}
-      <form class="evf-danger" method="POST" action="?/delete" use:enhance>
+      <form bind:this={eventDeleteForm} class="evf-danger" method="POST" action="?/delete" use:enhance>
         <!-- Same draft-pinned version token as the save form: deleting is only
              safe against the version the manager actually reviewed. -->
         <input type="hidden" name="baseUpdatedAt" value={draft.knownUpdatedAt ?? ""} />
-        {#if draft.confirmingDelete}
-          <span class="evf-error">This permanently removes the event.</span>
-          <button type="submit" class="evf-delete focus-ring">Confirm delete</button>
-          <button
-            type="button"
-            class="seq-button seq-button-ghost seq-button-sm"
-            onclick={() => (draft.confirmingDelete = false)}
-          >
-            Keep
-          </button>
-        {:else}
-          <button
-            type="button"
-            class="seq-button seq-button-ghost seq-button-sm"
-            onclick={() => (draft.confirmingDelete = true)}
-          >
-            Delete event
-          </button>
-        {/if}
+        <Button size="sm" variant="ghost" onclick={() => confirmEventDelete?.open()}>
+          Delete event
+        </Button>
+        <ConfirmDialog
+          bind:this={confirmEventDelete}
+          title="Delete event"
+          body="This permanently removes the event."
+          confirmLabel="Confirm delete"
+          cancelLabel="Keep"
+          danger
+          onconfirm={deleteEventConfirmed}
+        />
       </form>
     {/if}
   </div>

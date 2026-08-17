@@ -148,6 +148,18 @@ describe("loadGuildLevelTracker", () => {
     expect(await loadGuildLevelTracker(fetch, VIEWER)).not.toBeNull();
   });
 
+  it("serves a website administrator without fresh guild or branch membership", async () => {
+    H.roster = [];
+    H.profiles = { profiles: [] };
+    H.rosterStale = true;
+    H.profilesStale = true;
+
+    const tracker = await loadGuildLevelTracker(fetch, { ...VIEWER, websiteAdmin: true });
+
+    expect(tracker?.current.level).toBe(245);
+    expect(tracker?.history[0]?.level).toBe(245);
+  });
+
   it("denies anonymous viewers", async () => {
     expect(await loadGuildLevelTracker(fetch, null)).toBeNull();
   });

@@ -2,6 +2,7 @@ import { type PlayerCardResponse, type PlayerCharacterSummary } from "$lib/api/p
 import { getWynncraftGuild } from "$lib/server/wynncraftGuild";
 import { createCachedResource, type CachedResource } from "$lib/server/serverCache";
 import { fetchWynncraftJson } from "$lib/server/wynncraft";
+import { isRecord, nonNegativeInteger, nonNegativeNumber, booleanValue, stringValue } from "$lib/server/guards";
 
 const FRESH_MS = 2 * 60 * 1000;
 const STALE_MS = 60 * 60 * 1000;
@@ -35,7 +36,13 @@ export async function getPlayerCard(
     throw new Error("Unable to load the player profile.");
   }
 
-  const card = parsePlayerCard(value.data, new Date(value.updatedAt).toISOString());
+  // The guild roster is the only Wynncraft source for the in-guild raid counter and the
+  // guild join date, so both ride along from the gate lookup above instead of costing a
+  // second request.
+  const card = parsePlayerCard(value.data, new Date(value.updatedAt).toISOString(), {
+    currentGuildRaids: member.currentGuildRaids,
+    guildJoined: member.joined,
+  });
   return value.stale ? { ...card, stale: true, online: null, server: null } : card;
 }
 
@@ -61,7 +68,9 @@ function playerResource(uuid: string): CachedResource<StoredPlayer> {
   return resource;
 }
 
-function findMember(members: Record<string, unknown>, name: string): { uuid: string } | null {
+type RosterMember = { uuid: string; currentGuildRaids: number | null; joined: string | null };
+
+function findMember(members: Record<string, unknown>, name: string): RosterMember | null {
   const wanted = name.trim().toLowerCase();
   if (!wanted) return null;
   const wantedUuid = wanted.replaceAll("-", "");
@@ -74,14 +83,35 @@ function findMember(members: Record<string, unknown>, name: string): { uuid: str
       const uuid = stringValue(member.uuid);
       if (!uuid) continue;
       if (username.toLowerCase() === wanted || uuid.replaceAll("-", "").toLowerCase() === wantedUuid) {
-        return { uuid };
+        return {
+          uuid,
+          currentGuildRaids: memberCurrentGuildRaids(member),
+          joined: stringValue(member.joined) ?? null,
+        };
       }
     }
   }
   return null;
 }
 
-export function parsePlayerCard(value: unknown, generatedAt?: string): PlayerCardResponse {
+/**
+ * Reads a roster member's raid count for their current guild. Profiles that restrict
+ * main access omit `globalData` entirely, so this is null more often than not for them.
+ */
+function memberCurrentGuildRaids(member: Record<string, unknown>): number | null {
+  const globalData = isRecord(member.globalData) ? member.globalData : {};
+  const raids = isRecord(globalData.currentGuildRaids) ? globalData.currentGuildRaids : {};
+  return nonNegativeInteger(raids.total) ?? null;
+}
+
+/** Fields the player endpoint does not report, supplied by the caller when it has them. */
+type PlayerCardExtras = { currentGuildRaids?: number | null; guildJoined?: string | null };
+
+export function parsePlayerCard(
+  value: unknown,
+  generatedAt?: string,
+  extras: PlayerCardExtras = {},
+): PlayerCardResponse {
   if (!isRecord(value) || typeof value.username !== "string" || typeof value.uuid !== "string") {
     throw new Error("Unexpected Wynncraft player response.");
   }
@@ -120,6 +150,8 @@ export function parsePlayerCard(value: unknown, generatedAt?: string): PlayerCar
     dungeons: parseCountMap(dungeons.list),
     raids_total: nonNegativeInteger(raids.total) ?? null,
     raids: parseCountMap(raids.list),
+    current_guild_raids: extras.currentGuildRaids ?? null,
+    guild_joined: extras.guildJoined ?? null,
     pvp_kills: nonNegativeInteger(pvp.kills) ?? null,
     pvp_deaths: nonNegativeInteger(pvp.deaths) ?? null,
     rankings: parseRankings(value.ranking),
@@ -166,24 +198,4 @@ function parseCountMap(value: unknown): Record<string, number> {
         typeof entry[1] === "number" && Number.isSafeInteger(entry[1]) && entry[1] >= 0,
     ),
   );
-}
-
-function nonNegativeInteger(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : undefined;
-}
-
-function nonNegativeNumber(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : undefined;
-}
-
-function booleanValue(value: unknown): boolean | null {
-  return typeof value === "boolean" ? value : null;
-}
-
-function stringValue(value: unknown): string | undefined {
-  return typeof value === "string" ? value : undefined;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }

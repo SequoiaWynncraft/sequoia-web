@@ -34,7 +34,7 @@
       {/if}
     </div>
   </EventSky>
-  <p class="evf-hint">How the hub band and page hero pick up the sky.</p>
+  <p class="seq-hint">How the hub band and page hero pick up the sky.</p>
 
   {#if draft.previewGoals.length > 0}
     <div
@@ -49,13 +49,13 @@
           <GoalMeter {goal} current={Math.round((finalAt * percent) / 100)} />
           {#if draft.goals[index]}
             <label class="evf-goal-preview-slider">
-              <span class="evf-slider-label">Preview progress</span>
+              <span class="seq-field-label">Preview progress</span>
               <input type="range" min="0" max="120" step="1" bind:value={draft.goals[index].previewPercent} />
             </label>
           {/if}
         </div>
       {/each}
-      <p class="evf-hint">Drag to see the meter at any point of the event.</p>
+      <p class="seq-hint">Drag to see the meter at any point of the event.</p>
     </div>
   {/if}
 </div>
@@ -63,13 +63,5 @@
 <style>
   .evf-goal-preview {
     margin-top: 24px;
-  }
-
-  .evf-slider-label {
-    color: var(--text-muted);
-    font-family: var(--font-display);
-    font-size: var(--text-2xs);
-    letter-spacing: var(--tracking-wider);
-    text-transform: uppercase;
   }
 </style>

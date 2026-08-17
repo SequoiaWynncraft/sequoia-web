@@ -1,7 +1,12 @@
 import type { GuildMemberStats } from "$lib/api/guildStats";
 import { isBranchMemberViewer } from "$lib/server/branchGate";
 import { getGuildStats } from "$lib/server/guildStats";
-import { loadModLeaderboard, type RaidLeaderboardEntry } from "$lib/server/raidEventBoards";
+import {
+  loadModLeaderboardEntries,
+  rosterLeaderboard,
+  type ModLeaderboardEntry,
+  type RaidLeaderboardEntry,
+} from "$lib/server/raidEventBoards";
 import { getLinkedRankProfilesResult } from "$lib/server/rankProfiles";
 import { createCachedResource, type CachedResource } from "$lib/server/serverCache";
 import { KNOWN_RAIDS } from "$lib/site/raids";
@@ -139,19 +144,28 @@ let announcementCache: {
 
 /**
  * The shared build for one week window. One build serves every eligible viewer:
- * each issues 12 internal leaderboard requests, and the previous week's window
- * is already closed. Keyed by the week's start so a stale entry can never be
- * served across the reset and labelled as the new week; only the current week is
- * ever asked for, so the previous week's resource is simply replaced.
+ * a cold one issues up to 12 internal leaderboard requests, six of them for the
+ * previous week's already-closed window. Keyed by the week's start so a stale
+ * entry can never be served across the reset and labelled as the new week; only
+ * the current week is ever asked for, so the previous week's resource is simply
+ * replaced.
+ *
+ * Takes the whole window pair, not just the key, so the build resolves the same
+ * weeks the key names. Deriving them again inside the build would re-read the
+ * clock at load time, which can land on the far side of the Sunday reset.
  */
-function announcementCacheFor(weekStart: string): CachedResource<WeeklyRaidAnnouncement> {
+function announcementCacheFor(windows: {
+  current: Window;
+  previous: Window;
+}): CachedResource<WeeklyRaidAnnouncement> {
+  const weekStart = windows.current.start;
   if (announcementCache?.weekStart === weekStart) return announcementCache.resource;
   const resource = createCachedResource<WeeklyRaidAnnouncement>({
     key: `sequoia-weekly-raid-announcement:v1:${weekStart}`,
     freshMs: ANNOUNCEMENT_FRESH_MS,
     staleMs: ANNOUNCEMENT_STALE_MS,
     load: async (fetchImpl) => {
-      const built = await buildWeeklyRaidAnnouncement(fetchImpl);
+      const built = await buildWeeklyRaidAnnouncement(fetchImpl, windows);
       // Nothing worth caching - let the resource surface the failure instead.
       if (!built) throw new Error("Weekly raid announcement is unavailable.");
       return built;
@@ -167,11 +181,9 @@ function announcementCacheFor(weekStart: string): CachedResource<WeeklyRaidAnnou
  * viewers before any board data is read, then serves the shared cached build.
  * Returns null on any failure, so the section is simply absent.
  *
- * Both halves of the gate are read fresh and fail closed when they come back
- * stale, matching the member-only raid page. A cached roster or profile outlives
- * the revocation that removed the viewer from the guild or their branch - by up
- * to three days and 30 minutes respectively - so authorizing from one would keep
- * serving them per-member tracker data through an upstream outage.
+ * Regular viewers read both halves of the gate fresh and fail closed when they
+ * come back stale. Website administrators are members by session grant, so
+ * they skip the branch-profile read and may use stale roster display data.
  */
 export async function loadWeeklyRaidAnnouncement(
   fetchImpl: typeof fetch,
@@ -180,15 +192,17 @@ export async function loadWeeklyRaidAnnouncement(
   if (!viewer) return null;
   try {
     const [stats, profiles] = await Promise.all([
-      getGuildStats(fetchImpl, { allowStale: false }),
-      getLinkedRankProfilesResult(fetchImpl, { allowStale: false }),
+      getGuildStats(fetchImpl, { allowStale: viewer.websiteAdmin }),
+      viewer.websiteAdmin
+        ? Promise.resolve(null)
+        : getLinkedRankProfilesResult(fetchImpl, { allowStale: false }),
     ]);
-    if (stats.stale || profiles.stale) {
+    if (!viewer.websiteAdmin && (stats.stale || profiles === null || profiles.stale)) {
       console.warn("weekly raid announcement: gate reads are stale, denying");
       return null;
     }
-    if (!isAnnouncementViewer(profiles.data, stats.members, viewer)) return null;
-    const cache = announcementCacheFor(weekWindows(Date.now()).current.start);
+    if (!isAnnouncementViewer(profiles?.data ?? null, stats.members, viewer)) return null;
+    const cache = announcementCacheFor(weekWindows(Date.now()));
     return (await cache.get(fetchImpl, { allowStale: true })).data;
   } catch (error) {
     // The section is dropped silently for the viewer; without this line an
@@ -255,44 +269,82 @@ function isWeeklyRaidRank(value: unknown): value is WeeklyRaidRank {
  */
 export async function buildWeeklyRaidAnnouncement(
   fetchImpl: typeof fetch,
+  windows: { current: Window; previous: Window } = weekWindows(Date.now()),
 ): Promise<WeeklyRaidAnnouncement | null> {
   const stats = await getGuildStats(fetchImpl, { allowStale: true }).catch((error: unknown) => {
     console.warn("weekly raid announcement: guild roster read failed:", error);
     return null;
   });
   if (!stats) return null;
-  const { current, previous } = weekWindows(Date.now());
-  const [currentWeek, previousWeek] = await Promise.all([
-    buildWeek(fetchImpl, current, stats.members),
-    buildWeek(fetchImpl, previous, stats.members),
+  const { current, previous } = windows;
+  const [currentReads, previousReads] = await Promise.all([
+    readWeek(fetchImpl, current),
+    // A closed window's tracker counts cannot move, so a week already read once
+    // is reused rather than re-read every refresh.
+    closedWeeks.get(previous.start) ?? readWeek(fetchImpl, previous),
   ]);
+  rememberClosedWeek(previous, previousReads, Date.now());
+  rememberClosedWeek(current, currentReads, Date.now());
+  // Projected fresh on every build, memoized reads included: the roster decides
+  // who counts and what they are called, and both move while a window stays shut.
+  const currentWeek = renderWeek(current, currentReads, stats.members);
   if (!currentWeek) {
     console.warn("weekly raid announcement: current week unavailable", current);
     return null;
   }
-  return { current: currentWeek, previous: previousWeek };
+  return { current: currentWeek, previous: renderWeek(previous, previousReads, stats.members) };
 }
 
 /**
- * Builds one week: the total completions, each raid's grouped top-three board,
- * and the Discord text. Returns null when any of the seven reads fails - the
- * whole-window total or any single raid.
+ * Memo of the raw tracker reads for weeks whose window has closed, keyed by the
+ * week's start. Bounded to a couple of entries: only the previous week is ever
+ * read back, and the entry ahead of it exists so the current week can carry over
+ * as `previous` at the reset instead of being re-read.
  *
- * A failed raid read is not survivable here: `loadModLeaderboard` reports it as
- * an empty leaderboard, which renders identically to "nobody completed this
- * raid" and is baked verbatim into `discordText` that staff paste and pay out
- * against. Losing the week is the honest outcome.
+ * Deliberately holds the *reads*, not the built `WeeklyRaidWeek`. A closed
+ * window's counts are settled, but the board built from them is not: it drops
+ * off-roster players and takes usernames from the roster, so memoizing the
+ * finished projection would keep a departed member and a pre-rename name in the
+ * previous-week board - and in the Discord text staff paste - for as long as the
+ * process lived.
  */
-async function buildWeek(
-  fetchImpl: typeof fetch,
-  window: Window,
-  roster: GuildMemberStats[],
-): Promise<WeeklyRaidWeek | null> {
+const closedWeeks = new Map<string, WeekReads>();
+const CLOSED_WEEK_MEMO_LIMIT = 2;
+
+/** Memoizes a week's reads once its window has passed; open weeks still move. */
+function rememberClosedWeek(window: Window, reads: WeekReads | null, nowMs: number): void {
+  if (!reads || Date.parse(window.end) > nowMs || closedWeeks.has(window.start)) return;
+  closedWeeks.set(window.start, reads);
+  // Map iterates in insertion order, so the oldest entry is the first key.
+  while (closedWeeks.size > CLOSED_WEEK_MEMO_LIMIT) {
+    const oldest = closedWeeks.keys().next().value;
+    if (oldest === undefined) break;
+    closedWeeks.delete(oldest);
+  }
+}
+
+/** One week's raw tracker reads: the whole-window total and one per raid, in
+ * `ANNOUNCEMENT_RAIDS` order. Roster-independent, so it is safe to memoize. */
+interface WeekReads {
+  total: ModLeaderboardEntry[];
+  perRaid: ModLeaderboardEntry[][];
+}
+
+/**
+ * Reads one week's tracker counts. Returns null when any of the reads fails -
+ * the whole-window total or any single raid.
+ *
+ * A failed raid read is not survivable here: the loader reports it as an empty
+ * leaderboard, which renders identically to "nobody completed this raid" and is
+ * baked verbatim into `discordText` that staff paste and pay out against.
+ * Losing the week is the honest outcome.
+ */
+async function readWeek(fetchImpl: typeof fetch, window: Window): Promise<WeekReads | null> {
   const base = { starts_at: window.start, ends_at: window.end };
   const [total, ...perRaid] = await Promise.all([
-    loadModLeaderboard(fetchImpl, base, roster),
+    loadModLeaderboardEntries(fetchImpl, base),
     ...ANNOUNCEMENT_RAIDS.map((raid) =>
-      loadModLeaderboard(fetchImpl, { ...base, raid: raid.full }, roster),
+      loadModLeaderboardEntries(fetchImpl, { ...base, raid: raid.full }),
     ),
   ]);
   const failed = [total, ...perRaid].find((board) => board.error);
@@ -300,12 +352,29 @@ async function buildWeek(
     console.warn("weekly raid announcement: leaderboard read failed:", failed.error);
     return null;
   }
-  const completions = total.leaderboard.reduce((sum, entry) => sum + entry.raids, 0);
+  return { total: total.entries, perRaid: perRaid.map((board) => board.entries) };
+}
+
+/**
+ * Projects one week's reads through the current roster: the total completions,
+ * each raid's grouped top-three board, and the Discord text. Null reads (a
+ * failed window) render as a null week.
+ */
+function renderWeek(
+  window: Window,
+  reads: WeekReads | null,
+  roster: GuildMemberStats[],
+): WeeklyRaidWeek | null {
+  if (!reads) return null;
+  const completions = rosterLeaderboard(reads.total, roster).reduce(
+    (sum, entry) => sum + entry.raids,
+    0,
+  );
   const raids: WeeklyRaidBoard[] = ANNOUNCEMENT_RAIDS.map((raid, index) => ({
     full: raid.full,
     short: raid.short,
     roleId: raid.roleId,
-    ranks: topThree(perRaid[index].leaderboard),
+    ranks: topThree(rosterLeaderboard(reads.perRaid[index] ?? [], roster)),
   }));
   return {
     start: window.start,

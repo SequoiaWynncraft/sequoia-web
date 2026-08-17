@@ -1,6 +1,9 @@
 <script lang="ts">
   import { getContext } from "svelte";
 
+  import Button from "$lib/design-system/components/Button.svelte";
+  import FormStatus from "$lib/design-system/components/forms/FormStatus.svelte";
+
   import { EDITOR_KEY, EventDraft } from "./draft.svelte";
   import { EDITOR_SECTIONS, sectionIssues, type SectionId } from "./issues";
   import { nearestVisibleSection } from "./sectionRail";
@@ -10,6 +13,16 @@
   const draft = getContext<EventDraft>(EDITOR_KEY);
 
   const issues = $derived(sectionIssues(draft));
+  const statusError = $derived(
+    draft.showValidation && draft.liveError ? draft.liveError : draft.serverError,
+  );
+  const statusWarning = $derived(
+    draft.serverAuditWarning
+      ? "Done, but not recorded in the audit log."
+      : draft.serverRollWarning
+        ? "Rolled, but the stage replay was not recorded."
+        : null,
+  );
 
   let active = $state<SectionId>(EDITOR_SECTIONS[0].id);
   /** Click target whose smooth scroll is still traveling; observer holds. */
@@ -99,48 +112,38 @@
     {/each}
   </ul>
   <div class="rail-actions">
-    <button
+    <Button
       type="submit"
       form={formId}
-      class="seq-button seq-button-primary seq-button-sm"
+      size="sm"
       disabled={draft.saving}
     >
       {draft.mode === "create" ? "Create event" : "Save changes"}
-    </button>
+    </Button>
     <!-- The footer renders the same outcome, but it sits below thirteen
          sections - a rejected save must be visible where the button is. -->
-    {#if draft.showValidation && draft.liveError}
-      <span class="rail-status rail-status-error" role="alert">{draft.liveError}</span>
-    {:else if draft.serverError}
-      <span class="rail-status rail-status-error" role="alert">{draft.serverError}</span>
-    {:else if draft.serverAuditWarning}
-      <span class="rail-status rail-status-error" role="alert">
-        Done, but not recorded in the audit log.
-      </span>
-    {:else if draft.serverRollWarning}
-      <span class="rail-status rail-status-error" role="alert">
-        Rolled, but the stage replay was not recorded.
-      </span>
-    {:else if draft.serverSaved}
-      <span class="rail-status rail-status-saved">Saved</span>
+    {#if statusError || statusWarning || draft.serverSaved}
+      <div class="rail-status">
+        <FormStatus error={statusError} warning={statusWarning} saved={draft.serverSaved} compact size="xs" />
+      </div>
     {/if}
     <div class="rail-history" role="group" aria-label="Edit history">
-      <button
-        type="button"
-        class="seq-button seq-button-ghost seq-button-sm"
+      <Button
+        size="sm"
+        variant="ghost"
         onclick={() => draft.undo()}
         disabled={draft.undoStack.length === 0 && !draft.hasPendingEdit}
       >
         Undo
-      </button>
-      <button
-        type="button"
-        class="seq-button seq-button-ghost seq-button-sm"
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
         onclick={() => draft.redo()}
         disabled={draft.redoStack.length === 0}
       >
         Redo
-      </button>
+      </Button>
     </div>
   </div>
 </nav>
@@ -174,7 +177,7 @@
   }
 
   .rail-link:focus-visible {
-    outline: 2px solid rgba(245, 197, 66, 0.5);
+    outline: 2px solid color-mix(in srgb, var(--color-gold) 50%, transparent);
     outline-offset: -2px;
   }
 
@@ -213,15 +216,6 @@
 
   .rail-status {
     max-width: 300px;
-    font-size: var(--text-xs);
-  }
-
-  .rail-status-error {
-    color: var(--status-error);
-  }
-
-  .rail-status-saved {
-    color: var(--color-gold);
   }
 
   @media (max-width: 1000px) {

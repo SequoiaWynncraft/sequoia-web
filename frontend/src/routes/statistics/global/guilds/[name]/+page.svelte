@@ -10,6 +10,7 @@
   import { guildRankLabel, guildRankOrder, type GuildMemberStats } from "$lib/api/guildStats";
   import { raidSeriesFor } from "$lib/site/raids";
   import { nmsrFace } from "$lib/site/nmsr";
+  import { compact } from "$lib/site/format";
 
   let { data } = $props();
 
@@ -27,10 +28,6 @@
       .map(([, position]) => position);
     return finishes.length > 0 ? Math.min(...finishes) : null;
   });
-
-  function compact(value: number): string {
-    return Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(value);
-  }
 
   type ActivityDays = NonNullable<Awaited<typeof data.activity>>;
 
@@ -89,6 +86,7 @@
       label: "Rank",
       nameStyle: true,
       value: (member) => orgRankOf(member)?.rank ?? guildRankLabel(member.rank),
+      valueColor: (member) => orgRankOf(member)?.rankColor ?? null,
       // Org positions and in-game equivalents share one scale; without the
       // catalog every row falls back to the plain in-game ladder.
       sortValue: (member) =>

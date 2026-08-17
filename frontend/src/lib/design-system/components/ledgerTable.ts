@@ -1,3 +1,5 @@
+import type { Snippet } from "svelte";
+
 export interface LedgerColumn<Row> {
   key: string;
   label: string;
@@ -7,8 +9,11 @@ export interface LedgerColumn<Row> {
   nameStyle?: boolean;
   /** Small color square in the column header (chart series identity). */
   headerColor?: string;
-  value: (row: Row) => string;
+  /** Cell text; omit only when `cell` renders the whole cell. */
+  value?: (row: Row) => string;
   sortValue?: (row: Row) => number | string | null;
+  /** CSS color for the primary cell text. */
+  valueColor?: (row: Row) => string | null;
   color?: (row: Row) => string | null;
   secondary?: (row: Row) => string | null;
   /** CSS color for the secondary text - rank-aware labels pass rankColor(). */
@@ -20,4 +25,10 @@ export interface LedgerColumn<Row> {
   avatarAlt?: (row: Row) => string | null;
   /** Small pixel-art icon rendered after the cell text; alt doubles as the tooltip. */
   icon?: (row: Row) => { src: string; alt: string } | null;
+  /**
+   * Renders the entire cell - inputs, buttons, anything - replacing the
+   * text/link/avatar treatment. Pair with `sortable: false` unless a
+   * `sortValue` gives the column an order.
+   */
+  cell?: Snippet<[Row]>;
 }

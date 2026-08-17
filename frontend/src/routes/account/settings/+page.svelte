@@ -1,9 +1,19 @@
 <script lang="ts">
   import { page } from "$app/state";
   import PageHeader from "$lib/components/PageHeader.svelte";
+  import Button from "$lib/design-system/components/Button.svelte";
   import { webAuthStartUrl } from "$lib/site/webAuth";
+  import { FLAT_MENU_MAX_ITEMS, navToggles } from "$lib/site/navPreferences";
 
   let { data, form } = $props();
+
+  const navSections = navToggles();
+  const hiddenNav = $derived(new Set(data.navHidden));
+
+  // Both panels post to the same page, so each one only reads the result that
+  // came back from its own action.
+  const notifications = $derived(form?.section === "notifications" ? form : null);
+  const navigation = $derived(form?.section === "navigation" ? form : null);
 
   const options = [
     {
@@ -31,15 +41,15 @@
 </script>
 
 <svelte:head>
-  <title>Notification settings - Sequoia</title>
+  <title>Settings - Sequoia</title>
   <meta name="robots" content="noindex" />
 </svelte:head>
 
 <div class="settings-page">
   <PageHeader
-    kicker="Account / Communications"
+    kicker="Account / Preferences"
     title="Signal, not noise"
-    lead="Choose which Party Finder moments deserve a Discord interruption. Your in-game alerts continue independently."
+    lead="Choose which Party Finder moments deserve a Discord interruption, and which pages your nav bar carries. Your in-game alerts continue independently."
   />
 
   {#if data.access === "signin"}
@@ -47,17 +57,17 @@
       <span class="settings-gate-mark" aria-hidden="true">◆</span>
       <h2>Sign in to tune your signal</h2>
       <p>Your Discord and Minecraft link identifies which Party Finder messages belong to you.</p>
-      <a class="seq-button seq-button-primary seq-button-md" href={webAuthStartUrl(page.url.href)}>Sign in</a>
+      <Button href={webAuthStartUrl(page.url.href)}>Sign in</Button>
     </section>
   {:else if data.access === "unavailable"}
     <section class="settings-gate settings-gate-error">
       <span class="settings-gate-mark" aria-hidden="true">!</span>
       <h2>Settings are temporarily unavailable</h2>
       <p>Nothing was changed. Refresh in a moment to try the connection again.</p>
-      <a class="seq-button seq-button-secondary seq-button-md" href="/account/settings">Retry</a>
+      <Button variant="secondary" href="/account/settings">Retry</Button>
     </section>
   {:else}
-    <form method="POST" class="signal-panel">
+    <form method="POST" action="?/notifications" class="signal-panel">
       <div class="signal-rail" aria-hidden="true">
         <span></span><span></span><span></span>
       </div>
@@ -73,7 +83,7 @@
                 type="radio"
                 name="dm_level"
                 value={option.value}
-                checked={(form?.dmLevel ?? data.preference) === option.value}
+                checked={(notifications?.dmLevel ?? data.preference) === option.value}
               />
               <span class="signal-index">0{index + 1}</span>
               <span class="signal-copy">
@@ -89,11 +99,11 @@
 
       <footer class="signal-footer">
         <div aria-live="polite" class="save-status">
-          {#if form?.saved}
+          {#if notifications?.saved}
             <span class="save-success">Preference saved.</span>
-          {:else if form?.error === "unavailable"}
+          {:else if notifications?.error === "unavailable"}
             <span class="save-error">Sierra could not save this yet. Your previous preference is unchanged.</span>
-          {:else if form?.error === "signin"}
+          {:else if notifications?.error === "signin"}
             <span class="save-error">
               Your session expired.
               <a href={webAuthStartUrl(page.url.href)}>Sign in again</a> before saving.
@@ -102,10 +112,73 @@
             <span>Default: important only</span>
           {/if}
         </div>
-        <button type="submit" class="seq-button seq-button-primary seq-button-md">Save preference</button>
+        <Button type="submit" class="signal-save">Save preference</Button>
       </footer>
     </form>
   {/if}
+
+  <form method="POST" action="?/navigation" class="signal-panel nav-panel">
+    <fieldset>
+      <legend>Nav bar entries</legend>
+      <p class="field-note">
+        The nav bar carries a short default. Tick anything you want back in it - unticking a whole
+        section removes its menu. Every page stays reachable by link and by its section's tabs
+        whatever you choose here. Saved to this browser.
+      </p>
+
+      {#snippet entry(id: string, label: string, options: { lead?: boolean; hint?: string } = {})}
+        <label
+          class="nav-option"
+          class:nav-option-lead={options.lead}
+          class:nav-option-hinted={options.hint}
+        >
+          <input type="checkbox" name="visible" value={id} checked={!hiddenNav.has(id)} />
+          <span class="nav-box" aria-hidden="true"></span>
+          <span class="nav-name">
+            {label}
+            {#if options.hint}<span class="nav-hint">{options.hint}</span>{/if}
+          </span>
+        </label>
+      {/snippet}
+
+      <div class="nav-sections">
+        {#each navSections as section (section.id)}
+          <div class="nav-section" role="group" aria-label={section.label}>
+            {@render entry(section.id, section.label, { lead: true })}
+
+            {#if section.categoriesId}
+              {@render entry(section.categoriesId, "Show categories", {
+                hint: `Splits the menu into columns. Menus over ${FLAT_MENU_MAX_ITEMS} entries always do.`,
+              })}
+            {/if}
+
+            {#each section.items as item, index (item.id)}
+              {#if item.group && item.group !== section.items[index - 1]?.group}
+                <p class="nav-subhead">{item.group}</p>
+              {/if}
+              {@render entry(item.id, item.label)}
+            {/each}
+          </div>
+        {/each}
+      </div>
+    </fieldset>
+
+    <footer class="signal-footer">
+      <div aria-live="polite" class="save-status">
+        {#if navigation?.reset}
+          <span class="save-success">Nav bar back to the default.</span>
+        {:else if navigation?.saved}
+          <span class="save-success">Nav bar updated.</span>
+        {:else}
+          <span>Stored in this browser, not on your account.</span>
+        {/if}
+      </div>
+      <div class="nav-actions">
+        <Button type="submit" name="reset" value="1" variant="secondary">Reset</Button>
+        <Button type="submit" class="signal-save">Save nav bar</Button>
+      </div>
+    </footer>
+  </form>
 </div>
 
 <style>
@@ -269,6 +342,132 @@
   .save-success { color: var(--color-gold); }
   .save-error { color: #f2a7a7; }
 
+  .nav-panel {
+    margin-top: 18px;
+  }
+
+  .nav-sections {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    align-items: start;
+    gap: 24px 28px;
+  }
+
+  .nav-subhead {
+    margin: 14px 0 4px;
+    padding-left: 30px;
+    color: var(--color-text-dim);
+    font-family: var(--font-data);
+    font-size: var(--text-2xs);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .nav-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 8px 9px 0;
+    cursor: pointer;
+  }
+
+  /* A section that is switched off takes its whole menu with it, so its
+     entries read as inactive rather than silently doing nothing. */
+  .nav-section:has(> .nav-option-lead input:not(:checked)) .nav-subhead,
+  .nav-section:has(> .nav-option-lead input:not(:checked)) .nav-option:not(.nav-option-lead) {
+    opacity: 0.45;
+  }
+
+  .nav-option input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .nav-box {
+    position: relative;
+    flex: none;
+    width: 15px;
+    height: 15px;
+    border: 1px solid var(--color-border-subtle);
+    background: rgba(0, 0, 0, 0.2);
+    transition: border-color var(--dur-fast) ease, background var(--dur-fast) ease;
+  }
+
+  .nav-option:hover .nav-box {
+    border-color: var(--color-border-accent);
+  }
+
+  .nav-option:has(input:checked) .nav-box {
+    border-color: rgba(245, 197, 66, 0.7);
+    background: rgba(245, 197, 66, 0.12);
+  }
+
+  .nav-option:has(input:checked) .nav-box::after {
+    position: absolute;
+    top: 0;
+    left: 3px;
+    content: "";
+    width: 5px;
+    height: 9px;
+    border: solid var(--color-gold);
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+  }
+
+  .nav-option:has(input:focus-visible) .nav-box {
+    outline: 2px solid var(--color-gold);
+    outline-offset: 2px;
+  }
+
+  .nav-name {
+    color: var(--color-text-secondary);
+    font-size: var(--text-sm);
+  }
+
+  .nav-option:has(input:checked) .nav-name {
+    color: var(--color-text-primary);
+  }
+
+  .nav-option-lead .nav-name {
+    font-family: var(--font-display);
+    font-size: 0.95rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .nav-option-lead {
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+
+  /* Carries an explanation, so it is a display choice rather than a
+     destination - it sits apart from the list of pages below it. */
+  .nav-option-hinted {
+    align-items: start;
+    margin-bottom: 4px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+
+  .nav-option-hinted .nav-box {
+    margin-top: 2px;
+  }
+
+  .nav-hint {
+    display: block;
+    max-width: 24ch;
+    margin-top: 3px;
+    color: var(--color-text-dim);
+    font-size: var(--text-2xs);
+    line-height: 1.5;
+  }
+
+  .nav-actions {
+    display: flex;
+    gap: 10px;
+  }
+
   .settings-gate {
     display: grid;
     justify-items: center;
@@ -308,6 +507,7 @@
     .signal-option { grid-template-columns: auto minmax(0, 1fr); }
     .signal-state { grid-column: 2; text-align: left; }
     .signal-footer { align-items: stretch; flex-direction: column; }
-    .signal-footer button { width: 100%; }
+    .nav-actions > :global(*) { flex: 1; }
+    :global(.signal-save) { width: 100%; }
   }
 </style>

@@ -5,6 +5,7 @@
   type Officer = {
     username: string;
     rank?: string;
+    rankColor?: string | null;
     online?: boolean;
     avatarUrl?: string;
     stats?: Record<string, string>;
@@ -218,6 +219,7 @@
           <OfficerCard
             username={officer.username}
             rank={officer.rank}
+            rankColor={officer.rankColor}
             online={officer.online}
             avatarUrl={officer.avatarUrl}
             avatarLoading="eager"

@@ -3,11 +3,13 @@
 
   import { GUILD_RANKS } from "$lib/api/guildStats";
   import PlayerName from "$lib/design-system/components/PlayerName.svelte";
+  import { canonicalUuid } from "$lib/events/raffle";
   import { PRIZE_ICONS, prizeIconUrl } from "$lib/events/prizeIcons";
   import ConfirmDialog from "$lib/design-system/components/forms/ConfirmDialog.svelte";
   import Field from "$lib/design-system/components/forms/Field.svelte";
   import FormSection from "$lib/design-system/components/forms/FormSection.svelte";
   import InstantField from "$lib/design-system/components/forms/InstantField.svelte";
+  import Select from "$lib/design-system/components/forms/Select.svelte";
   import Toggle from "$lib/design-system/components/forms/Toggle.svelte";
 
   import { EDITOR_KEY, EventDraft, RAFFLE_MAX_WINNERS, type ManualRow, type RaffleRow, type RuleType } from "../draft.svelte";
@@ -29,13 +31,6 @@
 
   function manualKey(row: RaffleRow, list: "include" | "exclude") {
     return `${row.key}:${list}`;
-  }
-
-  /** Uuid identity tolerates spelling (case, hyphens): a stored pick and the
-   * roster can format the same player differently, and a raw-equality dup
-   * check would add both - which the validator then rejects as a duplicate. */
-  function canonicalUuid(uuid: string): string {
-    return uuid.replaceAll("-", "").toLowerCase();
   }
 
   function addManual(row: RaffleRow, list: "include" | "exclude") {
@@ -110,7 +105,7 @@
 </script>
 
 <FormSection id="raffles" title="Raffles">
-  <p class="evf-hint">
+  <p class="seq-hint">
     Each raffle defines who can enter and how tickets are weighted. Set it up,
     save, then roll each winner below - the preview shows the exact pool a
     roll would draw from.
@@ -131,8 +126,8 @@
   {/if}
   {#each draft.raffles as raffle (raffle.key)}
     <div class="evf-raffle">
-      <div class="evf-repeat-row evf-repeat-raffle">
-        <input class="seq-input" placeholder="Prize" bind:value={raffle.prize} maxlength="300" />
+      <div class="seq-repeat-row seq-repeat-row-raffle">
+        <input class="seq-input" aria-label="Prize" placeholder="Prize" bind:value={raffle.prize} maxlength="300" />
         <Field label="Winners" tight>
           <input
             class="seq-input"
@@ -144,7 +139,7 @@
         </Field>
         <button
           type="button"
-          class="evf-remove focus-ring"
+          class="seq-row-remove focus-ring"
           onclick={() => (draft.raffles = draft.raffles.filter((entry) => entry.key !== raffle.key))}
           aria-label="Remove raffle"
         >✕</button>
@@ -178,25 +173,25 @@
       </Field>
 
       <Field label="Wheel shows">
-        <select class="seq-input evf-wheel-style" bind:value={raffle.wheelStyle}>
+        <Select class="evf-wheel-style" bind:value={raffle.wheelStyle}>
           <option value="heads">Player heads on the rim</option>
           <option value="names">Names on the wedges</option>
-        </select>
+        </Select>
       </Field>
 
       <Field label="Tickets" element="div">
         <div class="evf-weight-row">
-          <select class="seq-input evf-weight-mode" bind:value={raffle.weightMode}>
+          <Select class="evf-weight-mode" bind:value={raffle.weightMode}>
             <option value="perRaid">Per raid on the standings board</option>
             <option value="perStat">Per stat over a window</option>
             <option value="flat">One ticket each</option>
-          </select>
+          </Select>
           {#if raffle.weightMode === "perStat"}
-            <select class="seq-input evf-weight-stat" bind:value={raffle.weightStat}>
+            <Select class="evf-weight-stat" bind:value={raffle.weightStat}>
               <option value="raids">raids</option>
               <option value="playtime">hours played</option>
               <option value="wars">wars</option>
-            </select>
+            </Select>
           {/if}
           {#if raffle.weightMode !== "flat"}
             <label class="evf-weight-per">
@@ -234,10 +229,10 @@
           hint="Only the Always include list can enter - rules and the roster are ignored."
         />
         {#if raffle.whitelistOnly}
-          <p class="evf-hint">Add everyone who may enter under Always include below.</p>
+          <p class="seq-hint">Add everyone who may enter under Always include below.</p>
         {:else}
         {#if raffle.rules.length === 0}
-          <p class="evf-hint">Everyone on the roster. Add rules to narrow it.</p>
+          <p class="seq-hint">Everyone on the roster. Add rules to narrow it.</p>
         {/if}
         {#each raffle.rules as rule (rule.key)}
           <div class="evf-rule">
@@ -245,16 +240,16 @@
               <span class="evf-rule-type">{RULE_LABELS[rule.type]}</span>
               <button
                 type="button"
-                class="evf-remove focus-ring"
+                class="seq-row-remove focus-ring"
                 onclick={() => (raffle.rules = raffle.rules.filter((entry) => entry.key !== rule.key))}
                 aria-label="Remove {RULE_LABELS[rule.type]} rule"
               >✕</button>
             </div>
             {#if rule.type === "guildRank"}
-              <div class="evf-chips" role="group" aria-label="Guild ranks that may enter">
+              <div class="seq-chips" role="group" aria-label="Guild ranks that may enter">
                 {#each GUILD_RANKS as rank (rank)}
-                  <label class="evf-chip" class:evf-chip-selected={rule.ranks.includes(rank)}>
-                    <input class="evf-chip-input" type="checkbox" value={rank} bind:group={rule.ranks} />
+                  <label class="seq-chip" class:seq-chip-selected={rule.ranks.includes(rank)}>
+                    <input class="seq-chip-input" type="checkbox" value={rank} bind:group={rule.ranks} />
                     {rank}
                   </label>
                 {/each}
@@ -265,27 +260,27 @@
                    visible and removable, never silently active. -->
               {@const choices = [...new Set([...draft.seqRankChoices, ...rule.ranks])]}
               {#if choices.length > 0}
-                <div class="evf-chips" role="group" aria-label="Sequoia ranks that may enter">
+                <div class="seq-chips" role="group" aria-label="Sequoia ranks that may enter">
                   {#each choices as rank (rank)}
-                    <label class="evf-chip" class:evf-chip-selected={rule.ranks.includes(rank)}>
-                      <input class="evf-chip-input" type="checkbox" value={rank} bind:group={rule.ranks} />
+                    <label class="seq-chip" class:seq-chip-selected={rule.ranks.includes(rank)}>
+                      <input class="seq-chip-input" type="checkbox" value={rank} bind:group={rule.ranks} />
                       {rank}{#if !draft.seqRankChoices.includes(rank)}&nbsp;· not on the ladder{/if}
                     </label>
                   {/each}
                 </div>
                 {#if draft.seqRankChoices.length === 0}
-                  <p class="evf-hint">The rank ladder is unavailable right now - these saved ranks still filter the draw.</p>
+                  <p class="seq-hint">The rank ladder is unavailable right now - these saved ranks still filter the draw.</p>
                 {/if}
               {:else}
-                <p class="evf-hint">The rank ladder is unavailable right now - reload to retry.</p>
+                <p class="seq-hint">The rank ladder is unavailable right now - reload to retry.</p>
               {/if}
             {:else if rule.type === "stat"}
               <div class="evf-rule-stat">
-                <select class="seq-input" bind:value={rule.stat} aria-label="Stat to threshold">
+                <Select bind:value={rule.stat} aria-label="Stat to threshold">
                   <option value="raids">raids</option>
                   <option value="playtime">hours played</option>
                   <option value="wars">wars</option>
-                </select>
+                </Select>
                 <label class="evf-weight-per">
                   <span class="evf-weight-per-label">at least</span>
                   <input class="seq-input" type="number" min="1" bind:value={rule.min} aria-label="Minimum" />
@@ -301,14 +296,14 @@
               </div>
             {:else if rule.type === "milestone"}
               {#if draft.milestoneOptions.length > 0}
-                <select class="seq-input" bind:value={rule.milestoneId} aria-label="Required milestone">
+                <Select bind:value={rule.milestoneId} aria-label="Required milestone">
                   <option value="">Pick a milestone</option>
                   {#each draft.milestoneOptions as option (option.id)}
                     <option value={option.id}>{option.label}</option>
                   {/each}
-                </select>
+                </Select>
               {:else}
-                <p class="evf-hint">Add a personal milestone above first.</p>
+                <p class="seq-hint">Add a personal milestone above first.</p>
               {/if}
             {/if}
           </div>
@@ -317,7 +312,7 @@
           {#each Object.entries(RULE_LABELS) as [type, label] (type)}
             <button
               type="button"
-              class="evf-add focus-ring"
+              class="seq-row-add focus-ring"
               onclick={() => raffle.rules.push(draft.newRuleRow(type as RuleType))}
             >
               + {label}
@@ -340,7 +335,7 @@
               </label>
               <button
                 type="button"
-                class="evf-remove focus-ring"
+                class="seq-row-remove focus-ring"
                 onclick={() => removeManual(raffle.include, entry)}
                 aria-label="Remove {entry.username} from the include list"
               >✕</button>
@@ -357,14 +352,14 @@
             />
             <button
               type="button"
-              class="evf-add focus-ring"
+              class="seq-row-add focus-ring"
               disabled={!manualValid(raffle, "include")}
               onclick={() => addManual(raffle, "include")}
             >
               + Add
             </button>
           </div>
-          <p class="evf-hint">Enter the pool even when the rules exclude them.</p>
+          <p class="seq-hint">Enter the pool even when the rules exclude them.</p>
         </Field>
         <Field label="Never include" element="div">
           {#each raffle.exclude as entry (entry.key)}
@@ -374,7 +369,7 @@
               </span>
               <button
                 type="button"
-                class="evf-remove focus-ring"
+                class="seq-row-remove focus-ring"
                 onclick={() => removeManual(raffle.exclude, entry)}
                 aria-label="Remove {entry.username} from the exclude list"
               >✕</button>
@@ -391,29 +386,29 @@
             />
             <button
               type="button"
-              class="evf-add focus-ring"
+              class="seq-row-add focus-ring"
               disabled={!manualValid(raffle, "exclude")}
               onclick={() => addManual(raffle, "exclude")}
             >
               + Add
             </button>
           </div>
-          <p class="evf-hint">Excluded even when picked or qualified.</p>
+          <p class="seq-hint">Excluded even when picked or qualified.</p>
         </Field>
       </div>
 
       <RafflePreview raffleId={raffle.id} />
     </div>
   {/each}
-  <button type="button" class="evf-add focus-ring" onclick={() => draft.raffles.push(draft.newRaffleRow())}>
+  <button type="button" class="seq-row-add focus-ring" onclick={() => draft.raffles.push(draft.newRaffleRow())}>
     + Add raffle
   </button>
 
   {#if draft.raffleSlots.length > 0}
     {#if draft.mode === "edit"}
-      <p class="evf-hint">
+      <p class="seq-hint">
         <a
-          class="evf-inline-link evf-inline-link-solo focus-ring"
+          class="seq-inline-link seq-inline-link-solo focus-ring"
           href={`/events/${draft.slug}/raffle`}
           target="_blank"
           rel="noreferrer"
@@ -464,7 +459,7 @@
     </div>
   {/if}
   {#if draft.rollError}
-    <span class="evf-error" role="alert">{draft.rollError}</span>
+    <span class="seq-field-error" role="alert">{draft.rollError}</span>
   {/if}
 
   {#if draft.rollHistory.length > 0}

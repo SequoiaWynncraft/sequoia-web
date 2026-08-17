@@ -86,6 +86,25 @@ function stubModLeaderboard() {
   return spy;
 }
 
+/** As above, but over an explicit player list, so a case can move the roster
+ * without moving what the tracker recorded in the window. */
+function stubModLeaderboardFor(players: typeof H.players) {
+  const spy = vi.fn(async (input: string | URL) => {
+    const url = new URL(input.toString());
+    const raid = url.searchParams.get("raid");
+    const entries =
+      raid === null || raid === "Nest of the Grootslangs"
+        ? players.map((p) => ({ player_uuid: p.uuid, username: p.username, raids: p.count }))
+        : [];
+    return new Response(JSON.stringify({ entries }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  });
+  vi.stubGlobal("fetch", spy);
+  return spy;
+}
+
 /** Routes the mod leaderboard as above, but fails every read in the previous
  * week's window - the two weeks must degrade independently. */
 function stubModLeaderboardCurrentWeekOnly(previousStart: string) {
@@ -124,10 +143,22 @@ describe("weekWindows", () => {
   });
 });
 
+/**
+ * Fixed windows, so a build never depends on the wall clock. Each case that
+ * builds a *previous* week picks its own pair: a closed week is memoized once
+ * built, so cases sharing a window would stop issuing the reads they assert on.
+ */
+const WEEKS = weekWindows(Date.parse("2026-07-25T12:27:18Z"));
+const FAILING_WEEKS = weekWindows(Date.parse("2026-06-25T12:27:18Z"));
+const REUSE_WEEKS = weekWindows(Date.parse("2026-05-25T12:27:18Z"));
+const ROSTER_MOVE_WEEKS = weekWindows(Date.parse("2026-04-25T12:27:18Z"));
+/** NOTG, NOL, TCC, TNA, TWP - each read once per week, plus the total. */
+const ANNOUNCED_RAID_COUNT = 5;
+
 describe("buildWeeklyRaidAnnouncement", () => {
   it("groups ties into places and totals completions", async () => {
     stubModLeaderboard();
-    const announcement = await buildWeeklyRaidAnnouncement(fetch);
+    const announcement = await buildWeeklyRaidAnnouncement(fetch, WEEKS);
     expect(announcement).not.toBeNull();
     const current = announcement!.current;
     expect(current.completions).toBe(438);
@@ -141,7 +172,7 @@ describe("buildWeeklyRaidAnnouncement", () => {
 
   it("renders the Discord text exactly, escaping names and pinging first place only", async () => {
     stubModLeaderboard();
-    const announcement = await buildWeeklyRaidAnnouncement(fetch);
+    const announcement = await buildWeeklyRaidAnnouncement(fetch, WEEKS);
     expect(announcement!.current.discordText).toBe(
       [
         "# **<:Aspect:1351246116024352818> Weekly Guild Raid Leaderboard <:Aspect:1351246116024352818>**",
@@ -166,12 +197,73 @@ describe("buildWeeklyRaidAnnouncement", () => {
   });
 
   it("keeps the current week when the previous week's read fails", async () => {
-    const now = Date.now();
-    stubModLeaderboardCurrentWeekOnly(weekWindows(now).previous.start);
-    const announcement = await buildWeeklyRaidAnnouncement(fetch);
+    stubModLeaderboardCurrentWeekOnly(FAILING_WEEKS.previous.start);
+    const announcement = await buildWeeklyRaidAnnouncement(fetch, FAILING_WEEKS);
     expect(announcement).not.toBeNull();
     expect(announcement!.previous).toBeNull();
     expect(announcement!.current.completions).toBe(438);
+  });
+
+  it("reuses a previous week it already built instead of re-reading its boards", async () => {
+    const first = stubModLeaderboard();
+    await buildWeeklyRaidAnnouncement(fetch, REUSE_WEEKS);
+    const previousReads = first.mock.calls.filter(
+      (call) =>
+        new URL(call[0].toString()).searchParams.get("from") === REUSE_WEEKS.previous.start,
+    );
+    // One unfiltered total plus one read per announced raid.
+    expect(previousReads).toHaveLength(ANNOUNCED_RAID_COUNT + 1);
+
+    // The window is closed, so a rebuild must not touch it again.
+    const second = stubModLeaderboard();
+    const announcement = await buildWeeklyRaidAnnouncement(fetch, REUSE_WEEKS);
+    expect(announcement!.previous).not.toBeNull();
+    expect(announcement!.previous!.start).toBe(REUSE_WEEKS.previous.start);
+    expect(
+      second.mock.calls.filter(
+        (call) =>
+          new URL(call[0].toString()).searchParams.get("from") === REUSE_WEEKS.previous.start,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it("re-applies the current roster to a previous week it is reusing", async () => {
+    // What the tracker recorded in a closed window is settled; who is on the
+    // roster and what they are called is not. A departure or a rename after the
+    // week was first read must reach the reused board and its Discord text.
+    const tracked = H.players.map((player) => ({ ...player }));
+    stubModLeaderboardFor(tracked);
+    const before = await buildWeeklyRaidAnnouncement(fetch, ROSTER_MOVE_WEEKS);
+    expect(before!.previous!.raids.find((raid) => raid.short === "NOTG")!.ranks[0]).toEqual({
+      count: 104,
+      players: ["Aylin", "Boreas"],
+    });
+
+    const roster = H.players;
+    // Boreas leaves the guild; Aylin is renamed.
+    H.players = [{ ...roster[0], username: "Aylin2" }, ...roster.slice(2)];
+    try {
+      const spy = stubModLeaderboardFor(tracked);
+      const after = await buildWeeklyRaidAnnouncement(fetch, ROSTER_MOVE_WEEKS);
+      // Still served from the memo - this is the reuse path, not a re-read.
+      expect(
+        spy.mock.calls.filter(
+          (call) =>
+            new URL(call[0].toString()).searchParams.get("from") ===
+            ROSTER_MOVE_WEEKS.previous.start,
+        ),
+      ).toHaveLength(0);
+      const previous = after!.previous!;
+      expect(previous.raids.find((raid) => raid.short === "NOTG")!.ranks[0]).toEqual({
+        count: 104,
+        players: ["Aylin2"],
+      });
+      expect(previous.completions).toBe(438 - 104);
+      expect(previous.discordText).toContain("Aylin2 - 104");
+      expect(previous.discordText).not.toContain("Boreas");
+    } finally {
+      H.players = roster;
+    }
   });
 });
 
@@ -215,6 +307,12 @@ describe("isAnnouncementViewer", () => {
 
   it("denies anonymous viewers", () => {
     expect(isAnnouncementViewer(profilesWith(UUID, [DEV]), rosterWith(UUID), null)).toBe(false);
+  });
+
+  it("admits a website administrator without a guild or branch record", () => {
+    expect(
+      isAnnouncementViewer(null, null, { ...viewer, websiteAdmin: true }),
+    ).toBe(true);
   });
 
   it("denies branch trainees", () => {
@@ -327,6 +425,19 @@ describe("loadWeeklyRaidAnnouncement", () => {
       "TNA",
       "TWP",
     ]);
+  });
+
+  it("serves a website administrator independently of stale membership sources", async () => {
+    H.rosterStale = true;
+    H.profilesStale = true;
+    stubModLeaderboard();
+
+    const announcement = await loadWeeklyRaidAnnouncement(fetch, {
+      ...VIEWER,
+      websiteAdmin: true,
+    });
+
+    expect(announcement).not.toBeNull();
   });
 
   it("serves the fresh cached build to the next viewer without re-reading the tracker", async () => {

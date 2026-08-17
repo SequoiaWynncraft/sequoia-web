@@ -55,13 +55,13 @@
 </script>
 
 <div class="preview">
-  <button type="button" class="evf-inline-link evf-inline-link-solo focus-ring" onclick={() => (open = !open)}>
+  <button type="button" class="seq-inline-link seq-inline-link-solo focus-ring" onclick={() => (open = !open)}>
     {open ? "Hide entrants" : "Preview entrants"}
   </button>
 
   {#if open}
     {#if result?.error}
-      <p class="evf-error" role="alert">{result.error}</p>
+      <p class="seq-field-error" role="alert">{result.error}</p>
     {:else if result}
       <p class="preview-meta">
         {result.entrants.length}

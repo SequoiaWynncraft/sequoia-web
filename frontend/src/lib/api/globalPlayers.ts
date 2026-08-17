@@ -1,3 +1,5 @@
+import { isRecord } from "$lib/api/guards";
+
 /** Metrics the player rankings boards cover; keys match the backend grammar. */
 export const PLAYER_METRICS = [
   { key: "playtime", label: "Playtime" },
@@ -71,8 +73,4 @@ export function isGlobalPlayerRankings(value: unknown): value is GlobalPlayerRan
         typeof entry.value === "number",
     )
   );
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }

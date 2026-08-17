@@ -15,7 +15,7 @@
   returnTo="/manage"
   title="Management console"
   signinText="Sign in to manage Sequoia."
-  deniedText="Management is restricted to guild leadership and staff."
+  deniedText="Management is restricted to branch members and guild leadership."
   backHref="/"
   backLabel="Back to home"
 />

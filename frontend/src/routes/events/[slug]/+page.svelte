@@ -14,6 +14,7 @@
   import { themeVars } from "$lib/events/theme";
   import { isoDay } from "$lib/events/format";
   import { nmsrFace } from "$lib/site/nmsr";
+  import { insigniaLabel } from "$lib/site/honours";
   import { raidIconUrl } from "$lib/events/raidIcons";
   import type { RaidLeaderboardEntry } from "$lib/server/raidEventBoards";
 
@@ -105,12 +106,13 @@
       // Role-aware: the Sequoia progression rank when the member is linked,
       // the in-game rank otherwise - colored from the shared rank vocabulary.
       secondary: (entry) => entry.progressionRank ?? guildRankLabel(entry.rank),
-      secondaryColor: (entry) => rankColor(entry.progressionRank ?? entry.rank),
+      secondaryColor: (entry) =>
+        entry.progressionRankColor ?? rankColor(entry.progressionRank ?? entry.rank),
       avatar: (entry) => nmsrFace(entry.player_uuid, 22),
       href: (entry) => playercardUrl(entry.username),
       icon: (entry) =>
         entry.insigniaUrl && entry.insignia
-          ? { src: entry.insigniaUrl, alt: `${entry.insignia.toLowerCase()} insignia` }
+          ? { src: entry.insigniaUrl, alt: insigniaLabel(entry.insignia) }
           : null,
     },
     {
@@ -336,9 +338,10 @@
               ? "Raffle"
               : "Raffles"}
           </h2>
-          {#if event.raffleHideWheel !== true}
+          {#if event.raffleHideWheel !== true || data.manager}
             <a class="ev-stage-link focus-ring" href={`/events/${event.slug}/raffle`}>
-              <span aria-hidden="true">✦</span> Watch the stage
+              <span aria-hidden="true">✦</span> Watch the stage{#if event.raffleHideWheel === true}
+                <span class="ev-stage-hidden">(hidden)</span>{/if}
             </a>
           {/if}
         </div>
@@ -674,7 +677,6 @@
     font-family: var(--font-display);
     font-size: var(--text-xs);
     letter-spacing: var(--tracking-wide);
-    text-transform: uppercase;
   }
 
   .ev-prize-what {
@@ -728,6 +730,12 @@
     text-decoration: none;
     text-transform: uppercase;
     transition: color var(--dur-fast) ease;
+  }
+
+  .ev-stage-hidden {
+    margin-left: 6px;
+    color: var(--text-muted);
+    text-transform: none;
   }
 
   .ev-stage-link:hover {

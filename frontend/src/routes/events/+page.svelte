@@ -49,7 +49,12 @@
                   <img class="ev-band-icon" src={raidIconUrl(event.icon.file)} alt="" />
                 {/if}
                 <div class="ev-band-main">
-                  <span class="ev-band-name">{event.name}</span>
+                  <span class="ev-band-title">
+                    <span class="ev-band-name">{event.name}</span>
+                    {#if event.draft}
+                      <span class="ev-band-draft">Draft</span>
+                    {/if}
+                  </span>
                   <span class="ev-band-tagline">{event.tagline}</span>
                 </div>
                 <div class="ev-band-side">
@@ -146,6 +151,27 @@
     min-width: 0;
     /* The icon marks the row; the name keeps the remaining width. */
     flex-grow: 1;
+  }
+
+  .ev-band-title {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  /* Only managers are ever sent a draft, so the badge doubles as the cue that
+     this shelf is showing more than the guild can see. */
+  .ev-band-draft {
+    flex-shrink: 0;
+    padding: 2px 7px;
+    border: 1px solid color-mix(in srgb, var(--color-gold) 45%, transparent);
+    border-radius: var(--radius-sm);
+    color: var(--color-gold);
+    font-family: var(--font-display);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
   }
 
   .ev-band-name {

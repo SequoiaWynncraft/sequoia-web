@@ -1,6 +1,7 @@
 /**
  * One access vocabulary for every management area, regardless of how the
- * area authorizes (guild roster rank, bot staff flag, website admin):
+ * area authorizes (branch membership, guild roster rank, bot staff flag,
+ * website admin):
  * - "granted": full access to the area
  * - "signin": no session - the viewer must sign in first
  * - "unverified": the authority is unreachable right now; retryable, fails closed
@@ -8,10 +9,27 @@
  */
 export type AreaAccess = "granted" | "signin" | "unverified" | "denied";
 
+/**
+ * Backend branch ids (`RankSummary.branches[].branch`) from the sequoia
+ * role catalog. Stable ids, not Discord display labels, so renaming a role
+ * cannot open or close a gate.
+ */
+export type ManageBranchKey =
+  | "events"
+  | "treasury"
+  | "community"
+  | "development"
+  | "military"
+  | "end_game";
+
 /** Per-area access for the management console, resolved once per request. */
 export interface ManageCapabilities {
   events: AreaAccess;
-  bagshop: AreaAccess;
+  treasury: AreaAccess;
+  community: AreaAccess;
+  development: AreaAccess;
+  military: AreaAccess;
+  endGame: AreaAccess;
 }
 
 export type ManageAreaId = keyof ManageCapabilities;

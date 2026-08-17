@@ -51,10 +51,16 @@ const response: RankProfilesResponse = {
   source: { stale: false, guilds: [] },
   catalog: {
     roles: [
-      role("rank.treant", "Treant", "progression_rank", { position: 105 }),
+      role("rank.yggdrasil", "Yggdrasil", "progression_rank", { position: 144 }),
+      role("rank.treant", "Treant", "progression_rank", {
+        position: 105,
+        colors: { primary: "#A855F7", secondary: null, tertiary: null },
+      }),
       role("rank.spriggan", "Spriggan", "progression_rank", { legacy: true, position: 104 }),
       role("rank.verdant", "Verdant", "progression_rank", { legacy: true }),
       role("rank.dryad", "Dryad", "progression_rank", { position: 94 }),
+      role("rank.sprite", "Sprite", "progression_rank", { position: 90 }),
+      role("rank.sapling", "Sapling", "progression_rank", { position: 88 }),
       role("rank.leafkin", "Leafkin", "progression_rank", { position: 86 }),
       role("insignia.gold", "Gold Insignia", "insignia", {
         source_guild: "branchmasters",
@@ -141,6 +147,7 @@ describe("honoursForMinecraft", () => {
   it("projects rank, insignia, and tier-sorted event badges from one rank response", () => {
     expect(honoursForMinecraft(response, MEMBER)).toEqual({
       rank: "Treant",
+      rankColor: "#A855F7",
       insignia: {
         tier: "GOLD",
         assetUrl: "https://assets.seqwawa.com/v1/gold/insignia-gold.png",
@@ -169,6 +176,19 @@ describe("honoursForMinecraft", () => {
     expect(honoursForMinecraft(response, RETIRED).rank).toBe("Treant");
   });
 
+  it("ignores malformed role colors before they reach CSS", () => {
+    const malformed = structuredClone(response);
+    const treant = malformed.catalog.roles.find((entry) => entry.key === "rank.treant");
+    expect(treant).toBeDefined();
+    treant!.colors = {
+      primary: "red; display: none",
+      secondary: null,
+      tertiary: null,
+    };
+
+    expect(honoursForMinecraft(malformed, MEMBER).rankColor).toBeNull();
+  });
+
   it("keeps a legacy rank without an equivalent as-is", () => {
     const verdant = structuredClone(response);
     verdant.profiles[1].summary.progression_rank = "rank.verdant";
@@ -179,30 +199,55 @@ describe("honoursForMinecraft", () => {
     expect(memberRanksByUuid(response)).toEqual({
       [MEMBER]: {
         rank: "Treant",
+        rankColor: "#A855F7",
         rankOrder: 105,
         insignia: "GOLD",
         insigniaUrl: "https://assets.seqwawa.com/v1/gold/insignia-gold.png",
         honours: 4,
       },
-      [RETIRED]: { rank: "Treant", rankOrder: 105, insignia: null, insigniaUrl: null, honours: 0 },
+      [RETIRED]: {
+        rank: "Treant",
+        rankColor: "#A855F7",
+        rankOrder: 105,
+        insignia: null,
+        insigniaUrl: null,
+        honours: 0,
+      },
     });
   });
 
   it("sorts in-game ranks just below the lowest org rank they can stand for", () => {
-    // Ranks whose org equivalent is missing from the catalog sort last, not first.
+    // Every in-game rank resolves, and the ladder descends owner -> recruit so
+    // an unlinked member sorts among the org ranks rather than beneath them.
     expect(inGameRankLadder(response)).toEqual({
-      owner: null,
+      owner: 143.5,
       chief: 104.5,
       strategist: 93.5,
-      captain: null,
-      recruiter: null,
+      captain: 89.5,
+      recruiter: 87.5,
       recruit: 85.5,
     });
+  });
+
+  it("leaves a rank whose org equivalent is missing unplaced, so it sorts last", () => {
+    // A null is not a 0: LedgerTable pins nulls to the bottom in *both* sort
+    // directions, whereas a placeholder position would float Owner to the top
+    // of an ascending sort.
+    const withoutOwnerRank: RankProfilesResponse = {
+      ...response,
+      catalog: {
+        ...response.catalog,
+        roles: response.catalog.roles.filter((entry) => entry.key !== "rank.yggdrasil"),
+      },
+    };
+    expect(inGameRankLadder(withoutOwnerRank).owner).toBeNull();
+    expect(inGameRankLadder(withoutOwnerRank).chief).toBe(104.5);
   });
 
   it("returns empty honours for an unlinked UUID", () => {
     expect(honoursForMinecraft(response, "22222222-2222-2222-2222-222222222222")).toEqual({
       rank: null,
+      rankColor: null,
       insignia: null,
       leadership: null,
       branches: [],

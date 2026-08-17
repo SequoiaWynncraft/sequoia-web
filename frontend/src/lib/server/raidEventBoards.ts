@@ -1,6 +1,7 @@
 import type { GuildMemberStats } from "$lib/api/guildStats";
 import type { GuildEvent } from "$lib/events/types";
 import type { RaffleEntrant } from "$lib/events/raffle";
+import type { BadgeTier } from "$lib/site/honours";
 import { sequoiaBackendInternalHeaders, sequoiaBackendOrigin } from "$lib/server/sequoiaBackend";
 import {
   sequoiaWebBackendInternalHeaders,
@@ -27,9 +28,11 @@ export interface RaidLeaderboardEntry {
   /** Honour insignia artwork URL, when the member holds a graded insignia. */
   insigniaUrl?: string | null;
   /** Insignia grade (e.g. "GOLD"), used for the image alt text. */
-  insignia?: string | null;
+  insignia?: BadgeTier | null;
   /** Sequoia internal/progression rank label (e.g. "Druid"), when known. */
   progressionRank?: string | null;
+  /** Primary color of the authoritative Discord progression role, when known. */
+  progressionRankColor?: string | null;
 }
 
 export type LeaderboardResult = { leaderboard: RaidLeaderboardEntry[]; error: string | null };
@@ -74,18 +77,34 @@ export async function loadTrackerLeaderboard(
   }
 }
 
-interface ModLeaderboardResponse {
-  entries: { player_uuid: string | null; username: string; raids: number }[];
+/** One row exactly as the mod tracker reported it, before any roster judgement. */
+export interface ModLeaderboardEntry {
+  player_uuid: string | null;
+  username: string;
+  raids: number;
 }
 
-export async function loadModLeaderboard(
+interface ModLeaderboardResponse {
+  entries: ModLeaderboardEntry[];
+}
+
+export type ModLeaderboardResult = { entries: ModLeaderboardEntry[]; error: string | null };
+
+/**
+ * Reads the mod tracker's raw counts for a window, with no roster applied.
+ *
+ * What the tracker recorded in a window is a fact about the past and never
+ * changes; who is on the roster and what they are called is a fact about now.
+ * Keeping the read separate from `rosterLeaderboard` lets a caller memoize the
+ * former - the expensive half - without freezing the latter along with it.
+ */
+export async function loadModLeaderboardEntries(
   fetchImpl: typeof fetch,
   window: { starts_at: string; ends_at: string; raid?: string | null },
-  roster: GuildMemberStats[],
-): Promise<LeaderboardResult> {
+): Promise<ModLeaderboardResult> {
   const headers = sequoiaBackendInternalHeaders();
   const origin = sequoiaBackendOrigin();
-  if (!headers || !origin) return { leaderboard: [], error: LEADERBOARD_UNAVAILABLE };
+  if (!headers || !origin) return { entries: [], error: LEADERBOARD_UNAVAILABLE };
   const query = new URLSearchParams({ from: window.starts_at, to: window.ends_at });
   if (window.raid) query.set("raid", window.raid);
   try {
@@ -93,46 +112,68 @@ export async function loadModLeaderboard(
       headers,
       signal: AbortSignal.timeout(6000),
     });
-    if (!response.ok) return { leaderboard: [], error: await readError(response) };
+    if (!response.ok) return { entries: [], error: await readError(response) };
     const body = await readJson<ModLeaderboardResponse>(response, { entries: [] });
-    // Mod parties can include outsiders; the guild contribution board only
-    // shows verified roster members. A resolved UUID is authoritative - the
-    // username fallback applies only to entries the backend could not resolve,
-    // so a stale or reused name can never impersonate a member.
-    const membersByUuid = new Map(
-      roster.flatMap((member) =>
-        member.uuid !== null ? [[normalizeUuid(member.uuid), member] as const] : [],
-      ),
-    );
-    const membersByName = new Map(
-      roster.map((member) => [member.username.toLowerCase(), member] as const),
-    );
-    return {
-      leaderboard: body.entries.flatMap((entry) => {
-        const member =
-          entry.player_uuid !== null
-            ? membersByUuid.get(normalizeUuid(entry.player_uuid))
-            : membersByName.get(entry.username.toLowerCase());
-        if (!member) return [];
-        return [
-          {
-            // Prefer the roster member's own UUID: a name-matched entry has no
-            // player_uuid, and a username-as-uuid would break both nmsr faces
-            // and cross-raffle exclusion (which compares uuids). Carry the
-            // roster's own username too, so a stale or spoofed mod-reported name
-            // can never stand in for the member's identity on the board.
-            player_uuid: member.uuid ?? entry.player_uuid ?? entry.username.toLowerCase(),
-            username: member.username,
-            raids: entry.raids,
-            rank: member.rank,
-          },
-        ];
-      }),
-      error: null,
-    };
+    return { entries: body.entries, error: null };
   } catch {
-    return { leaderboard: [], error: LEADERBOARD_UNAVAILABLE };
+    return { entries: [], error: LEADERBOARD_UNAVAILABLE };
   }
+}
+
+/**
+ * Judges raw tracker rows against a roster.
+ *
+ * Mod parties can include outsiders; the guild contribution board only shows
+ * verified roster members. A resolved UUID is authoritative - the username
+ * fallback applies only to entries the backend could not resolve, so a stale or
+ * reused name can never impersonate a member.
+ *
+ * Pure and cheap, so callers holding a memoized read re-run it against the
+ * current roster on every render rather than serving a departed member or a
+ * pre-rename username out of a board built days ago.
+ */
+export function rosterLeaderboard(
+  entries: ModLeaderboardEntry[],
+  roster: GuildMemberStats[],
+): RaidLeaderboardEntry[] {
+  const membersByUuid = new Map(
+    roster.flatMap((member) =>
+      member.uuid !== null ? [[normalizeUuid(member.uuid), member] as const] : [],
+    ),
+  );
+  const membersByName = new Map(
+    roster.map((member) => [member.username.toLowerCase(), member] as const),
+  );
+  return entries.flatMap((entry) => {
+    const member =
+      entry.player_uuid !== null
+        ? membersByUuid.get(normalizeUuid(entry.player_uuid))
+        : membersByName.get(entry.username.toLowerCase());
+    if (!member) return [];
+    return [
+      {
+        // Prefer the roster member's own UUID: a name-matched entry has no
+        // player_uuid, and a username-as-uuid would break both nmsr faces
+        // and cross-raffle exclusion (which compares uuids). Carry the
+        // roster's own username too, so a stale or spoofed mod-reported name
+        // can never stand in for the member's identity on the board.
+        player_uuid: member.uuid ?? entry.player_uuid ?? entry.username.toLowerCase(),
+        username: member.username,
+        raids: entry.raids,
+        rank: member.rank,
+      },
+    ];
+  });
+}
+
+export async function loadModLeaderboard(
+  fetchImpl: typeof fetch,
+  window: { starts_at: string; ends_at: string; raid?: string | null },
+  roster: GuildMemberStats[],
+): Promise<LeaderboardResult> {
+  const { entries, error } = await loadModLeaderboardEntries(fetchImpl, window);
+  if (error) return { leaderboard: [], error };
+  return { leaderboard: rosterLeaderboard(entries, roster), error: null };
 }
 
 export interface RaffleEligibility {

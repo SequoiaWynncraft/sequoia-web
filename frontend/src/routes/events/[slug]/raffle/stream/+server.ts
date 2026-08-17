@@ -1,8 +1,7 @@
 import type { RequestHandler } from "./$types";
 
 import type { StageMessage } from "$lib/events/stageProtocol";
-import { checkEventManager } from "$lib/server/eventManagers";
-import { checkEventMembership } from "$lib/server/eventMembership";
+import { canSeeEvent, resolveEventAudience } from "$lib/server/eventVisibility";
 import { eventStore } from "$lib/server/eventStore";
 import { roomEpoch, subscribe } from "$lib/server/liveRolls";
 import { raffleRollStore, toStageRoll } from "$lib/server/raffleRolls";
@@ -23,11 +22,14 @@ const HEARTBEAT_MS = 25_000;
 const MAX_STREAM_MS = 10 * 60_000;
 
 /**
- * The stage's live feed. Access mirrors the event page: unpublished events
- * 404 for non-managers, member events 403 non-members - a non-member never
- * receives entrant names. Reconnect catch-up is the snapshot: EventSource
- * reconnects on its own, every connect starts with the latest roll per slot,
- * and a mid-spin joiner animates the remainder from `startedAt`.
+ * The stage's live feed. Access mirrors the event page through the same
+ * `canSeeEvent` rule: whoever may not know the event exists - anonymous
+ * viewers, non-members of a member event, anyone but a manager for a draft or
+ * an unannounced event - is refused here too, so entrant names never leave by
+ * a route the page itself would have closed. Reconnect catch-up is the
+ * snapshot: EventSource reconnects on its own, every connect starts with the
+ * latest roll per slot, and a mid-spin joiner animates the remainder from
+ * `startedAt`.
  */
 export const GET: RequestHandler = async ({ params, cookies, fetch, locals }) => {
   // Captured before any await: a teardown landing while the checks below
@@ -37,20 +39,14 @@ export const GET: RequestHandler = async ({ params, cookies, fetch, locals }) =>
   const stored = await eventStore.get(params.slug);
   if (!stored) requestError(locals, 404, "No such event");
   const viewer = await loadViewer(cookies.get("seq_session"), fetch);
-  // Drafts stay invisible, and a hidden wheel keeps its feed to managers -
-  // rolls and entrant lists must not leave by a route the page would have
-  // closed.
-  if (
-    (!stored.published || stored.event.raffleHideWheel === true) &&
-    (await checkEventManager(fetch, viewer)) !== "manager"
-  ) {
+  const { audience } = await resolveEventAudience(fetch, viewer);
+  if (!canSeeEvent(stored.event, stored.published, audience, new Date())) {
     requestError(locals, 404, "No such event");
   }
-  if (stored.event.access === "members") {
-    const { membership } = await checkEventMembership(fetch, viewer);
-    if (membership !== "member") {
-      requestError(locals, 403, "This event's raffles are for guild members.");
-    }
+  // The stage page's hidden-wheel rule, enforced on the feed itself: rolls
+  // and entrant lists must not leave by a route the page would have closed.
+  if (stored.event.raffleHideWheel === true && audience !== "manager") {
+    requestError(locals, 404, "No such event");
   }
 
   const encoder = new TextEncoder();

@@ -1,3 +1,5 @@
+import { isRecord } from "$lib/api/guards";
+
 export interface HeldTerritory {
   name: string;
   acquired: string;
@@ -19,8 +21,4 @@ export function isHeldTerritoriesResponse(value: unknown): value is HeldTerritor
       (entry) => isRecord(entry) && typeof entry.name === "string" && typeof entry.acquired === "string",
     )
   );
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }

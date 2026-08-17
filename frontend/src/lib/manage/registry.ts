@@ -1,45 +1,151 @@
-import type { AreaAccess, ManageAreaId, ManageCapabilities } from "./types";
+import type { AreaAccess, ManageAreaId, ManageBranchKey, ManageCapabilities } from "./types";
+
+/** The copy an area's access gate shows; rendered by AreaGate. */
+export interface AreaGateCopy {
+  title: string;
+  signinText: string;
+  deniedText: string;
+  backHref: string;
+  backLabel: string;
+}
 
 export interface ManageArea {
   id: ManageAreaId;
   label: string;
-  href: string;
+  /** The org branch whose members hold this area (leadership holds all). */
+  branch: ManageBranchKey;
+  /** Landing page, or null while the branch has no console content yet. */
+  href: string | null;
   /** Section marker: ◆ for org areas, ✦ for event areas (see DESIGN.md). */
   marker: string;
   /** Sub-pages listed under the area in the console sidebar. */
   links: { label: string; href: string }[];
+  gate: AreaGateCopy;
+}
+
+/** An area with console content: `href` is narrowed to a real route. */
+export interface ManageContentArea extends ManageArea {
+  href: string;
 }
 
 /**
- * Every management area, in sidebar order. Adding an area means one entry
- * here plus one capability key in ManageCapabilities - the console shell,
- * landing redirect, and navbar visibility all derive from this table.
+ * Every management area, in sidebar order - one per org branch. Adding
+ * content to a branch means setting its `href` (and links) here plus a page
+ * gated on its capability key; the console shell, landing redirect, and
+ * navbar visibility all derive from this table.
  */
 export const MANAGE_AREAS: readonly ManageArea[] = [
   {
     id: "events",
     label: "Events",
+    branch: "events",
     href: "/manage/events",
     marker: "✦",
-    links: [
-      { label: "New event", href: "/manage/events/new" },
-      { label: "Audit log", href: "/manage/events/audit" },
-    ],
+    links: [{ label: "New event", href: "/manage/events/new" }],
+    gate: {
+      title: "Events branch only",
+      signinText: "Sign in to manage guild events.",
+      deniedText: "Events are managed by the Events branch and guild leadership.",
+      backHref: "/events",
+      backLabel: "Back to events",
+    },
   },
   {
-    id: "bagshop",
-    label: "Bag shop",
-    href: "/manage/bagshop",
+    id: "treasury",
+    label: "Treasury",
+    branch: "treasury",
+    href: "/manage/treasury/bagshop",
+    marker: "◆",
+    links: [{ label: "Bag shop", href: "/manage/treasury/bagshop" }],
+    gate: {
+      title: "Treasury branch only",
+      signinText: "Sign in to manage the bag shop.",
+      deniedText: "The bag shop is managed by the Treasury branch, shop staff, and guild leadership.",
+      backHref: "/services/bagshop",
+      backLabel: "Back to the shop",
+    },
+  },
+  {
+    id: "military",
+    label: "Military",
+    branch: "military",
+    href: null,
     marker: "◆",
     links: [],
+    gate: {
+      title: "Military branch only",
+      signinText: "Sign in to use military tools.",
+      deniedText: "Military tools are for the Military branch and guild leadership.",
+      backHref: "/",
+      backLabel: "Back to home",
+    },
+  },
+  {
+    id: "community",
+    label: "Community",
+    branch: "community",
+    href: "/manage/community/exports",
+    marker: "◆",
+    links: [
+      { label: "Stats exports", href: "/manage/community/exports" },
+      { label: "Announcements", href: "/manage/community/announcements" },
+      { label: "Blog", href: "/manage/community/blog" },
+    ],
+    gate: {
+      title: "Community branch only",
+      signinText: "Sign in to use community tools.",
+      deniedText: "Community tools are for the Community branch and guild leadership.",
+      backHref: "/statistics",
+      backLabel: "Back to statistics",
+    },
+  },
+  {
+    id: "endGame",
+    label: "End-game",
+    branch: "end_game",
+    href: null,
+    marker: "◆",
+    links: [],
+    gate: {
+      title: "End-game branch only",
+      signinText: "Sign in to use end-game tools.",
+      deniedText: "End-game tools are for the End-game branch and guild leadership.",
+      backHref: "/",
+      backLabel: "Back to home",
+    },
+  },
+  {
+    id: "development",
+    label: "Development",
+    branch: "development",
+    href: "/manage/development/audit",
+    marker: "◆",
+    links: [{ label: "Audit log", href: "/manage/development/audit" }],
+    gate: {
+      title: "Development branch only",
+      signinText: "Sign in to use development tools.",
+      deniedText: "Development tools are for the Development branch and guild leadership.",
+      backHref: "/manage",
+      backLabel: "Back to manage",
+    },
   },
 ];
 
-export function accessibleAreas(capabilities: ManageCapabilities): ManageArea[] {
-  return MANAGE_AREAS.filter((area) => capabilities[area.id] === "granted");
+function hasContent(area: ManageArea): area is ManageContentArea {
+  return area.href !== null;
 }
 
-export function firstAccessible(capabilities: ManageCapabilities): ManageArea | null {
+/** Areas with console content, regardless of access - the landing's checklist. */
+export function contentAreas(): ManageContentArea[] {
+  return MANAGE_AREAS.filter(hasContent);
+}
+
+/** Granted areas with content, in sidebar order. */
+export function accessibleAreas(capabilities: ManageCapabilities): ManageContentArea[] {
+  return MANAGE_AREAS.filter(hasContent).filter((area) => capabilities[area.id] === "granted");
+}
+
+export function firstAccessible(capabilities: ManageCapabilities): ManageContentArea | null {
   return accessibleAreas(capabilities)[0] ?? null;
 }
 

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page } from "$app/state";
   import Icon from "./Icon.svelte";
-  import { SECTIONS } from "$lib/site/nav";
+  import { DEFAULT_HIDDEN_NAV, visibleSections } from "$lib/site/navPreferences";
   import { nmsrFace } from "$lib/site/nmsr";
   import { webAuthLogoutUrl, webAuthStartUrl } from "$lib/site/webAuth";
   import type { Viewer } from "$lib/site/viewer";
@@ -11,7 +11,15 @@
   // Sentinel for `open`; section keys are route paths, so this can't collide.
   const ACCOUNT = "#account";
 
-  let { viewer = null, manage = false }: { viewer?: Viewer | null; manage?: boolean } = $props();
+  let {
+    viewer = null,
+    manage = false,
+    navHidden = [...DEFAULT_HIDDEN_NAV],
+  }: { viewer?: Viewer | null; manage?: boolean; navHidden?: string[] } = $props();
+
+  // The menu the viewer chose in account settings. Hidden pages keep their
+  // routes, tabs, and breadcrumbs - they just are not listed up here.
+  const sections = $derived(visibleSections(navHidden));
 
   const signInUrl = $derived(webAuthStartUrl());
   const signOutUrl = $derived(webAuthLogoutUrl());
@@ -45,7 +53,7 @@
     </a>
 
     <div class="seq-nav-desktop">
-      {#each SECTIONS as s}
+      {#each sections as s}
         {@const hasMenu = !!(s.groups || s.items)}
         {@const active = isActive(s.to)}
         {@const isOpen = open === s.to}
@@ -121,7 +129,7 @@
           style="position:relative"
         >
           <a href={viewerCardUrl ?? signOutUrl} class="seq-nav-link seq-nav-viewer">
-            <img class="seq-nav-face" src={nmsrFace(viewer.minecraftUuid, 18)} alt="" />
+            <img class="seq-nav-face" src={nmsrFace(viewer.minecraftUuid, 18)} alt="" width="18" height="18" />
             {viewer.minecraftUsername ?? "Account"}
             <svg class="seq-nav-chevron" class:seq-nav-chevron-open={open === ACCOUNT} width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6" />
@@ -132,7 +140,7 @@
             <div class="seq-dropdown" use:clampToViewport>
               <div class="seq-dropdown-col seq-account-col">
                 <div class="seq-account-identity">
-                  <img class="seq-account-face" src={nmsrFace(viewer.minecraftUuid, 36)} alt="" />
+                  <img class="seq-account-face" src={nmsrFace(viewer.minecraftUuid, 36)} alt="" width="36" height="36" />
                   <span class="seq-account-names">
                     <span class="seq-account-minecraft">{viewer.minecraftUsername ?? "No linked player"}</span>
                     {#if viewer.discordUsername}
@@ -188,7 +196,7 @@
   {#if mobileOpen}
     <div class="seq-nav-mobile-panel">
       <div class="seq-nav-mobile-links">
-        {#each SECTIONS as s}
+        {#each sections as s}
           <a
             href={s.to}
             onclick={() => mobileOpen = false}
@@ -215,7 +223,7 @@
         {#if viewer}
           {#if viewerCardUrl}
             <a href={viewerCardUrl} onclick={() => mobileOpen = false} class="seq-mobile-link seq-mobile-viewer">
-              <img class="seq-nav-face" src={nmsrFace(viewer.minecraftUuid, 18)} alt="" />
+              <img class="seq-nav-face" src={nmsrFace(viewer.minecraftUuid, 18)} alt="" width="18" height="18" />
               {viewer.minecraftUsername}
             </a>
           {/if}

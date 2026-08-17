@@ -11,6 +11,7 @@
   import { nmsrFullBodyIso } from "$lib/site/nmsr";
   import type { PlayerCardResponse } from "$lib/api/playerCard";
   import type { PlayerSeriesResponse } from "$lib/api/playerSeries";
+  import { insigniaLabel } from "$lib/site/honours";
 
   let { data } = $props();
 
@@ -44,6 +45,13 @@
       value: card.raids[raid.key] ?? 0,
       color: raid.color,
     }));
+  }
+
+  /** Meta line for the Raids section: lifetime total, plus the Sequoia share when known. */
+  function raidsMeta(card: PlayerCardResponse): string {
+    const total = `${(card.raids_total ?? 0).toLocaleString()} total`;
+    if (card.current_guild_raids === null) return total;
+    return `${total} · ${card.current_guild_raids.toLocaleString()} in SEQ`;
   }
 
 
@@ -199,19 +207,26 @@
               <h2 class="card-name">{card.username}</h2>
               <p class="card-tags">
                 {#if honours.rank}
-                  <span class="tag tag-gold">{honours.rank.toLowerCase()}</span>
+                  <span
+                    class="tag"
+                    class:tag-gold={!honours.rankColor}
+                    style:color={honours.rankColor ?? undefined}
+                  >
+                    {honours.rank.toLowerCase()}
+                  </span>
                 {/if}
                 {#if honours.insignia}
+                  {@const label = insigniaLabel(honours.insignia.tier)}
                   {#if honours.insignia.assetUrl}
                     <img
                       class="insignia-icon"
                       src={honours.insignia.assetUrl}
-                      alt="{honours.insignia.tier.toLowerCase()} insignia"
-                      title="{honours.insignia.tier.toLowerCase()} insignia"
+                      alt={label}
+                      title={label}
                     />
                   {:else}
                     <span class="insignia" style="--tier-color:{tierColor(honours.insignia.tier)}">
-                      ◆ {honours.insignia.tier.toLowerCase()}
+                      ◆ {label}
                     </span>
                   {/if}
                 {/if}
@@ -232,6 +247,7 @@
 
           <dl class="meta">
             <div class="meta-row"><dt>First joined Wynncraft</dt><dd>{formatDate(card.first_join)}</dd></div>
+            <div class="meta-row"><dt>Joined Sequoia</dt><dd>{formatDate(card.guild_joined)}</dd></div>
             <div class="meta-row">
               <dt>Last seen</dt>
               <dd>
@@ -335,7 +351,7 @@
 
           {#if Object.keys(card.raids).length > 0}
             <div class="card-section">
-              <SectionLabel meta="{(card.raids_total ?? 0).toLocaleString()} total">
+              <SectionLabel meta={raidsMeta(card)}>
                 {#snippet children()}Raids{/snippet}
               </SectionLabel>
               <BarList items={raidBars(card)} />

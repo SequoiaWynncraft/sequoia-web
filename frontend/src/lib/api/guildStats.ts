@@ -1,3 +1,5 @@
+import { isRecord, isNonNegativeInteger } from "$lib/api/guards";
+
 export const GUILD_RANKS = ["owner", "chief", "strategist", "captain", "recruiter", "recruit"] as const;
 
 export type GuildRankName = (typeof GUILD_RANKS)[number];
@@ -144,12 +146,4 @@ function isNullableNonNegativeInteger(value: unknown): value is number | null {
 
 function isNullableNonNegativeNumber(value: unknown): value is number | null {
   return value === null || (typeof value === "number" && Number.isFinite(value) && value >= 0);
-}
-
-function isNonNegativeInteger(value: unknown): value is number {
-  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }

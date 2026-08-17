@@ -10,7 +10,7 @@
   const draft = getContext<EventDraft>(EDITOR_KEY);
 </script>
 
-<FormSection id="rules" title="Rules">
+<FormSection id="rules" title="Rules" class="evf-half">
   <Field label="One rule per line">
     <TextArea rows={4} bind:value={draft.rules} />
   </Field>

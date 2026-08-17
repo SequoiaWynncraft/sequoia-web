@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
+  import type { HTMLButtonAttributes } from "svelte/elements";
 
   let {
     children,
@@ -10,6 +11,10 @@
     href,
     onclick,
     style = "",
+    type = "button",
+    form,
+    class: extraClass = "",
+    ...rest
   }: {
     children?: Snippet;
     variant?: "primary" | "secondary" | "ghost" | "enchant";
@@ -19,10 +24,16 @@
     href?: string;
     onclick?: () => void;
     style?: string;
-  } = $props();
+    type?: "button" | "submit";
+    form?: string;
+    class?: string;
+  } & Omit<
+    HTMLButtonAttributes,
+    "children" | "class" | "disabled" | "form" | "onclick" | "style" | "type"
+  > = $props();
 
   const className = $derived(
-    `seq-button seq-button-${variant} seq-button-${size}`
+    ["seq-button", `seq-button-${variant}`, `seq-button-${size}`, extraClass]
   );
 </script>
 
@@ -38,7 +49,7 @@
     {#if children}{@render children()}{/if}
   </a>
 {:else}
-  <button {disabled} type="button" class={className} style={style} {onclick}>
+  <button {...rest} {disabled} {type} {form} class={className} style={style} {onclick}>
     {#if icon}{@render icon()}{/if}
     {#if children}{@render children()}{/if}
   </button>

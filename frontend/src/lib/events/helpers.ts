@@ -55,6 +55,12 @@ export type HubEvent = Pick<
 > & {
   /** The event's primary (first) goal - the hub band shows one meter. */
   goal?: EventGoal;
+  /**
+   * An unpublished event, set only when it is one. The hub lists drafts for
+   * managers alongside live events, so a card without this flag would be
+   * indistinguishable from an announced one.
+   */
+  draft?: true;
 };
 
 export interface HubGroups {
@@ -64,11 +70,24 @@ export interface HubGroups {
   past: HubEvent[];
 }
 
-export function hubGroups(events: GuildEvent[], now: Date): HubGroups {
+/** An event as the store holds it: the event plus whether it is announced. */
+export interface HubEntry {
+  event: GuildEvent;
+  published: boolean;
+}
+
+/**
+ * Buckets the events a viewer may see into the hub's three shelves.
+ *
+ * Takes stored entries rather than bare events so the draft flag cannot be
+ * dropped on the way in - a caller holding only a `GuildEvent` no longer knows
+ * whether it was published.
+ */
+export function hubGroups(entries: HubEntry[], now: Date): HubGroups {
   const groups: HubGroups = { live: [], upcoming: [], past: [] };
-  for (const event of events) {
+  for (const { event, published } of entries) {
     const status = eventStatus(event, now);
-    const hubEvent = eventHubView(event);
+    const hubEvent = eventHubView(event, published);
     if (status === "live") groups.live.push(hubEvent);
     else if (status === "ended") groups.past.push(hubEvent);
     else groups.upcoming.push(hubEvent);
@@ -84,7 +103,7 @@ export function hubGroups(events: GuildEvent[], now: Date): HubGroups {
 }
 
 /** Only fields rendered by the hub cross its server-load boundary. */
-export function eventHubView(event: GuildEvent): HubEvent {
+export function eventHubView(event: GuildEvent, published = true): HubEvent {
   const view: HubEvent = {
     slug: event.slug,
     name: event.name,
@@ -94,6 +113,7 @@ export function eventHubView(event: GuildEvent): HubEvent {
     startsAt: event.startsAt,
     endsAt: event.endsAt,
   };
+  if (!published) view.draft = true;
   if (event.icon?.placements.includes("band")) view.icon = event.icon;
   const primary = event.goals?.[0];
   return event.access === "public" && primary ? { ...view, goal: primary } : view;
