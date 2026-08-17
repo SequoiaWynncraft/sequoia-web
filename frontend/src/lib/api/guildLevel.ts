@@ -9,10 +9,10 @@ const DAY_MS = 86_400_000;
  */
 export interface GuildLevelUp {
   level: number;
-  /** The previous known level. Null only for the oldest recorded row. */
-  fromLevel: number | null;
+  /** The previous known level. */
+  fromLevel: number;
   /** ISO 8601 instant the new level was first observed. */
-  reachedAt: string;
+  observedAt: string;
 }
 
 /** The guild's level standing as of the most recent Wynncraft payload. */
@@ -51,6 +51,8 @@ export function dayGap(fromIso: string, toIso: string): string {
 export interface GuildLevelHistoryEntry {
   level: number;
   observed_at: string;
+  /** True for the initial observation, which is context rather than a level-up. */
+  baseline?: boolean;
 }
 
 /**
@@ -88,7 +90,10 @@ export function isGuildLevelHistoryResponse(
     Array.isArray(value.entries) &&
     value.entries.every(
       (entry) =>
-        isRecord(entry) && typeof entry.level === "number" && typeof entry.observed_at === "string",
+        isRecord(entry) &&
+        typeof entry.level === "number" &&
+        typeof entry.observed_at === "string" &&
+        (entry.baseline === undefined || typeof entry.baseline === "boolean"),
     )
   );
 }
@@ -114,15 +119,22 @@ export function toLevelUps(entries: readonly GuildLevelHistoryEntry[]): GuildLev
     // chain is only correct if that holds, so sort rather than assume.
     .sort((a, b) => Date.parse(a.observed_at) - Date.parse(b.observed_at));
 
+  if (usable.length === 0) return [];
+
+  // New responses label the baseline explicitly. For cached responses from an
+  // older backend, the oldest valid row has the same baseline semantics.
+  const explicitBaselineIndex = usable.findIndex((entry) => entry.baseline === true);
+  const baselineIndex = explicitBaselineIndex >= 0 ? explicitBaselineIndex : 0;
+  let previousLevel = usable[baselineIndex]!.level;
   const oldestFirst: GuildLevelUp[] = [];
-  for (const entry of usable) {
-    const previous = oldestFirst.at(-1) ?? null;
-    if (previous !== null && entry.level <= previous.level) continue;
+  for (const entry of usable.slice(baselineIndex + 1)) {
+    if (entry.level <= previousLevel) continue;
     oldestFirst.push({
       level: entry.level,
-      fromLevel: previous?.level ?? null,
-      reachedAt: new Date(Date.parse(entry.observed_at)).toISOString(),
+      fromLevel: previousLevel,
+      observedAt: new Date(Date.parse(entry.observed_at)).toISOString(),
     });
+    previousLevel = entry.level;
   }
   return oldestFirst.reverse();
 }

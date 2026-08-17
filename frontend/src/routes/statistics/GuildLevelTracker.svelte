@@ -40,14 +40,6 @@
   // rule the reference tracker applies.
   const canCopyCommand = $derived(tracker.history.length >= 2);
   const canCopyPayout = $derived(tracker.payoutText !== null);
-  // The window's start is the second-newest row. Carrying no `fromLevel` makes it
-  // the oldest observation the backend holds rather than an observed level-up, so
-  // the span back to it starts at "when tracking began" and runs short. Said
-  // rather than enforced; a further level-up clears it.
-  const firstObservationWindow = $derived(
-    tracker.history.length >= 2 && tracker.history[1]?.fromLevel == null,
-  );
-
   /** Formats an ISO instant as "dd/MM/yyyy, HH:mm:ss" in the resolved timezone. */
   function stamp(iso: string): string {
     return new Intl.DateTimeFormat("en-GB", {
@@ -98,7 +90,10 @@
   function copyCommand() {
     const [last, previous] = tracker.history;
     if (!last || !previous) return;
-    copy(`-graids -g SEQ -r ${daysAgo(previous.reachedAt)} ${daysAgo(last.reachedAt)}`, "command");
+    copy(
+      `-graids -g SEQ -r ${daysAgo(previous.observedAt)} ${daysAgo(last.observedAt)}`,
+      "command",
+    );
   }
 
   function copyPayout() {
@@ -147,35 +142,20 @@
       </div>
     </div>
 
-    {#if firstObservationWindow}
-      <p class="caveat">
-        The older end of this window is when tracking started, not a recorded level-up, so the day
-        count runs short. It corrects itself at the next level-up.
-      </p>
-    {/if}
-
     {#if tracker.history.length > 0}
       <ul class="history">
         {#each tracker.history as entry, i (entry.level)}
           {@const older = tracker.history[i + 1]}
-          <!-- The oldest row is when tracking began, not a recorded level-up, so
-               the row measured from it runs short however long the list gets. -->
-          {@const fromTrackingStart = older !== undefined && older.fromLevel == null}
           <li>
             <span class="entry-level">Level {entry.level}</span>
-            <span class="entry-gap" class:approximate={fromTrackingStart}>
+            <span class="entry-gap">
               {#if older}
-                {fromTrackingStart ? "~" : ""}{dayGap(older.reachedAt, entry.reachedAt)} days
-                {#if fromTrackingStart}
-                  <span class="entry-note" title="Measured from when tracking began">
-                    since tracking began
-                  </span>
-                {/if}
+                {dayGap(older.observedAt, entry.observedAt)} days
               {:else}
                 —
               {/if}
             </span>
-            <span class="entry-time">{stamp(entry.reachedAt)}</span>
+            <span class="entry-time">First observed {stamp(entry.observedAt)}</span>
           </li>
         {/each}
       </ul>
@@ -183,7 +163,10 @@
       <p class="empty">No level-ups recorded yet.</p>
     {/if}
 
-    <p class="foot">Sequoia [SEQ] · guild level from the Wynncraft API · refreshed every few minutes</p>
+    <p class="foot">
+      Sequoia [SEQ] · level changes first observed from the Wynncraft API · refreshed every few
+      minutes
+    </p>
   </div>
 </details>
 
@@ -319,13 +302,6 @@
     outline-offset: 2px;
   }
 
-  .caveat {
-    margin: 12px 0 0;
-    color: var(--color-gold-dark, var(--color-gold));
-    font-size: var(--text-2xs);
-    line-height: 1.5;
-  }
-
   .history {
     margin: 16px 0 0;
     padding: 0;
@@ -354,16 +330,6 @@
   .entry-gap {
     color: var(--color-enchant);
     font-variant-numeric: tabular-nums;
-  }
-
-  .entry-gap.approximate {
-    color: var(--color-gold-dark, var(--color-gold));
-  }
-
-  .entry-note {
-    color: var(--text-muted);
-    font-size: var(--text-2xs);
-    font-variant-numeric: normal;
   }
 
   .entry-time {

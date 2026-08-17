@@ -29,19 +29,12 @@ const PAYOUT_RATE = "0.5LE per raid";
  *
  * Returns null below two level-ups, where there is no window to pay out.
  *
- * The older of the two may be the oldest recorded row (`fromLevel: null`), which
- * is a first observation rather than an observed level-up - its gap is measured
- * from when tracking started and so runs short. That is surfaced to the reader
- * as a caveat beside the buttons rather than withheld: staff need the message
- * for the level-up that just happened, and the caveat stops applying on its own
- * once a further level-up is recorded.
- *
  * `history` must be newest first.
  */
 export function buildPayoutText(history: GuildLevelUp[]): string | null {
   const [last, previous] = history;
   if (!last || !previous) return null;
-  const days = dayGap(previous.reachedAt, last.reachedAt);
+  const days = dayGap(previous.observedAt, last.observedAt);
   const contacts = PAYOUT_CONTACT_IDS.map((id) => `<@${id}>`);
   const contactList = `${contacts.slice(0, -1).join(", ")} or ${contacts.at(-1)}`;
   return `# Level ${last.level} Reached!
@@ -80,8 +73,8 @@ export async function loadGuildLevelTracker(
     if (!isBranchMemberViewer(profiles?.data ?? null, stats.members, viewer)) return null;
 
     // Fetched only once the gate has passed, so an ineligible viewer costs no
-    // upstream call. The backend times level-ups from its own ten-minute
-    // snapshots, so a 4am level-up no longer waits for the first morning visit.
+    // upstream call. The backend records changes from its continuously refreshed
+    // guild-detail feed, so a level-up no longer waits for a page visit.
     const historyResponse = await getGuildLevelHistory(fetchImpl);
     if (!historyResponse) return null;
     const history = toLevelUps(historyResponse.entries);
@@ -90,8 +83,8 @@ export async function loadGuildLevelTracker(
       current: {
         // Still read from the guild stats already loaded above: they are the only
         // source of an XP percentage, and cost nothing extra here. The level can
-        // lead the newest history row by up to one backend snapshot interval,
-        // which shows up only as the card sitting a level ahead of the list.
+        // briefly lead the newest history row until the backend receives the
+        // same upstream guild payload.
         level: stats.guild.level,
         xpPercent: stats.guild.xp_percent,
         observedAt: stats.generated_at,
