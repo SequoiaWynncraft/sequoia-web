@@ -177,6 +177,32 @@ describe("resolveEligibility", () => {
     expect(mockProgress).toHaveBeenCalledWith(fetch, "2026-07-01", "2026-07-15", { allowStale: true });
   });
 
+  it("counts a tracker-sourced stat rule over the exact instants, not whole days", async () => {
+    const subDay = { from: "2026-08-01T18:00:00.000Z", to: "2026-08-08T22:30:00.000Z" };
+    mockBoard.mockResolvedValue({
+      leaderboard: [
+        { player_uuid: "uuid-a", username: "Alice", raids: 52, rank: "chief" },
+        { player_uuid: "uuid-b", username: "Bob", raids: 7, rank: "strategist" },
+      ],
+      error: null,
+    });
+    const result = await resolveEligibility(
+      fetch,
+      event(),
+      raffle({
+        eligibility: {
+          rules: [{ type: "stat", stat: "raids", min: 50, source: "tracker", window: subDay }],
+        },
+      }),
+      ROSTER,
+    );
+    expect(result.entrants.map((entrant) => entrant.username)).toEqual(["Alice"]);
+    // The whole point: the times survive to the board read untruncated, and
+    // the day-granular rollup API is never consulted.
+    expect(mockBoard).toHaveBeenCalledWith(fetch, event().tracker, ROSTER, { window: subDay }, undefined);
+    expect(mockProgress).not.toHaveBeenCalled();
+  });
+
   it("gates on a personal milestone via the full-window tracker board", async () => {
     mockBoard.mockResolvedValue({
       leaderboard: [

@@ -63,6 +63,8 @@ export interface RuleRow {
   /** Selected rank names, for guildRank/seqRank rules. */
   ranks: string[];
   stat: StatKind;
+  /** Which feed counts the stat; "tracker" is the sub-day one (raids only). */
+  statSource: "rollups" | "tracker";
   min: string | number | null | undefined;
   windowFrom: string;
   windowTo: string;
@@ -469,6 +471,7 @@ export class EventDraft {
       type,
       ranks: [],
       stat: "raids",
+      statSource: "rollups",
       min: "",
       windowFrom: "",
       windowTo: "",
@@ -557,6 +560,7 @@ export class EventDraft {
         break;
       case "stat":
         row.stat = rule.stat;
+        row.statSource = rule.source ?? "rollups";
         row.min = rule.min;
         row.windowFrom = toInput(rule.window.from);
         row.windowTo = toInput(rule.window.to);
@@ -616,6 +620,10 @@ export class EventDraft {
               from: canonInstant(keepInstant(rule.windowFrom, rule.seedWindowFrom)),
               to: canonInstant(keepInstant(rule.windowTo, rule.seedWindowTo)),
             },
+            // Omitted when it is the default, so a rule saved before the
+            // tracker source existed serializes byte-identically and does not
+            // trip `raffleConfigUnchanged` into locking the roll buttons.
+            ...(rule.statSource === "tracker" ? { source: "tracker" as const } : {}),
           };
         case "milestone":
           return { type: "milestone", milestoneId: rule.milestoneId };

@@ -111,7 +111,14 @@ export async function resolveEligibility(
         break;
       }
       case "stat": {
-        const gains = await statGains(fetchImpl, rule.stat, rule.window, strict);
+        // A tracker-sourced rule counts the mod raid log over the exact instant
+        // window; the rollup path can only see whole UTC days. Sharing
+        // `boards` means a stat rule and a perRaid weight over the same window
+        // fetch the board once.
+        const gains =
+          rule.source === "tracker"
+            ? await boards.raidGains(rule.window)
+            : await statGains(fetchImpl, rule.stat, rule.window, strict);
         if ("error" in gains) return failed(gains.error);
         pool = pool.filter(
           (member) => (gains.counts.get(normalizeUuid(member.uuid)) ?? 0) >= rule.min,

@@ -43,6 +43,46 @@ describe("EventDraft raffle saved state", () => {
     expect(draft.raffleConfigUnchanged(raffle)).toBe(false);
   });
 
+  it("round-trips a stat rule's source without inventing one on rollup rules", () => {
+    const statEvent = (source?: "rollups" | "tracker"): GuildEvent => ({
+      ...EVENT,
+      tracker: { eventId: "evt-1", tracking: "mod" },
+      raffles: [
+        {
+          id: "raffle-1",
+          prize: "Prize",
+          winnerCount: 1,
+          perTicket: 5,
+          eligibility: {
+            rules: [
+              {
+                type: "stat",
+                stat: "raids",
+                min: 50,
+                ...(source ? { source } : {}),
+                window: { from: "2026-08-01T18:00:00.000Z", to: "2026-08-08T22:30:00.000Z" },
+              },
+            ],
+          },
+        },
+      ],
+    });
+
+    // A rule saved before the tracker source existed must serialize back
+    // identically, or raffleConfigUnchanged locks the roll buttons forever.
+    const rollups = new EventDraft({ mode: "edit", initial: statEvent() });
+    expect(rollups.raffles[0].rules[0].statSource).toBe("rollups");
+    expect(rollups.raffleConfigUnchanged(rollups.raffles[0])).toBe(true);
+
+    const tracker = new EventDraft({ mode: "edit", initial: statEvent("tracker") });
+    expect(tracker.raffles[0].rules[0].statSource).toBe("tracker");
+    expect(tracker.raffleConfigUnchanged(tracker.raffles[0])).toBe(true);
+
+    // Flipping the source is a real config change and must be saved first.
+    tracker.raffles[0].rules[0].statSource = "rollups";
+    expect(tracker.raffleConfigUnchanged(tracker.raffles[0])).toBe(false);
+  });
+
   it("preserves raffle icons when replaying an undo snapshot", () => {
     const draft = new EventDraft({
       mode: "edit",
