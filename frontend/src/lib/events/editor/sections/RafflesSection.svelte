@@ -276,7 +276,15 @@
               {/if}
             {:else if rule.type === "stat"}
               <div class="evf-rule-stat">
-                <Select bind:value={rule.stat} aria-label="Stat to threshold">
+                <Select
+                  bind:value={rule.stat}
+                  aria-label="Stat to threshold"
+                  onchange={() => {
+                    // Only raids have a sub-day feed; leaving the tracker
+                    // selected on playtime/wars would fail on save.
+                    if (rule.stat !== "raids") rule.statSource = "rollups";
+                  }}
+                >
                   <option value="raids">raids</option>
                   <option value="playtime">hours played</option>
                   <option value="wars">wars</option>
@@ -285,9 +293,20 @@
                   <span class="evf-weight-per-label">at least</span>
                   <input class="seq-input" type="number" min="1" bind:value={rule.min} aria-label="Minimum" />
                 </label>
+                {#if rule.stat === "raids"}
+                  <Select bind:value={rule.statSource} aria-label="Where the raid count comes from">
+                    <option value="rollups">from daily rollups</option>
+                    <option value="tracker">from the mod tracker</option>
+                  </Select>
+                {/if}
               </div>
               <div class="evf-grid-2">
-                <Field label="From (UTC)" hint="Counts whole UTC days from the daily rollups.">
+                <Field
+                  label="From (UTC)"
+                  hint={rule.statSource === "tracker"
+                    ? "Counts the exact window, times included. Reads mod-logged raids, so the total differs from the rollup count."
+                    : "Counts whole UTC days from the daily rollups."}
+                >
                   <InstantField bind:value={rule.windowFrom} name="Stat window start" />
                 </Field>
                 <Field label="To (UTC)">

@@ -120,8 +120,9 @@ export interface ManualEntrant {
 
 /**
  * One eligibility filter; a raffle's rules are AND-composed over the fresh
- * roster. Stat rules read the daily rollups, so their windows count whole
- * UTC days.
+ * roster. Stat rules read the daily rollups by default, so their windows count
+ * whole UTC days; a raids rule can opt onto the mod tracker for an arbitrary
+ * instant window instead (see `source`).
  */
 export type EligibilityRule =
   | { type: "guildRank"; ranks: GuildRankName[] }
@@ -131,6 +132,15 @@ export type EligibilityRule =
       stat: "raids" | "playtime" | "wars";
       min: number;
       window: { from: string; to: string };
+      /**
+       * Where the count comes from. Absent (or "rollups") sums whole UTC days
+       * from the daily rollups. "tracker" reads the mod raid log instead, which
+       * counts an arbitrary instant window - raids only, and only on a
+       * mod-tracked event. The two sources do not return the same number: the
+       * tracker counts mod-logged runs for the tracked event's raid, so the same
+       * `min` admits a different pool under each.
+       */
+      source?: "rollups" | "tracker";
     }
   | { type: "milestone"; milestoneId: string };
 

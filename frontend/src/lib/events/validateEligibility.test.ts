@@ -244,6 +244,99 @@ describe("round-five hardening", () => {
     );
   });
 
+  it("lets a tracker-sourced raids rule keep its time of day", () => {
+    const result = parseGuildEvent(
+      withEligibility({
+        rules: [
+          {
+            type: "stat",
+            stat: "raids",
+            min: 50,
+            source: "tracker",
+            window: { from: "2026-08-01T18:00:00Z", to: "2026-08-08T22:30:00Z" },
+          },
+        ],
+      }),
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.event.raffles?.[0].eligibility?.rules?.[0]).toEqual({
+      type: "stat",
+      stat: "raids",
+      min: 50,
+      source: "tracker",
+      window: { from: "2026-08-01T18:00:00.000Z", to: "2026-08-08T22:30:00.000Z" },
+    });
+  });
+
+  it("omits the source on rollup rules so saved events round-trip unchanged", () => {
+    const result = parseGuildEvent(
+      withEligibility({
+        rules: [
+          {
+            type: "stat",
+            stat: "raids",
+            min: 50,
+            window: { from: "2026-08-01T00:00:00Z", to: "2026-08-08T00:00:00Z" },
+          },
+        ],
+      }),
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.event.raffles?.[0].eligibility?.rules?.[0]).not.toHaveProperty("source");
+  });
+
+  it("rejects the tracker source on stats with no sub-day feed", () => {
+    for (const stat of ["playtime", "wars"]) {
+      expectError(
+        withEligibility({
+          rules: [
+            {
+              type: "stat",
+              stat,
+              min: 1,
+              source: "tracker",
+              window: { from: "2026-08-01T18:00:00Z", to: "2026-08-08T22:30:00Z" },
+            },
+          ],
+        }),
+        "only read the tracker when it counts raids",
+      );
+    }
+    expectError(
+      withEligibility({
+        rules: [
+          {
+            type: "stat",
+            stat: "raids",
+            min: 1,
+            source: "guesswork",
+            window: { from: "2026-08-01T00:00:00Z", to: "2026-08-08T00:00:00Z" },
+          },
+        ],
+      }),
+      "unknown source",
+    );
+  });
+
+  it("still caps the span of a tracker-sourced window", () => {
+    expectError(
+      withEligibility({
+        rules: [
+          {
+            type: "stat",
+            stat: "raids",
+            min: 1,
+            source: "tracker",
+            window: { from: "2026-01-01T18:00:00Z", to: "2027-06-01T18:00:00Z" },
+          },
+        ],
+      }),
+      "at most 400 days",
+    );
+  });
+
   it("accepts 400 inclusive stat days and rejects 401", () => {
     const fourHundredDays = {
       from: "2026-01-01T00:00:00Z",

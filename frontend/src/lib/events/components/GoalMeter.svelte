@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { milestoneWindow } from "../goalMeter";
   import type { EventGoal } from "../types";
 
   let {
@@ -16,9 +17,18 @@
   const shown = $derived(current ?? goal.finalTotal ?? null);
   const fraction = $derived(shown === null ? 0 : Math.min(1, shown / finalAt));
   const reached = $derived((at: number) => shown !== null && shown >= at);
-  /** Milestones before the last one become ticks on the track. */
-  const ticks = $derived(goal.milestones.slice(0, -1));
   const nextLocked = $derived(goal.milestones.find((milestone) => !reached(milestone.at)) ?? null);
+
+  // A long ladder is summarized around the member's position instead of listed
+  // in full; see milestoneWindow for why and where the threshold sits.
+  const tiers = $derived(milestoneWindow(goal.milestones, reached));
+
+  /** Milestones before the last one become ticks on the track. */
+  const ticks = $derived(
+    tiers.compact
+      ? tiers.visible.filter((milestone) => milestone.at !== finalAt)
+      : goal.milestones.slice(0, -1),
+  );
 
   // The band strip always keeps its one-line summary; the style only shapes
   // the full-size meter.
@@ -68,7 +78,7 @@
   </div>
   {#if showMarkers}
     <div class="goal-waypoints">
-      {#each goal.milestones as milestone (milestone.at)}
+      {#each tiers.visible as milestone (milestone.at)}
         <button
           type="button"
           class="goal-marker goal-marker-{anchor(milestone.at)}"
@@ -110,7 +120,12 @@
     </div>
   {:else if showList}
     <ul class="goal-milestones">
-      {#each goal.milestones as milestone (milestone.at)}
+      {#if tiers.hiddenBefore > 0}
+        <li class="goal-unlock goal-unlock-rest">
+          {tiers.hiddenBefore.toLocaleString()} earlier {tiers.hiddenBefore === 1 ? "tier" : "tiers"} unlocked
+        </li>
+      {/if}
+      {#each tiers.visible as milestone (milestone.at)}
         <li class="goal-unlock" class:goal-unlock-reached={reached(milestone.at)}>
           <span class="goal-spark" aria-hidden="true">✦</span>
           {#if reached(milestone.at)}
@@ -120,6 +135,12 @@
           {/if}
         </li>
       {/each}
+      {#if tiers.hiddenAfter > 0}
+        <li class="goal-unlock goal-unlock-rest">
+          {tiers.hiddenAfter.toLocaleString()} more {tiers.hiddenAfter === 1 ? "tier" : "tiers"}, up to
+          {goal.milestones.at(-1)?.unlock} at {finalAt.toLocaleString()}
+        </li>
+      {/if}
     </ul>
   {/if}
 </div>
@@ -334,6 +355,14 @@
 
   .goal-unlock-reached {
     color: var(--ev-accent, var(--color-gold));
+  }
+
+  /* The summary rows are context, not tiers: no spark, and set as plain text
+     rather than the list's uppercase. Kept at the muted colour rather than
+     dimmed further, which would put it under the contrast floor. */
+  .goal-unlock-rest {
+    text-transform: none;
+    letter-spacing: normal;
   }
 
   .goal-spark {
