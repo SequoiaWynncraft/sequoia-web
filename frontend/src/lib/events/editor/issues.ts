@@ -140,9 +140,31 @@ export function sectionIssues(draft: EventDraft): Partial<Record<SectionId, stri
         }
         if (rule.type === "stat") {
           if (!hasCount(rule.min)) add("raffles", "A stat rule needs a minimum");
+          const fromTracker = rule.statSource === "tracker";
+          // Reachable from a hand-edited preset, where the source picker is
+          // hidden (it only shows for raids) and the save would fail unexplained.
+          if (fromTracker && rule.stat !== "raids") {
+            add("raffles", "Only raids can be counted from the mod tracker");
+          }
+          if (fromTracker && !(draft.trackerEnabled && draft.trackerTracking === "mod")) {
+            // The mod raid log is the only sub-day source; without it the rule
+            // would fail at roll time, when it is far too late to fix.
+            add("raffles", "A tracker-counted stat rule needs a mod tracker (set under Standings)");
+          }
           if (!rule.windowFrom || !rule.windowTo) add("raffles", "A stat rule needs a window");
-          else if (!rule.windowFrom.endsWith("T00:00") || !rule.windowTo.endsWith("T00:00")) {
-            add("raffles", "Stat windows count whole UTC days - use 00:00 bounds");
+          else if (!fromTracker && (!rule.windowFrom.endsWith("T00:00") || !rule.windowTo.endsWith("T00:00"))) {
+            add("raffles", "Rollup stat windows count whole UTC days - use 00:00 bounds");
+          } else if (invalidInstant(rule.windowFrom) || invalidInstant(rule.windowTo)) {
+            add("raffles", "Stat window times must be valid HH:MM");
+          } else {
+            // Rollup windows are inclusive of both days, so equal bounds mean a
+            // single day; a tracker window is a true instant range and cannot
+            // be empty. This mirrors `allowEqual` in the server validator.
+            const from = Date.parse(toInstant(rule.windowFrom));
+            const to = Date.parse(toInstant(rule.windowTo));
+            if (fromTracker ? from >= to : from > to) {
+              add("raffles", "The stat window must end after it starts");
+            }
           }
         }
         if (rule.type === "milestone" && !rule.milestoneId) {

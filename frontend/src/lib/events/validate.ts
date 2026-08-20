@@ -356,7 +356,7 @@ function parseMilestones(raw: Record<string, unknown>, label: string): EventGoal
   return milestones;
 }
 
-const MAX_PERSONAL_MILESTONES = 8;
+const MAX_PERSONAL_MILESTONES = 64;
 
 /**
  * Reads the optional personal-milestones list: per-member raid thresholds with
@@ -611,12 +611,27 @@ function parseEligibilityRule(value: unknown, label: string): EligibilityRule {
       if (typeof raw.stat !== "string" || !ELIGIBILITY_STATS.has(raw.stat)) {
         fail(`${label} stat rule must count raids, playtime, or wars`);
       }
-      return {
+      const stat = raw.stat as "raids" | "playtime" | "wars";
+      if (present(raw.source) && raw.source !== "rollups" && raw.source !== "tracker") {
+        fail(`${label} stat rule has an unknown source`);
+      }
+      const source = raw.source === "tracker" ? "tracker" : undefined;
+      // Only raids have a sub-day feed (the mod raid log); playtime and wars
+      // exist solely as daily rollups, so the tracker cannot answer for them.
+      if (source === "tracker" && stat !== "raids") {
+        fail(`${label} stat rule can only read the tracker when it counts raids`);
+      }
+      const rule: Extract<EligibilityRule, { type: "stat" }> = {
         type: "stat",
-        stat: raw.stat as "raids" | "playtime" | "wars",
+        stat,
         min: parseCount(raw.min, `${label} stat rule minimum`, 1),
-        window: parseDayWindow(raw.window, `${label} stat rule`),
+        window:
+          source === "tracker"
+            ? parseTrackerWindow(raw.window, `${label} stat rule`)
+            : parseDayWindow(raw.window, `${label} stat rule`),
       };
+      if (source) rule.source = source;
+      return rule;
     }
     case "milestone":
       // The referenced id is cross-checked against personalMilestones in parseEvent.
@@ -672,6 +687,13 @@ function parseTicketWeight(value: unknown, label: string): TicketWeight {
 }
 
 /**
+ * Longest span a stat window may cover. Set by the member-progress backend,
+ * which serves at most this many days per request; the tracker path reuses it
+ * so a rule means the same thing whichever source counts it.
+ */
+const MAX_WINDOW_DAYS = 400;
+
+/**
  * Stat windows read the daily rollups, which only exist in whole UTC days: a
  * partial-day bound would silently expand to the full days it touches, so
  * both bounds must sit exactly on UTC midnight. The member-progress backend
@@ -685,7 +707,23 @@ function parseDayWindow(value: unknown, label: string): NonNullable<EventRaffle[
     }
   }
   const inclusiveDays = (Date.parse(window.to) - Date.parse(window.from)) / 86_400_000 + 1;
-  if (inclusiveDays > 400) fail(`${label} window must span at most 400 inclusive days`);
+  if (inclusiveDays > MAX_WINDOW_DAYS) {
+    fail(`${label} window must span at most ${MAX_WINDOW_DAYS} inclusive days`);
+  }
+  return window;
+}
+
+/**
+ * A tracker-backed stat window: the mod raid log counts an exact instant range,
+ * so any time of day is allowed. The span is still capped - a rule reaching
+ * arbitrarily far back is a mistake, not a feature, and the cap matches the
+ * rollup path so the two sources stay comparable.
+ */
+function parseTrackerWindow(value: unknown, label: string): NonNullable<EventRaffle["window"]> {
+  const window = parseRaffleWindow(value, label);
+  if (Date.parse(window.to) - Date.parse(window.from) > MAX_WINDOW_DAYS * 86_400_000) {
+    fail(`${label} window must span at most ${MAX_WINDOW_DAYS} days`);
+  }
   return window;
 }
 

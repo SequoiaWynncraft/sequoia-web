@@ -550,6 +550,18 @@ describe("parseGuildEvent", () => {
     ]);
   });
 
+  it("accepts a full 64-milestone ladder", () => {
+    const full = Array.from({ length: 64 }, (_, index) => ({
+      id: `m${index}`,
+      at: (index + 1) * 10,
+      unlock: `Tier ${index}`,
+    }));
+    const result = parseGuildEvent({ ...VALID, personalMilestones: full });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.event.personalMilestones).toHaveLength(64);
+  });
+
   it("rejects out-of-order, duplicate-id, or over-cap personal milestones", () => {
     expectError(
       {
@@ -575,12 +587,12 @@ describe("parseGuildEvent", () => {
       { ...VALID, personalMilestones: [{ at: 10, unlock: "A" }] },
       "id",
     );
-    const nine = Array.from({ length: 9 }, (_, index) => ({
+    const overCap = Array.from({ length: 65 }, (_, index) => ({
       id: `m${index}`,
       at: (index + 1) * 10,
       unlock: `Tier ${index}`,
     }));
-    expectError({ ...VALID, personalMilestones: nine }, "at most 8 personal milestones");
+    expectError({ ...VALID, personalMilestones: overCap }, "at most 64 personal milestones");
   });
 
   it("gates a raffle on an existing personal milestone but rejects a dangling reference", () => {
