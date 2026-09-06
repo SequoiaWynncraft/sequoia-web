@@ -9,6 +9,8 @@ import {
 } from "$lib/server/rankProfiles";
 import { loadWeeklyRaidAnnouncement } from "$lib/server/weeklyRaidAnnouncement";
 
+import { resolveRange, resolveScope } from "./range";
+
 export const prerender = false;
 
 /** How long the optional rank lookup may keep ready stats waiting. */
@@ -16,19 +18,9 @@ const RANKS_GRACE_MS = 1500;
 
 const EMPTY_RANKS: Record<string, MemberRankEntry> = {};
 
-/** Preset windows in days; ytd and all are resolved specially. */
-const PRESET_DAYS: Record<string, number> = { "1d": 1, "3d": 3, "1w": 7, "1m": 30, "3m": 91, "6m": 182 };
-/** Matches the backend's 400-day span clamp. */
-const ALL_DAYS = 399;
-
 export const load: PageServerLoad = async ({ fetch, url, parent }) => {
   const requested = url.searchParams.get("range") ?? "now";
-  // hasOwn, not `in`: prototype keys ("constructor") would otherwise pass as a
-  // preset and resolve to a NaN window.
-  const range =
-    Object.hasOwn(PRESET_DAYS, requested) || requested === "ytd" || requested === "all"
-      ? requested
-      : "now";
+  const range = resolveScope(requested);
 
   // The Weekly Raid Announcement is for full Development/Community members only.
   // Streamed, never awaited: the gate reads the rank API, and holding the ledger
@@ -76,17 +68,4 @@ async function loadRoster(fetch: typeof globalThis.fetch) {
   } catch {
     return { stats: null, ranks: EMPTY_RANKS };
   }
-}
-
-function resolveRange(range: string): { from: string; to: string } {
-  const now = new Date();
-  const to = utcDay(now);
-  if (range === "ytd") return { from: `${now.getUTCFullYear()}-01-01`, to };
-  const days = range === "all" ? ALL_DAYS : PRESET_DAYS[range];
-  const start = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
-  return { from: utcDay(start), to };
-}
-
-function utcDay(date: Date): string {
-  return date.toISOString().slice(0, 10);
 }
