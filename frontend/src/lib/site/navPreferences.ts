@@ -57,6 +57,7 @@ export const DEFAULT_HIDDEN_NAV: readonly string[] = [
   "/statistics/global/guilds",
   "/statistics/global/players",
   "/services/announcements",
+  "/services/tower-calc",
   ...categoriesToggleIds(),
 ];
 
