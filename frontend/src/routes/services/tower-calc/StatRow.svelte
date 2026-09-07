@@ -35,12 +35,16 @@
   }
 
   /**
-   * Restore whatever the box is showing to the real level. Needed because a
-   * cleared field leaves `level` untouched, so the `value={level}` effect never
-   * re-runs and the input would stay blank.
+   * Settle the box once editing ends. A field left blank means 0 - `onInput`
+   * skipped it to allow the empty state mid-edit, so nothing has committed it
+   * yet. Anything else already went through `onInput`, and only needs the
+   * display re-synced: a cleared field leaves `level` untouched, so the
+   * `value={level}` effect never re-runs and the input would stay blank.
    */
   function onBlur(event: FocusEvent) {
-    (event.currentTarget as HTMLInputElement).value = String(level);
+    const field = event.currentTarget as HTMLInputElement;
+    const parsed = Number.parseInt(field.value, 10);
+    field.value = String(Number.isNaN(parsed) ? set(0) : level);
   }
 </script>
 
