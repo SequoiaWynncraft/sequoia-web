@@ -204,7 +204,7 @@ export const SECTIONS: NavSection[] = [
     icon: "bag",
     kicker: "Services",
     title: "Community",
-    lead: "Sequoia services: bagshop, announcements, and requests.",
+    lead: "Sequoia services: bagshop, announcements, requests, and tools.",
     items: [
       {
         label: "Bagshop",
@@ -239,6 +239,17 @@ export const SECTIONS: NavSection[] = [
         lead: "Request Aspects and Tomes here.",
         placeholder: "Requests",
         cta: "Request",
+      },
+      {
+        label: "Tower Calc",
+        to: "/services/tower-calc",
+        icon: "war",
+        description: "Plan tower stats, DPS, EHP and defence rating.",
+        kicker: "Services",
+        title: "Tower Calc",
+        lead: "Set upgrade levels, HQ, connections and externals to see DPS, EHP and defence rating.",
+        placeholder: "Tower Calc",
+        cta: "Calculate",
       },
     ],
   },

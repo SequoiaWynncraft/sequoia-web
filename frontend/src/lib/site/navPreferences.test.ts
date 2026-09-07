@@ -92,8 +92,25 @@ describe("navbar visibility preference", () => {
     expect(services?.items?.map((item) => item.label)).toEqual(["Bagshop", "Requests"]);
   });
 
+  it("keeps Tower Calc out of the menu until it is switched on", () => {
+    const services = (hidden: string[]) =>
+      visibleSections(hidden).find((section) => section.to === "/services");
+
+    expect(services([...DEFAULT_HIDDEN_NAV])?.items?.map((item) => item.label)).not.toContain(
+      "Tower Calc",
+    );
+
+    const optedIn = DEFAULT_HIDDEN_NAV.filter((id) => id !== "/services/tower-calc");
+    expect(services([...optedIn])?.items?.map((item) => item.label)).toContain("Tower Calc");
+  });
+
   it("leaves a section with no visible children as a plain link", () => {
-    const hidden = ["/services/bagshop", "/services/announcements", "/services/requests"];
+    const hidden = [
+      "/services/bagshop",
+      "/services/announcements",
+      "/services/requests",
+      "/services/tower-calc",
+    ];
     const services = visibleSections(hidden).find((section) => section.to === "/services");
 
     expect(services).toBeDefined();

@@ -18,6 +18,7 @@
   const SCOPES = [
     { key: "now", label: "now" },
     { key: "1d", label: "1d" },
+    { key: "yd", label: "yd" },
     { key: "3d", label: "3d" },
     { key: "1w", label: "1w" },
     { key: "1m", label: "1m" },

@@ -57,6 +57,7 @@ describe("site navigation registry", () => {
       "/services/bagshop",
       "/services/announcements",
       "/services/requests",
+      "/services/tower-calc",
     ]);
     expect(view.cards).toEqual([]);
   });
@@ -71,6 +72,7 @@ describe("site navigation registry", () => {
       ["Bagshop", "Visit"],
       ["Announcements", "Read"],
       ["Requests", "Request"],
+      ["Tower Calc", "Calculate"],
     ]);
   });
 });
