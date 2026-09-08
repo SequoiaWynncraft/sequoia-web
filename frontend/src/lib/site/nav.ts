@@ -11,6 +11,7 @@ export interface NavLeaf {
   placeholder?: string;
   cta?: string;
   flagship?: boolean;
+  hideFromHome?: boolean;
 }
 
 export interface NavGroup {
@@ -239,6 +240,7 @@ export const SECTIONS: NavSection[] = [
         lead: "Request Aspects and Tomes here.",
         placeholder: "Requests",
         cta: "Request",
+        hideFromHome: true,
       },
       {
         label: "Tower Calc",
@@ -315,7 +317,7 @@ export function cardsFor(path: string): NavLeaf[] {
 }
 
 export function homepageServices(): NavLeaf[] {
-  return cardsFor("/services");
+  return cardsFor("/services").filter((s) => !s.hideFromHome);
 }
 
 /**
