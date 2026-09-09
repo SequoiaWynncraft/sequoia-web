@@ -67,11 +67,10 @@ describe("site navigation registry", () => {
     expect(pageView("/statistics/player/raids").cards).toEqual([]);
   });
 
-  it("uses the original Svelte service set on the homepage", () => {
+  it("uses the original Svelte service set on the homepage, excluding Requests", () => {
     expect(homepageServices().map((service) => [service.label, service.cta])).toEqual([
       ["Bagshop", "Visit"],
       ["Announcements", "Read"],
-      ["Requests", "Request"],
       ["Tower Calc", "Calculate"],
     ]);
   });
