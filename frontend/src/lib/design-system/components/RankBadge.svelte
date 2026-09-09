@@ -4,25 +4,25 @@
   // Backgrounds are badge-local; foregrounds come from the shared rank
   // vocabulary so a rank never renders two colors on two pages.
   const RANK_BACKGROUNDS: Record<string, string> = {
-    owner: "rgba(245,197,66,0.2)",
-    chief: "rgba(168,85,247,0.2)",
-    strategist: "rgba(92,232,228,0.2)",
-    captain: "rgba(74,108,230,0.2)",
-    recruiter: "rgba(80,200,120,0.2)",
+    owner: "color-mix(in srgb, var(--color-gold) 20%, transparent)",
+    chief: "color-mix(in srgb, var(--color-enchant) 20%, transparent)",
+    strategist: "color-mix(in srgb, var(--color-diamond) 20%, transparent)",
+    captain: "color-mix(in srgb, var(--color-lapis) 20%, transparent)",
+    recruiter: "color-mix(in srgb, var(--color-emerald) 20%, transparent)",
     recruit: "var(--color-border-subtle)",
   };
 
   const BORDER_COLORS: Record<string, string> = {
-    owner: "rgba(245,197,66,0.5)",
-    chief: "rgba(168,85,247,0.4)",
-    strategist: "rgba(92,232,228,0.4)",
-    captain: "rgba(74,108,230,0.4)",
-    recruiter: "rgba(80,200,120,0.3)",
-    recruit: "rgba(40,44,62,0.6)",
+    owner: "color-mix(in srgb, var(--color-gold) 50%, transparent)",
+    chief: "color-mix(in srgb, var(--color-enchant) 40%, transparent)",
+    strategist: "color-mix(in srgb, var(--color-diamond) 40%, transparent)",
+    captain: "color-mix(in srgb, var(--color-lapis) 40%, transparent)",
+    recruiter: "color-mix(in srgb, var(--color-emerald) 30%, transparent)",
+    recruit: "color-mix(in srgb, var(--color-border-subtle) 60%, transparent)",
   };
 
   export function borderColor(rank: string): string {
-    return BORDER_COLORS[rank] ?? "rgba(40,44,62,0.6)";
+    return BORDER_COLORS[rank] ?? "color-mix(in srgb, var(--color-border-subtle) 60%, transparent)";
   }
 </script>
 

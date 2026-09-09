@@ -267,7 +267,7 @@
   }
 
   .head-sort:focus-visible {
-    outline: 2px solid rgba(245, 197, 66, 0.5);
+    outline: 2px solid color-mix(in srgb, var(--color-gold) 50%, transparent);
     outline-offset: -2px;
   }
 
@@ -310,7 +310,7 @@
   }
 
   tr.highlight td {
-    background: rgba(245, 197, 66, 0.07);
+    background: color-mix(in srgb, var(--color-gold) 7%, transparent);
     color: var(--color-gold-light);
   }
 
@@ -338,7 +338,7 @@
   }
 
   .tip-anchor:focus-visible {
-    outline: 2px solid rgba(245, 197, 66, 0.5);
+    outline: 2px solid color-mix(in srgb, var(--color-gold) 50%, transparent);
     outline-offset: 2px;
   }
 
@@ -386,7 +386,7 @@
   }
 
   .cell-link:focus-visible {
-    outline: 2px solid rgba(245, 197, 66, 0.5);
+    outline: 2px solid color-mix(in srgb, var(--color-gold) 50%, transparent);
     outline-offset: 2px;
   }
 

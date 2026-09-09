@@ -275,7 +275,7 @@
   }
 
   .record-name:focus-visible {
-    outline: 2px solid rgba(245, 197, 66, 0.5);
+    outline: 2px solid color-mix(in srgb, var(--color-gold) 50%, transparent);
     outline-offset: 2px;
   }
 
@@ -299,18 +299,18 @@
     gap: 8px;
     padding: 7px 12px;
     border: 1px solid var(--color-border-subtle);
-    background: rgba(19, 22, 31, 0.6);
+    background: color-mix(in srgb, var(--color-deep) 60%, transparent);
     text-decoration: none;
     transition: border-color var(--dur-fast) ease, background var(--dur-fast) ease;
   }
 
   .online-chip:hover {
-    border-color: rgba(245, 197, 66, 0.4);
-    background: rgba(245, 197, 66, 0.05);
+    border-color: color-mix(in srgb, var(--color-gold) 40%, transparent);
+    background: color-mix(in srgb, var(--color-gold) 5%, transparent);
   }
 
   .online-chip:focus-visible {
-    outline: 2px solid rgba(245, 197, 66, 0.5);
+    outline: 2px solid color-mix(in srgb, var(--color-gold) 50%, transparent);
     outline-offset: 2px;
   }
 

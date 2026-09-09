@@ -3,6 +3,7 @@ import type { Handle, HandleServerError, ServerInit } from "@sveltejs/kit";
 import { legacyManageRedirect } from "$lib/manage/redirects";
 import { closeDatabase } from "$lib/server/db";
 import { retireAllRooms } from "$lib/server/liveRolls";
+import { parseThemeId, THEME_COOKIE } from "$lib/site/themePreferences";
 import { REQUEST_FINISHED, REQUEST_STARTED } from "../retirement.js";
 
 /** Docker uses a signal adapter-node does not consume so its listener stays live during the drain. */
@@ -50,7 +51,13 @@ const handleRequest: Handle = async ({ event, resolve }) => {
     }
   }
 
-  response ??= await resolve(event);
+  // The chosen palette has to be on <html> before any CSS applies, so it is
+  // stamped into the shell rather than set from the client - no flash of the
+  // wrong theme, and no client JS involved.
+  response ??= await resolve(event, {
+    transformPageChunk: ({ html }) =>
+      html.replace("%seq.theme%", parseThemeId(event.cookies.get(THEME_COOKIE))),
+  });
   response.headers.set("x-request-id", requestId);
 
   const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";

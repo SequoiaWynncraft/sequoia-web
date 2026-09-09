@@ -12,6 +12,7 @@ import {
   navToggleIds,
   serializeHiddenNav,
 } from "$lib/site/navPreferences";
+import { parseThemeId, THEME_COOKIE, THEME_MAX_AGE } from "$lib/site/themePreferences";
 
 export const prerender = false;
 
@@ -45,6 +46,24 @@ export const actions: Actions = {
       return fail(503, { section: "notifications", error: "unavailable", dmLevel });
     }
     return { section: "notifications", saved: true, dmLevel };
+  },
+
+  /**
+   * Store this browser's theme. Like the navbar choice it is a display
+   * preference with no backend record, so it works signed out. An unknown id
+   * lands on the default rather than failing - there is nothing for the viewer
+   * to correct, and a bad value would otherwise stick in the cookie.
+   */
+  theme: async ({ request, cookies }) => {
+    const formData = await request.formData();
+    const theme = parseThemeId(String(formData.get("theme") ?? ""));
+    cookies.set(THEME_COOKIE, theme, {
+      path: "/",
+      maxAge: THEME_MAX_AGE,
+      httpOnly: true,
+      sameSite: "lax",
+    });
+    return { section: "theme", saved: true, theme };
   },
 
   /**

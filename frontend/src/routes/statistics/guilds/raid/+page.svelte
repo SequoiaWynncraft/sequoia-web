@@ -362,7 +362,7 @@
   }
 
   .auth-link:focus-visible {
-    outline: 2px solid rgba(245, 197, 66, 0.5);
+    outline: 2px solid color-mix(in srgb, var(--color-gold) 50%, transparent);
     outline-offset: 2px;
   }
 
@@ -462,7 +462,7 @@
   }
 
   .timeframe-summary:focus-visible {
-    outline: 2px solid rgba(245, 197, 66, 0.5);
+    outline: 2px solid color-mix(in srgb, var(--color-gold) 50%, transparent);
     outline-offset: 2px;
   }
 
@@ -483,7 +483,7 @@
   .timeframe-help code {
     padding: 1px 5px;
     border-radius: 3px;
-    background: rgba(245, 197, 66, 0.08);
+    background: color-mix(in srgb, var(--color-gold) 8%, transparent);
     color: var(--color-gold-light);
     font-family: var(--font-data);
     font-size: 0.85em;
@@ -516,15 +516,15 @@
     min-width: 0;
     padding: 9px 12px;
     border: 1px solid var(--color-border-subtle);
-    background: rgba(19, 22, 31, 0.6);
+    background: color-mix(in srgb, var(--color-deep) 60%, transparent);
     color: var(--text-heading);
     font-family: var(--font-data);
     font-size: var(--text-sm);
   }
 
   .timeframe-input:focus-visible {
-    border-color: rgba(245, 197, 66, 0.55);
-    outline: 2px solid rgba(245, 197, 66, 0.5);
+    border-color: color-mix(in srgb, var(--color-gold) 55%, transparent);
+    outline: 2px solid color-mix(in srgb, var(--color-gold) 50%, transparent);
     outline-offset: 2px;
   }
 
@@ -534,8 +534,8 @@
 
   .timeframe-submit {
     padding: 9px 16px;
-    border: 1px solid rgba(245, 197, 66, 0.45);
-    background: rgba(245, 197, 66, 0.08);
+    border: 1px solid color-mix(in srgb, var(--color-gold) 45%, transparent);
+    background: color-mix(in srgb, var(--color-gold) 8%, transparent);
     color: var(--color-gold);
     font-family: var(--font-display);
     font-size: var(--text-xs);
@@ -546,12 +546,12 @@
   }
 
   .timeframe-submit:hover {
-    border-color: rgba(245, 197, 66, 0.7);
-    background: rgba(245, 197, 66, 0.14);
+    border-color: color-mix(in srgb, var(--color-gold) 70%, transparent);
+    background: color-mix(in srgb, var(--color-gold) 14%, transparent);
   }
 
   .timeframe-submit:focus-visible {
-    outline: 2px solid rgba(245, 197, 66, 0.5);
+    outline: 2px solid color-mix(in srgb, var(--color-gold) 50%, transparent);
     outline-offset: 2px;
   }
 
@@ -583,19 +583,19 @@
     gap: 5px;
     padding: 12px 14px;
     border: 1px solid var(--color-border-subtle);
-    background: rgba(19, 22, 31, 0.6);
+    background: color-mix(in srgb, var(--color-deep) 60%, transparent);
     text-decoration: none;
     transition: border-color var(--dur-fast) ease, background var(--dur-fast) ease;
   }
 
   .event-row:hover,
   .event-row.selected {
-    border-color: rgba(245, 197, 66, 0.45);
-    background: rgba(245, 197, 66, 0.05);
+    border-color: color-mix(in srgb, var(--color-gold) 45%, transparent);
+    background: color-mix(in srgb, var(--color-gold) 5%, transparent);
   }
 
   .event-row:focus-visible {
-    outline: 2px solid rgba(245, 197, 66, 0.5);
+    outline: 2px solid color-mix(in srgb, var(--color-gold) 50%, transparent);
     outline-offset: 2px;
   }
 

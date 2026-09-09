@@ -219,7 +219,7 @@
     gap: 28px;
     padding: 26px;
     border: 1px solid var(--color-border-subtle);
-    background: rgba(19, 22, 31, 0.6);
+    background: color-mix(in srgb, var(--color-deep) 60%, transparent);
   }
 
   @media (max-width: 760px) {
@@ -257,12 +257,12 @@
   }
 
   .tag-gold {
-    border-color: rgba(245, 197, 66, 0.35);
+    border-color: color-mix(in srgb, var(--color-gold) 35%, transparent);
     color: var(--color-gold);
   }
 
   a.tag:hover {
-    border-color: rgba(245, 197, 66, 0.5);
+    border-color: color-mix(in srgb, var(--color-gold) 50%, transparent);
   }
 
   .meta {

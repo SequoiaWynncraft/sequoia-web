@@ -256,7 +256,7 @@
 
   .divider-gold {
     height: 1px;
-    background: linear-gradient(90deg, rgba(245, 197, 66, 0.45), rgba(245, 197, 66, 0.06));
+    background: linear-gradient(90deg, color-mix(in srgb, var(--color-gold) 45%, transparent), color-mix(in srgb, var(--color-gold) 6%, transparent));
   }
 
   .home-note {

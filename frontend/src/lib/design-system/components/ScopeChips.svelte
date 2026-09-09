@@ -77,18 +77,18 @@
   }
 
   .scope-chip:hover {
-    border-color: rgba(245, 197, 66, 0.4);
+    border-color: color-mix(in srgb, var(--color-gold) 40%, transparent);
     color: var(--color-gold);
   }
 
   .scope-chip:focus-visible {
-    outline: 2px solid rgba(245, 197, 66, 0.5);
+    outline: 2px solid color-mix(in srgb, var(--color-gold) 50%, transparent);
     outline-offset: 2px;
   }
 
   .scope-chip-active {
-    border-color: rgba(245, 197, 66, 0.4);
-    background: rgba(245, 197, 66, 0.08);
+    border-color: color-mix(in srgb, var(--color-gold) 40%, transparent);
+    background: color-mix(in srgb, var(--color-gold) 8%, transparent);
     color: var(--color-gold);
   }
 

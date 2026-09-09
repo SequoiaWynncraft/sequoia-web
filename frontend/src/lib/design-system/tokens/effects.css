@@ -25,13 +25,13 @@
   --bevel-slot: inset 1px 1px 0 rgba(255, 255, 255, 0.06), inset -1px -1px 0 rgba(0, 0, 0, 0.3); /* @kind shadow */
 
   /* ── Accent glows ── */
-  --glow-gold: 0 0 24px rgba(245, 197, 66, 0.35), 0 0 8px rgba(245, 197, 66, 0.2);
-  --glow-gold-soft: 0 0 12px rgba(245, 197, 66, 0.2);
-  --glow-enchant: 0 0 28px rgba(168, 85, 247, 0.18);
-  --glow-diamond: 0 0 20px rgba(92, 232, 228, 0.15);
+  --glow-gold: 0 0 24px color-mix(in srgb, var(--color-gold) 35%, transparent), 0 0 8px color-mix(in srgb, var(--color-gold) 20%, transparent);
+  --glow-gold-soft: 0 0 12px color-mix(in srgb, var(--color-gold) 20%, transparent);
+  --glow-enchant: 0 0 28px color-mix(in srgb, var(--color-enchant) 18%, transparent);
+  --glow-diamond: 0 0 20px color-mix(in srgb, var(--color-diamond) 15%, transparent);
 
   /* ── Card hover composite ── */
-  --shadow-card-hover: 0 16px 48px rgba(0, 0, 0, 0.45), 0 0 28px rgba(168, 85, 247, 0.18);
+  --shadow-card-hover: 0 16px 48px rgba(0, 0, 0, 0.45), 0 0 28px color-mix(in srgb, var(--color-enchant) 18%, transparent);
 }
 
 /* ── Signature keyframes (subset shipped to consumers) ── */
@@ -48,8 +48,8 @@
   to { opacity: 1; transform: scale(1); }
 }
 @keyframes seq-gold-glow-pulse {
-  0%, 100% { box-shadow: 0 0 12px rgba(245,197,66,0.2), 0 0 4px rgba(245,197,66,0.1); }
-  50% { box-shadow: 0 0 24px rgba(245,197,66,0.35), 0 0 8px rgba(245,197,66,0.2); }
+  0%, 100% { box-shadow: 0 0 12px color-mix(in srgb, var(--color-gold) 20%, transparent), 0 0 4px color-mix(in srgb, var(--color-gold) 10%, transparent); }
+  50% { box-shadow: 0 0 24px color-mix(in srgb, var(--color-gold) 35%, transparent), 0 0 8px color-mix(in srgb, var(--color-gold) 20%, transparent); }
 }
 @keyframes seq-float {
   0%, 100% { transform: translateY(0); }

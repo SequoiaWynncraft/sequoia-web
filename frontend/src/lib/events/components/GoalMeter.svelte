@@ -183,7 +183,7 @@
     position: relative;
     height: 6px;
     border: 1px solid var(--color-border-subtle);
-    background: rgba(12, 14, 23, 0.55);
+    background: color-mix(in srgb, var(--color-abyss) 55%, transparent);
   }
 
   .goal-band .goal-track {
@@ -285,7 +285,7 @@
     max-width: 240px;
     padding: 6px 10px;
     border: 1px solid var(--color-border-subtle);
-    background: rgba(12, 14, 23, 0.94);
+    background: color-mix(in srgb, var(--color-abyss) 94%, transparent);
     color: var(--text-body);
     font-family: var(--font-data);
     font-size: var(--text-xs);

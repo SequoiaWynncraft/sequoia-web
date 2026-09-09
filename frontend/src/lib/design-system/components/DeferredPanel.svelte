@@ -28,8 +28,8 @@
     justify-items: center;
     gap: 8px;
     padding: 40px 24px;
-    border: 1px solid rgba(168, 85, 247, 0.25);
-    background: rgba(19, 22, 31, 0.6);
+    border: 1px solid color-mix(in srgb, var(--color-enchant) 25%, transparent);
+    background: color-mix(in srgb, var(--color-deep) 60%, transparent);
     text-align: center;
   }
 

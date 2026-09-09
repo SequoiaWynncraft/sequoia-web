@@ -642,7 +642,7 @@
   }
 
   .ev-link:focus-visible {
-    outline: 2px solid rgba(245, 197, 66, 0.5);
+    outline: 2px solid color-mix(in srgb, var(--color-gold) 50%, transparent);
     outline-offset: 2px;
   }
 

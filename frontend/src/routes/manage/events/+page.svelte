@@ -141,7 +141,7 @@
 
   .mg-chip {
     padding: 3px 8px 2px;
-    border: 1px solid rgba(245, 197, 66, 0.35);
+    border: 1px solid color-mix(in srgb, var(--color-gold) 35%, transparent);
     color: var(--color-gold);
     font-family: var(--font-display);
     font-size: var(--text-2xs);

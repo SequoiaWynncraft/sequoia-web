@@ -5,7 +5,7 @@
    and number inputs lose their spinner buttons - typing is the primary flow
    for the values this site asks for. */
 :root {
-  scrollbar-color: var(--color-border-accent) rgba(19, 22, 31, 0.6);
+  scrollbar-color: var(--color-border-accent) color-mix(in srgb, var(--color-deep) 60%, transparent);
 }
 
 * {
@@ -61,7 +61,7 @@ input[type="number"]::-webkit-inner-spin-button {
 
 /* :focus, not :focus-visible — a skip link must appear whenever it is focused. */
 .seq-skip-link:focus {
-  outline: 2px solid rgba(245, 197, 66, 0.5);
+  outline: 2px solid color-mix(in srgb, var(--color-gold) 50%, transparent);
   outline-offset: 2px;
   transform: translateY(0);
 }
@@ -89,7 +89,7 @@ input[type="number"]::-webkit-inner-spin-button {
   left: -5%;
   width: 55vw;
   height: 55vw;
-  background: radial-gradient(circle, rgba(245,197,66,0.05), transparent 60%);
+  background: radial-gradient(circle, color-mix(in srgb, var(--color-gold) 5%, transparent), transparent 60%);
 }
 
 .seq-page-backdrop-glow-enchant {
@@ -97,7 +97,7 @@ input[type="number"]::-webkit-inner-spin-button {
   right: -10%;
   width: 50vw;
   height: 50vw;
-  background: radial-gradient(circle, rgba(168,85,247,0.05), transparent 60%);
+  background: radial-gradient(circle, color-mix(in srgb, var(--color-enchant) 5%, transparent), transparent 60%);
 }
 
 .seq-page-backdrop-glow-low {
@@ -105,7 +105,7 @@ input[type="number"]::-webkit-inner-spin-button {
   left: 20%;
   width: 45vw;
   height: 45vw;
-  background: radial-gradient(circle, rgba(245,197,66,0.018), transparent 62%);
+  background: radial-gradient(circle, color-mix(in srgb, var(--color-gold) 1.8%, transparent), transparent 62%);
 }
 
 .seq-page-backdrop-vignette {
@@ -307,7 +307,7 @@ input[type="number"]::-webkit-inner-spin-button {
   position: relative;
   display: block;
   background: var(--surface-card);
-  border: 1px solid rgba(245,197,66,0.3);
+  border: 1px solid color-mix(in srgb, var(--color-gold) 30%, transparent);
   border-radius: var(--radius-lg);
   padding: var(--seq-card-padding, 1.25rem);
   overflow: hidden;
@@ -326,7 +326,7 @@ input[type="number"]::-webkit-inner-spin-button {
 .seq-card-hoverable:hover {
   transform: translateY(-6px) scale(1.025);
   box-shadow: var(--shadow-card-hover);
-  border-color: rgba(168,85,247,0.5);
+  border-color: color-mix(in srgb, var(--color-enchant) 50%, transparent);
 }
 
 .seq-card-rule {
@@ -335,7 +335,7 @@ input[type="number"]::-webkit-inner-spin-button {
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(to right, transparent, rgba(245,197,66,0.4), transparent);
+  background: linear-gradient(to right, transparent, color-mix(in srgb, var(--color-gold) 40%, transparent), transparent);
 }
 
 .seq-button {
@@ -403,9 +403,9 @@ input[type="number"]::-webkit-inner-spin-button {
 }
 
 .seq-button-enchant {
-  background: rgba(168,85,247,0.12);
+  background: color-mix(in srgb, var(--color-enchant) 12%, transparent);
   color: var(--color-enchant);
-  border-color: rgba(168,85,247,0.4);
+  border-color: color-mix(in srgb, var(--color-enchant) 40%, transparent);
 }
 
 .seq-button-primary:not(:disabled):not([aria-disabled="true"]):hover {
@@ -424,9 +424,9 @@ input[type="number"]::-webkit-inner-spin-button {
 }
 
 .seq-button-enchant:not(:disabled):not([aria-disabled="true"]):hover {
-  background: rgba(168,85,247,0.2);
-  color: #c084fc;
-  border-color: rgba(168,85,247,0.6);
+  background: color-mix(in srgb, var(--color-enchant) 20%, transparent);
+  color: var(--color-enchant-light);
+  border-color: color-mix(in srgb, var(--color-enchant) 60%, transparent);
 }
 
 /* Shared form controls. Global rather than component-scoped so composite
@@ -452,7 +452,7 @@ input[type="number"]::-webkit-inner-spin-button {
 }
 
 .seq-input:focus-visible {
-  outline: 2px solid rgba(245, 197, 66, 0.5);
+  outline: 2px solid color-mix(in srgb, var(--color-gold) 50%, transparent);
   outline-offset: 2px;
   border-color: color-mix(in srgb, var(--color-gold) 55%, var(--color-border-subtle));
 }
@@ -703,7 +703,7 @@ textarea.seq-input {
 }
 
 .seq-service-card-icon-flagship {
-  background: rgba(245,197,66,0.1);
+  background: color-mix(in srgb, var(--color-gold) 10%, transparent);
   color: var(--color-gold);
 }
 
@@ -740,7 +740,7 @@ textarea.seq-input {
   font-size: 0.8rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: rgba(245,197,66,0.8);
+  color: color-mix(in srgb, var(--color-gold) 80%, transparent);
   transition: color var(--dur-base) ease;
 }
 
@@ -758,8 +758,8 @@ textarea.seq-input {
 
 .seq-branchmasters-section {
   padding: 5rem 0;
-  border-top: 1px solid rgba(40, 44, 62, 0.45);
-  border-bottom: 1px solid rgba(40, 44, 62, 0.45);
+  border-top: 1px solid color-mix(in srgb, var(--color-border-subtle) 45%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border-subtle) 45%, transparent);
   overflow: hidden;
 }
 
@@ -835,8 +835,8 @@ textarea.seq-input {
   max-width: 80rem;
   border-radius: var(--radius-md);
   background:
-    linear-gradient(90deg, transparent, rgba(245, 197, 66, 0.05), transparent),
-    rgba(26, 29, 42, 0.18);
+    linear-gradient(90deg, transparent, color-mix(in srgb, var(--color-gold) 5%, transparent), transparent),
+    color-mix(in srgb, var(--color-surface) 18%, transparent);
   background-size: 160% 100%;
   animation: seq-shimmer 1.4s ease-in-out infinite;
 }
@@ -857,7 +857,7 @@ textarea.seq-input {
 
 .seq-chibi-kicker {
   margin: clamp(1.15rem, 2vw, 1.9rem) 1rem;
-  color: rgba(245, 197, 66, 0.42);
+  color: color-mix(in srgb, var(--color-gold) 42%, transparent);
   font-family: var(--font-display);
   font-size: 0.86rem;
   letter-spacing: 0.3em;
@@ -968,7 +968,7 @@ textarea.seq-input {
   border-radius: var(--radius-md);
   overflow: hidden;
   background:
-    radial-gradient(circle at 50% 32%, rgba(245, 197, 66, 0.12), transparent 58%),
+    radial-gradient(circle at 50% 32%, color-mix(in srgb, var(--color-gold) 12%, transparent), transparent 58%),
     var(--color-deep);
   display: flex;
   align-items: center;
@@ -1183,7 +1183,7 @@ textarea.seq-input {
   left: 0;
   right: 0;
   z-index: 100;
-  background: rgba(12, 14, 23, 0.8);
+  background: color-mix(in srgb, var(--color-abyss) 80%, transparent);
   border-bottom: 1px solid var(--color-border-subtle);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
@@ -1231,7 +1231,7 @@ textarea.seq-input {
 }
 
 .seq-nav-accent {
-  color: rgba(245, 197, 66, 0.82);
+  color: color-mix(in srgb, var(--color-gold) 82%, transparent);
 }
 
 .seq-nav-brand::after,
@@ -1243,7 +1243,7 @@ textarea.seq-input {
   right: 0;
   bottom: -0.25rem;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(245, 197, 66, 0.55), transparent);
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--color-gold) 55%, transparent), transparent);
   opacity: 0;
   transform: scaleX(0);
   transform-origin: left;
@@ -1258,7 +1258,7 @@ textarea.seq-input {
 .seq-nav-accent:hover,
 .seq-text-cta:hover {
   color: var(--color-enchant);
-  text-shadow: 0 0 16px rgba(168, 85, 247, 0.3), 0 1px 0 rgba(0, 0, 0, 0.3);
+  text-shadow: 0 0 16px color-mix(in srgb, var(--color-enchant) 30%, transparent), 0 1px 0 rgba(0, 0, 0, 0.3);
 }
 
 .seq-nav-brand:hover::after,
@@ -1341,7 +1341,9 @@ textarea.seq-input {
   position: absolute;
   top: calc(100% + 0.45rem);
   left: 0;
-  background: rgba(20, 23, 32, 0.97);
+  /* Was rgba(20,23,32,.97) - one unit per channel off --color-deep, folded
+     onto the token so the dropdown follows the theme. */
+  background: color-mix(in srgb, var(--color-deep) 97%, transparent);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border: 1px solid var(--color-border-subtle);
@@ -1441,7 +1443,7 @@ textarea.seq-input {
 .seq-nav-link:focus-visible,
 .seq-mobile-link:focus-visible,
 .seq-nav-burger:focus-visible {
-  outline: 2px solid rgba(168, 85, 247, 0.55);
+  outline: 2px solid color-mix(in srgb, var(--color-enchant) 55%, transparent);
   outline-offset: 4px;
 }
 
@@ -1452,7 +1454,7 @@ textarea.seq-input {
   .seq-nav-mobile-panel {
     display: block;
     border-top: 1px solid var(--color-border-subtle);
-    background: rgba(12, 14, 23, 0.96);
+    background: color-mix(in srgb, var(--color-abyss) 96%, transparent);
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
     animation: seq-menu-slide-in 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -1483,7 +1485,7 @@ textarea.seq-input {
     bottom: 0.65rem;
     width: 2px;
     border-radius: 999px;
-    background: rgba(245, 197, 66, 0.55);
+    background: color-mix(in srgb, var(--color-gold) 55%, transparent);
     opacity: 0;
     transform: scaleY(0.15);
     transform-origin: top;
@@ -1575,7 +1577,7 @@ textarea.seq-input {
   position: absolute;
   inset: 0;
   z-index: 1;
-  background: radial-gradient(ellipse at center, rgba(12, 14, 23, 0.3) 0%, rgba(12, 14, 23, 0.75) 55%, rgba(12, 14, 23, 0.95) 100%);
+  background: radial-gradient(ellipse at center, color-mix(in srgb, var(--color-abyss) 30%, transparent) 0%, color-mix(in srgb, var(--color-abyss) 75%, transparent) 55%, color-mix(in srgb, var(--color-abyss) 95%, transparent) 100%);
 }
 
 .seq-hero-fade {
@@ -1611,7 +1613,7 @@ textarea.seq-input {
   font-size: clamp(3rem, 11vw, 7rem);
   line-height: 0.95;
   letter-spacing: 0.06em;
-  text-shadow: 0 0 16px rgba(245, 197, 66, 0.12);
+  text-shadow: 0 0 16px color-mix(in srgb, var(--color-gold) 12%, transparent);
   animation: seq-ambient-breathe 7s ease-in-out 0.8s infinite;
 }
 
@@ -1639,8 +1641,8 @@ textarea.seq-input {
 .seq-hero-chevron {
   width: 1.1rem;
   height: 1.1rem;
-  border-right: 2px solid rgba(245, 197, 66, 0.5);
-  border-bottom: 2px solid rgba(245, 197, 66, 0.5);
+  border-right: 2px solid color-mix(in srgb, var(--color-gold) 50%, transparent);
+  border-bottom: 2px solid color-mix(in srgb, var(--color-gold) 50%, transparent);
   animation: seq-scroll-hint 2s ease-in-out infinite;
 }
 
@@ -1679,7 +1681,7 @@ textarea.seq-input {
   filter: brightness(1) saturate(1.05) !important;
 }
 .seq-art-frame:hover {
-  border-color: rgba(168,85,247,0.35) !important;
+  border-color: color-mix(in srgb, var(--color-enchant) 35%, transparent) !important;
 }
 .seq-art-cap {
   transform: translateY(100%);
@@ -1707,7 +1709,7 @@ textarea.seq-input {
 
 .seq-apply-link:hover {
   color: var(--color-enchant);
-  text-shadow: 0 0 16px rgba(168,85,247,0.3);
+  text-shadow: 0 0 16px color-mix(in srgb, var(--color-enchant) 30%, transparent);
   transform: translateY(-1px);
 }
 

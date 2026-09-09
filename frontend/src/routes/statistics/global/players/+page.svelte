@@ -225,7 +225,7 @@
   }
 
   .lookup input:focus-visible {
-    outline: 2px solid rgba(245, 197, 66, 0.5);
+    outline: 2px solid color-mix(in srgb, var(--color-gold) 50%, transparent);
     outline-offset: 2px;
   }
 
@@ -245,12 +245,12 @@
   }
 
   .lookup button:hover {
-    border-color: rgba(245, 197, 66, 0.4);
+    border-color: color-mix(in srgb, var(--color-gold) 40%, transparent);
     color: var(--color-gold);
   }
 
   .lookup button:focus-visible {
-    outline: 2px solid rgba(245, 197, 66, 0.5);
+    outline: 2px solid color-mix(in srgb, var(--color-gold) 50%, transparent);
     outline-offset: 2px;
   }
 

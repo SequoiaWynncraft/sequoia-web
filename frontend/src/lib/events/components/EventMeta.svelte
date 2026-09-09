@@ -68,7 +68,7 @@
   }
 
   .ev-chip-members {
-    border-color: rgba(245, 197, 66, 0.35);
+    border-color: color-mix(in srgb, var(--color-gold) 35%, transparent);
     color: var(--color-gold);
   }
 
