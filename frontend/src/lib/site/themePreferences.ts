@@ -35,14 +35,14 @@ export interface Theme {
 export const THEMES: readonly Theme[] = [
   {
     id: "autumn",
-    label: "Autumn (seasonal)",
+    label: "Autumn (new)",
     description:
       "Sunlit amber under a red maple canopy: warm umber surfaces, maple terracotta, and a misty horizon.",
     heroImage: "autumn_banner.avif",
   },
   {
     id: "gaz-purple",
-    label: "Gaz purple (classic)",
+    label: "Tna purple (classic)",
     description:
       "The original Sequoia look: near-black forest surfaces, enchanted gold, and Fruma at dusk.",
     heroImage: "fruma_banner.avif",
