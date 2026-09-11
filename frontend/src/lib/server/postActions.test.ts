@@ -1,9 +1,13 @@
-import { describe, expect, it } from "vitest";
+import type { RequestEvent } from "@sveltejs/kit";
+import { describe, expect, it, vi } from "vitest";
 
 import type { GuildPost } from "$lib/posts/types";
 import type { Viewer } from "$lib/site/viewer";
 
-import { withServerFields } from "./postActions";
+import { requireBranchArea } from "./branchAccess";
+import { createPostAction, withServerFields } from "./postActions";
+
+vi.mock("./branchAccess", () => ({ requireBranchArea: vi.fn() }));
 
 const NOW = new Date("2026-09-10T12:00:00.000Z");
 const PAST = "2026-09-01T00:00:00.000Z";
@@ -51,5 +55,18 @@ describe("withServerFields", () => {
     expect(withServerFields(post(), true, STEVE, post({ publishAt: FUTURE }), NOW).publishAt).toBe(
       NOW.toISOString(),
     );
+  });
+});
+
+describe("createPostAction", () => {
+  it("rejects a JSON null payload as malformed instead of throwing", async () => {
+    vi.mocked(requireBranchArea).mockResolvedValue(STEVE);
+    const form = new FormData();
+    form.set("payload", "null");
+    const event = { request: new Request("http://localhost", { method: "POST", body: form }) } as RequestEvent;
+    await expect(createPostAction(event)).resolves.toMatchObject({
+      status: 400,
+      data: { error: "Malformed submission." },
+    });
   });
 });

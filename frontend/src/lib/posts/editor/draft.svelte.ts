@@ -1,6 +1,7 @@
 import type { SubmitFunction } from "@sveltejs/kit";
 
 import type { GuildRankName } from "$lib/api/guildStats";
+import { keepInstant, toInput } from "$lib/events/editor/draft.svelte";
 import type { EventTheme } from "$lib/events/types";
 import type { ManageBranchKey } from "$lib/manage/types";
 
@@ -30,16 +31,6 @@ export const SKY_PRESETS: readonly { name: string; theme: EventTheme }[] = [
     theme: { sky: ["#1a0e0c", "#2e1712"], accent: "#f07a5a", accentSecondary: "#f5b25a", star: "#f5b8a0" },
   },
 ];
-
-/** A stored instant as the UTC wall-time string InstantField edits. */
-function toInput(instant?: string): string {
-  return instant ? instant.slice(0, 16) : "";
-}
-
-/** InstantField's wall time back to an instant; malformed input is left for the validator to name. */
-function toInstant(value: string): string {
-  return value.length === 16 ? `${value}:00Z` : `${value}Z`;
-}
 
 function slugify(text: string): string {
   return text
@@ -79,6 +70,9 @@ export class PostDraft {
 
   publishAt = $state("");
   expiresAt = $state("");
+  // The stored instants, so an untouched minute-level input keeps its seconds.
+  seedPublishAt = $state("");
+  seedExpiresAt = $state("");
 
   skyTop = $state(SKY_PRESETS[0].theme.sky[0]);
   skyBottom = $state(SKY_PRESETS[0].theme.sky[1]);
@@ -119,6 +113,8 @@ export class PostDraft {
     this.guildRanks = [...(post.audience.guildRanks ?? [])];
     this.seqRanks = [...(post.audience.seqRanks ?? [])];
     this.branches = [...(post.audience.branches ?? [])];
+    this.seedPublishAt = post.publishAt ?? "";
+    this.seedExpiresAt = post.expiresAt ?? "";
     this.publishAt = toInput(post.publishAt);
     this.expiresAt = toInput(post.expiresAt);
     this.applyTheme(post.theme);
@@ -148,8 +144,8 @@ export class PostDraft {
       theme: this.theme,
     };
     if (this.pinned) post.pinned = true;
-    if (this.publishAt) post.publishAt = toInstant(this.publishAt);
-    if (this.expiresAt) post.expiresAt = toInstant(this.expiresAt);
+    if (this.publishAt) post.publishAt = keepInstant(this.publishAt, this.seedPublishAt);
+    if (this.expiresAt) post.expiresAt = keepInstant(this.expiresAt, this.seedExpiresAt);
     return post;
   });
 
@@ -201,7 +197,10 @@ export class PostDraft {
         // data, which may already contain someone else's later save.
         this.knownUpdatedAt = data?.newUpdatedAt ?? this.knownUpdatedAt;
         // Show the date the server stamped, so the next save keeps it.
-        if (data?.publishAt && !this.publishAt) this.publishAt = toInput(data.publishAt);
+        if (data?.publishAt && !this.publishAt) {
+          this.seedPublishAt = data.publishAt;
+          this.publishAt = toInput(data.publishAt);
+        }
       }
       await update({ reset: false });
     };

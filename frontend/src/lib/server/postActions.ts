@@ -27,6 +27,7 @@ function parsePostPayload(form: FormData): { post: GuildPost; published: boolean
   } catch {
     return { error: "Malformed submission." };
   }
+  if (typeof json !== "object" || json === null) return { error: "Malformed submission." };
   const record = json as { post?: unknown; published?: unknown };
   const parsed = parseGuildPost(record.post);
   if (!parsed.ok) return { error: parsed.error };
