@@ -7,6 +7,9 @@
   import OfficerStrip from "$lib/design-system/components/OfficerStrip.svelte";
   import SequoianTree from "$lib/components/SequoianTree.svelte";
   import Icon from "$lib/components/Icon.svelte";
+  import EventSky from "$lib/events/components/EventSky.svelte";
+  import { formatPostDate } from "$lib/posts/format";
+  import { POST_FEEDS, postHref } from "$lib/posts/types";
   import { createSequoiaApiClient } from "$lib/api/client";
   import {
     branchLeadershipBadge,
@@ -372,6 +375,89 @@
     <div class="divider-gold" style="margin-top:3rem"></div>
   </div>
 </section>
+
+<!-- Latest posts: streamed after first paint, absent when there is nothing the viewer may read. -->
+{#await data.latestPosts then posts}
+  {#if posts.length > 0}
+    <section class="seq-latest" aria-label="Latest news and announcements">
+      <SectionHeading kicker="From the guild" style="margin-bottom:2.5rem">Latest</SectionHeading>
+      <div class="seq-latest-grid">
+        {#each posts as post (post.slug)}
+          <a class="seq-latest-card focus-ring" href={postHref(post)}>
+            <EventSky theme={post.theme}>
+              <div class="seq-latest-inner">
+                <span class="seq-latest-meta">
+                  {POST_FEEDS[post.feed].label} · <time datetime={post.date}>{formatPostDate(post.date)}</time>
+                </span>
+                <span class="seq-latest-title">{post.title}</span>
+                <span class="seq-latest-summary">{post.summary}</span>
+              </div>
+            </EventSky>
+          </a>
+        {/each}
+      </div>
+    </section>
+  {/if}
+{/await}
+
+<style>
+  .seq-latest {
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: 5rem 1.5rem 0;
+  }
+
+  .seq-latest-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .seq-latest-card {
+    display: block;
+    text-decoration: none;
+  }
+
+  .seq-latest-card :global(.ev-sky) {
+    height: 100%;
+  }
+
+  .seq-latest-card:hover :global(.ev-sky) {
+    border-color: color-mix(in srgb, var(--ev-accent) 45%, var(--color-border-subtle));
+  }
+
+  .seq-latest-inner {
+    display: grid;
+    align-content: start;
+    gap: 8px;
+    padding: 22px 22px 24px;
+  }
+
+  .seq-latest-meta {
+    color: var(--text-muted);
+    font-family: var(--font-data);
+    font-size: var(--text-xs);
+  }
+
+  .seq-latest-title {
+    background: linear-gradient(90deg, var(--ev-accent), var(--ev-accent-2));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-family: var(--font-display);
+    font-size: var(--text-lg);
+    letter-spacing: var(--tracking-wide);
+    line-height: var(--leading-tight);
+    overflow-wrap: anywhere;
+    text-transform: uppercase;
+  }
+
+  .seq-latest-summary {
+    color: var(--text-body);
+    font-size: var(--text-sm);
+    line-height: var(--leading-normal);
+  }
+</style>
 
 <!-- Services -->
 <section id="services" style="padding:5rem 1.5rem;max-width:72rem;margin:0 auto">

@@ -225,6 +225,18 @@ function parseTheme(value: unknown): EventTheme {
   };
 }
 
+/** The sky theme alone, for other content that borrows the event look (posts). */
+export function parseEventTheme(
+  value: unknown,
+): { ok: true; theme: EventTheme } | { ok: false; error: string } {
+  try {
+    return { ok: true, theme: parseTheme(value) };
+  } catch (error) {
+    if (error instanceof Invalid) return { ok: false, error: error.message };
+    throw error;
+  }
+}
+
 function parseColor(value: unknown, label: string): string {
   if (typeof value !== "string" || !COLOR_PATTERN.test(value.trim())) {
     fail(`${label} must be a hex color like #a78bfa`);
