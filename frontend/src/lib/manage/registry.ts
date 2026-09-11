@@ -88,7 +88,8 @@ export const MANAGE_AREAS: readonly ManageArea[] = [
     marker: "◆",
     links: [
       { label: "Stats exports", href: "/manage/community/exports" },
-      { label: "Announcements", href: "/manage/community/announcements" },
+      { label: "Posts", href: "/manage/community/posts" },
+      { label: "New post", href: "/manage/community/posts/new" },
       { label: "Blog", href: "/manage/community/blog" },
     ],
     gate: {

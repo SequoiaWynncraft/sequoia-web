@@ -13,6 +13,7 @@ export function parseEventPayload(form: FormData): EventPayload {
   } catch {
     return { error: "Malformed submission." };
   }
+  if (typeof json !== "object" || json === null) return { error: "Malformed submission." };
   const record = json as { event?: unknown; published?: unknown };
   const parsed = parseGuildEvent(record.event);
   if (!parsed.ok) return { error: parsed.error };

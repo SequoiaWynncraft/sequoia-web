@@ -63,9 +63,9 @@ export const SECTIONS: NavSection[] = [
     label: "News",
     to: "/news",
     icon: "document",
-    kicker: "News",
-    title: "Public Announcements",
-    lead: "Latest news and public updates from Sequoia.",
+    kicker: "Sequoia",
+    title: "News",
+    lead: "News and updates from the guild.",
     placeholder: "News",
   },
   {

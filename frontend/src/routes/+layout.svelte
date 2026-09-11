@@ -23,10 +23,12 @@
     data: { viewer: Viewer | null; manageVisible: boolean; navHidden: string[] };
   } = $props();
   const isHome = $derived(page.url.pathname === "/");
-  // Event pages open with a full-bleed sky that tucks under the translucent
-  // navbar, exactly like the homepage hero. (/events/manage/** only issues
-  // server redirects to /manage/**, which stays plain chrome.)
-  const isFullBleed = $derived(isHome || /^\/events\/./.test(page.url.pathname));
+  // Event and post pages open with a full-bleed sky that tucks under the
+  // translucent navbar, exactly like the homepage hero. (/events/manage/** only
+  // issues server redirects to /manage/**, which stays plain chrome.)
+  const isFullBleed = $derived(
+    isHome || /^\/(events|news|services\/announcements)\/./.test(page.url.pathname),
+  );
 </script>
 
 <svelte:head>

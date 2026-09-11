@@ -111,6 +111,7 @@ function parseTrackerRequest(raw: FormDataEntryValue | null): TrackerRequest | s
   } catch {
     return "Malformed submission.";
   }
+  if (typeof json !== "object" || json === null) return "Malformed submission.";
   const record = json as Record<string, unknown>;
   const name = typeof record.name === "string" ? record.name.trim() : "";
   if (!name || name.length > 80) return "the tracker needs a name";
