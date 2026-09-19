@@ -5,13 +5,17 @@
  *
  * Supported: blank-line paragraphs (a single newline is a line break), `#`/`##`
  * and `###` headings, `-`/`*` and `1.` lists, `>` quotes, **bold**, *italic* or
- * _italic_, `code`, [text](url), and backslash escapes. Anything else is text.
+ * _italic_, `code`, [text](url), :emoji: from the Sequoia catalog, and backslash
+ * escapes. Anything else is text.
  */
+
+import { emojiAt } from "$lib/emoji/catalog";
 
 export type Inline =
   | { type: "text"; text: string }
   | { type: "break" }
   | { type: "code"; text: string }
+  | { type: "emoji"; name: string }
   | { type: "strong"; children: Inline[] }
   | { type: "em"; children: Inline[] }
   | { type: "link"; href: string; external: boolean; children: Inline[] };
@@ -26,7 +30,7 @@ const HEADING = /^(#{1,3})\s+(.+)$/;
 const BULLET = /^\s*[-*]\s+(.+)$/;
 const NUMBERED = /^\s*\d{1,3}[.)]\s+(.+)$/;
 const QUOTE = /^>\s?(.*)$/;
-const ESCAPABLE = new Set(["\\", "*", "_", "`", "[", "]", "(", ")", "#", "-", ">"]);
+const ESCAPABLE = new Set(["\\", "*", "_", "`", "[", "]", "(", ")", "#", "-", ">", ":"]);
 const WORD_CHAR = /[\p{L}\p{N}]/u;
 
 export function parseMarkdown(source: string): Block[] {
@@ -139,6 +143,16 @@ export function parseInline(text: string): Inline[] {
         flushText();
         nodes.push({ type: "em", children: parseInline(text.slice(index + 1, end)) });
         index = end + 1;
+        continue;
+      }
+    }
+
+    if (char === ":") {
+      const name = emojiAt(text, index);
+      if (name) {
+        flushText();
+        nodes.push({ type: "emoji", name });
+        index += name.length + 2;
         continue;
       }
     }

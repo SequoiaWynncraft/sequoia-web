@@ -15,6 +15,7 @@
   import TextArea from "$lib/design-system/components/forms/TextArea.svelte";
   import TextInput from "$lib/design-system/components/forms/TextInput.svelte";
   import Toggle from "$lib/design-system/components/forms/Toggle.svelte";
+  import EmojiPicker from "$lib/emoji/EmojiPicker.svelte";
   import EventSky from "$lib/events/components/EventSky.svelte";
   import { themeVars } from "$lib/events/theme";
   import type { PostFormContext } from "$lib/server/postFormContext";
@@ -67,6 +68,7 @@
   // svelte-ignore state_referenced_locally
   const draft = new PostDraft({ mode, initial, initialPublished, initialUpdatedAt, initialFeed });
 
+  let bodyInput = $state<HTMLTextAreaElement>();
   let deleteForm = $state<HTMLFormElement>();
   let confirmDelete = $state<ConfirmDialog | null>(null);
 
@@ -306,9 +308,10 @@
         title="Body"
         meta={`${draft.body.length.toLocaleString()} / ${MAX_POST_BODY.toLocaleString()}`}
       >
-        <TextArea bind:value={draft.body} rows={16} maxlength={MAX_POST_BODY} aria-label="Post body" class="pe-body-input" />
+        <EmojiPicker textarea={bodyInput} bind:value={draft.body} />
+        <TextArea bind:value={draft.body} bind:element={bodyInput} rows={16} maxlength={MAX_POST_BODY} aria-label="Post body" class="pe-body-input" />
         <p class="seq-hint pe-cheats">
-          **bold** · *italic* · [link](https://…) · - list · 1. list · ### heading · &gt; quote · `code`
+          **bold** · *italic* · [link](https://…) · - list · 1. list · ### heading · &gt; quote · `code` · :emoji:
         </p>
       </FormSection>
 

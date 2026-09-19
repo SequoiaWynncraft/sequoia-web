@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { emojiUrl } from "$lib/emoji/catalog";
+
   import { parseMarkdown, type Inline } from "../markdown";
 
   let { source }: { source: string } = $props();
@@ -8,7 +10,7 @@
 </script>
 
 <!-- Kept on one line: whitespace between the branches would render as stray spaces. -->
-{#snippet inline(nodes: Inline[])}{#each nodes as node, index (index)}{#if node.type === "text"}{node.text}{:else if node.type === "break"}<br />{:else if node.type === "code"}<code>{node.text}</code>{:else if node.type === "strong"}<strong>{@render inline(node.children)}</strong>{:else if node.type === "em"}<em>{@render inline(node.children)}</em>{:else if node.external}<a href={node.href} target="_blank" rel="noreferrer">{@render inline(node.children)}</a>{:else}<a href={node.href}>{@render inline(node.children)}</a>{/if}{/each}{/snippet}
+{#snippet inline(nodes: Inline[])}{#each nodes as node, index (index)}{#if node.type === "text"}{node.text}{:else if node.type === "break"}<br />{:else if node.type === "code"}<code>{node.text}</code>{:else if node.type === "emoji"}<img class="emoji" src={emojiUrl(node.name)} alt={`:${node.name}:`} title={`:${node.name}:`} />{:else if node.type === "strong"}<strong>{@render inline(node.children)}</strong>{:else if node.type === "em"}<em>{@render inline(node.children)}</em>{:else if node.external}<a href={node.href} target="_blank" rel="noreferrer">{@render inline(node.children)}</a>{:else}<a href={node.href}>{@render inline(node.children)}</a>{/if}{/each}{/snippet}
 
 <div class="post-body">
   {#each blocks as block, index (index)}
@@ -105,6 +107,13 @@
 
   .post-body strong {
     color: var(--text-heading);
+  }
+
+  .post-body .emoji {
+    display: inline-block;
+    width: auto;
+    height: 1.35em;
+    vertical-align: -0.3em;
   }
 
   .post-body code {

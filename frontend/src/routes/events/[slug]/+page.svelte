@@ -8,6 +8,7 @@
   import DailyBars from "$lib/design-system/components/charts/DailyBars.svelte";
   import LedgerTable from "$lib/design-system/components/LedgerTable.svelte";
   import type { LedgerColumn } from "$lib/design-system/components/ledgerTable";
+  import EmojiText from "$lib/emoji/EmojiText.svelte";
   import EventMeta from "$lib/events/components/EventMeta.svelte";
   import GoalMeter from "$lib/events/components/GoalMeter.svelte";
   import PrizeBoard from "$lib/events/components/PrizeBoard.svelte";
@@ -171,7 +172,7 @@
     {#if event.about}
       <div class="ev-hero-about ev-enter" style="--enter: 4">
         {#each event.about as paragraph (paragraph)}
-          <p>{paragraph}</p>
+          <p><EmojiText text={paragraph} /></p>
         {/each}
       </div>
     {/if}
@@ -357,7 +358,7 @@
         <h2 class="ev-label"><span class="ev-spark" aria-hidden="true">✦</span>Rules</h2>
         <ul class="ev-rules">
           {#each event.rules as rule (rule)}
-            <li>{rule}</li>
+            <li><EmojiText text={rule} /></li>
           {/each}
         </ul>
       </section>
