@@ -1,6 +1,6 @@
 import type { EventGoal, EventStatus, GuildEvent } from "./types";
 
-export function eventStatus(event: GuildEvent, now: Date): EventStatus {
+export function eventStatus(event: Pick<GuildEvent, "startsAt" | "endsAt">, now: Date): EventStatus {
   if (!event.startsAt || !event.endsAt) return "tba";
   const start = Date.parse(event.startsAt);
   const end = Date.parse(event.endsAt);
@@ -100,6 +100,27 @@ export function hubGroups(entries: HubEntry[], now: Date): HubGroups {
   });
   groups.past.sort((a, b) => Date.parse(b.endsAt ?? "") - Date.parse(a.endsAt ?? ""));
   return groups;
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * The homepage strip's events: announced ones running now or starting within
+ * `leadMs`, live first. Drafts never show - the homepage is not a preview.
+ * Visibility is the caller's to decide (`canSeeEvent`) before this runs.
+ */
+export function homepageEvents(entries: HubEntry[], now: Date, leadMs = DAY_MS): HubEvent[] {
+  const live: HubEvent[] = [];
+  const soon: HubEvent[] = [];
+  for (const { event, published } of entries) {
+    if (!published) continue;
+    const status = eventStatus(event, now);
+    if (status === "live") live.push(eventHubView(event));
+    else if (status === "upcoming" && Date.parse(event.startsAt ?? "") - now.getTime() <= leadMs) {
+      soon.push(eventHubView(event));
+    }
+  }
+  return [...live.sort(byStart), ...soon.sort(byStart)];
 }
 
 /** Only fields rendered by the hub cross its server-load boundary. */

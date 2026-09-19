@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { eventHubView, eventStatus, hubGroups } from "$lib/events/helpers";
+import { eventHubView, eventStatus, homepageEvents, hubGroups } from "$lib/events/helpers";
 import { SEED_EVENTS } from "$lib/events/seed";
 import type { GuildEvent } from "$lib/events/types";
 
@@ -86,5 +86,19 @@ describe("event helpers", () => {
     const now = new Date("2026-07-11T12:00:00Z");
     const groups = hubGroups([{ event, published: false }], now);
     expect(groups.live.map((entry) => entry.draft)).toEqual([true]);
+  });
+
+  it("picks running and next-day events for the homepage, live first, never drafts", () => {
+    const now = new Date("2026-07-10T12:00:00Z");
+    const at = (hours: number) => new Date(now.getTime() + hours * 3_600_000).toISOString();
+    const entries = [
+      { event: makeEvent({ slug: "soon", startsAt: at(23), endsAt: at(48) }), published: true },
+      { event: makeEvent({ slug: "later", startsAt: at(25), endsAt: at(48) }), published: true },
+      { event: makeEvent({ slug: "live", startsAt: at(-5), endsAt: at(5) }), published: true },
+      { event: makeEvent({ slug: "ended", startsAt: at(-48), endsAt: at(-1) }), published: true },
+      { event: makeEvent({ slug: "tba" }), published: true },
+      { event: makeEvent({ slug: "draft", startsAt: at(1), endsAt: at(5) }), published: false },
+    ];
+    expect(homepageEvents(entries, now).map((event) => event.slug)).toEqual(["live", "soon"]);
   });
 });

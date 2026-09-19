@@ -8,6 +8,8 @@
   import SequoianTree from "$lib/components/SequoianTree.svelte";
   import Icon from "$lib/components/Icon.svelte";
   import EventSky from "$lib/events/components/EventSky.svelte";
+  import { formatWindow } from "$lib/events/format";
+  import { eventStatus } from "$lib/events/helpers";
   import { formatPostDate } from "$lib/posts/format";
   import { POST_FEEDS, postHref } from "$lib/posts/types";
   import { createSequoiaApiClient } from "$lib/api/client";
@@ -376,12 +378,25 @@
   </div>
 </section>
 
-<!-- Latest posts: streamed after first paint, absent when there is nothing the viewer may read. -->
-{#await data.latestPosts then posts}
-  {#if posts.length > 0}
-    <section class="seq-latest" aria-label="Latest news and announcements">
+<!-- Latest: running/next-day events and the newest fresh post, streamed after first paint; absent when empty. -->
+{#await data.latest then { events, posts }}
+  {#if events.length > 0 || posts.length > 0}
+    <section class="seq-latest" aria-label="Latest news, announcements and events">
       <SectionHeading kicker="From the guild" style="margin-bottom:2.5rem">Latest</SectionHeading>
       <div class="seq-latest-grid">
+        {#each events as event (event.slug)}
+          <a class="seq-latest-card focus-ring" href={`/events/${event.slug}`}>
+            <EventSky theme={event.theme}>
+              <div class="seq-latest-inner">
+                <span class="seq-latest-meta">
+                  {eventStatus(event, new Date()) === "live" ? "Live now" : "Starting soon"} · {formatWindow(event)}
+                </span>
+                <span class="seq-latest-title">{event.name}</span>
+                <span class="seq-latest-summary">{event.tagline}</span>
+              </div>
+            </EventSky>
+          </a>
+        {/each}
         {#each posts as post (post.slug)}
           <a class="seq-latest-card focus-ring" href={postHref(post)}>
             <EventSky theme={post.theme}>

@@ -57,6 +57,9 @@ function postCard({ post, published, updatedAt }: StoredPost, now: Date, manager
 
 const newestFirst = (a: PostCard, b: PostCard) => Date.parse(b.date) - Date.parse(a.date);
 
+/** How long a post stays on the homepage strip after it goes live. */
+const HOMEPAGE_POST_MAX_AGE_MS = 3 * 24 * 60 * 60 * 1000;
+
 /** One feed, bucketed into the shelves the viewer may see. */
 export async function loadPostHub(
   fetchImpl: typeof fetch,
@@ -83,13 +86,14 @@ export async function loadPostHub(
 }
 
 /**
- * The homepage strip: live posts from both feeds, pinned first. Managers get
- * their wider audience here but never drafts - the homepage is not a preview.
+ * The homepage strip: the freshest live post from either feed, pinned first,
+ * and nothing older than three days. Managers get their wider audience here but
+ * never drafts - the homepage is not a preview.
  */
 export async function loadLatestPosts(
   fetchImpl: typeof fetch,
   viewer: Viewer | null,
-  limit = 3,
+  limit = 1,
   now = new Date(),
 ): Promise<PostCard[]> {
   const [postViewer, stored] = await Promise.all([
@@ -103,6 +107,7 @@ export async function loadLatestPosts(
         audienceAdmits(entry.post.audience, postViewer),
     )
     .map((entry) => postCard(entry, now, false))
+    .filter((card) => now.getTime() - Date.parse(card.date) <= HOMEPAGE_POST_MAX_AGE_MS)
     .sort((a, b) => Number(b.pinned) - Number(a.pinned) || newestFirst(a, b))
     .slice(0, limit);
 }
