@@ -4,7 +4,7 @@
   import Button from "$lib/design-system/components/Button.svelte";
   import { webAuthStartUrl } from "$lib/site/webAuth";
   import { FLAT_MENU_MAX_ITEMS, navToggles } from "$lib/site/navPreferences";
-  import { THEMES } from "$lib/site/themePreferences";
+  import { SELECTABLE_THEMES } from "$lib/site/themePreferences";
 
   let { data, form } = $props();
 
@@ -132,7 +132,7 @@
       </p>
 
       <div class="signal-options">
-        {#each THEMES as themeOption, index (themeOption.id)}
+        {#each SELECTABLE_THEMES as themeOption, index (themeOption.id)}
           <label class="signal-option">
             <input
               type="radio"

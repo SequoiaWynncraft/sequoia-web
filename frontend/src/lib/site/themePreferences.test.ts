@@ -2,14 +2,16 @@ import { describe, expect, it } from "vitest";
 
 import {
   DEFAULT_THEME_ID,
+  FALLBACK_THEME_ID,
   parseThemeId,
+  SELECTABLE_THEMES,
   themeById,
   THEMES,
 } from "$lib/site/themePreferences";
 
 describe("parseThemeId", () => {
-  it("keeps a known theme", () => {
-    for (const theme of THEMES) {
+  it("keeps a selectable theme", () => {
+    for (const theme of SELECTABLE_THEMES) {
       expect(parseThemeId(theme.id)).toBe(theme.id);
     }
   });
@@ -24,11 +26,17 @@ describe("parseThemeId", () => {
     expect(parseThemeId("does-not-exist")).toBe(DEFAULT_THEME_ID);
     expect(parseThemeId('" onload="alert(1)')).toBe(DEFAULT_THEME_ID);
   });
+
+  it("drops a hidden theme that is not the default", () => {
+    for (const theme of THEMES.filter((t) => t.hidden && t.id !== DEFAULT_THEME_ID)) {
+      expect(parseThemeId(theme.id)).toBe(DEFAULT_THEME_ID);
+    }
+  });
 });
 
 describe("themeById", () => {
-  it("resolves every registered theme", () => {
-    for (const theme of THEMES) {
+  it("resolves every selectable theme", () => {
+    for (const theme of SELECTABLE_THEMES) {
       expect(themeById(theme.id)).toBe(theme);
     }
   });
@@ -39,8 +47,22 @@ describe("themeById", () => {
 });
 
 describe("THEMES", () => {
-  it("contains the default", () => {
+  it("contains the default and the fallback", () => {
     expect(THEMES.some((theme) => theme.id === DEFAULT_THEME_ID)).toBe(true);
+    expect(THEMES.some((theme) => theme.id === FALLBACK_THEME_ID)).toBe(true);
+  });
+
+  it("defaults to Tna purple when PUBLIC_DEFAULT_THEME is unset", () => {
+    if (!import.meta.env.PUBLIC_DEFAULT_THEME) {
+      expect(DEFAULT_THEME_ID).toBe("gaz-purple");
+    }
+  });
+
+  it("offers the default, and no hidden theme besides it", () => {
+    expect(SELECTABLE_THEMES.some((theme) => theme.id === DEFAULT_THEME_ID)).toBe(true);
+    for (const theme of SELECTABLE_THEMES) {
+      expect(!theme.hidden || theme.id === DEFAULT_THEME_ID).toBe(true);
+    }
   });
 
   it("has unique ids", () => {

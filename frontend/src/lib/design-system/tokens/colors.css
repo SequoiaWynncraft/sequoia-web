@@ -4,8 +4,10 @@
    canopy, lit by sunlight amber, with maple terracotta, moss, and the pale
    misty blue of the horizon. Sampled from the season's hero art.
 
-   This :root block IS the "Autumn" theme - what every visitor gets before
-   choosing one - so it needs no [data-theme] block of its own. Another theme
+   This :root block IS the "Autumn" theme, so it needs no [data-theme] block
+   of its own. Which theme a visitor gets before choosing one is set by
+   PUBLIC_DEFAULT_THEME (see $lib/site/themePreferences.ts); <html> always
+   carries a data-theme, so this block is only a fallback for other themes. Another theme
    registers itself in $lib/site/themePreferences.ts and overrides the
    theme-scoped groups in the slot at the bottom of this file: surfaces,
    borders, text, the gold ramp, and the accent spectrum. The semantic aliases
@@ -105,8 +107,8 @@
    its use site, so overriding them here re-skins the whole site - the glows in
    effects.css and the gradients above included.
 
-   :root[data-theme="autumn"] is intentionally absent: it is the :root default,
-   so a visitor with no cookie still gets a complete palette.
+   :root[data-theme="autumn"] is intentionally absent: it is the bare :root
+   palette, which every other theme overrides from.
    ═══════════════════════════════════════════════════════════════════ */
 
 /* The original Sequoia look: a nocturnal forest lit by enchanted gold, with
