@@ -1,11 +1,9 @@
+import { redirect } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
-
-import { pageAreaAccess } from "$lib/server/manageCapabilities";
 
 export const prerender = false;
 
-export const load: PageServerLoad = async ({ fetch, parent }) => {
-  const { viewer } = await parent();
-  const access = await pageAreaAccess(fetch, viewer, "community");
-  return { access };
+/** Announcements are authored in the post console now, alongside news. */
+export const load: PageServerLoad = () => {
+  redirect(308, "/manage/community/posts?feed=announcements");
 };

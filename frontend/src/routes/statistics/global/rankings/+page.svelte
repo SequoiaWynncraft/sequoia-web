@@ -500,7 +500,7 @@
   }
 
   .season-select select:focus-visible {
-    outline: 2px solid rgba(245, 197, 66, 0.5);
+    outline: 2px solid color-mix(in srgb, var(--color-gold) 50%, transparent);
     outline-offset: 2px;
   }
 
@@ -556,7 +556,7 @@
     gap: 10px;
     padding: 12px 14px;
     border: 1px solid var(--color-border-subtle);
-    background: rgba(19, 22, 31, 0.6);
+    background: color-mix(in srgb, var(--color-deep) 60%, transparent);
     box-shadow: var(--bevel-slot);
   }
 
@@ -573,7 +573,7 @@
   }
 
   .trophy-first {
-    border-color: rgba(245, 197, 66, 0.35);
+    border-color: color-mix(in srgb, var(--color-gold) 35%, transparent);
   }
 
   .trophy-first .trophy-position {

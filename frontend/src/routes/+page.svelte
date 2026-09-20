@@ -1,11 +1,17 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { page } from "$app/state";
   import SectionHeading from "$lib/design-system/components/SectionHeading.svelte";
   import StatBlock from "$lib/design-system/components/StatBlock.svelte";
   import ServiceCard from "$lib/design-system/components/ServiceCard.svelte";
   import OfficerStrip from "$lib/design-system/components/OfficerStrip.svelte";
   import SequoianTree from "$lib/components/SequoianTree.svelte";
   import Icon from "$lib/components/Icon.svelte";
+  import EventSky from "$lib/events/components/EventSky.svelte";
+  import { formatWindow } from "$lib/events/format";
+  import { eventStatus } from "$lib/events/helpers";
+  import { formatPostDate } from "$lib/posts/format";
+  import { POST_FEEDS, postHref } from "$lib/posts/types";
   import { createSequoiaApiClient } from "$lib/api/client";
   import {
     branchLeadershipBadge,
@@ -14,11 +20,15 @@
   } from "$lib/api/guildOverview";
   import { NMSR_BASE_URL } from "$lib/config/public";
   import { homepageServices, homepageStatistics } from "$lib/site/nav";
+  import { themeById } from "$lib/site/themePreferences";
 
   const IMG = "/assets/images/";
   const SERVICES = homepageServices();
   const STATISTICS = homepageStatistics();
   let { data } = $props();
+  // The hero art belongs to the theme; the id comes from the root layout load,
+  // so it is already resolved on the first server render.
+  const theme = $derived(themeById(page.data.theme));
   let heroImage: HTMLImageElement;
   let statsSection: HTMLElement;
   let refreshedHomepageStats = $state<HomepageStats | null>(null);
@@ -104,6 +114,12 @@
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+
+    // Canvas cannot resolve var(), so the theme's gold is read off the root
+    // once and the per-dot fade rides globalAlpha instead of an rgba string.
+    const gold =
+      getComputedStyle(document.documentElement).getPropertyValue("--color-gold").trim() ||
+      "#e8a33d";
     let raf = 0, w = 0, h = 0;
     let visible = true;
     let pageVisible = !document.hidden;
@@ -134,14 +150,16 @@
       }
       ctx.clearRect(0, 0, w, h);
       ctx.shadowBlur = 6;
-      ctx.shadowColor = "rgba(245,197,66,0.6)";
+      ctx.shadowColor = gold;
+      ctx.fillStyle = gold;
       for (let i = 0; i < dots.length; i += 1) {
         const d = dots[i];
         d.y -= d.s; if (d.y < -0.02) d.y = 1.02;
         const a = 0.35 + 0.45 * Math.sin(t * 0.002 + d.p);
         ctx.beginPath(); ctx.arc(d.x * w, d.y * h, d.r, 0, tau);
-        ctx.fillStyle = `rgba(245,197,66,${a})`; ctx.fill();
+        ctx.globalAlpha = a; ctx.fill();
       }
+      ctx.globalAlpha = 1;
       raf = requestAnimationFrame(draw);
     };
 
@@ -272,16 +290,21 @@
     return date.toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
   }
 
-  // Exhibition
+  // Exhibition. The intrinsic size of each piece travels with it: the frames sit
+  // in a CSS multi-column flow, where a lazy image with no dimensions lays out at
+  // zero height, never intersects the viewport, and so never loads - a deadlock
+  // that leaves the whole section blank. Width and height give the placeholder a
+  // real box, which both breaks the deadlock and holds the column against reflow
+  // as each piece arrives.
   const ART = [
-    { src: "fruma_banner.avif", title: "Fruma", desc: "Stained-glass guardian" },
-    { src: "cozy_aspec.avif", title: "Cozy", desc: "A quiet evening in" },
-    { src: "spirits_propaganda_chibis.avif", title: "Spirits", desc: "Chibi propaganda" },
-    { src: "tcc_gloating_rights.avif", title: "Gloating Rights", desc: "Season victory" },
-    { src: "nolers2.avif", title: "Nolers", desc: "Community piece" },
-    { src: "nol_chibi_rush_all.avif", title: "Chibi Rush", desc: "The whole parade" },
-    { src: "anni_july_page.avif", title: "July Anniversary", desc: "Guild milestone" },
-    { src: "nolers3.avif", title: "Nolers III", desc: "Fan art" },
+    { src: "fruma_banner.avif", title: "Fruma", desc: "Stained-glass guardian", w: 1920, h: 1080 },
+    { src: "cozy_aspec.avif", title: "Cozy", desc: "A quiet evening in", w: 926, h: 1186 },
+    { src: "spirits_propaganda_chibis.avif", title: "Spirits", desc: "Chibi propaganda", w: 2400, h: 2000 },
+    { src: "tcc_gloating_rights.avif", title: "Gloating Rights", desc: "Season victory", w: 1450, h: 1398 },
+    { src: "nolers2.avif", title: "Nolers", desc: "Community piece", w: 812, h: 768 },
+    { src: "nol_chibi_rush_all.avif", title: "Chibi Rush", desc: "The whole parade", w: 6868, h: 712 },
+    { src: "anni_july_page.avif", title: "July Anniversary", desc: "Guild milestone", w: 2400, h: 2000 },
+    { src: "nolers3.avif", title: "Nolers III", desc: "Fan art", w: 868, h: 512 },
   ];
   let lightbox = $state<number | null>(null);
   let lightboxClose = $state<HTMLButtonElement | null>(null);
@@ -315,7 +338,7 @@
 <section class="seq-hero seq-home-page">
   <div class="seq-hero-bg-wrap">
     <img
-      src={IMG + "fruma_banner.avif"}
+      src={IMG + theme.heroImage}
       alt=""
       aria-hidden="true"
       decoding="async"
@@ -354,6 +377,102 @@
     <div class="divider-gold" style="margin-top:3rem"></div>
   </div>
 </section>
+
+<!-- Latest: running/next-day events and the newest fresh post, streamed after first paint; absent when empty. -->
+{#await data.latest then { events, posts }}
+  {#if events.length > 0 || posts.length > 0}
+    <section class="seq-latest" aria-label="Latest news, announcements and events">
+      <SectionHeading kicker="From the guild" style="margin-bottom:2.5rem">Latest</SectionHeading>
+      <div class="seq-latest-grid">
+        {#each events as event (event.slug)}
+          <a class="seq-latest-card focus-ring" href={`/events/${event.slug}`}>
+            <EventSky theme={event.theme}>
+              <div class="seq-latest-inner">
+                <span class="seq-latest-meta">
+                  {eventStatus(event, new Date()) === "live" ? "Live now" : "Starting soon"} · {formatWindow(event)}
+                </span>
+                <span class="seq-latest-title">{event.name}</span>
+                <span class="seq-latest-summary">{event.tagline}</span>
+              </div>
+            </EventSky>
+          </a>
+        {/each}
+        {#each posts as post (post.slug)}
+          <a class="seq-latest-card focus-ring" href={postHref(post)}>
+            <EventSky theme={post.theme}>
+              <div class="seq-latest-inner">
+                <span class="seq-latest-meta">
+                  {POST_FEEDS[post.feed].label} · <time datetime={post.date}>{formatPostDate(post.date)}</time>
+                </span>
+                <span class="seq-latest-title">{post.title}</span>
+                <span class="seq-latest-summary">{post.summary}</span>
+              </div>
+            </EventSky>
+          </a>
+        {/each}
+      </div>
+    </section>
+  {/if}
+{/await}
+
+<style>
+  .seq-latest {
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: 5rem 1.5rem 0;
+  }
+
+  .seq-latest-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .seq-latest-card {
+    display: block;
+    text-decoration: none;
+  }
+
+  .seq-latest-card :global(.ev-sky) {
+    height: 100%;
+  }
+
+  .seq-latest-card:hover :global(.ev-sky) {
+    border-color: color-mix(in srgb, var(--ev-accent) 45%, var(--color-border-subtle));
+  }
+
+  .seq-latest-inner {
+    display: grid;
+    align-content: start;
+    gap: 8px;
+    padding: 22px 22px 24px;
+  }
+
+  .seq-latest-meta {
+    color: var(--text-muted);
+    font-family: var(--font-data);
+    font-size: var(--text-xs);
+  }
+
+  .seq-latest-title {
+    background: linear-gradient(90deg, var(--ev-accent), var(--ev-accent-2));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-family: var(--font-display);
+    font-size: var(--text-lg);
+    letter-spacing: var(--tracking-wide);
+    line-height: var(--leading-tight);
+    overflow-wrap: anywhere;
+    text-transform: uppercase;
+  }
+
+  .seq-latest-summary {
+    color: var(--text-body);
+    font-size: var(--text-sm);
+    line-height: var(--leading-normal);
+  }
+</style>
 
 <!-- Services -->
 <section id="services" style="padding:5rem 1.5rem;max-width:72rem;margin:0 auto">
@@ -413,11 +532,11 @@
     <SectionHeading kicker="Community" gradient="enchant" style="margin-bottom:2.5rem">Exhibition</SectionHeading>
     <div style="columns:auto 260px;column-gap:1rem">
       {#each ART as a, i}
-        <button type="button" onclick={(event) => openLightbox(i, event.currentTarget)} class="seq-art-frame" aria-label={`View ${a.title} full size`} style="break-inside:avoid;margin-bottom:1rem;padding:0;width:100%;text-align:left;border-radius:0.75rem;overflow:hidden;border:1px solid rgba(40,44,62,0.6);background:none;cursor:zoom-in;position:relative">
-          <img src={IMG + a.src} alt={a.title} loading="lazy" decoding="async" style="width:100%;display:block;filter:brightness(0.92) saturate(0.95)" />
-          <div class="seq-art-cap" style="position:absolute;bottom:0;left:0;right:0;padding:0.7rem 0.85rem;background:linear-gradient(to top,rgba(12,14,23,0.9),transparent)">
-            <div style="font-family:var(--font-display);font-size:0.8rem;letter-spacing:0.08em;text-transform:uppercase;color:rgba(245,197,66,0.9)">{a.title}</div>
-            <div style="font-size:0.72rem;color:rgba(154,149,144,0.8)">{a.desc}</div>
+        <button type="button" onclick={(event) => openLightbox(i, event.currentTarget)} class="seq-art-frame" aria-label={`View ${a.title} full size`} style="break-inside:avoid;margin-bottom:1rem;padding:0;width:100%;text-align:left;border-radius:0.75rem;overflow:hidden;border:1px solid color-mix(in srgb, var(--color-border-subtle) 60%, transparent);background:none;cursor:zoom-in;position:relative">
+          <img src={IMG + a.src} alt={a.title} width={a.w} height={a.h} loading="lazy" decoding="async" style="width:100%;height:auto;aspect-ratio:{a.w} / {a.h};display:block;filter:brightness(0.92) saturate(0.95)" />
+          <div class="seq-art-cap" style="position:absolute;bottom:0;left:0;right:0;padding:0.7rem 0.85rem;background:linear-gradient(to top,color-mix(in srgb, var(--color-abyss) 90%, transparent),transparent)">
+            <div style="font-family:var(--font-display);font-size:0.8rem;letter-spacing:0.08em;text-transform:uppercase;color:color-mix(in srgb, var(--color-gold) 90%, transparent)">{a.title}</div>
+            <div style="font-size:0.72rem;color:color-mix(in srgb, var(--color-text-secondary) 80%, transparent)">{a.desc}</div>
           </div>
         </button>
       {/each}
@@ -436,7 +555,7 @@
         type="button"
         onclick={closeLightbox}
         aria-label="Close image"
-        style="position:absolute;inset:0;border:0;background:rgba(12,14,23,0.92);backdrop-filter:blur(8px);cursor:zoom-out"
+        style="position:absolute;inset:0;border:0;background:color-mix(in srgb, var(--color-abyss) 92%, transparent);backdrop-filter:blur(8px);cursor:zoom-out"
       ></button>
       <img src={IMG + ART[lightbox].src} alt={ART[lightbox].title} style="position:relative;max-width:90vw;max-height:85vh;object-fit:contain;border-radius:4px;box-shadow:var(--shadow-lg)" />
       <button
@@ -455,13 +574,13 @@
 <!-- Recruitment -->
 <section id="join" style="background:var(--color-deep);padding:1rem 0 3rem">
   <div style="max-width:36rem;margin:0 auto;padding:3rem 2rem;text-align:center">
-    <div style="width:3rem;height:1px;margin:0 auto 1.75rem;background:linear-gradient(90deg,transparent,rgba(245,197,66,0.3),transparent)"></div>
+    <div style="width:3rem;height:1px;margin:0 auto 1.75rem;background:linear-gradient(90deg,transparent,color-mix(in srgb, var(--color-gold) 30%, transparent),transparent)"></div>
     <a
       href="https://discord.gg/seq" target="_blank" rel="noreferrer"
       class="seq-apply-link"
     >
       Apply Now
     </a>
-    <p style="margin-top:1rem;font-size:0.8rem;letter-spacing:0.04em;color:rgba(154,149,144,0.5)">Join us on Discord</p>
+    <p style="margin-top:1rem;font-size:0.8rem;letter-spacing:0.04em;color:color-mix(in srgb, var(--color-text-secondary) 50%, transparent)">Join us on Discord</p>
   </div>
 </section>

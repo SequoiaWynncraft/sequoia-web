@@ -628,7 +628,7 @@
   .bag-mode-active {
     background: var(--color-surface);
     color: var(--color-gold);
-    box-shadow: var(--bevel-slot, inset 0 0 0 1px rgba(245, 197, 66, 0.35));
+    box-shadow: var(--bevel-slot, inset 0 0 0 1px color-mix(in srgb, var(--color-gold) 35%, transparent));
   }
 
   .bag-input-wrap {

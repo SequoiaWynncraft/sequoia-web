@@ -26,6 +26,13 @@ export const SEQUOIA_MOD_VERSION = envValue("PUBLIC_SEQUOIA_MOD_VERSION").trim()
 export const SEQUOIA_GUILD_UUID =
   envValue("PUBLIC_SEQUOIA_GUILD_UUID").trim() || "ee860b7c-9a1d-49cf-9f19-ab673ba0f23b";
 
+/**
+ * Theme id every visitor gets until they pick one. Raw and unvalidated here -
+ * `$lib/site/themePreferences` checks it against the registered themes and
+ * falls back to its own default when it names none of them.
+ */
+export const CONFIGURED_DEFAULT_THEME = envValue("PUBLIC_DEFAULT_THEME").trim();
+
 export const NMSR_BASE_URL =
   configuredNmsrBaseUrl === "same-origin"
     ? "/nmsr"

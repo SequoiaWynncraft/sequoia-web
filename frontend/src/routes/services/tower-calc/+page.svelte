@@ -305,7 +305,7 @@
 
   .tc-toggle-on {
     border-color: var(--color-gold);
-    background: rgb(245 197 66 / 0.08);
+    background: color-mix(in srgb, var(--color-gold) 8%, transparent);
     color: var(--color-gold);
   }
 

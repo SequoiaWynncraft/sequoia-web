@@ -89,7 +89,7 @@
   }
 
   .stats-side-brand:focus-visible {
-    outline: 2px solid rgba(245, 197, 66, 0.5);
+    outline: 2px solid color-mix(in srgb, var(--color-gold) 50%, transparent);
     outline-offset: 2px;
   }
 
@@ -128,18 +128,18 @@
 
   .stats-side-link:hover {
     color: var(--text-heading);
-    background: rgba(245, 197, 66, 0.04);
+    background: color-mix(in srgb, var(--color-gold) 4%, transparent);
   }
 
   .stats-side-link:focus-visible {
-    outline: 2px solid rgba(245, 197, 66, 0.5);
+    outline: 2px solid color-mix(in srgb, var(--color-gold) 50%, transparent);
     outline-offset: -2px;
   }
 
   .stats-side-link-active {
     border-left-color: var(--color-gold);
     color: var(--color-gold);
-    background: rgba(245, 197, 66, 0.06);
+    background: color-mix(in srgb, var(--color-gold) 6%, transparent);
   }
 
   .stats-side-foot {

@@ -206,7 +206,7 @@
     gap: 8px;
     padding: 6px 11px;
     border: 1px solid var(--color-border-subtle);
-    background: rgba(19, 22, 31, 0.6);
+    background: color-mix(in srgb, var(--color-deep) 60%, transparent);
   }
 
   .territory-name {

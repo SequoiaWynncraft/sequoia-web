@@ -6,7 +6,7 @@
 
 <div style="text-align:center">
   {#if icon}
-    <div style="width:2.5rem;height:2.5rem;margin:0 auto 0.75rem;border-radius:var(--radius-md);background:var(--color-surface);display:flex;align-items:center;justify-content:center;color:rgba(245,197,66,0.7)">
+    <div style="width:2.5rem;height:2.5rem;margin:0 auto 0.75rem;border-radius:var(--radius-md);background:var(--color-surface);display:flex;align-items:center;justify-content:center;color:color-mix(in srgb, var(--color-gold) 70%, transparent)">
       {@render icon()}
     </div>
   {/if}

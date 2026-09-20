@@ -421,14 +421,14 @@
   }
 
   .search-input:focus-visible {
-    outline: 2px solid rgba(245, 197, 66, 0.5);
+    outline: 2px solid color-mix(in srgb, var(--color-gold) 50%, transparent);
     outline-offset: 2px;
   }
 
   .search-button {
     padding: 10px 18px;
-    border: 1px solid rgba(245, 197, 66, 0.4);
-    background: rgba(245, 197, 66, 0.08);
+    border: 1px solid color-mix(in srgb, var(--color-gold) 40%, transparent);
+    background: color-mix(in srgb, var(--color-gold) 8%, transparent);
     color: var(--color-gold);
     font-family: var(--font-display);
     font-size: var(--text-xs);
@@ -439,11 +439,11 @@
   }
 
   .search-button:hover {
-    background: rgba(245, 197, 66, 0.16);
+    background: color-mix(in srgb, var(--color-gold) 16%, transparent);
   }
 
   .search-button:focus-visible {
-    outline: 2px solid rgba(245, 197, 66, 0.5);
+    outline: 2px solid color-mix(in srgb, var(--color-gold) 50%, transparent);
     outline-offset: 2px;
   }
 
@@ -458,7 +458,7 @@
     gap: 32px;
     padding: 28px;
     border: 1px solid var(--color-border-subtle);
-    background: rgba(26, 29, 42, 0.6);
+    background: color-mix(in srgb, var(--color-surface) 60%, transparent);
   }
 
   .card-loading {
@@ -527,7 +527,7 @@
   }
 
   .tag-gold {
-    border-color: rgba(245, 197, 66, 0.4);
+    border-color: color-mix(in srgb, var(--color-gold) 40%, transparent);
     color: var(--color-gold);
   }
 
@@ -603,12 +603,12 @@
   }
 
   .copy-button:hover {
-    border-color: rgba(245, 197, 66, 0.4);
+    border-color: color-mix(in srgb, var(--color-gold) 40%, transparent);
     color: var(--color-gold);
   }
 
   .copy-button:focus-visible {
-    outline: 2px solid rgba(245, 197, 66, 0.5);
+    outline: 2px solid color-mix(in srgb, var(--color-gold) 50%, transparent);
     outline-offset: 2px;
   }
 
@@ -648,7 +648,7 @@
     display: grid;
     gap: 2px;
     padding: 10px;
-    background: rgba(19, 22, 31, 0.6);
+    background: color-mix(in srgb, var(--color-deep) 60%, transparent);
     box-shadow: var(--bevel-slot);
   }
 
@@ -690,7 +690,7 @@
     gap: 8px;
     padding: 6px 11px;
     border: 1px solid var(--color-border-subtle);
-    background: rgba(19, 22, 31, 0.6);
+    background: color-mix(in srgb, var(--color-deep) 60%, transparent);
   }
 
   .character-class {
@@ -727,7 +727,7 @@
     gap: 8px;
     padding: 6px 11px;
     border: 1px solid var(--color-border-subtle);
-    background: rgba(19, 22, 31, 0.6);
+    background: color-mix(in srgb, var(--color-deep) 60%, transparent);
     color: var(--text-body);
     font-size: var(--text-xs);
   }
@@ -739,7 +739,7 @@
   }
 
   .ranking-first {
-    border-color: rgba(245, 197, 66, 0.35);
+    border-color: color-mix(in srgb, var(--color-gold) 35%, transparent);
   }
 
   .ranking-first .ranking-position {

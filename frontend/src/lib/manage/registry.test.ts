@@ -61,7 +61,8 @@ describe("registry", () => {
     const community = MANAGE_AREAS.find((area) => area.id === "community");
     expect(community?.links.map((link) => link.label)).toEqual([
       "Stats exports",
-      "Announcements",
+      "Posts",
+      "New post",
       "Blog",
     ]);
     const development = MANAGE_AREAS.find((area) => area.id === "development");

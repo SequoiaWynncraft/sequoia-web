@@ -1,39 +1,58 @@
 /* ═══════════════════════════════════════════════════════════════════
    SEQUOIA — COLOR TOKENS
-   A deep, nocturnal forest palette: near-black "abyss" surfaces lit by
-   warm enchanted gold, with Minecraft-derived accents (enchant purple,
-   diamond cyan, emerald, lapis). Lifted 1:1 from sequoia-web input.css.
+   An autumn forest palette: warm umber "abyss" surfaces under a red maple
+   canopy, lit by sunlight amber, with maple terracotta, moss, and the pale
+   misty blue of the horizon. Sampled from the season's hero art.
+
+   This :root block IS the "Autumn" theme, so it needs no [data-theme] block
+   of its own. Which theme a visitor gets before choosing one is set by
+   PUBLIC_DEFAULT_THEME (see $lib/site/themePreferences.ts); <html> always
+   carries a data-theme, so this block is only a fallback for other themes. Another theme
+   registers itself in $lib/site/themePreferences.ts and overrides the
+   theme-scoped groups in the slot at the bottom of this file: surfaces,
+   borders, text, the gold ramp, and the accent spectrum. The semantic aliases
+   and gradients are derived from those, so they follow on their own.
+
+   The rarity ramp and the chart series are deliberately NOT theme-scoped:
+   rarity colours are Minecraft's and carry meaning, and the chart series are
+   colour-vision-deficiency checked as a set against --color-surface.
    ═══════════════════════════════════════════════════════════════════ */
 
 :root {
-  /* ── Base surfaces (darkest → lightest) ── */
-  --color-abyss: #0c0e17;          /* page background, deepest */
-  --color-deep: #13161f;           /* alternating section bg */
-  --color-surface: #1a1d2a;        /* cards, panels */
-  --color-surface-hover: #232738;  /* hovered card / raised state */
+  /* ── Base surfaces (darkest → lightest) — shadowed bark and leaf litter ── */
+  --color-abyss: #150f0d;          /* page background, deepest */
+  --color-deep: #1e1613;           /* alternating section bg */
+  --color-surface: #281e1a;        /* cards, panels */
+  --color-surface-hover: #332723;  /* hovered card / raised state */
 
   /* ── Borders ── */
-  --color-border-subtle: #282c3e;  /* default hairline border */
-  --color-border-accent: #3a3f5c;  /* emphasized border */
+  --color-border-subtle: #3a2c25;  /* default hairline border */
+  --color-border-accent: #523d31;  /* emphasized border */
 
   /* ── Text ── */
-  --color-text-primary: #e2e0d8;   /* headings, body emphasis (warm bone) */
-  --color-text-secondary: #9a9590; /* body copy, descriptions */
-  --color-text-dim: #5a5860;       /* labels, captions, metadata */
+  --color-text-primary: #f2e6d4;   /* headings, body emphasis (pale bone) */
+  --color-text-secondary: #bcaa95; /* body copy, descriptions (dry grass) */
+  --color-text-dim: #7d6a58;       /* labels, captions, metadata (bark) */
 
-  /* ── Gold — the signature accent ── */
-  --color-gold-light: #ffd966;
-  --color-gold: #f5c542;
-  --color-gold-dark: #c49a2a;
+  /* ── Gold — the signature accent, here sunlight through the canopy ── */
+  --color-gold-light: #ffc46b;
+  --color-gold: #e8a33d;
+  --color-gold-dark: #bd7b26;
 
-  /* ── Accent spectrum (Minecraft-flavoured) ── */
-  --color-emerald: #50c878;
-  --color-crimson: #8c3d3d;
-  --color-enchant: #a855f7;        /* enchantment purple — secondary accent */
-  --color-diamond: #5ce8e4;
-  --color-lapis: #4a6ce6;
-  --color-nether: #e05252;         /* errors / destructive */
-  --color-xp: #7dde6f;             /* positive / gains */
+  /* ── Accent spectrum (autumn-flavoured) ── */
+  --color-emerald: #86a85a;        /* moss, distant foliage */
+  --color-crimson: #8c3b2f;
+  --color-enchant-light: #ea8c6d;
+  --color-enchant: #dd7350;        /* maple terracotta — secondary accent */
+  --color-enchant-dark: #a8452a;
+  --color-diamond-light: #bcdae6;
+  --color-diamond: #9cc6d8;        /* the misty horizon, the one cool note */
+  --color-diamond-dark: #6fa3ba;
+  --color-lapis: #5f83a8;
+  --color-nether: #e2564b;         /* errors / destructive — kept brighter and
+                                      pinker than --color-enchant so the two
+                                      reds stay apart in hue and lightness */
+  --color-xp: #a3bc4e;             /* positive / gains (olive-lime undergrowth) */
 
   /* ── Minecraft item rarity ramp ── */
   --rarity-common:    #e2e8f0;
@@ -76,7 +95,55 @@
   --status-positive: var(--color-xp);
 
   /* ── Brand gradients ── */
-  --gradient-gold: linear-gradient(135deg, #f5c542, #ffd966, #c49a2a);   /* @kind color */
-  --gradient-enchant: linear-gradient(135deg, #a855f7, #c084fc, #7c3aed); /* @kind color */
-  --gradient-diamond: linear-gradient(135deg, #5ce8e4, #67e8f9, #22d3ee); /* @kind color */
+  --gradient-gold: linear-gradient(135deg, var(--color-gold), var(--color-gold-light), var(--color-gold-dark));         /* @kind color */
+  --gradient-enchant: linear-gradient(135deg, var(--color-enchant), var(--color-enchant-light), var(--color-enchant-dark)); /* @kind color */
+  --gradient-diamond: linear-gradient(135deg, var(--color-diamond), var(--color-diamond-light), var(--color-diamond-dark)); /* @kind color */
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   THEME OVERRIDES
+   One block per additional theme, restating only the theme-scoped groups.
+   Every palette colour in the app resolves through these custom properties at
+   its use site, so overriding them here re-skins the whole site - the glows in
+   effects.css and the gradients above included.
+
+   :root[data-theme="autumn"] is intentionally absent: it is the bare :root
+   palette, which every other theme overrides from.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* The original Sequoia look: a nocturnal forest lit by enchanted gold, with
+   Minecraft-derived accents (enchant purple, diamond cyan, emerald, lapis). */
+:root[data-theme="gaz-purple"] {
+  /* ── Base surfaces (darkest → lightest) ── */
+  --color-abyss: #0c0e17;
+  --color-deep: #13161f;
+  --color-surface: #1a1d2a;
+  --color-surface-hover: #232738;
+
+  /* ── Borders ── */
+  --color-border-subtle: #282c3e;
+  --color-border-accent: #3a3f5c;
+
+  /* ── Text ── */
+  --color-text-primary: #e2e0d8;   /* warm bone */
+  --color-text-secondary: #9a9590;
+  --color-text-dim: #5a5860;
+
+  /* ── Gold — the signature accent ── */
+  --color-gold-light: #ffd966;
+  --color-gold: #f5c542;
+  --color-gold-dark: #c49a2a;
+
+  /* ── Accent spectrum (Minecraft-flavoured) ── */
+  --color-emerald: #50c878;
+  --color-crimson: #8c3d3d;
+  --color-enchant-light: #c084fc;
+  --color-enchant: #a855f7;        /* enchantment purple — secondary accent */
+  --color-enchant-dark: #7c3aed;
+  --color-diamond-light: #67e8f9;
+  --color-diamond: #5ce8e4;
+  --color-diamond-dark: #22d3ee;
+  --color-lapis: #4a6ce6;
+  --color-nether: #e05252;         /* errors / destructive */
+  --color-xp: #7dde6f;             /* positive / gains */
 }

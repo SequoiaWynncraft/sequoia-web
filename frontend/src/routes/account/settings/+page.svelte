@@ -4,6 +4,7 @@
   import Button from "$lib/design-system/components/Button.svelte";
   import { webAuthStartUrl } from "$lib/site/webAuth";
   import { FLAT_MENU_MAX_ITEMS, navToggles } from "$lib/site/navPreferences";
+  import { SELECTABLE_THEMES } from "$lib/site/themePreferences";
 
   let { data, form } = $props();
 
@@ -14,6 +15,11 @@
   // came back from its own action.
   const notifications = $derived(form?.section === "notifications" ? form : null);
   const navigation = $derived(form?.section === "navigation" ? form : null);
+  const themePanel = $derived(form?.section === "theme" ? form : null);
+
+  // The saved theme lives in root layout data, so it survives this page's own
+  // access gate and is right on the first render.
+  const activeTheme = $derived(themePanel?.theme ?? page.data.theme);
 
   const options = [
     {
@@ -49,7 +55,7 @@
   <PageHeader
     kicker="Account / Preferences"
     title="Signal, not noise"
-    lead="Choose which Party Finder moments deserve a Discord interruption, and which pages your nav bar carries. Your in-game alerts continue independently."
+    lead="Choose which Party Finder moments deserve a Discord interruption, how the site looks, and which pages your nav bar carries. Your in-game alerts continue independently."
   />
 
   {#if data.access === "signin"}
@@ -116,6 +122,45 @@
       </footer>
     </form>
   {/if}
+
+  <form method="POST" action="?/theme" class="signal-panel nav-panel">
+    <fieldset>
+      <legend>Theme</legend>
+      <p class="field-note">
+        The palette the whole site is drawn in, and the art behind the homepage.
+        Saved to this browser.
+      </p>
+
+      <div class="signal-options">
+        {#each SELECTABLE_THEMES as themeOption, index (themeOption.id)}
+          <label class="signal-option">
+            <input
+              type="radio"
+              name="theme"
+              value={themeOption.id}
+              checked={activeTheme === themeOption.id}
+            />
+            <span class="signal-index">0{index + 1}</span>
+            <span class="signal-copy">
+              <strong>{themeOption.label}</strong>
+              <span>{themeOption.description}</span>
+            </span>
+          </label>
+        {/each}
+      </div>
+    </fieldset>
+
+    <footer class="signal-footer">
+      <div aria-live="polite" class="save-status">
+        {#if themePanel?.saved}
+          <span class="save-success">Theme updated.</span>
+        {:else}
+          <span>Stored in this browser, not on your account.</span>
+        {/if}
+      </div>
+      <Button type="submit" class="signal-save">Save theme</Button>
+    </footer>
+  </form>
 
   <form method="POST" action="?/navigation" class="signal-panel nav-panel">
     <fieldset>
@@ -194,7 +239,7 @@
     overflow: hidden;
     border: 1px solid var(--color-border-subtle);
     background:
-      linear-gradient(135deg, rgba(245, 197, 66, 0.045), transparent 36%),
+      linear-gradient(135deg, color-mix(in srgb, var(--color-gold) 4.5%, transparent), transparent 36%),
       color-mix(in srgb, var(--color-abyss) 78%, transparent);
     box-shadow: 0 24px 80px rgba(0, 0, 0, 0.25);
   }
@@ -271,8 +316,8 @@
   }
 
   .signal-option:has(input:checked) {
-    border-color: rgba(245, 197, 66, 0.7);
-    background: linear-gradient(90deg, rgba(245, 197, 66, 0.1), rgba(245, 197, 66, 0.015));
+    border-color: color-mix(in srgb, var(--color-gold) 70%, transparent);
+    background: linear-gradient(90deg, color-mix(in srgb, var(--color-gold) 10%, transparent), color-mix(in srgb, var(--color-gold) 1.5%, transparent));
   }
 
   .signal-option input {
@@ -340,7 +385,7 @@
   }
 
   .save-success { color: var(--color-gold); }
-  .save-error { color: #f2a7a7; }
+  .save-error { color: color-mix(in srgb, var(--color-nether) 55%, var(--color-text-primary)); }
 
   .nav-panel {
     margin-top: 18px;
@@ -399,8 +444,8 @@
   }
 
   .nav-option:has(input:checked) .nav-box {
-    border-color: rgba(245, 197, 66, 0.7);
-    background: rgba(245, 197, 66, 0.12);
+    border-color: color-mix(in srgb, var(--color-gold) 70%, transparent);
+    background: color-mix(in srgb, var(--color-gold) 12%, transparent);
   }
 
   .nav-option:has(input:checked) .nav-box::after {
@@ -500,7 +545,7 @@
     line-height: 1.6;
   }
 
-  .settings-gate-error .settings-gate-mark { color: #f2a7a7; }
+  .settings-gate-error .settings-gate-mark { color: color-mix(in srgb, var(--color-nether) 55%, var(--color-text-primary)); }
 
   @media (max-width: 680px) {
     .settings-page { width: min(100% - 2rem, 920px); }

@@ -219,7 +219,7 @@
   }
 
   .ledger-col:focus-visible .ledger-hit {
-    stroke: rgba(245, 197, 66, 0.5);
+    stroke: color-mix(in srgb, var(--color-gold) 50%, transparent);
     stroke-width: 2;
   }
 
@@ -261,7 +261,7 @@
   }
 
   .ledger-table summary:focus-visible {
-    outline: 2px solid rgba(245, 197, 66, 0.5);
+    outline: 2px solid color-mix(in srgb, var(--color-gold) 50%, transparent);
     outline-offset: 2px;
   }
 
