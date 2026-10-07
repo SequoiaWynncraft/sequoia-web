@@ -4,6 +4,19 @@ export type EventAccess = "public" | "members";
 
 export type EventStatus = "tba" | "upcoming" | "live" | "ended";
 
+/**
+ * How a standings tracker counts: Wynncraft API raid-counter diffs ("api"),
+ * mod-scraped raid completions ("mod"), or mod-fed war points ("wars").
+ */
+export type TrackerKind = "api" | "mod" | "wars";
+
+/** What one unit on a tracker's board is, for labels. */
+export type StandingsUnit = "raids" | "war points";
+
+export function standingsUnit(tracking: TrackerKind | undefined): StandingsUnit {
+  return tracking === "wars" ? "war points" : "raids";
+}
+
 /** Per-event visual identity, applied as CSS custom properties on the event's sky. */
 export interface EventTheme {
   /** Backdrop gradient, top to bottom. */
@@ -241,8 +254,8 @@ export interface GuildEvent {
   prizesNote?: string;
   comp?: { roles: CompRole[]; note?: string };
   rules?: string[];
-  /** Raid-tracker window powering the member standings board. */
-  tracker?: { eventId: string; tracking: "api" | "mod" };
+  /** Tracker window (raids or war points) powering the member standings board. */
+  tracker?: { eventId: string; tracking: TrackerKind };
   /** Prize draws earning tickets from the tracker's raid board. */
   raffles?: EventRaffle[];
   /** When set, a winner of any raffle is excluded from the rest of this event. */

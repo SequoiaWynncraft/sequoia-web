@@ -1,5 +1,5 @@
 import type { GuildMemberStats } from "$lib/api/guildStats";
-import type { GuildEvent } from "$lib/events/types";
+import type { GuildEvent, TrackerKind } from "$lib/events/types";
 import type { RaffleEntrant } from "$lib/events/raffle";
 import type { BadgeTier } from "$lib/site/honours";
 import { sequoiaBackendInternalHeaders, sequoiaBackendOrigin } from "$lib/server/sequoiaBackend";
@@ -15,7 +15,7 @@ export interface RaidEvent {
   starts_at: string;
   ends_at: string;
   /** Contribution source: API counter diffs, or in-game mod scraping. */
-  tracking?: "api" | "mod";
+  tracking?: TrackerKind;
   /** Mod-tracked events may count a single raid; null counts all of them. */
   raid?: string | null;
 }
@@ -23,7 +23,10 @@ export interface RaidEvent {
 export interface RaidLeaderboardEntry {
   player_uuid: string;
   username: string;
+  /** Board units: raids, or war points on a war tracker. */
   raids: number;
+  /** War trackers only: wars whose points are not calculated yet - `raids` is partial. */
+  pendingWars?: number;
   rank: string;
   /** Honour insignia artwork URL, when the member holds a graded insignia. */
   insigniaUrl?: string | null;
@@ -82,6 +85,7 @@ export interface ModLeaderboardEntry {
   player_uuid: string | null;
   username: string;
   raids: number;
+  pendingWars?: number;
 }
 
 interface ModLeaderboardResponse {
@@ -118,6 +122,61 @@ export async function loadModLeaderboardEntries(
   } catch {
     return { entries: [], error: LEADERBOARD_UNAVAILABLE };
   }
+}
+
+interface WarPointLeaderboardResponse {
+  entries: {
+    player_uuid: string | null;
+    username: string;
+    war_points: number;
+    war_count: number;
+    unavailable_war_count: number;
+  }[];
+}
+
+/**
+ * Reads the mod-fed war-point totals for a window, shaped like the raid read
+ * so the same roster judgement applies. Wars whose points are not calculated
+ * yet travel along as `pendingWars`: such a total is partial, not final.
+ */
+export async function loadWarPointEntries(
+  fetchImpl: typeof fetch,
+  window: { starts_at: string; ends_at: string },
+): Promise<ModLeaderboardResult> {
+  const headers = sequoiaBackendInternalHeaders();
+  const origin = sequoiaBackendOrigin();
+  if (!headers || !origin) return { entries: [], error: LEADERBOARD_UNAVAILABLE };
+  const query = new URLSearchParams({ from: window.starts_at, to: window.ends_at });
+  try {
+    const response = await fetchImpl(`${origin}/internal/war-points/leaderboard?${query}`, {
+      headers,
+      signal: AbortSignal.timeout(6000),
+    });
+    if (!response.ok) return { entries: [], error: await readError(response) };
+    const body = await readJson<WarPointLeaderboardResponse>(response, { entries: [] });
+    return {
+      entries: body.entries.map((entry) => ({
+        player_uuid: entry.player_uuid,
+        username: entry.username,
+        raids: entry.war_points,
+        pendingWars: entry.unavailable_war_count,
+      })),
+      error: null,
+    };
+  } catch {
+    return { entries: [], error: LEADERBOARD_UNAVAILABLE };
+  }
+}
+
+/** The mod-fed read a tracker kind uses: war points, or raid completions. */
+export function loadModFeedEntries(
+  fetchImpl: typeof fetch,
+  tracking: TrackerKind | undefined,
+  window: { starts_at: string; ends_at: string; raid?: string | null },
+): Promise<ModLeaderboardResult> {
+  return tracking === "wars"
+    ? loadWarPointEntries(fetchImpl, window)
+    : loadModLeaderboardEntries(fetchImpl, window);
 }
 
 /**
@@ -160,18 +219,24 @@ export function rosterLeaderboard(
         player_uuid: member.uuid ?? entry.player_uuid ?? entry.username.toLowerCase(),
         username: member.username,
         raids: entry.raids,
+        ...(entry.pendingWars ? { pendingWars: entry.pendingWars } : {}),
         rank: member.rank,
       },
     ];
   });
 }
 
+/**
+ * A mod-fed board (raid completions, or war points on a `wars` tracker)
+ * restricted to the roster.
+ */
 export async function loadModLeaderboard(
   fetchImpl: typeof fetch,
   window: { starts_at: string; ends_at: string; raid?: string | null },
   roster: GuildMemberStats[],
+  tracking: TrackerKind = "mod",
 ): Promise<LeaderboardResult> {
-  const { entries, error } = await loadModLeaderboardEntries(fetchImpl, window);
+  const { entries, error } = await loadModFeedEntries(fetchImpl, tracking, window);
   if (error) return { leaderboard: [], error };
   return { leaderboard: rosterLeaderboard(entries, roster), error: null };
 }
@@ -253,7 +318,7 @@ export async function loadTrackerBoard(
   tracked: RaidEvent | undefined,
 ): Promise<LeaderboardResult> {
   const tracking = tracked?.tracking ?? tracker.tracking;
-  if (tracking !== "mod") {
+  if (tracking === "api") {
     // API trackers only expose whole-window totals, so a raffle window would be
     // silently ignored - reject it rather than draw against the wrong counts.
     if (options.window) {
@@ -279,6 +344,7 @@ export async function loadTrackerBoard(
       raid: tracked.raid,
     },
     roster,
+    tracking,
   );
 }
 

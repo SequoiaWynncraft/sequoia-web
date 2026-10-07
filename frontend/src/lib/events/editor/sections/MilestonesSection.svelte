@@ -10,9 +10,9 @@
 
 <FormSection id="milestones" title="Personal milestones">
   <p class="seq-hint">
-    Per-member raid targets on the standings board - each member sees their own progress on
-    the event page, and a raffle below can require one to enter. Needs a tracker (set under
-    Standings) to count raids.
+    Per-member {draft.trackerUnit === "raids" ? "raid" : "war-point"} targets on the standings
+    board - each member sees their own progress on the event page, and a raffle below can require
+    one to enter. Needs a tracker (set under Standings) to count {draft.trackerUnit}.
   </p>
   {#each draft.personalMilestones as milestone (milestone.key)}
     <div class="seq-repeat-row seq-repeat-row-milestone">
@@ -20,7 +20,7 @@
         class="seq-input"
         type="number"
         min="1"
-        placeholder="Raids"
+        placeholder={draft.trackerUnit === "raids" ? "Raids" : "War points"}
         bind:value={milestone.at}
         aria-label="Personal milestone target"
       />

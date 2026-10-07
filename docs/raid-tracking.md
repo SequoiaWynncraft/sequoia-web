@@ -71,6 +71,11 @@ contribution source shown on the website:
 - `mod`: in-game completions scraped by the Sequoia mod and persisted by
   sequoia-backend (`/internal/mod-raids/leaderboard`). Use for events where
   accuracy is critical; only parties with at least one mod user are counted.
+- `wars`: war points from mod-reported wars, read from sequoia-backend's
+  `/internal/war-points/leaderboard` over the tracker window (`[from, to)`).
+  Standings, personal milestones, raffle tickets and the CSV export count war
+  points instead of raids. No raid scope. Members with wars still awaiting
+  point values are marked as partial on the event page.
 
 ```bash
 curl -X POST https://web-api.dev.seqwawa.com/internal/raid-events \

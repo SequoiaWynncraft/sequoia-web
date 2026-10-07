@@ -117,7 +117,7 @@ export async function resolveEligibility(
         // fetch the board once.
         const gains =
           rule.source === "tracker"
-            ? await boards.raidGains(rule.window)
+            ? await boards.trackedRaidGains(rule.window)
             : await statGains(fetchImpl, rule.stat, rule.window, strict);
         if ("error" in gains) return failed(gains.error);
         pool = pool.filter(
@@ -264,11 +264,31 @@ class TrackerBoards {
     return this.board(undefined);
   }
 
+  /** Board units per member: raids, or war points on a war tracker. */
   async raidGains(
     window: { from: string; to: string } | undefined,
   ): Promise<{ counts: Map<string, number> } | { error: string }> {
     const board = await this.board(window);
     return board.error === null ? { counts: board.raids } : { error: board.error };
+  }
+
+  /**
+   * Raid completions specifically, for a stat rule counting raids from the
+   * tracker. A war tracker's board holds war points, so it fails closed
+   * rather than reading points as raids.
+   */
+  async trackedRaidGains(
+    window: { from: string; to: string },
+  ): Promise<{ counts: Map<string, number> } | { error: string }> {
+    const tracker = this.event.tracker;
+    if (tracker) {
+      this.tracked ??= resolveTrackedEvent(this.fetchImpl, tracker.eventId);
+      const tracking = (await this.tracked)?.tracking ?? tracker.tracking;
+      if (tracking === "wars") {
+        return { error: "This rule counts raids, but the event's tracker counts war points." };
+      }
+    }
+    return this.raidGains(window);
   }
 
   private board(window: { from: string; to: string } | undefined) {
@@ -286,7 +306,7 @@ class TrackerBoards {
     if (!tracker) {
       return {
         raids: new Map<string, number>(),
-        error: "This raffle counts raids, so the event needs a tracker.",
+        error: "This raffle counts the standings board, so the event needs a tracker.",
       };
     }
     this.tracked ??= resolveTrackedEvent(this.fetchImpl, tracker.eventId);

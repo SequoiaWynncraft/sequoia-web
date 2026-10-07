@@ -93,9 +93,25 @@
   const tiersReached = (raids: number) =>
     personalMilestones.filter((milestone) => raids >= milestone.at).length;
 
+  /** What the board counts: raids, or war points on a war tracker. */
+  const unit = $derived(data.standings?.state === "board" ? data.standings.unit : "raids");
+
+  // War points can be fractional; raid counts format the same as before.
+  const formatUnits = (value: number) => value.toLocaleString(undefined, { maximumFractionDigits: 1 });
+
+  // A war-point total with wars still awaiting their points is partial: mark
+  // it, and never show a member whose only wars are pending as a confirmed 0.
+  const formatStanding = (entry: RaidLeaderboardEntry) => {
+    if (!entry.pendingWars) return formatUnits(entry.raids);
+    return entry.raids === 0 ? "pending" : `${formatUnits(entry.raids)}*`;
+  };
+  const hasPending = $derived(
+    data.standings?.state === "board" && data.standings.leaderboard.some((entry) => entry.pendingWars),
+  );
+
   // A GoalMeter renders any {metricLabel, milestones} shape - reuse it for the
-  // signed-in member's own progress by feeding their raid total as the current.
-  const viewerGoal = $derived({ metricLabel: "raids", milestones: personalMilestones });
+  // signed-in member's own progress by feeding their total as the current.
+  const viewerGoal = $derived({ metricLabel: unit, milestones: personalMilestones });
 
   const standingsColumns = $derived<LedgerColumn<RaidLeaderboardEntry>[]>([
     {
@@ -118,9 +134,9 @@
     },
     {
       key: "raids",
-      label: "Raids",
+      label: unit === "raids" ? "Raids" : "War points",
       numeric: true,
-      value: (entry) => entry.raids.toLocaleString(),
+      value: formatStanding,
       sortValue: (entry) => entry.raids,
     },
     // The milestone column only appears when the event defines personal milestones.
@@ -246,7 +262,7 @@
       <section class="ev-section" aria-label="Your milestones">
         <h2 class="ev-label">
           <span class="ev-spark" aria-hidden="true">✦</span>Your progress
-          <span class="ev-label-meta">{data.viewerRaids.toLocaleString()} raids</span>
+          <span class="ev-label-meta">{formatUnits(data.viewerRaids)} {unit}</span>
         </h2>
         <div class="ev-personal">
           <GoalMeter goal={viewerGoal} current={data.viewerRaids} />
@@ -277,6 +293,9 @@
             defaultSort="raids"
             maxHeight="480px"
           />
+          {#if hasPending}
+            <p class="ev-muted">* Some wars are still awaiting their point values, so these totals may change.</p>
+          {/if}
         {/if}
       </section>
     {/if}

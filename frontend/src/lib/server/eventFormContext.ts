@@ -1,5 +1,6 @@
 import type { RankProfilesResponse } from "$lib/api/client";
 import { formatWindow } from "$lib/events/format";
+import type { TrackerKind } from "$lib/events/types";
 
 import { listPresets, type EventPreset } from "./eventPresets";
 import { getGuildStats } from "./guildStats";
@@ -16,7 +17,7 @@ export interface TrackerOption {
   /** RFC3339 instants backing the window - the editor prefills from these. */
   startsAt: string;
   endsAt: string;
-  tracking: "api" | "mod";
+  tracking: TrackerKind;
   /** Raid the tracker counts; null means all guild raids. */
   raid: string | null;
 }
@@ -76,7 +77,7 @@ export function trackerOption(event: {
   name: string;
   starts_at: string;
   ends_at: string;
-  tracking?: "api" | "mod";
+  tracking?: TrackerKind;
   raid?: string | null;
 }): TrackerOption {
   return {

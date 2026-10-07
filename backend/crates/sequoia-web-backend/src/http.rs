@@ -327,8 +327,10 @@ fn validate_event_fields<'a>(
     if ends_at <= starts_at {
         return Err(ApiError::bad_request("ends_at must be after starts_at"));
     }
-    if tracking != "api" && tracking != "mod" {
-        return Err(ApiError::bad_request("tracking must be 'api' or 'mod'"));
+    if !matches!(tracking, "api" | "mod" | "wars") {
+        return Err(ApiError::bad_request(
+            "tracking must be 'api', 'mod' or 'wars'",
+        ));
     }
     let raid = raid.map(str::trim).filter(|raid| !raid.is_empty());
     if raid.is_some() && tracking != "mod" {
@@ -414,7 +416,9 @@ mod tests {
 
     use crate::poller::PollerHealthSnapshot;
 
-    use super::readiness_problems;
+    use time::macros::datetime;
+
+    use super::{readiness_problems, validate_event_fields};
 
     const INTERVAL: Duration = Duration::from_secs(130);
 
@@ -475,5 +479,26 @@ mod tests {
         let problems = readiness_problems(true, true, INTERVAL, &poller(None, 391, 0));
         assert_eq!(problems.len(), 1);
         assert!(problems[0].contains("no successful poll"));
+    }
+
+    #[test]
+    fn war_point_events_validate_without_raid_scope() {
+        let starts = datetime!(2026-10-03 12:30 UTC);
+        let ends = datetime!(2026-10-03 14:45 UTC);
+        assert_eq!(
+            validate_event_fields("Wars", starts, ends, "wars", None).ok(),
+            Some(None)
+        );
+        assert!(
+            validate_event_fields(
+                "Wars",
+                starts,
+                ends,
+                "wars",
+                Some("Nest of the Grootslangs")
+            )
+            .is_err()
+        );
+        assert!(validate_event_fields("Wars", starts, ends, "webhook", None).is_err());
     }
 }

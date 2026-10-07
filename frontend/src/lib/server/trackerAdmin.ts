@@ -1,6 +1,7 @@
 import { fail } from "@sveltejs/kit";
 import type { Cookies } from "@sveltejs/kit";
 
+import type { TrackerKind } from "$lib/events/types";
 import type { Viewer } from "$lib/site/viewer";
 
 import { recordAudit } from "./auditLog";
@@ -16,7 +17,7 @@ interface TrackerRequest {
   name: string;
   startsAt: string;
   endsAt: string;
-  tracking: "api" | "mod";
+  tracking: TrackerKind;
   raid?: string;
 }
 
@@ -119,8 +120,8 @@ function parseTrackerRequest(raw: FormDataEntryValue | null): TrackerRequest | s
   const endsAt = instant(record.endsAt);
   if (!startsAt || !endsAt) return "the tracker needs a start and an end";
   if (Date.parse(startsAt) >= Date.parse(endsAt)) return "the tracker must end after it starts";
-  if (record.tracking !== "api" && record.tracking !== "mod") {
-    return "tracking must be api or mod";
+  if (record.tracking !== "api" && record.tracking !== "mod" && record.tracking !== "wars") {
+    return "tracking must be api, mod or wars";
   }
   const request: TrackerRequest = { name, startsAt, endsAt, tracking: record.tracking };
   if (typeof record.id === "string" && record.id.trim()) request.id = record.id.trim();

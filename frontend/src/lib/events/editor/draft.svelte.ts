@@ -1,16 +1,18 @@
 import type { SubmitFunction } from "@sveltejs/kit";
 
 import type { GuildRankName } from "$lib/api/guildStats";
-import type {
-  CompRole,
-  EligibilityRule,
-  EventIconPlacement,
-  EventTheme,
-  GuildEvent,
-  ManualEntrant,
-  PrizeEntry,
-  RaffleEligibility,
-  RaffleWinner,
+import {
+  standingsUnit,
+  type CompRole,
+  type EligibilityRule,
+  type EventIconPlacement,
+  type EventTheme,
+  type GuildEvent,
+  type ManualEntrant,
+  type PrizeEntry,
+  type RaffleEligibility,
+  type RaffleWinner,
+  type TrackerKind,
 } from "$lib/events/types";
 import { parseGuildEvent } from "$lib/events/validate";
 import type { EventFormContext, MemberOption, TrackerOption } from "$lib/server/eventFormContext";
@@ -285,7 +287,7 @@ export class EventDraft {
   rules = $state("");
   trackerEnabled = $state(false);
   trackerEventId = $state("");
-  trackerTracking = $state<"api" | "mod">("api");
+  trackerTracking = $state<TrackerKind>("api");
   // Manual id entry is the fallback when the backend list is unavailable or
   // the stored id is not in it.
   trackerManual = $state(false);
@@ -321,7 +323,7 @@ export class EventDraft {
   newTrackerName = $state("");
   newTrackerStarts = $state("");
   newTrackerEnds = $state("");
-  newTrackerTracking = $state<"api" | "mod">("mod");
+  newTrackerTracking = $state<TrackerKind>("mod");
   newTrackerRaid = $state("");
 
   // ── Presets ─────────────────────────────────────────────────────────
@@ -920,6 +922,9 @@ export class EventDraft {
     this.trackerChoices.find((option) => option.id === this.trackerEventId) ?? null,
   );
 
+  /** What the standings board counts, for milestone and ticket labels. */
+  readonly trackerUnit = $derived(standingsUnit(this.trackerEnabled ? this.trackerTracking : undefined));
+
   readonly trackerDraftError = $derived.by(() => {
     if (!this.newTrackerName.trim()) return "the tracker needs a name";
     if (!this.newTrackerStarts || !this.newTrackerEnds) return "the tracker needs a start and an end";
@@ -1186,7 +1191,10 @@ export class EventDraft {
     const trackerDraft = (draft.tracker ?? null) as Record<string, unknown> | null;
     this.trackerEnabled = trackerDraft !== null;
     this.trackerEventId = trackerDraft ? text(trackerDraft.eventId) : "";
-    this.trackerTracking = trackerDraft && trackerDraft.tracking === "mod" ? "mod" : "api";
+    this.trackerTracking =
+      trackerDraft && (trackerDraft.tracking === "mod" || trackerDraft.tracking === "wars")
+        ? trackerDraft.tracking
+        : "api";
     this.trackerManual =
       this.trackerChoices.length === 0 ||
       (this.trackerEnabled && !this.trackerChoices.some((option) => option.id === this.trackerEventId));

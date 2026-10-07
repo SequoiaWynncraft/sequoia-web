@@ -1,7 +1,7 @@
 import type { PageServerLoad } from "./$types";
 
 import { eventChart, eventStatus } from "$lib/events/helpers";
-import type { GuildEvent } from "$lib/events/types";
+import { standingsUnit, type GuildEvent, type StandingsUnit } from "$lib/events/types";
 import type { Membership } from "$lib/server/eventMembership";
 import { canSeeEvent, resolveEventAudience } from "$lib/server/eventVisibility";
 import { eventStore } from "$lib/server/eventStore";
@@ -37,7 +37,13 @@ export type Standings =
   | { state: "signin" }
   | { state: "unverified" }
   | { state: "notMember" }
-  | { state: "board"; leaderboard: RaidLeaderboardEntry[]; error: string | null };
+  | {
+      state: "board";
+      leaderboard: RaidLeaderboardEntry[];
+      error: string | null;
+      /** What the board counts - raids, or war points on a war tracker. */
+      unit: StandingsUnit;
+    };
 
 export const load: PageServerLoad = async ({ fetch, locals, params, parent }) => {
   const stored = await eventStore.get(params.slug);
@@ -152,7 +158,7 @@ export const load: PageServerLoad = async ({ fetch, locals, params, parent }) =>
       const ranksPromise = getLinkedRankProfiles(fetch)
         .then(memberRanksByUuid)
         .catch(() => EMPTY_RANKS);
-      const result = await loadTrackerStandings(fetch, event.tracker, roster);
+      const { unit, ...result } = await loadTrackerStandings(fetch, event.tracker, roster);
       if (result.leaderboard.length > 0) {
         const ranks = await Promise.race([
           ranksPromise,
@@ -171,7 +177,7 @@ export const load: PageServerLoad = async ({ fetch, locals, params, parent }) =>
           };
         });
       }
-      standings = { state: "board", leaderboard: result.leaderboard, error: result.error };
+      standings = { state: "board", leaderboard: result.leaderboard, error: result.error, unit };
       const mine = viewer
         ? result.leaderboard.find((entry) => sameUuid(entry.player_uuid, viewer.minecraftUuid))
         : undefined;
@@ -227,18 +233,21 @@ async function loadTrackerStandings(
   fetchImpl: typeof fetch,
   tracker: NonNullable<GuildEvent["tracker"]>,
   roster: GuildMemberStats[] | null,
-): Promise<LeaderboardResult> {
+): Promise<LeaderboardResult & { unit: StandingsUnit }> {
   const tracked = (await loadRaidEvents(fetchImpl)).find((entry) => entry.id === tracker.eventId);
   const tracking = tracked?.tracking ?? tracker.tracking;
-  if (tracking !== "mod") return loadTrackerLeaderboard(fetchImpl, tracker.eventId);
+  const unit = standingsUnit(tracking);
+  if (tracking === "api") return { ...(await loadTrackerLeaderboard(fetchImpl, tracker.eventId)), unit };
   if (!tracked || roster === null) {
-    return { leaderboard: [], error: "Member contributions are temporarily unavailable." };
+    return { leaderboard: [], error: "Member contributions are temporarily unavailable.", unit };
   }
-  return loadModLeaderboard(
+  const board = await loadModLeaderboard(
     fetchImpl,
     { starts_at: tracked.starts_at, ends_at: tracked.ends_at, raid: tracked.raid },
     roster,
+    tracking,
   );
+  return { ...board, unit };
 }
 
 function publicView(event: GuildEvent): GuildEvent {

@@ -82,6 +82,12 @@ describe("sectionIssues", () => {
     draft.trackerTracking = "api";
     expect(sectionIssues(draft).raffles).toContain(needsTracker);
 
+    // A war tracker is mod-fed, but its board counts war points, not raids.
+    draft.trackerTracking = "wars";
+    expect(sectionIssues(draft).raffles).toContain(
+      "A tracker-counted raid rule needs a raid tracker - this one counts war points",
+    );
+
     draft.trackerTracking = "mod";
     expect(sectionIssues(draft).raffles ?? []).not.toContain(needsTracker);
   });

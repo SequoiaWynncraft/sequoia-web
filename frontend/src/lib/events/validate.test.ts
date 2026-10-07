@@ -851,6 +851,12 @@ describe("parseGuildEvent", () => {
     expectError({ ...VALID, tracker: { eventId: "abc", tracking: "webhook" } }, "tracking");
   });
 
+  it("accepts war-point trackers", () => {
+    const result = parseGuildEvent({ ...VALID, tracker: { eventId: "abc", tracking: "wars" } });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.event.tracker).toEqual({ eventId: "abc", tracking: "wars" });
+  });
+
   it("stores the wheel toggle only when hidden", () => {
     const hidden = parseGuildEvent({ ...VALID, raffleHideWheel: true });
     expect(hidden.ok).toBe(true);
