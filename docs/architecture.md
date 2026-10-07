@@ -47,3 +47,25 @@ Add page metadata to `src/lib/site/nav.ts`, then keep route files small by consu
 4. Pass SvelteKit's provided `fetch` from route/load boundaries instead of relying on `globalThis.fetch`.
 5. Add unit tests around URL building, error handling, and response validation.
 6. Keep visual route behavior separate from API wiring so layout changes and data changes remain reviewable.
+
+## Discord Management
+
+`/manage/discord` is a responsive editor linked from Military, Community and Development.
+The Rust Sierra module in `sequoia-backend` owns authorization, definition validation,
+database persistence, Discord delivery, emoji uploads and role-button dispatch. The Svelte
+component owns only the editable workspace and preview; WASM adds no useful boundary here.
+
+Set server-only `SEQUOIA_DISCORD_MANAGEMENT_URL=http://<private-sierra-service>:8082` on
+both websites after enabling Sierra's `SEQUOIA_SIERRA_MANAGEMENT_BIND` on the private
+container network. Do not publish Sierra's listener or use a `PUBLIC_` URL variable.
+The BFF forwards the HttpOnly `seq_session` cookie to Rust's existing session authority,
+rejects cross-origin JSON writes, disables caching and does not accept browser-supplied
+Bearer credentials. Missing configuration renders an unavailable gate, not a fake editor.
+
+Definitions have distinct saved and published revisions. Saving never edits Discord;
+publication is explicit and read back. Uncertain delivery requires recovery by exact message
+link instead of a blind retry. Existing automated application/trial messages, other bots,
+attachments and Components V2 remain under their existing workflow owners. Server emoji
+uploads affect the guild immediately and are shown separately from draft publication.
+See the backend's `docs/sierra-discord-management.md` for admission, protected-role setup,
+bootstrap, persistence and recovery operations.

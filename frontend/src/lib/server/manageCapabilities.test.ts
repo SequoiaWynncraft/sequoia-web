@@ -251,7 +251,7 @@ describe("navManageVisible", () => {
   });
 
   it("stays hidden for a branch whose console has no content yet", async () => {
-    branchesWith([{ branch: "military", level: "member" }]);
+    branchesWith([{ branch: "end_game", level: "member" }]);
     expect(await navManageVisible(fetch, viewer())).toBe(false);
   });
 

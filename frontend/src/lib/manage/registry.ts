@@ -69,9 +69,9 @@ export const MANAGE_AREAS: readonly ManageArea[] = [
     id: "military",
     label: "Military",
     branch: "military",
-    href: null,
+    href: "/manage/discord",
     marker: "◆",
-    links: [],
+    links: [{ label: "Discord messages", href: "/manage/discord" }],
     gate: {
       title: "Military branch only",
       signinText: "Sign in to use military tools.",
@@ -91,6 +91,7 @@ export const MANAGE_AREAS: readonly ManageArea[] = [
       { label: "Posts", href: "/manage/community/posts" },
       { label: "New post", href: "/manage/community/posts/new" },
       { label: "Blog", href: "/manage/community/blog" },
+      { label: "Discord messages", href: "/manage/discord" },
     ],
     gate: {
       title: "Community branch only",
@@ -121,7 +122,7 @@ export const MANAGE_AREAS: readonly ManageArea[] = [
     branch: "development",
     href: "/manage/development/audit",
     marker: "◆",
-    links: [{ label: "Audit log", href: "/manage/development/audit" }],
+    links: [{ label: "Audit log", href: "/manage/development/audit" }, { label: "Discord messages", href: "/manage/discord" }],
     gate: {
       title: "Development branch only",
       signinText: "Sign in to use development tools.",

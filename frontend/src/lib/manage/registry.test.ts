@@ -31,7 +31,7 @@ describe("registry", () => {
   });
 
   it("keeps contentless branches out of the accessible list even when granted", () => {
-    const all = caps({ events: "granted", treasury: "granted", military: "granted" });
+    const all = caps({ events: "granted", treasury: "granted", endGame: "granted" });
     expect(accessibleAreas(all).map((area) => area.id)).toEqual(["events", "treasury"]);
   });
 
@@ -40,6 +40,7 @@ describe("registry", () => {
     expect(contentAreas().map((area) => area.id)).toEqual([
       "events",
       "treasury",
+      "military",
       "community",
       "development",
     ]);
@@ -64,10 +65,12 @@ describe("registry", () => {
       "Posts",
       "New post",
       "Blog",
+      "Discord messages",
     ]);
     const development = MANAGE_AREAS.find((area) => area.id === "development");
     expect(development?.links).toEqual([
       { label: "Audit log", href: "/manage/development/audit" },
+      { label: "Discord messages", href: "/manage/discord" },
     ]);
   });
 
