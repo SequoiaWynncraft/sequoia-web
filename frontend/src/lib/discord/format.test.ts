@@ -58,9 +58,19 @@ describe("definitionIssues", () => {
     expect(definitionIssues(draft({ content: "", embeds: [{ type: "rich", title: "  ", description: "\n\t" }] }))["embeds.0"]).toBeDefined();
   });
 
+  it("flags a server emoji Discord no longer offers, as publication would reject it", () => {
+    const panel = draft({ rows: [[{
+      id: "link", label: "Rules", style: 5, emoji: { id: "42", name: "seq", animated: false },
+      action: { kind: "link", url: "https://seqwawa.com" },
+    }]] });
+    expect(definitionIssues(panel, { emojis: new Set(["42"]) })).toEqual({});
+    expect(definitionIssues(panel, { emojis: new Set() })["rows.0.0.server_emoji"]).toContain("no longer available");
+    expect(definitionIssues(panel)).toEqual({});
+  });
+
   it("flags a saved channel absent from current context", () => {
-    expect(definitionIssues(draft(), undefined, new Set(["1"]))).toEqual({});
-    expect(definitionIssues(draft(), undefined, new Set())["channel_id"]).toBe("Choose an available channel.");
+    expect(definitionIssues(draft(), { channels: new Set(["1"]) })).toEqual({});
+    expect(definitionIssues(draft(), { channels: new Set() })["channel_id"]).toBe("Choose an available channel.");
   });
 
   it("requires one complete Unicode button emoji, not text or multiple emoji", () => {
@@ -103,8 +113,8 @@ describe("definitionIssues", () => {
     const panel = draft({ content: "", rows: [[{
       id: "role", label: "Defender", style: 2, emoji: null, action: { kind: "role", role_id: "123" },
     }]] });
-    expect(definitionIssues(panel, new Set(["123"]))).toEqual({});
-    expect(definitionIssues(panel, new Set())["rows.0.0.role"]).toBe("Choose an enabled self-service role.");
+    expect(definitionIssues(panel, { roles: new Set(["123"]) })).toEqual({});
+    expect(definitionIssues(panel, { roles: new Set() })["rows.0.0.role"]).toBe("Choose an enabled self-service role.");
     expect(definitionIssues(draft({ content: "", rows: [[]] })).content).toBeDefined();
   });
 

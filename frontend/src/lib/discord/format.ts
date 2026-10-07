@@ -68,12 +68,21 @@ function unicodeEmoji(name: string): boolean {
   return !/^\p{Emoji_Component}$/u.test(value) && emojiRegex().exec(value)?.[0] === value;
 }
 
-export function definitionIssues(draft: Definition, selfServiceRoleIds?: ReadonlySet<string>, channelIds?: ReadonlySet<string>): Issues {
+/** What the current context offers; an omitted set is not checked. */
+export interface Availability {
+  /** Eligible, approved self-service roles. */
+  roles?: ReadonlySet<string>;
+  channels?: ReadonlySet<string>;
+  /** Server emoji Discord currently marks available. */
+  emojis?: ReadonlySet<string>;
+}
+
+export function definitionIssues(draft: Definition, available: Availability = {}): Issues {
   const issues: Issues = {};
   if (!draft.name.trim()) issues.name = "Give the message a name.";
   tooLong(issues, "name", "The name", draft.name, LIMITS.name);
   if (!draft.channel_id) issues.channel_id = "Choose a channel.";
-  else if (channelIds && !channelIds.has(draft.channel_id)) issues.channel_id = "Choose an available channel.";
+  else if (available.channels && !available.channels.has(draft.channel_id)) issues.channel_id = "Choose an available channel.";
   tooLong(issues, "content", "Message text", draft.content, LIMITS.content);
   if (!draft.content.trim() && draft.embeds.length === 0 && !draft.rows.some((row) => row.length > 0)) issues.content = "Add message text, an embed or a button.";
   let total = 0;
@@ -121,10 +130,13 @@ export function definitionIssues(draft: Definition, selfServiceRoleIds?: Readonl
       if (button.emoji && !("id" in button.emoji) && !unicodeEmoji(button.emoji.name)) {
         issues[`${key}.emoji`] = "Use a single Unicode emoji or choose a server emoji.";
       }
+      if (button.emoji && "id" in button.emoji && available.emojis && !available.emojis.has(button.emoji.id)) {
+        issues[`${key}.server_emoji`] = "This server emoji is no longer available. Choose another or remove it.";
+      }
       tooLong(issues, `${key}.label`, "The label", button.label, LIMITS.label);
       if (button.action.kind === "role") {
         if (!button.action.role_id) issues[`${key}.role`] = "Choose a role.";
-        else if (selfServiceRoleIds && !selfServiceRoleIds.has(button.action.role_id)) issues[`${key}.role`] = "Choose an enabled self-service role.";
+        else if (available.roles && !available.roles.has(button.action.role_id)) issues[`${key}.role`] = "Choose an enabled self-service role.";
       } else {
         if (!isWebUrl(button.action.url)) issues[`${key}.url`] = "Use a full http or https link.";
         tooLong(issues, `${key}.url`, "The link", button.action.url, LIMITS.buttonUrl);

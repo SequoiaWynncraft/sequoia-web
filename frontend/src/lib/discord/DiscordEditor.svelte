@@ -61,9 +61,14 @@
   const selfServiceRoleIds = $derived(new Set(eligibleRoles.map((role) => role.id)));
   const channelIds = $derived(new Set(context.channels.map((channel) => channel.id)));
   const emojiNameIssue = $derived(emojiFile && !/^[a-zA-Z0-9_]{2,32}$/.test(emojiName) ? "Use 2–32 letters, numbers or underscores." : undefined);
-  const roleChoices = $derived(context.roles.filter((r) => r.name.toLowerCase().includes(roleSearch.toLowerCase())));
+  // @everyone is the guild's own id and never a panel role.
+  const roleChoices = $derived(context.roles.filter((r) => r.name !== "@everyone" && r.name.toLowerCase().includes(roleSearch.toLowerCase())));
+  // Roles staff can act on come first; permanently protected ones stay out of the way.
+  const actionableRoles = $derived(roleChoices.filter((r) => r.eligible).sort((a, b) => Number(b.approved) - Number(a.approved)));
+  const protectedRoles = $derived(roleChoices.filter((r) => !r.eligible));
   const emojiChoices = $derived(context.emojis.filter((e) => e.available && e.name.toLowerCase().includes(emojiSearch.toLowerCase())));
-  const issues = $derived(draft ? definitionIssues(draft, selfServiceRoleIds, channelIds) : {});
+  const availableEmojiIds = $derived(new Set(context.emojis.filter((emoji) => emoji.available).map((emoji) => emoji.id)));
+  const issues = $derived(draft ? definitionIssues(draft, { roles: selfServiceRoleIds, channels: channelIds, emojis: availableEmojiIds }) : {});
   const issueCount = $derived(Object.keys(issues).length);
   const channelName = $derived(context.channels.find((c) => c.id === draft?.channel_id)?.name);
   const stateLabel = $derived.by(() => {
@@ -188,6 +193,11 @@
     button.action = kind === "role" ? { kind, role_id: eligibleRoles[0]?.id ?? "" } : { kind, url: "https://seqwawa.com" };
     button.style = kind === "link" ? 5 : 2;
   }
+  function destination(channelId: string) {
+    if (!channelId) return "No channel yet";
+    const name = context.channels.find((c) => c.id === channelId)?.name;
+    return name ? `#${name}` : "Unavailable channel";
+  }
   function roleName(id: string) {
     return context.roles.find((role) => role.id === id)?.name ?? "Unknown role";
   }
@@ -262,7 +272,7 @@
         {@const state = status(message)}
         <button type="button" class:active={selected?.id === message.id} aria-current={selected?.id === message.id ? "true" : undefined} onclick={() => select(message)} disabled={busy}>
           <strong>{message.definition.name}</strong>
-          <span>#{context.channels.find((c) => c.id === message.definition.channel_id)?.name ?? "Unknown channel"}</span>
+          <span>{destination(message.definition.channel_id)}</span>
           <small class={`tone-${state.tone}`}>{state.text}</small>
         </button>
       {:else}<p class="empty">{search ? "No matching messages." : "No managed messages yet."}</p>{/each}</nav>
@@ -310,7 +320,7 @@
             {#if tab === "message"}
               <div class="two-fields">
                 <Field label="Name" hint="Only staff see this." error={issues.name}><TextInput bind:value={draft.name} invalid={!!issues.name} /></Field>
-                <Field label="Channel" hint={selected?.message_id ? "Published messages stay in their channel; duplicate to move." : undefined} error={issues.channel_id}><Select aria-label="Channel" bind:value={draft.channel_id} disabled={busy || !!selected?.message_id}>{#each context.channels as channel (channel.id)}<option value={channel.id}>#{channel.name}</option>{/each}</Select></Field>
+                <Field label="Channel" hint={selected?.message_id ? "Published messages stay in their channel; duplicate to move." : undefined} error={issues.channel_id}><Select aria-label="Channel" bind:value={draft.channel_id} disabled={busy || !!selected?.message_id}><option value="" disabled>Choose a channel…</option>{#if draft.channel_id && !channelIds.has(draft.channel_id)}<option value={draft.channel_id} disabled>Unavailable channel</option>{/if}{#each context.channels as channel (channel.id)}<option value={channel.id}>#{channel.name}</option>{/each}</Select></Field>
               </div>
               <MarkdownField label="Message text" bind:value={draft.content} limit={LIMITS.content} rows={5} issue={issues.content} {context} />
               {#if issues.embeds}<p class="inline-issue" role="alert">{issues.embeds}</p>{/if}
@@ -348,6 +358,7 @@
                         {#if button.emoji}<button type="button" onclick={() => (button.emoji = null)}>No emoji</button>{/if}
                         <span class="tools"><button type="button" aria-label={`Move ${button.label || "button"} left`} disabled={bi === 0} onclick={() => move(row, bi, -1)}>←</button><button type="button" aria-label={`Move ${button.label || "button"} right`} disabled={bi === row.length - 1} onclick={() => move(row, bi, 1)}>→</button><button type="button" onclick={() => row.splice(bi, 1)}>Remove</button></span>
                       </div>
+                      {#if issues[`${key}.server_emoji`]}<p class="inline-issue" role="alert">{issues[`${key}.server_emoji`]}</p>{/if}
                     </div>
                   {/each}
                   <Button variant="ghost" size="sm" disabled={row.length >= LIMITS.buttonsPerRow} onclick={() => addButton(ri)}>Add button</Button>
@@ -366,12 +377,18 @@
             {:else}
               <p class="hint">Enabled roles can be granted by anyone using a panel. Disabling self-service does not remove existing memberships. Staff, rank and branch roles stay protected.</p>
               <Field label="Find a role"><TextInput bind:value={roleSearch} /></Field>
-              <ul class="role-list">{#each roleChoices as role (role.id)}<li><span>{role.name}</span><small>{!role.eligible ? "Protected or unavailable" : role.approved ? "Self-service enabled" : "Not enabled"}</small>{#if context.can_approve_roles && role.eligible}<Button variant="ghost" size="sm" disabled={busy} onclick={() => perform(() => approve(role))}>{role.approved ? "Disable" : "Enable"}</Button>{/if}</li>{/each}</ul>
+              <ul class="role-list">{#each actionableRoles as role (role.id)}<li><span>{role.name}</span><small class:role-enabled={role.approved}>{role.approved ? "Self-service enabled" : "Not enabled"}</small>{#if context.can_approve_roles}<Button variant="ghost" size="sm" disabled={busy} onclick={() => perform(() => approve(role))}>{role.approved ? "Disable" : "Enable"}</Button>{/if}</li>{:else}<li class="empty">{roleSearch ? "No matching self-service candidates." : "No roles can be offered for self-service."}</li>{/each}</ul>
+              {#if protectedRoles.length > 0}
+                <details class="protected-roles" open={!!roleSearch && actionableRoles.length === 0}><summary>Protected or unavailable ({protectedRoles.length})</summary>
+                  <p class="hint">Staff, rank, branch, managed and permission-bearing roles, or roles above Sierra, cannot be granted by buttons.</p>
+                  <ul class="protected-list">{#each protectedRoles as role (role.id)}<li>{role.name}</li>{/each}</ul>
+                </details>
+              {/if}
             {/if}
           </fieldset></div>
         {/if}
 
-        <footer class="editor-actions">
+        <footer class="editor-actions" class:has-status={!!(error || notice || selected?.delivery_error)}>
           <FormStatus error={error} warning={selected?.delivery_error} saved={!!notice} savedText={notice ?? ""} compact />
           <div class="action-buttons">
             <Button variant={dirty ? "primary" : "secondary"} disabled={busy || !dirty || unresolved} onclick={() => perform(saveDraft)}>Save draft</Button>
@@ -450,6 +467,11 @@
   .role-list li { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; border-bottom: 1px solid var(--border-default); padding: 10px 0; }
   .role-list li > span { flex: 1; color: var(--text-heading); font-size: var(--text-sm); }
   .role-list small { font-size: var(--text-xs); color: var(--text-muted); }
+  .role-list .role-enabled { color: var(--color-gold); }
+  .role-list .empty { border: 0; }
+  .protected-roles { display: grid; gap: 10px; margin-top: 6px; border-top: 1px solid var(--border-default); padding-top: 10px; }
+  .protected-list { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; margin: 0; padding: 0; }
+  .protected-list li { padding: 3px 8px; border: 1px solid var(--border-default); color: var(--text-muted); font-size: var(--text-xs); }
   .message-actions { display: flex; flex-wrap: wrap; gap: 4px 8px; margin-top: 6px; }
   .editor-actions { position: sticky; bottom: 0; z-index: 2; display: grid; gap: 8px; margin-top: 20px; padding: 12px 0 max(12px, env(safe-area-inset-bottom)); border-top: 1px solid var(--border-default); background: var(--bg-page); }
   .action-buttons { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
@@ -495,5 +517,10 @@
     .two-fields { grid-template-columns: minmax(0, 1fr); }
     .tools button, .button-tools > button { min-height: 44px; }
     .editor-actions :global(.seq-button) { min-height: 44px; }
+    /* Phones: both actions share one row so the sticky bar stays short. */
+    .action-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .action-buttons :global(.seq-button) { min-width: 0; padding-inline: 0.5rem; white-space: normal; text-align: center; line-height: 1.25; }
+    .publish-hint { grid-column: 1 / -1; }
+    .editor-actions.has-status .publish-hint { display: none; }
   }
 </style>

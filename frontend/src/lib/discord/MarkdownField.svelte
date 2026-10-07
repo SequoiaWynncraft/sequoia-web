@@ -246,9 +246,17 @@
     outline-offset: 1px;
   }
 
-  @media (max-width: 700px) {
+  /* Phones: one scrollable row instead of several wrapped rows above every field. */
+  @container discord-editor (max-width: 520px) {
+    .md-tools {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      scrollbar-width: thin;
+    }
+
     .md-tool,
     .md-insert {
+      flex: 0 0 auto;
       min-width: 40px;
       height: 40px;
     }
