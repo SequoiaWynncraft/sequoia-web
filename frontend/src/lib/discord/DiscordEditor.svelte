@@ -46,7 +46,7 @@
   let search = $state("");
   let discardDialog = $state<ConfirmDialog | null>(null);
   let deleteDialog = $state<ConfirmDialog | null>(null);
-  let pendingSelection = $state<ManagedMessage | null>(null);
+  let pendingSelection = $state<ManagedMessage | "close" | null>(null);
   let roleSearch = $state("");
   let uploadInput = $state<HTMLInputElement>();
   let pickerButtonId = $state<string | null>(null);
@@ -146,10 +146,7 @@
     } else {
       const publicationError = error;
       const refreshed = await request<ManagedMessage>(`messages/${selected.id}`);
-      if (refreshed) {
-        selected = refreshed;
-        messages = messages.map((message) => message.id === refreshed.id ? refreshed : message);
-      }
+      if (refreshed) received(refreshed);
       error = publicationError;
     }
   }
@@ -194,11 +191,14 @@
   function emojiUrl(id: string, animated = false) { return `https://cdn.discordapp.com/emojis/${id}.${animated ? "gif" : "webp"}?size=48`; }
   async function chooseUpload(event: Event) {
     const file = (event.currentTarget as HTMLInputElement).files?.[0] ?? null;
+    emojiFile = null; emojiImage = ""; emojiName = "";
     if (!file) return;
     if (file.size > 256 * 1024 || !["image/png", "image/jpeg", "image/gif"].includes(file.type)) { error = "Use a PNG, JPEG or GIF no larger than 256 KiB."; return; }
     emojiFile = file;
     emojiName = file.name.replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9_]/g, "_").slice(0, 32);
-    emojiImage = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = reject; reader.readAsDataURL(file); });
+    const image = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = reject; reader.readAsDataURL(file); });
+    // A replacement selection can arrive before the previous FileReader settles.
+    if (emojiFile === file) emojiImage = image;
   }
   async function upload() {
     const emoji = await request<DiscordContext["emojis"][number]>("emojis", "POST", { name: emojiName, image: emojiImage });
@@ -225,6 +225,11 @@
     copy.name = `${copy.name} copy`.slice(0, LIMITS.name);
     for (const row of copy.rows) for (const button of row) button.id = crypto.randomUUID();
     selected = null; draft = copy; baseline = ""; session += 1;
+  }
+  function discard() {
+    if (pendingSelection !== "close") { open(pendingSelection); return; }
+    selected = null; draft = null; baseline = "";
+    error = null; notice = null; pickerButtonId = null;
   }
 </script>
 
@@ -274,7 +279,7 @@
         {#if selected || dirty}
           <div class="message-actions">
             {#if selected}<Button variant="ghost" size="sm" disabled={busy || dirty || unresolved} onclick={duplicate}>Duplicate</Button><Button variant="ghost" size="sm" disabled={busy || unresolved} onclick={() => deleteDialog?.open()}>Delete</Button>{/if}
-            {#if dirty}<Button variant="ghost" size="sm" disabled={busy} onclick={() => { pendingSelection = selected; discardDialog?.open(); }}>Discard changes</Button>{/if}
+            {#if dirty}<Button variant="ghost" size="sm" disabled={busy} onclick={() => { pendingSelection = selected ?? "close"; discardDialog?.open(); }}>Discard changes</Button>{/if}
           </div>
         {/if}
         {#if narrow}
@@ -352,7 +357,7 @@
               <div class="emoji-grid">{#each emojiChoices as emoji (emoji.id)}<button type="button" title={`:${emoji.name}:`} aria-label={`Use ${emoji.name}`} disabled={!pickerButton} onclick={() => { if (pickerButton) pickerButton.emoji = { id: emoji.id, name: emoji.name, animated: emoji.animated }; tab = "buttons"; }}><img src={emojiUrl(emoji.id, emoji.animated)} alt={emoji.name} loading="lazy" /></button>{:else}<p class="empty">No matching emoji.</p>{/each}</div>
               <section class="upload"><h3>Upload an emoji</h3><p class="hint">Uploads reach the Sequoia server immediately, separately from any draft.</p><Field label="Image" hint="PNG, JPEG or GIF, up to 256 KiB"><input type="file" accept="image/png,image/jpeg,image/gif" bind:this={uploadInput} onchange={chooseUpload} /></Field>
                 {#if emojiFile}<div class="upload-preview"><img src={emojiImage} alt="Emoji upload preview" /><Field label="Emoji name"><TextInput bind:value={emojiName} maxlength={32} /></Field></div>{/if}
-                <Button disabled={busy || !emojiFile || !emojiName} onclick={() => perform(upload)}>Upload to Discord</Button>
+                <Button disabled={busy || !emojiFile || !emojiImage || !emojiName} onclick={() => perform(upload)}>Upload to Discord</Button>
               </section>
             {:else}
               <p class="hint">Enabled roles can be granted by anyone using a panel. Disabling self-service does not remove existing memberships. Staff, rank and branch roles stay protected.</p>
@@ -382,7 +387,7 @@
 </div>
 
 <ConfirmDialog bind:this={deleteDialog} title="Delete this message?" body="The published Discord message will be deleted. Roles and memberships are not affected." confirmLabel="Delete message" danger onconfirm={() => void perform(confirmedDelete)} />
-<ConfirmDialog bind:this={discardDialog} title="Discard unsaved changes?" body="The published message and last saved draft will remain unchanged." confirmLabel="Discard changes" onconfirm={() => { baseline = ""; open(pendingSelection); }} />
+<ConfirmDialog bind:this={discardDialog} title="Discard unsaved changes?" body="The published message and last saved draft will remain unchanged." confirmLabel="Discard changes" onconfirm={discard} />
 
 <style>
   .discord-workspace { container: discord-workspace / inline-size; padding-bottom: 24px; }

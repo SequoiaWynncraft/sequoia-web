@@ -74,6 +74,8 @@ export function definitionIssues(draft: Definition): Issues {
     tooLong(issues, `${at}.description`, "The description", embed.description, LIMITS.description);
     tooLong(issues, `${at}.author`, "The author", embed.author?.name, LIMITS.author);
     tooLong(issues, `${at}.footer`, "The footer", embed.footer?.text, LIMITS.footer);
+    if (embed.author && !embed.author.name.trim()) issues[`${at}.author`] = "Authors need a name.";
+    if (embed.footer && !embed.footer.text.trim()) issues[`${at}.footer`] = "Footers need text.";
     url(issues, `${at}.url`, embed.url);
     url(issues, `${at}.image`, embed.image?.url);
     url(issues, `${at}.thumbnail`, embed.thumbnail?.url);

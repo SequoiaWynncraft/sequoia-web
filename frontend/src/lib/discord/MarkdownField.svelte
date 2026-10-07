@@ -74,6 +74,9 @@
 
   function insert(token: string) {
     if (!token) return;
+    if (token === "time:full" || token === "time:relative") {
+      token = `<t:${Math.floor(Date.now() / 1000)}:${token === "time:full" ? "F" : "R"}>`;
+    }
     const { start, end } = selection();
     const before = start > 0 && !/\s$/.test(value.slice(0, start)) ? " " : "";
     const inserted = `${before}${token}`;
@@ -132,8 +135,8 @@
         {/each}
       </optgroup>
       <optgroup label="Time">
-        <option value={`<t:${Math.floor(Date.now() / 1000)}:F>`}>Current date and time</option>
-        <option value={`<t:${Math.floor(Date.now() / 1000)}:R>`}>Relative time</option>
+        <option value="time:full">Current date and time</option>
+        <option value="time:relative">Relative time</option>
       </optgroup>
     </select>
   </div>

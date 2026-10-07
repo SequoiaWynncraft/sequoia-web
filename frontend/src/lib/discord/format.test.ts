@@ -56,6 +56,16 @@ describe("definitionIssues", () => {
     expect(definitionIssues(draft({ content: " " })).content).toBe("Add message text or an embed.");
     expect(definitionIssues(draft({ embeds: [{ type: "rich", color: 1 }] }))["embeds.0"]).toBeDefined();
   });
+
+  it("requires metadata text when an author or footer object exists", () => {
+    const issues = definitionIssues(draft({ embeds: [{
+      type: "rich", title: "Rules",
+      author: { name: "", url: "https://seqwawa.com" },
+      footer: { text: " ", icon_url: "https://seqwawa.com/icon.png" },
+    }] }));
+    expect(issues["embeds.0.author"]).toBe("Authors need a name.");
+    expect(issues["embeds.0.footer"]).toBe("Footers need text.");
+  });
 });
 
 describe("fieldColumns", () => {
