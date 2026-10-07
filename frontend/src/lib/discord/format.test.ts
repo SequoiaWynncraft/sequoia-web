@@ -67,6 +67,24 @@ describe("definitionIssues", () => {
     expect(issues["embeds.0.footer"]).toBe("Footers need text.");
   });
 
+  it("counts a valid timestamp as visible embed content", () => {
+    expect(definitionIssues(draft({ content: "", embeds: [{ type: "rich", timestamp: "2026-10-07T12:00:00Z" }] }))).toEqual({});
+    const issues = definitionIssues(draft({ embeds: [{ type: "rich", timestamp: "invalid" }] }));
+    expect(issues["embeds.0.timestamp"]).toBeDefined();
+    expect(issues["embeds.0"]).toBeDefined();
+  });
+
+  it("flags later embeds Discord would hide behind a duplicate URL", () => {
+    const embeds = [
+      { type: "rich" as const, title: "First", url: "https://seqwawa.com" },
+      { type: "rich" as const, title: "Second", url: "https://seqwawa.com" },
+    ];
+    expect(definitionIssues(draft({ embeds }))["embeds.1.url"]).toContain("only the first");
+    embeds[1].url = "https://seqwawa.com/events";
+    expect(definitionIssues(draft({ embeds }))).toEqual({});
+    expect(definitionIssues(draft({ embeds: [{ type: "rich", title: "First" }, { type: "rich", title: "Second" }] }))).toEqual({});
+  });
+
   it("accepts button-only panels but flags roles outside current self-service approval", () => {
     const panel = draft({ content: "", rows: [[{
       id: "role", label: "Defender", style: 2, emoji: null, action: { kind: "role", role_id: "123" },

@@ -69,6 +69,7 @@ export function definitionIssues(draft: Definition, selfServiceRoleIds?: Readonl
   tooLong(issues, "content", "Message text", draft.content, LIMITS.content);
   if (!draft.content.trim() && draft.embeds.length === 0 && !draft.rows.some((row) => row.length > 0)) issues.content = "Add message text, an embed or a button.";
   let total = 0;
+  const embedUrls = new Set<string>();
   draft.embeds.forEach((embed, index) => {
     const at = `embeds.${index}`;
     tooLong(issues, `${at}.title`, "The title", embed.title, LIMITS.title);
@@ -78,6 +79,10 @@ export function definitionIssues(draft: Definition, selfServiceRoleIds?: Readonl
     if (embed.author && !embed.author.name.trim()) issues[`${at}.author`] = "Authors need a name.";
     if (embed.footer && !embed.footer.text.trim()) issues[`${at}.footer`] = "Footers need text.";
     url(issues, `${at}.url`, embed.url);
+    if (embed.url) {
+      if (embedUrls.has(embed.url)) issues[`${at}.url`] = "Discord shows only the first embed with this link. Use a different link or remove it.";
+      embedUrls.add(embed.url);
+    }
     url(issues, `${at}.image`, embed.image?.url);
     url(issues, `${at}.thumbnail`, embed.thumbnail?.url);
     url(issues, `${at}.author_url`, embed.author?.url);
@@ -85,8 +90,9 @@ export function definitionIssues(draft: Definition, selfServiceRoleIds?: Readonl
     url(issues, `${at}.footer_icon`, embed.footer?.icon_url);
     if (embed.timestamp && Number.isNaN(Date.parse(embed.timestamp))) issues[`${at}.timestamp`] = "Choose a valid date and time.";
     const visible = embed.title || embed.description || embed.author?.name || embed.footer?.text ||
-      embed.image?.url || embed.thumbnail?.url || (embed.fields?.length ?? 0) > 0;
-    if (!visible) issues[at] = "Give this embed a title, description, field, image or footer.";
+      embed.image?.url || embed.thumbnail?.url || (embed.fields?.length ?? 0) > 0 ||
+      (embed.timestamp && !Number.isNaN(Date.parse(embed.timestamp)));
+    if (!visible) issues[at] = "Give this embed a title, description, field, image, footer or timestamp.";
     (embed.fields ?? []).forEach((field, fieldIndex) => {
       const key = `${at}.fields.${fieldIndex}`;
       if (!field.name.trim()) issues[`${key}.name`] = "Fields need a name.";
