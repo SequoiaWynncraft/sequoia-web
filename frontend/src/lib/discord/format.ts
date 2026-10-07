@@ -22,6 +22,7 @@ export const LIMITS = {
   rows: 5,
   buttonsPerRow: 5,
   label: 80,
+  buttonUrl: 512,
 } as const;
 
 /** Discord counts characters, not UTF-16 units: an emoji is one. */
@@ -60,13 +61,13 @@ function url(issues: Issues, key: string, raw: string | undefined) {
   if (raw && !isWebUrl(raw)) issues[key] = "Use a full http or https link.";
 }
 
-export function definitionIssues(draft: Definition): Issues {
+export function definitionIssues(draft: Definition, selfServiceRoleIds?: ReadonlySet<string>): Issues {
   const issues: Issues = {};
   if (!draft.name.trim()) issues.name = "Give the message a name.";
   tooLong(issues, "name", "The name", draft.name, LIMITS.name);
   if (!draft.channel_id) issues.channel_id = "Choose a channel.";
   tooLong(issues, "content", "Message text", draft.content, LIMITS.content);
-  if (!draft.content.trim() && draft.embeds.length === 0) issues.content = "Add message text or an embed.";
+  if (!draft.content.trim() && draft.embeds.length === 0 && !draft.rows.some((row) => row.length > 0)) issues.content = "Add message text, an embed or a button.";
   let total = 0;
   draft.embeds.forEach((embed, index) => {
     const at = `embeds.${index}`;
@@ -104,8 +105,13 @@ export function definitionIssues(draft: Definition): Issues {
       const key = `rows.${rowIndex}.${index}`;
       if (!button.label.trim() && !button.emoji) issues[`${key}.label`] = "Give the button a label or an emoji.";
       tooLong(issues, `${key}.label`, "The label", button.label, LIMITS.label);
-      if (button.action.kind === "role" && !button.action.role_id) issues[`${key}.role`] = "Choose a role.";
-      if (button.action.kind === "link" && !isWebUrl(button.action.url)) issues[`${key}.url`] = "Use a full http or https link.";
+      if (button.action.kind === "role") {
+        if (!button.action.role_id) issues[`${key}.role`] = "Choose a role.";
+        else if (selfServiceRoleIds && !selfServiceRoleIds.has(button.action.role_id)) issues[`${key}.role`] = "Choose an enabled self-service role.";
+      } else {
+        if (!isWebUrl(button.action.url)) issues[`${key}.url`] = "Use a full http or https link.";
+        tooLong(issues, `${key}.url`, "The link", button.action.url, LIMITS.buttonUrl);
+      }
     });
   });
   return issues;

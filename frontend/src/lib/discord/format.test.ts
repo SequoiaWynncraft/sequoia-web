@@ -53,7 +53,7 @@ describe("definitionIssues", () => {
   });
 
   it("requires something visible", () => {
-    expect(definitionIssues(draft({ content: " " })).content).toBe("Add message text or an embed.");
+    expect(definitionIssues(draft({ content: " " })).content).toBe("Add message text, an embed or a button.");
     expect(definitionIssues(draft({ embeds: [{ type: "rich", color: 1 }] }))["embeds.0"]).toBeDefined();
   });
 
@@ -65,6 +65,25 @@ describe("definitionIssues", () => {
     }] }));
     expect(issues["embeds.0.author"]).toBe("Authors need a name.");
     expect(issues["embeds.0.footer"]).toBe("Footers need text.");
+  });
+
+  it("accepts button-only panels but flags roles outside current self-service approval", () => {
+    const panel = draft({ content: "", rows: [[{
+      id: "role", label: "Defender", style: 2, emoji: null, action: { kind: "role", role_id: "123" },
+    }]] });
+    expect(definitionIssues(panel, new Set(["123"]))).toEqual({});
+    expect(definitionIssues(panel, new Set())["rows.0.0.role"]).toBe("Choose an enabled self-service role.");
+    expect(definitionIssues(draft({ content: "", rows: [[]] })).content).toBeDefined();
+  });
+
+  it("enforces the link-button URL boundary", () => {
+    const prefix = "https://seqwawa.com/";
+    const atLimit = prefix + "a".repeat(512 - prefix.length);
+    const panel = (url: string) => draft({ rows: [[{
+      id: "link", label: "Website", style: 5, emoji: null, action: { kind: "link", url },
+    }]] });
+    expect(definitionIssues(panel(atLimit))).toEqual({});
+    expect(definitionIssues(panel(atLimit + "a"))["rows.0.0.url"]).toContain("513");
   });
 });
 

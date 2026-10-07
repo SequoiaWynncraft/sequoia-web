@@ -58,9 +58,11 @@
   const unresolved = $derived(selected?.delivery_state === "uncertain" || selected?.delivery_state === "publishing");
   const filtered = $derived(messages.filter((m) => m.definition.name.toLowerCase().includes(search.toLowerCase())));
   const eligibleRoles = $derived(context.roles.filter((r) => r.eligible && r.approved));
+  const selfServiceRoleIds = $derived(new Set(eligibleRoles.map((role) => role.id)));
+  const emojiNameIssue = $derived(emojiFile && !/^[a-zA-Z0-9_]{2,32}$/.test(emojiName) ? "Use 2–32 letters, numbers or underscores." : undefined);
   const roleChoices = $derived(context.roles.filter((r) => r.name.toLowerCase().includes(roleSearch.toLowerCase())));
   const emojiChoices = $derived(context.emojis.filter((e) => e.available && e.name.toLowerCase().includes(emojiSearch.toLowerCase())));
-  const issues = $derived(draft ? definitionIssues(draft) : {});
+  const issues = $derived(draft ? definitionIssues(draft, selfServiceRoleIds) : {});
   const issueCount = $derived(Object.keys(issues).length);
   const channelName = $derived(context.channels.find((c) => c.id === draft?.channel_id)?.name);
   const stateLabel = $derived.by(() => {
@@ -297,12 +299,13 @@
               <button type="button" role="tab" id={`discord-tab-${item.id}`} aria-selected={tab === item.id} aria-controls="discord-editor-panel" tabindex={tab === item.id ? 0 : -1} onclick={() => (tab = item.id)} onkeydown={tabKeys}>{item.label}{#if tabHasIssues(item.id)}<span class="tab-flag" aria-hidden="true"></span><span class="visually-hidden"> (needs attention)</span>{/if}</button>
             {/each}
           </div>
-          <div id="discord-editor-panel" role="tabpanel" aria-labelledby={`discord-tab-${tab}`}><fieldset class="editor-body" disabled={busy}>
+          <div id="discord-editor-panel" role="tabpanel" aria-labelledby={`discord-tab-${tab}`}>
             {#if unresolved}
               <div class="delivery-warning" role="status"><strong>{selected?.delivery_state === "publishing" ? "Publication in progress" : "Publication needs recovery"}</strong><p>{selected?.delivery_error ?? "Publishing is still running. Reload to check its result."}</p>
                 {#if selected?.delivery_state === "uncertain"}<Field label="Link to the published Discord message"><TextInput bind:value={importLink} inputmode="url" /></Field><Button variant="secondary" disabled={busy || !importLink} onclick={() => perform(recover)}>Recover message</Button>{/if}
               </div>
             {/if}
+            <fieldset class="editor-body" disabled={busy || unresolved}>
             {#if tab === "message"}
               <div class="two-fields">
                 <Field label="Name" hint="Only staff see this." error={issues.name}><TextInput bind:value={draft.name} invalid={!!issues.name} /></Field>
@@ -356,8 +359,8 @@
               <Field label="Find an emoji"><TextInput bind:value={emojiSearch} placeholder="Search emoji" /></Field>
               <div class="emoji-grid">{#each emojiChoices as emoji (emoji.id)}<button type="button" title={`:${emoji.name}:`} aria-label={`Use ${emoji.name}`} disabled={!pickerButton} onclick={() => { if (pickerButton) pickerButton.emoji = { id: emoji.id, name: emoji.name, animated: emoji.animated }; tab = "buttons"; }}><img src={emojiUrl(emoji.id, emoji.animated)} alt={emoji.name} loading="lazy" /></button>{:else}<p class="empty">No matching emoji.</p>{/each}</div>
               <section class="upload"><h3>Upload an emoji</h3><p class="hint">Uploads reach the Sequoia server immediately, separately from any draft.</p><Field label="Image" hint="PNG, JPEG or GIF, up to 256 KiB"><input type="file" accept="image/png,image/jpeg,image/gif" bind:this={uploadInput} onchange={chooseUpload} /></Field>
-                {#if emojiFile}<div class="upload-preview"><img src={emojiImage} alt="Emoji upload preview" /><Field label="Emoji name"><TextInput bind:value={emojiName} maxlength={32} /></Field></div>{/if}
-                <Button disabled={busy || !emojiFile || !emojiImage || !emojiName} onclick={() => perform(upload)}>Upload to Discord</Button>
+                {#if emojiFile}<div class="upload-preview"><img src={emojiImage} alt="Emoji upload preview" /><Field label="Emoji name" error={emojiNameIssue}><TextInput bind:value={emojiName} maxlength={32} invalid={!!emojiNameIssue} /></Field></div>{/if}
+                <Button disabled={busy || !emojiFile || !emojiImage || !!emojiNameIssue} onclick={() => perform(upload)}>Upload to Discord</Button>
               </section>
             {:else}
               <p class="hint">Enabled roles can be granted by anyone using a panel. Disabling self-service does not remove existing memberships. Staff, rank and branch roles stay protected.</p>
