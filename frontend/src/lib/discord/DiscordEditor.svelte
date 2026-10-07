@@ -11,7 +11,7 @@
   import DiscordPreview from "./DiscordPreview.svelte";
   import EmbedEditor from "./EmbedEditor.svelte";
   import MarkdownField from "./MarkdownField.svelte";
-  import { LIMITS, charCount, definitionIssues, issuesUnder } from "./format";
+  import { LIMITS, charCount, definitionIssues, issuesUnder, truncateChars } from "./format";
   import type { Definition, DiscordContext, ManagedMessage, RoleButton } from "./types";
 
   let { initial, context: initialContext, problem }: { initial: ManagedMessage[]; context: DiscordContext; problem: string | null } = $props();
@@ -235,7 +235,7 @@
   function duplicate() {
     if (!selected) return;
     const copy = structuredClone($state.snapshot(selected.definition));
-    copy.name = `${copy.name} copy`.slice(0, LIMITS.name);
+    copy.name = truncateChars(`${copy.name} copy`, LIMITS.name);
     for (const row of copy.rows) for (const button of row) button.id = crypto.randomUUID();
     selected = null; draft = copy; baseline = ""; session += 1;
   }

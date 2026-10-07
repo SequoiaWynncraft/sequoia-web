@@ -4,6 +4,8 @@ import {
   calendarTime,
   charCount,
   definitionIssues,
+  embedCharacters,
+  truncateChars,
   fieldColumns,
   formatTimestamp,
   fromLocalInput,
@@ -66,6 +68,28 @@ describe("definitionIssues", () => {
     expect(definitionIssues(panel, { emojis: new Set(["42"]) })).toEqual({});
     expect(definitionIssues(panel, { emojis: new Set() })["rows.0.0.server_emoji"]).toContain("no longer available");
     expect(definitionIssues(panel)).toEqual({});
+  });
+
+  it("measures embed text after Discord's whitespace trim, but message text raw", () => {
+    const padded = (text: string) => `  ${text}\n`;
+    const atLimit = draft({ embeds: [{
+      type: "rich", title: padded("t".repeat(256)), description: padded("d".repeat(4096)),
+      author: { name: padded("a".repeat(256)) }, footer: { text: padded("f".repeat(1000)) },
+      fields: [{ name: padded("n".repeat(256)), value: padded("v".repeat(136)), inline: false }],
+    }] });
+    expect(definitionIssues(atLimit)).toEqual({});
+    expect(embedCharacters(atLimit.embeds[0])).toBe(6000);
+    const over = draft({ embeds: [{ ...atLimit.embeds[0], footer: { text: padded("f".repeat(1001)) } }] });
+    expect(definitionIssues(over).embeds).toContain("6001");
+    expect(definitionIssues(draft({ content: ` ${"x".repeat(2000)}` })).content).toContain("2001");
+  });
+
+  it("truncates by characters without splitting an emoji", () => {
+    const name = `a${"🎉".repeat(60)} copy`;
+    const truncated = truncateChars(name, 100);
+    expect(truncated).toBe(`a${"🎉".repeat(60)} copy`);
+    expect(truncateChars(`a${"🎉".repeat(120)}`, 100)).toBe(`a${"🎉".repeat(99)}`);
+    expect([...truncateChars(`a${"🎉".repeat(120)}`, 100)].every((char) => char.length <= 2 && !/^[\uD800-\uDFFF]$/.test(char))).toBe(true);
   });
 
   it("flags a saved channel absent from current context", () => {

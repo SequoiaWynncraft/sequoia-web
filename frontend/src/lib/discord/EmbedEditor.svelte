@@ -6,7 +6,7 @@
   import MarkdownField from "./MarkdownField.svelte";
   import {
     LIMITS,
-    charCount,
+    embedCount,
     embedCharacters,
     fromLocalInput,
     hexColor,
@@ -84,7 +84,7 @@
   {#if issues[at]}<p class="embed-issue" role="alert">{issues[at]}</p>{/if}
 
   <div class="two-fields">
-    <Field label="Title" hint={`${charCount(embed.title)} / ${LIMITS.title}`} error={issues[`${at}.title`]}>
+    <Field label="Title" hint={`${embedCount(embed.title)} / ${LIMITS.title}`} error={issues[`${at}.title`]}>
       <TextInput bind:value={embed.title} invalid={!!issues[`${at}.title`]} />
     </Field>
     <Field label="Colour" element="div">
@@ -98,16 +98,16 @@
   <Field label="Title link" hint="Makes the title open this page." error={issues[`${at}.url`]}>
     <TextInput bind:value={embed.url} placeholder="https://" inputmode="url" invalid={!!issues[`${at}.url`]} />
   </Field>
-  <MarkdownField label="Description" bind:value={embed.description} limit={LIMITS.description} rows={5} issue={issues[`${at}.description`]} {context} />
+  <MarkdownField label="Description" bind:value={embed.description} limit={LIMITS.description} rows={5} issue={issues[`${at}.description`]} {context} embedText />
 
   <div class="embed-fields">
     <div class="fields-head"><h4>Fields</h4><span>{embed.fields?.length ?? 0} / {LIMITS.fields}</span></div>
     {#each embed.fields ?? [] as field, fieldIndex (fieldIndex)}
       <div class="field-editor">
-        <Field label="Field name" hint={`${charCount(field.name)} / ${LIMITS.fieldName}`} error={issues[`${at}.fields.${fieldIndex}.name`]}>
+        <Field label="Field name" hint={`${embedCount(field.name)} / ${LIMITS.fieldName}`} error={issues[`${at}.fields.${fieldIndex}.name`]}>
           <TextInput bind:value={field.name} invalid={!!issues[`${at}.fields.${fieldIndex}.name`]} />
         </Field>
-        <MarkdownField label="Field value" bind:value={field.value} limit={LIMITS.fieldValue} rows={2} issue={issues[`${at}.fields.${fieldIndex}.value`]} {context} compact />
+        <MarkdownField label="Field value" bind:value={field.value} limit={LIMITS.fieldValue} rows={2} issue={issues[`${at}.fields.${fieldIndex}.value`]} {context} compact embedText />
         <div class="field-tools">
           <Toggle label="Inline" hint="Up to three inline fields share a row." bind:checked={field.inline} />
           <div class="embed-tools">
@@ -123,7 +123,7 @@
 
   <details class="embed-group" bind:open={authorOpen}>
     <summary>Author</summary>
-    <Field label="Author" hint={`${charCount(embed.author?.name)} / ${LIMITS.author}`} error={issues[`${at}.author`]}>
+    <Field label="Author" hint={`${embedCount(embed.author?.name)} / ${LIMITS.author}`} error={issues[`${at}.author`]}>
       <TextInput value={embed.author?.name ?? ""} oninput={(event) => setAuthor({ name: event.currentTarget.value })} />
     </Field>
     <div class="two-fields">
@@ -150,7 +150,7 @@
 
   <details class="embed-group" bind:open={footerOpen}>
     <summary>Footer and timestamp</summary>
-    <Field label="Footer" hint={`${charCount(embed.footer?.text)} / ${LIMITS.footer}`} error={issues[`${at}.footer`]}>
+    <Field label="Footer" hint={`${embedCount(embed.footer?.text)} / ${LIMITS.footer}`} error={issues[`${at}.footer`]}>
       <TextInput value={embed.footer?.text ?? ""} oninput={(event) => setFooter({ text: event.currentTarget.value })} />
     </Field>
     <div class="two-fields">

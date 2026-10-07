@@ -31,13 +31,23 @@ export function charCount(text: string | undefined): number {
   return text ? [...text].length : 0;
 }
 
+/** Discord trims leading and trailing whitespace from embed text before measuring limits. */
+export function embedCount(text: string | undefined): number {
+  return charCount(text?.trim());
+}
+
+/** Shortens by characters, never splitting an emoji's surrogate pair. */
+export function truncateChars(text: string, limit: number): string {
+  return [...text].slice(0, limit).join("");
+}
+
 export function embedCharacters(embed: Embed): number {
   return (
-    charCount(embed.title) +
-    charCount(embed.description) +
-    charCount(embed.author?.name) +
-    charCount(embed.footer?.text) +
-    (embed.fields ?? []).reduce((sum, field) => sum + charCount(field.name) + charCount(field.value), 0)
+    embedCount(embed.title) +
+    embedCount(embed.description) +
+    embedCount(embed.author?.name) +
+    embedCount(embed.footer?.text) +
+    (embed.fields ?? []).reduce((sum, field) => sum + embedCount(field.name) + embedCount(field.value), 0)
   );
 }
 
@@ -53,8 +63,8 @@ export function isWebUrl(raw: string | undefined): boolean {
 /** Problems keyed by the draft path they belong to, e.g. `embeds.0.fields.1.value`. */
 export type Issues = Record<string, string>;
 
-function tooLong(issues: Issues, key: string, label: string, text: string | undefined, limit: number) {
-  const count = charCount(text);
+function tooLong(issues: Issues, key: string, label: string, text: string | undefined, limit: number, measure = charCount) {
+  const count = measure(text);
   if (count > limit) issues[key] = `${label} is ${count} characters; Discord allows ${limit}.`;
 }
 
@@ -89,10 +99,10 @@ export function definitionIssues(draft: Definition, available: Availability = {}
   const embedUrls = new Set<string>();
   draft.embeds.forEach((embed, index) => {
     const at = `embeds.${index}`;
-    tooLong(issues, `${at}.title`, "The title", embed.title, LIMITS.title);
-    tooLong(issues, `${at}.description`, "The description", embed.description, LIMITS.description);
-    tooLong(issues, `${at}.author`, "The author", embed.author?.name, LIMITS.author);
-    tooLong(issues, `${at}.footer`, "The footer", embed.footer?.text, LIMITS.footer);
+    tooLong(issues, `${at}.title`, "The title", embed.title, LIMITS.title, embedCount);
+    tooLong(issues, `${at}.description`, "The description", embed.description, LIMITS.description, embedCount);
+    tooLong(issues, `${at}.author`, "The author", embed.author?.name, LIMITS.author, embedCount);
+    tooLong(issues, `${at}.footer`, "The footer", embed.footer?.text, LIMITS.footer, embedCount);
     if (embed.author && !embed.author.name.trim()) issues[`${at}.author`] = "Authors need a name.";
     if (embed.footer && !embed.footer.text.trim()) issues[`${at}.footer`] = "Footers need text.";
     url(issues, `${at}.url`, embed.url);
@@ -114,8 +124,8 @@ export function definitionIssues(draft: Definition, available: Availability = {}
       const key = `${at}.fields.${fieldIndex}`;
       if (!field.name.trim()) issues[`${key}.name`] = "Fields need a name.";
       if (!field.value.trim()) issues[`${key}.value`] = "Fields need a value.";
-      tooLong(issues, `${key}.name`, "The field name", field.name, LIMITS.fieldName);
-      tooLong(issues, `${key}.value`, "The field value", field.value, LIMITS.fieldValue);
+      tooLong(issues, `${key}.name`, "The field name", field.name, LIMITS.fieldName, embedCount);
+      tooLong(issues, `${key}.value`, "The field value", field.value, LIMITS.fieldValue, embedCount);
     });
     total += embedCharacters(embed);
   });

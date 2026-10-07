@@ -2,7 +2,7 @@
   import { tick } from "svelte";
 
   import TextArea from "$lib/design-system/components/forms/TextArea.svelte";
-  import { charCount } from "./format";
+  import { charCount, embedCount } from "./format";
   import type { DiscordContext } from "./types";
 
   let {
@@ -13,6 +13,7 @@
     issue,
     context,
     compact = false,
+    embedText = false,
   }: {
     label: string;
     value?: string;
@@ -23,11 +24,13 @@
     context: DiscordContext;
     /** Inline styling tools only, for short repeated fields. */
     compact?: boolean;
+    /** Embed text: Discord trims surrounding whitespace before counting it. */
+    embedText?: boolean;
   } = $props();
 
   const id = $props.id();
   let element = $state<HTMLTextAreaElement>();
-  const count = $derived(charCount(value));
+  const count = $derived(embedText ? embedCount(value) : charCount(value));
   const mentionRoles = $derived(context.roles.filter((role) => role.name !== "@everyone"));
   const emojis = $derived(context.emojis.filter((emoji) => emoji.available));
 
