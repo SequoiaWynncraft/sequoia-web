@@ -50,10 +50,25 @@ Add page metadata to `src/lib/site/nav.ts`, then keep route files small by consu
 
 ## Discord Management
 
-`/manage/discord` is a responsive editor linked from Military, Community and Development.
+`/manage/discord` is the responsive editor behind the console's own ✦ Discord category.
 The Rust Sierra module in `sequoia-backend` owns authorization, definition validation,
 database persistence, Discord delivery, emoji uploads and role-button dispatch. The Svelte
 component owns only the editable workspace and preview; WASM adds no useful boundary here.
+
+Sierra decides who may manage Discord messages (Senior Moderators, Treants and higher,
+leadership, full Community/Military/Development branch members and website admins). The
+sidebar and navbar ask its `/v1/access` probe through the same-origin adapter, memoized per
+viewer like the bag-shop staff flag: only grants and denials are cached, display peeks wait
+at most 150 ms from the check's start, and an outage hides the category instead of slowing
+navigation. The `/manage` landing and every page/API call re-authorize fresh in Rust.
+
+The live preview parses Discord's markdown dialect with `discord-markdown-parser` into a
+typed AST (`src/lib/discord/markdown.ts`) and renders it with Svelte elements, never HTML.
+That module adds Discord list syntax and correct line starts for headings and subtext, which
+the parser lacks, and only keeps http(s) link targets. `parser.d.ts` types the small parser
+surface used because the package's bundled declarations fail this project's strict library
+checks. The preview approximates Discord's dark theme with the site's text face; Discord's
+own clients decide the final rendering, and unicode emoji use the device's emoji font.
 
 Set server-only `SEQUOIA_DISCORD_MANAGEMENT_URL=http://<private-sierra-service>:8082` on
 both websites after enabling Sierra's `SEQUOIA_SIERRA_MANAGEMENT_BIND` on the private

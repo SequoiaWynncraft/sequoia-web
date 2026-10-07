@@ -30,6 +30,8 @@ export interface ManageCapabilities {
   development: AreaAccess;
   military: AreaAccess;
   endGame: AreaAccess;
+  /** Discord staff and branch managers, decided by Sierra's Rust authority. */
+  discord: AreaAccess;
 }
 
 export type ManageAreaId = keyof ManageCapabilities;

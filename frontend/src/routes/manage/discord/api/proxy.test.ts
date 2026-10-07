@@ -37,6 +37,11 @@ describe("Discord management server boundary", () => {
     expect(response.headers.get("cache-control")).toBe("no-store");
     expect(await response.json()).toEqual({ id: "saved" });
   });
+  it("forwards the navigation admission probe to the same Rust authority", async () => {
+    const request = event("GET", null, "cookie-session", "access");
+    expect((await GET(request as never)).status).toBe(200);
+    expect(request.fetch).toHaveBeenCalledWith("http://sierra:8082/v1/access", expect.objectContaining({ method: "GET" }));
+  });
   it("does not forward unauthenticated requests or arbitrary paths", async () => {
     const request = event("GET", null, "");
     expect((await GET(request as never)).status).toBe(401);

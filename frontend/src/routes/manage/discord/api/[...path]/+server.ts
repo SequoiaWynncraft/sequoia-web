@@ -4,7 +4,7 @@ import { discordManagement } from "$lib/server/discordManagement";
 
 const proxy: RequestHandler = async ({ fetch, request, cookies, params, url }) => {
   const path = params.path;
-  if (!/^(context|emojis|self-service-roles|messages(?:\/adopt|\/[0-9a-f-]{36}(?:\/publish|\/recover)?)?)$/.test(path)) {
+  if (!/^(access|context|emojis|self-service-roles|messages(?:\/adopt|\/[0-9a-f-]{36}(?:\/publish|\/recover)?)?)$/.test(path)) {
     error(404, "Not found");
   }
   const write = request.method !== "GET";

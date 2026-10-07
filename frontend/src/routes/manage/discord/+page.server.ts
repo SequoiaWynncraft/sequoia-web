@@ -7,7 +7,8 @@ export const load: PageServerLoad = async ({ fetch, cookies }) => {
   const token = cookies.get("seq_session");
   const response = await discordManagement(fetch, token, "context");
   if (!response.ok) {
-    return { access: response.status === 401 ? "signin" as const : response.status === 403 ? "denied" as const : "unverified" as const, context: null, messages: [] as ManagedMessage[], problem: (await response.json()).error as string };
+    // Rust re-authorizes fresh here; a missing or unreachable authority fails closed.
+    return { access: response.status === 401 ? "signin" as const : response.status === 403 ? "denied" as const : "unverified" as const, context: null, messages: [] as ManagedMessage[], problem: null };
   }
   const context: DiscordContext = await response.json();
   const listing = await discordManagement(fetch, token, "messages");
