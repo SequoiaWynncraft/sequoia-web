@@ -203,7 +203,7 @@
   async function upload() {
     const emoji = await request<DiscordContext["emojis"][number]>("emojis", "POST", { name: emojiName, image: emojiImage });
     if (!emoji) return;
-    context.emojis = [...context.emojis, emoji];
+    context.emojis = [...context.emojis.filter((existing) => existing.id !== emoji.id), emoji];
     if (pickerButton) pickerButton.emoji = { id: emoji.id, name: emoji.name, animated: emoji.animated };
     emojiFile = null; emojiImage = ""; emojiName = ""; if (uploadInput) uploadInput.value = "";
     notice = `Uploaded :${emoji.name}: to Discord.`;
