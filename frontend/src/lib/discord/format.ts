@@ -31,9 +31,17 @@ export function charCount(text: string | undefined): number {
   return text ? [...text].length : 0;
 }
 
-/** Discord trims leading and trailing whitespace from embed text before measuring limits. */
+/**
+ * Embed text as Sierra stores it: Unicode White_Space trimmed from both ends, like Rust's
+ * `str::trim`. `String.trim` differs at U+0085 (kept) and U+FEFF (removed).
+ */
+export function trimEmbedText(text: string | undefined): string {
+  return (text ?? "").replace(/^\p{White_Space}+|\p{White_Space}+$/gu, "");
+}
+
+/** Discord trims surrounding whitespace from embed text before measuring limits. */
 export function embedCount(text: string | undefined): number {
-  return charCount(text?.trim());
+  return charCount(trimEmbedText(text));
 }
 
 /** Shortens by characters, never splitting an emoji's surrogate pair. */
@@ -103,8 +111,8 @@ export function definitionIssues(draft: Definition, available: Availability = {}
     tooLong(issues, `${at}.description`, "The description", embed.description, LIMITS.description, embedCount);
     tooLong(issues, `${at}.author`, "The author", embed.author?.name, LIMITS.author, embedCount);
     tooLong(issues, `${at}.footer`, "The footer", embed.footer?.text, LIMITS.footer, embedCount);
-    if (embed.author && !embed.author.name.trim()) issues[`${at}.author`] = "Authors need a name.";
-    if (embed.footer && !embed.footer.text.trim()) issues[`${at}.footer`] = "Footers need text.";
+    if (embed.author && !trimEmbedText(embed.author.name)) issues[`${at}.author`] = "Authors need a name.";
+    if (embed.footer && !trimEmbedText(embed.footer.text)) issues[`${at}.footer`] = "Footers need text.";
     url(issues, `${at}.url`, embed.url);
     if (embed.url) {
       if (embedUrls.has(embed.url)) issues[`${at}.url`] = "Discord shows only the first embed with this link. Use a different link or remove it.";
@@ -116,14 +124,14 @@ export function definitionIssues(draft: Definition, available: Availability = {}
     url(issues, `${at}.author_icon`, embed.author?.icon_url);
     url(issues, `${at}.footer_icon`, embed.footer?.icon_url);
     if (embed.timestamp && Number.isNaN(Date.parse(embed.timestamp))) issues[`${at}.timestamp`] = "Choose a valid date and time.";
-    const visible = embed.title?.trim() || embed.description?.trim() || embed.author?.name.trim() || embed.footer?.text.trim() ||
+    const visible = trimEmbedText(embed.title) || trimEmbedText(embed.description) || trimEmbedText(embed.author?.name) || trimEmbedText(embed.footer?.text) ||
       embed.image?.url || embed.thumbnail?.url || (embed.fields?.length ?? 0) > 0 ||
       (embed.timestamp && !Number.isNaN(Date.parse(embed.timestamp)));
     if (!visible) issues[at] = "Give this embed a title, description, field, image, footer or timestamp.";
     (embed.fields ?? []).forEach((field, fieldIndex) => {
       const key = `${at}.fields.${fieldIndex}`;
-      if (!field.name.trim()) issues[`${key}.name`] = "Fields need a name.";
-      if (!field.value.trim()) issues[`${key}.value`] = "Fields need a value.";
+      if (!trimEmbedText(field.name)) issues[`${key}.name`] = "Fields need a name.";
+      if (!trimEmbedText(field.value)) issues[`${key}.value`] = "Fields need a value.";
       tooLong(issues, `${key}.name`, "The field name", field.name, LIMITS.fieldName, embedCount);
       tooLong(issues, `${key}.value`, "The field value", field.value, LIMITS.fieldValue, embedCount);
     });

@@ -84,6 +84,17 @@ describe("definitionIssues", () => {
     expect(definitionIssues(draft({ content: ` ${"x".repeat(2000)}` })).content).toContain("2001");
   });
 
+  it("trims embed text exactly as Rust does at U+0085 and U+FEFF", () => {
+    const titled = (title: string) => draft({ embeds: [{ type: "rich", title }] });
+    // Rust's str::trim removes NEL (White_Space) but keeps a byte-order mark.
+    expect(definitionIssues(titled(`\u0085${"t".repeat(256)}\u0085`))).toEqual({});
+    expect(definitionIssues(titled(`\uFEFF${"t".repeat(256)}\uFEFF`))["embeds.0.title"]).toContain("258");
+    const metadata = draft({ embeds: [{ type: "rich", title: "Rules", author: { name: "\u0085" }, footer: { text: "\uFEFF" } }] });
+    expect(definitionIssues(metadata)["embeds.0.author"]).toBe("Authors need a name.");
+    expect(definitionIssues(metadata)["embeds.0.footer"]).toBeUndefined();
+    expect(definitionIssues(draft({ content: "x", embeds: [{ type: "rich", title: "\u0085" }] }))["embeds.0"]).toBeDefined();
+  });
+
   it("truncates by characters without splitting an emoji", () => {
     const name = `a${"🎉".repeat(60)} copy`;
     const truncated = truncateChars(name, 100);
