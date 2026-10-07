@@ -16,7 +16,7 @@ function caps(overrides: Partial<ManageCapabilities> = {}): ManageCapabilities {
 }
 
 describe("registry", () => {
-  it("has one area per org branch with distinct ids, branches, and hrefs", () => {
+  it("has one area per org branch plus Discord, with distinct ids, branches, and hrefs", () => {
     expect(MANAGE_AREAS.map((area) => area.id)).toEqual([
       "events",
       "treasury",
@@ -24,8 +24,10 @@ describe("registry", () => {
       "community",
       "endGame",
       "development",
+      "discord",
     ]);
-    expect(new Set(MANAGE_AREAS.map((area) => area.branch)).size).toBe(MANAGE_AREAS.length);
+    const branches = MANAGE_AREAS.map((area) => area.branch).filter((branch) => branch !== null);
+    expect(new Set(branches).size).toBe(MANAGE_AREAS.length - 1);
     const hrefs = MANAGE_AREAS.map((area) => area.href).filter((href) => href !== null);
     expect(new Set(hrefs).size).toBe(hrefs.length);
   });
@@ -42,6 +44,7 @@ describe("registry", () => {
       "treasury",
       "community",
       "development",
+      "discord",
     ]);
   });
 
@@ -69,6 +72,15 @@ describe("registry", () => {
     expect(development?.links).toEqual([
       { label: "Audit log", href: "/manage/development/audit" },
     ]);
+  });
+
+  it("gives Discord one ✦ category instead of links repeated under branches", () => {
+    const discord = MANAGE_AREAS.find((area) => area.id === "discord");
+    expect(discord).toMatchObject({ label: "Discord", marker: "✦", branch: null, href: "/manage/discord" });
+    const owners = MANAGE_AREAS.filter((area) =>
+      [area.href, ...area.links.map((link) => link.href)].includes("/manage/discord"),
+    );
+    expect(owners.map((area) => area.id)).toEqual(["discord"]);
   });
 
   it("firstAccessible follows registry order and null when locked out", () => {

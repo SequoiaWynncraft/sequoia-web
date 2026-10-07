@@ -7,6 +7,7 @@ import {
   peekManageCapabilities,
 } from "./manageCapabilities";
 import { createBagshopClient } from "$lib/api/bagshop";
+import { requestDiscord } from "$lib/api/discordManagement";
 import { getGuildStats } from "./guildStats";
 import { getLinkedRankProfilesResult } from "./rankProfiles";
 import type { Viewer } from "$lib/site/viewer";
@@ -14,10 +15,12 @@ import type { Viewer } from "$lib/site/viewer";
 vi.mock("./guildStats", () => ({ getGuildStats: vi.fn() }));
 vi.mock("./rankProfiles", () => ({ getLinkedRankProfilesResult: vi.fn() }));
 vi.mock("$lib/api/bagshop", () => ({ createBagshopClient: vi.fn() }));
+vi.mock("$lib/api/discordManagement", () => ({ requestDiscord: vi.fn() }));
 
 const mockStats = vi.mocked(getGuildStats);
 const mockProfiles = vi.mocked(getLinkedRankProfilesResult);
 const mockClient = vi.mocked(createBagshopClient);
+const mockDiscord = vi.mocked(requestDiscord);
 
 const UUID = "11111111-2222-3333-4444-555555555555";
 const UNDASHED = UUID.replaceAll("-", "");
@@ -68,6 +71,14 @@ function bagshopMe(result: { ok: true; staff: boolean } | { ok: false }) {
   } as never);
 }
 
+function sierraSays(status: 200 | 401 | 403 | 503) {
+  mockDiscord.mockResolvedValue(
+    status === 200
+      ? { ok: true, data: { can_approve_roles: false } }
+      : { ok: false, error: { code: "http_error", status, message: "no" } },
+  );
+}
+
 const noFetch = (() => {
   throw new Error("unexpected fetch");
 }) as unknown as typeof fetch;
@@ -77,19 +88,22 @@ beforeEach(() => {
   rosterWith("recruit");
   branchesWith([]);
   bagshopMe({ ok: true, staff: false });
+  sierraSays(403);
 });
 
 describe("peekManageCapabilities", () => {
   it("is signin everywhere without a session, with zero upstream calls", async () => {
     const capabilities = await peekManageCapabilities(noFetch, null);
-    expect(Object.values(capabilities)).toHaveLength(6);
+    expect(Object.values(capabilities)).toHaveLength(7);
     expect(new Set(Object.values(capabilities))).toEqual(new Set(["signin"]));
     expect(mockStats).not.toHaveBeenCalled();
     expect(mockClient).not.toHaveBeenCalled();
+    expect(mockDiscord).not.toHaveBeenCalled();
   });
 
   it("grants every branch area to a strategist, staff or not", async () => {
     rosterWith("strategist");
+    sierraSays(200);
     expect(await peekManageCapabilities(fetch, viewer())).toEqual({
       events: "granted",
       treasury: "granted",
@@ -97,7 +111,33 @@ describe("peekManageCapabilities", () => {
       community: "granted",
       endGame: "granted",
       development: "granted",
+      discord: "granted",
     });
+  });
+
+  it("takes Discord access only from Sierra, not from web branch data", async () => {
+    // A Senior Moderator is off the roster and in no branch; Sierra admits them.
+    mockStats.mockResolvedValue({ stale: false, members: [] } as never);
+    sierraSays(200);
+    const moderator = await peekManageCapabilities(fetch, viewer());
+    expect(moderator.discord).toBe("granted");
+    expect(moderator.community).toBe("denied");
+    expect(mockDiscord).toHaveBeenCalledWith(fetch, "access");
+
+    // Sierra's denial stands even for a web-side branch member.
+    branchesWith([{ branch: "community", level: "member" }]);
+    rosterWith("recruit");
+    sierraSays(403);
+    const lower = await peekManageCapabilities(fetch, viewer());
+    expect(lower.community).toBe("granted");
+    expect(lower.discord).toBe("denied");
+  });
+
+  it("answers website admins from the session without asking Sierra", async () => {
+    const capabilities = await peekManageCapabilities(fetch, viewer({ websiteAdmin: true }));
+    expect(capabilities.discord).toBe("granted");
+    expect(await pageAreaAccess(fetch, viewer({ websiteAdmin: true }), "discord")).toBe("granted");
+    expect(mockDiscord).not.toHaveBeenCalled();
   });
 
   it("grants a branch member their own area only", async () => {
@@ -162,6 +202,51 @@ describe("peekManageCapabilities", () => {
     const capabilities = await peekManageCapabilities(fetch, viewer());
     expect(Date.now() - startedAt).toBeLessThan(1000);
     expect(capabilities.events).toBe("unverified");
+  });
+});
+
+describe("Discord admission", () => {
+  it("never caches an outage, a sign-in miss or a hang", async () => {
+    const who = viewer();
+    for (const status of [503, 401] as const) {
+      sierraSays(status);
+      expect((await peekManageCapabilities(fetch, who)).discord).toBe(
+        status === 503 ? "unverified" : "signin",
+      );
+    }
+    sierraSays(200);
+    expect((await peekManageCapabilities(fetch, who)).discord).toBe("granted");
+    expect(mockDiscord).toHaveBeenCalledTimes(3);
+  });
+
+  it("revalidates fresh for the protected landing while the sidebar rides the memo", async () => {
+    const who = viewer();
+    sierraSays(200);
+    expect((await peekManageCapabilities(fetch, who)).discord).toBe("granted");
+    // Revocation applies to the strict check immediately.
+    sierraSays(403);
+    expect(await pageAreaAccess(fetch, who, "discord")).toBe("denied");
+    expect((await peekManageCapabilities(fetch, who)).discord).toBe("denied");
+    expect(mockDiscord).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not make navigation wait for a hung Sierra on every page", async () => {
+    mockDiscord.mockReturnValue(new Promise(() => undefined) as never);
+    const who = viewer();
+    let startedAt = Date.now();
+    expect(await navManageVisible(fetch, who)).toBe(false);
+    expect(Date.now() - startedAt).toBeLessThan(1000);
+    // The second render shares the in-flight check and spends no further wait.
+    startedAt = Date.now();
+    expect((await peekManageCapabilities(fetch, who)).discord).toBe("unverified");
+    expect(Date.now() - startedAt).toBeLessThan(100);
+    expect(mockDiscord).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows the Manage entry to Discord-only staff", async () => {
+    mockStats.mockResolvedValue({ stale: false, members: [] } as never);
+    sierraSays(200);
+    expect(await navManageVisible(fetch, viewer())).toBe(true);
   });
 });
 

@@ -12,8 +12,8 @@ export const POST_TIER_LABELS: Record<PostTier, string> = {
 };
 
 /** Branch keys with their console labels, in sidebar order. */
-export const POST_BRANCHES: readonly { key: ManageBranchKey; label: string }[] = MANAGE_AREAS.map(
-  (area) => ({ key: area.branch, label: area.label }),
+export const POST_BRANCHES: readonly { key: ManageBranchKey; label: string }[] = MANAGE_AREAS.flatMap(
+  (area) => (area.branch === null ? [] : [{ key: area.branch, label: area.label }]),
 );
 
 export type PostViewerTier = "anonymous" | "signedIn" | "member" | "manager";

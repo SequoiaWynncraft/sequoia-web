@@ -12,11 +12,14 @@ export interface AreaGateCopy {
 export interface ManageArea {
   id: ManageAreaId;
   label: string;
-  /** The org branch whose members hold this area (leadership holds all). */
-  branch: ManageBranchKey;
+  /**
+   * The org branch whose members hold this area (leadership holds all), or
+   * null for a cross-branch area whose own service decides access.
+   */
+  branch: ManageBranchKey | null;
   /** Landing page, or null while the branch has no console content yet. */
   href: string | null;
-  /** Section marker: ◆ for org areas, ✦ for event areas (see DESIGN.md). */
+  /** Section marker: ◆ for org areas, ✦ for event and Discord areas (see DESIGN.md). */
   marker: string;
   /** Sub-pages listed under the area in the console sidebar. */
   links: { label: string; href: string }[];
@@ -29,7 +32,8 @@ export interface ManageContentArea extends ManageArea {
 }
 
 /**
- * Every management area, in sidebar order - one per org branch. Adding
+ * Every management area, in sidebar order - one per org branch, then the
+ * cross-branch Discord area. Adding
  * content to a branch means setting its `href` (and links) here plus a page
  * gated on its capability key; the console shell, landing redirect, and
  * navbar visibility all derive from this table.
@@ -128,6 +132,22 @@ export const MANAGE_AREAS: readonly ManageArea[] = [
       deniedText: "Development tools are for the Development branch and guild leadership.",
       backHref: "/manage",
       backLabel: "Back to manage",
+    },
+  },
+  {
+    id: "discord",
+    label: "Discord",
+    branch: null,
+    href: "/manage/discord",
+    marker: "✦",
+    links: [{ label: "Messages", href: "/manage/discord" }],
+    gate: {
+      title: "Discord staff only",
+      signinText: "Sign in to manage Discord messages.",
+      deniedText:
+        "Discord messages are managed by Senior Moderators, Treants and higher, guild leadership, and the Community, Military and Development branches.",
+      backHref: "/",
+      backLabel: "Back to home",
     },
   },
 ];
