@@ -59,10 +59,11 @@
   const filtered = $derived(messages.filter((m) => m.definition.name.toLowerCase().includes(search.toLowerCase())));
   const eligibleRoles = $derived(context.roles.filter((r) => r.eligible && r.approved));
   const selfServiceRoleIds = $derived(new Set(eligibleRoles.map((role) => role.id)));
+  const channelIds = $derived(new Set(context.channels.map((channel) => channel.id)));
   const emojiNameIssue = $derived(emojiFile && !/^[a-zA-Z0-9_]{2,32}$/.test(emojiName) ? "Use 2–32 letters, numbers or underscores." : undefined);
   const roleChoices = $derived(context.roles.filter((r) => r.name.toLowerCase().includes(roleSearch.toLowerCase())));
   const emojiChoices = $derived(context.emojis.filter((e) => e.available && e.name.toLowerCase().includes(emojiSearch.toLowerCase())));
-  const issues = $derived(draft ? definitionIssues(draft, selfServiceRoleIds) : {});
+  const issues = $derived(draft ? definitionIssues(draft, selfServiceRoleIds, channelIds) : {});
   const issueCount = $derived(Object.keys(issues).length);
   const channelName = $derived(context.channels.find((c) => c.id === draft?.channel_id)?.name);
   const stateLabel = $derived.by(() => {
@@ -342,7 +343,7 @@
                         </div>
                       {:else}<Field label="Destination" error={issues[`${key}.url`]}><TextInput bind:value={button.action.url} inputmode="url" invalid={!!issues[`${key}.url`]} /></Field>{/if}
                       <div class="button-tools">
-                        <label class="unicode">Unicode emoji<input class="seq-input" value={button.emoji && !("id" in button.emoji) ? button.emoji.name : ""} oninput={(e) => button.emoji = e.currentTarget.value ? { name: e.currentTarget.value } : null} /></label>
+                        <div class="unicode"><Field label="Unicode emoji" error={issues[`${key}.emoji`]}><TextInput value={button.emoji && !("id" in button.emoji) ? button.emoji.name : ""} invalid={!!issues[`${key}.emoji`]} oninput={(e) => button.emoji = e.currentTarget.value ? { name: e.currentTarget.value } : null} /></Field></div>
                         <Button variant="ghost" size="sm" onclick={() => { pickerButtonId = button.id; tab = "emoji"; }}>{#if button.emoji && "id" in button.emoji}<img src={emojiUrl(button.emoji.id, button.emoji.animated)} alt="" width="20" height="20" />{/if}Server emoji</Button>
                         {#if button.emoji}<button type="button" onclick={() => (button.emoji = null)}>No emoji</button>{/if}
                         <span class="tools"><button type="button" aria-label={`Move ${button.label || "button"} left`} disabled={bi === 0} onclick={() => move(row, bi, -1)}>←</button><button type="button" aria-label={`Move ${button.label || "button"} right`} disabled={bi === row.length - 1} onclick={() => move(row, bi, 1)}>→</button><button type="button" onclick={() => row.splice(bi, 1)}>Remove</button></span>

@@ -4,6 +4,7 @@
  * authority; these give staff the same answer before they press Save.
  */
 
+import emojiRegex from "emoji-regex";
 import type { TimestampFormat } from "./markdown";
 import type { Definition, Embed } from "./types";
 
@@ -61,11 +62,18 @@ function url(issues: Issues, key: string, raw: string | undefined) {
   if (raw && !isWebUrl(raw)) issues[key] = "Use a full http or https link.";
 }
 
-export function definitionIssues(draft: Definition, selfServiceRoleIds?: ReadonlySet<string>): Issues {
+function unicodeEmoji(name: string): boolean {
+  const value = name.replaceAll("\uFE0F", "");
+  // Match Rust's Unicode 17 lookup; components alone are not complete emoji.
+  return !/^\p{Emoji_Component}$/u.test(value) && emojiRegex().exec(value)?.[0] === value;
+}
+
+export function definitionIssues(draft: Definition, selfServiceRoleIds?: ReadonlySet<string>, channelIds?: ReadonlySet<string>): Issues {
   const issues: Issues = {};
   if (!draft.name.trim()) issues.name = "Give the message a name.";
   tooLong(issues, "name", "The name", draft.name, LIMITS.name);
   if (!draft.channel_id) issues.channel_id = "Choose a channel.";
+  else if (channelIds && !channelIds.has(draft.channel_id)) issues.channel_id = "Choose an available channel.";
   tooLong(issues, "content", "Message text", draft.content, LIMITS.content);
   if (!draft.content.trim() && draft.embeds.length === 0 && !draft.rows.some((row) => row.length > 0)) issues.content = "Add message text, an embed or a button.";
   let total = 0;
@@ -89,7 +97,7 @@ export function definitionIssues(draft: Definition, selfServiceRoleIds?: Readonl
     url(issues, `${at}.author_icon`, embed.author?.icon_url);
     url(issues, `${at}.footer_icon`, embed.footer?.icon_url);
     if (embed.timestamp && Number.isNaN(Date.parse(embed.timestamp))) issues[`${at}.timestamp`] = "Choose a valid date and time.";
-    const visible = embed.title || embed.description || embed.author?.name || embed.footer?.text ||
+    const visible = embed.title?.trim() || embed.description?.trim() || embed.author?.name.trim() || embed.footer?.text.trim() ||
       embed.image?.url || embed.thumbnail?.url || (embed.fields?.length ?? 0) > 0 ||
       (embed.timestamp && !Number.isNaN(Date.parse(embed.timestamp)));
     if (!visible) issues[at] = "Give this embed a title, description, field, image, footer or timestamp.";
@@ -110,6 +118,9 @@ export function definitionIssues(draft: Definition, selfServiceRoleIds?: Readonl
     row.forEach((button, index) => {
       const key = `rows.${rowIndex}.${index}`;
       if (!button.label.trim() && !button.emoji) issues[`${key}.label`] = "Give the button a label or an emoji.";
+      if (button.emoji && !("id" in button.emoji) && !unicodeEmoji(button.emoji.name)) {
+        issues[`${key}.emoji`] = "Use a single Unicode emoji or choose a server emoji.";
+      }
       tooLong(issues, `${key}.label`, "The label", button.label, LIMITS.label);
       if (button.action.kind === "role") {
         if (!button.action.role_id) issues[`${key}.role`] = "Choose a role.";

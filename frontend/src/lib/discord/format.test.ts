@@ -55,6 +55,20 @@ describe("definitionIssues", () => {
   it("requires something visible", () => {
     expect(definitionIssues(draft({ content: " " })).content).toBe("Add message text, an embed or a button.");
     expect(definitionIssues(draft({ embeds: [{ type: "rich", color: 1 }] }))["embeds.0"]).toBeDefined();
+    expect(definitionIssues(draft({ content: "", embeds: [{ type: "rich", title: "  ", description: "\n\t" }] }))["embeds.0"]).toBeDefined();
+  });
+
+  it("flags a saved channel absent from current context", () => {
+    expect(definitionIssues(draft(), undefined, new Set(["1"]))).toEqual({});
+    expect(definitionIssues(draft(), undefined, new Set())["channel_id"]).toBe("Choose an available channel.");
+  });
+
+  it("requires one complete Unicode button emoji, not text or multiple emoji", () => {
+    const panel = (name: string) => draft({ rows: [[{
+      id: "link", label: "", style: 5, emoji: { name }, action: { kind: "link", url: "https://seqwawa.com" },
+    }]] });
+    for (const name of [" ", "hello", "1", "🎉🎉", "🎉text", "🏽", "🦰", "\u{1FAEB}"]) expect(definitionIssues(panel(name))["rows.0.0.emoji"]).toBeDefined();
+    for (const name of ["🎉", "❤", "⚔️", "🇸🇪", "1️⃣", "👩🏽‍💻", "👎️"]) expect(definitionIssues(panel(name))).toEqual({});
   });
 
   it("requires metadata text when an author or footer object exists", () => {
