@@ -92,6 +92,12 @@ describe("parseDiscordMarkdown", () => {
     expect(parseDiscordMarkdown("\\*literal\\*")).toEqual([text("*literal*")]);
   });
 
+  it("keeps out-of-range timestamp mentions literal so live preview cannot throw", () => {
+    for (const token of ["<t:9999999999999999:F>", "<t:-9999999999999999:R>", "<t:9999999999999999>"]) {
+      expect(parseDiscordMarkdown(token)).toEqual([text(token)]);
+    }
+  });
+
   it("renders only inline styling in embed titles and field names", () => {
     expect(parseDiscordMarkdown("# **Join** <@&1099360257098129449> [x](https://a.b)", "title")).toEqual([
       text("# "),

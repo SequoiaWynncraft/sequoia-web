@@ -208,7 +208,9 @@ function convert(node: SingleASTNode): DiscordNode | DiscordNode[] {
     case "timestamp": {
       const seconds = Number(node.timestamp);
       const format = FORMATS.has(str(node.format)) ? (node.format as TimestampFormat) : "f";
-      return Number.isFinite(seconds) ? { type: "timestamp", seconds, format } : { type: "text", text: "Invalid Date" };
+      // Finite numbers can still exceed Date's range; the renderer formats an ISO attribute.
+      if (!Number.isNaN(new Date(seconds * 1000).getTime())) return { type: "timestamp", seconds, format };
+      return { type: "text", text: `<t:${str(node.timestamp)}${node.format ? `:${str(node.format)}` : ""}>` };
     }
     default:
       // A rule this module does not know renders as its text, never as markup.
