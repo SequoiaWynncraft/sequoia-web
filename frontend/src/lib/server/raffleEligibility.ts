@@ -6,6 +6,7 @@ import {
   loadRaffleEligible,
   loadTrackerBoard,
   normalizeUuid,
+  pendingWarsError,
   resolveTrackedEvent,
   type RaidEvent,
 } from "./raidEventBoards";
@@ -67,7 +68,7 @@ export async function resolveEligibility(
   options: ResolveOptions = {},
 ): Promise<EligibilityResult> {
   const strict = options.strict ?? false;
-  if (!raffle.eligibility) return resolveLegacy(fetchImpl, event, raffle, roster);
+  if (!raffle.eligibility) return resolveLegacy(fetchImpl, event, raffle, roster, strict);
   const eligibility = raffle.eligibility;
 
   // Only identified members can hold tickets - identity (exclusion, faces,
@@ -80,7 +81,7 @@ export async function resolveEligibility(
   // none of their data sources are consulted either.
   let pool = eligibility.whitelistOnly ? [] : identifiedRoster;
 
-  const boards = new TrackerBoards(fetchImpl, event, roster);
+  const boards = new TrackerBoards(fetchImpl, event, roster, strict);
 
   for (const rule of eligibility.whitelistOnly ? [] : (eligibility.rules ?? [])) {
     switch (rule.type) {
@@ -222,6 +223,7 @@ async function resolveLegacy(
   event: GuildEvent,
   raffle: EventRaffle,
   roster: GuildMemberStats[],
+  strict: boolean,
 ): Promise<EligibilityResult> {
   if (!event.tracker) return failed("This event needs a tracker to roll raffles.");
   const requiredRaids = raffle.requiresMilestone
@@ -231,6 +233,7 @@ async function resolveLegacy(
     perTicket: raffle.perTicket,
     window: raffle.window,
     requiredRaids,
+    failOnPending: strict,
   });
   if (pool.error) return failed(pool.error);
   return settled(
@@ -258,6 +261,8 @@ class TrackerBoards {
     private readonly fetchImpl: typeof fetch,
     private readonly event: GuildEvent,
     private readonly roster: GuildMemberStats[],
+    /** Strict reads fail while a war-point board still has pending wars. */
+    private readonly strict: boolean,
   ) {}
 
   fullWindow() {
@@ -318,6 +323,8 @@ class TrackerBoards {
       await this.tracked,
     );
     if (board.error) return { raids: new Map<string, number>(), error: board.error };
+    const pending = this.strict ? pendingWarsError(board.leaderboard) : null;
+    if (pending) return { raids: new Map<string, number>(), error: pending };
     return {
       raids: new Map(
         board.leaderboard.map((entry) => [normalizeUuid(entry.player_uuid), entry.raids]),

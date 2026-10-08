@@ -295,6 +295,14 @@ async fn update_raid_event(
         &request.tracking,
         request.raid.as_deref(),
     )?;
+    let Some(existing) = state.db.raid_event(event_id).await? else {
+        return Err(ApiError::new(StatusCode::NOT_FOUND, "raid event not found"));
+    };
+    if !tracking_change_allowed(&existing.tracking, &request.tracking) {
+        return Err(ApiError::bad_request(
+            "a tracker can't switch between raids and war points - create a new tracker instead",
+        ));
+    }
 
     let event = state
         .db
@@ -311,6 +319,13 @@ async fn update_raid_event(
         Some(event) => Ok(Json(event).into_response()),
         None => Err(ApiError::new(StatusCode::NOT_FOUND, "raid event not found")),
     }
+}
+
+/// Events linked to a tracker read its board in the tracker's unit, so a
+/// switch between raids and war points would silently reinterpret their
+/// milestones and ticket divisors. Moving between the raid sources is fine.
+fn tracking_change_allowed(old: &str, new: &str) -> bool {
+    (old == "wars") == (new == "wars")
 }
 
 /// Shared create/update validation; returns the normalized raid scope.
@@ -418,7 +433,7 @@ mod tests {
 
     use time::macros::datetime;
 
-    use super::{readiness_problems, validate_event_fields};
+    use super::{readiness_problems, tracking_change_allowed, validate_event_fields};
 
     const INTERVAL: Duration = Duration::from_secs(130);
 
@@ -500,5 +515,15 @@ mod tests {
             .is_err()
         );
         assert!(validate_event_fields("Wars", starts, ends, "webhook", None).is_err());
+    }
+
+    #[test]
+    fn tracking_changes_stay_within_one_unit() {
+        assert!(tracking_change_allowed("mod", "api"));
+        assert!(tracking_change_allowed("api", "mod"));
+        assert!(tracking_change_allowed("wars", "wars"));
+        assert!(!tracking_change_allowed("mod", "wars"));
+        assert!(!tracking_change_allowed("api", "wars"));
+        assert!(!tracking_change_allowed("wars", "mod"));
     }
 }

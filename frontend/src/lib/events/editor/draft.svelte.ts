@@ -309,6 +309,8 @@ export class EventDraft {
   trackerEditId = $state("");
   trackerEditStartsAt = $state("");
   trackerEditEndsAt = $state("");
+  /** The edited tracker's kind on open: an edit can't cross raids and war points. */
+  trackerEditTracking = $state<TrackerKind>("mod");
   trackerBusy = $state(false);
   trackerAttempted = $state(false);
   /** The last ?/createTracker or ?/updateTracker rejection, synced from props. */
@@ -922,8 +924,17 @@ export class EventDraft {
     this.trackerChoices.find((option) => option.id === this.trackerEventId) ?? null,
   );
 
+  /**
+   * How the linked tracker counts. The tracker record is authoritative - the
+   * event's stored copy goes stale when the tracker is edited without
+   * re-saving the event - so a known tracker's own kind wins.
+   */
+  readonly trackerKind = $derived<TrackerKind | undefined>(
+    this.trackerEnabled ? (this.selectedTracker?.tracking ?? this.trackerTracking) : undefined,
+  );
+
   /** What the standings board counts, for milestone and ticket labels. */
-  readonly trackerUnit = $derived(standingsUnit(this.trackerEnabled ? this.trackerTracking : undefined));
+  readonly trackerUnit = $derived(standingsUnit(this.trackerKind));
 
   readonly trackerDraftError = $derived.by(() => {
     if (!this.newTrackerName.trim()) return "the tracker needs a name";
@@ -976,6 +987,7 @@ export class EventDraft {
     this.newTrackerStarts = option.startsAt.slice(0, 16);
     this.newTrackerEnds = option.endsAt.slice(0, 16);
     this.newTrackerTracking = option.tracking;
+    this.trackerEditTracking = option.tracking;
     this.newTrackerRaid = option.raid ?? "";
     this.trackerAttempted = false;
     this.trackerEditor = "edit";

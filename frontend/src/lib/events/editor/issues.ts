@@ -111,7 +111,7 @@ export function sectionIssues(draft: EventDraft): Partial<Record<SectionId, stri
     if (raffle.weightMode !== "flat") {
       const per = toCount(raffle.weightPer);
       if (!Number.isInteger(per) || per < 1) {
-        add("raffles", raffle.weightMode === "perRaid" ? "Raids per ticket must be at least 1" : "Per-stat divisor must be at least 1");
+        add("raffles", raffle.weightMode === "perRaid" ? `${draft.trackerUnit === "raids" ? "Raids" : "War points"} per ticket must be at least 1` : "Per-stat divisor must be at least 1");
       }
     }
     const windowRequired = raffle.weightMode === "perStat";
@@ -146,13 +146,13 @@ export function sectionIssues(draft: EventDraft): Partial<Record<SectionId, stri
           if (fromTracker && rule.stat !== "raids") {
             add("raffles", "Only raids can be counted from the mod tracker");
           }
-          if (fromTracker && !(draft.trackerEnabled && draft.trackerTracking === "mod")) {
+          if (fromTracker && draft.trackerKind !== "mod") {
             // The mod raid log is the only sub-day source; without it the rule
             // would fail at roll time, when it is far too late to fix. A war
             // tracker is mod-fed too, but its board counts war points.
             add(
               "raffles",
-              draft.trackerEnabled && draft.trackerTracking === "wars"
+              draft.trackerKind === "wars"
                 ? "A tracker-counted raid rule needs a raid tracker - this one counts war points"
                 : "A tracker-counted stat rule needs a mod tracker (set under Standings)",
             );

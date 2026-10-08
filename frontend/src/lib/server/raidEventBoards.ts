@@ -264,13 +264,21 @@ export async function loadRaffleEligible(
   fetchImpl: typeof fetch,
   tracker: NonNullable<GuildEvent["tracker"]>,
   roster: GuildMemberStats[],
-  options: { perTicket: number; window?: { from: string; to: string }; requiredRaids?: number },
+  options: {
+    perTicket: number;
+    window?: { from: string; to: string };
+    requiredRaids?: number;
+    /** A draw must not count partial war-point totals: fail while any are pending. */
+    failOnPending?: boolean;
+  },
 ): Promise<RaffleEligibility> {
   // Resolve the tracked event once and reuse it for both board reads below, so a
   // windowed gated raffle doesn't fetch the raid-events list twice.
   const tracked = await resolveTrackedEvent(fetchImpl, tracker.eventId);
   const board = await loadTrackerBoard(fetchImpl, tracker, roster, options, tracked);
   if (board.error) return { entrants: [], error: board.error };
+  const pending = options.failOnPending ? pendingWarsError(board.leaderboard) : null;
+  if (pending) return { entrants: [], error: pending };
   // The milestone gate reads the full-window standings. Without a raffle window
   // the ticket board already IS the full board, so reuse it; otherwise fetch the
   // unwindowed board once and keep the uuids that cleared the threshold.
@@ -280,6 +288,8 @@ export async function loadRaffleEligible(
       ? await loadTrackerBoard(fetchImpl, tracker, roster, {}, tracked)
       : board;
     if (fullBoard.error) return { entrants: [], error: fullBoard.error };
+    const fullPending = options.failOnPending ? pendingWarsError(fullBoard.leaderboard) : null;
+    if (fullPending) return { entrants: [], error: fullPending };
     gate = new Set(
       fullBoard.leaderboard
         .filter((entry) => entry.raids >= options.requiredRaids!)
@@ -294,6 +304,16 @@ export async function loadRaffleEligible(
     return [{ player_uuid: entry.player_uuid, username: entry.username, tickets }];
   });
   return { entrants, error: null };
+}
+
+/**
+ * Why a war-point board can't decide a draw yet: wars still waiting for their
+ * point values make every affected total partial. Null when the board is final.
+ */
+export function pendingWarsError(leaderboard: RaidLeaderboardEntry[]): string | null {
+  const pending = leaderboard.reduce((sum, entry) => sum + (entry.pendingWars ?? 0), 0);
+  if (pending <= 0) return null;
+  return `${pending} ${pending === 1 ? "war is" : "wars are"} still waiting for point values - roll once they're calculated.`;
 }
 
 /** Finds the backend raid event a tracker points at, for `loadTrackerBoard`. */

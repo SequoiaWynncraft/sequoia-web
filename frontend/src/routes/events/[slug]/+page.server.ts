@@ -149,6 +149,8 @@ export const load: PageServerLoad = async ({ fetch, locals, params, parent }) =>
   // The signed-in member's own raid total, read off the same board, so the page
   // can show their progress toward the personal milestones.
   let viewerRaids: number | null = null;
+  // War trackers: the viewer's wars still awaiting points - `viewerRaids` is partial.
+  let viewerPendingWars = 0;
   if (event.tracker && event.startsAt && event.endsAt && status !== "upcoming") {
     if (membership === "member") {
       // Best-effort role-aware enrichment, started alongside the board fetch:
@@ -185,6 +187,7 @@ export const load: PageServerLoad = async ({ fetch, locals, params, parent }) =>
       // unknown (null) rather than reporting a false 0, mirroring the standings
       // error state. A real member with no raids still reads 0.
       viewerRaids = result.error ? null : (mine?.raids ?? 0);
+      viewerPendingWars = result.error ? 0 : (mine?.pendingWars ?? 0);
     } else {
       standings = { state: membership };
     }
@@ -219,6 +222,7 @@ export const load: PageServerLoad = async ({ fetch, locals, params, parent }) =>
     today,
     standings,
     viewerRaids,
+    viewerPendingWars,
     spinningSlots,
   };
 };

@@ -298,7 +298,7 @@
                 {#if rule.stat === "raids"}
                   <Select bind:value={rule.statSource} aria-label="Where the raid count comes from">
                     <option value="rollups">from daily rollups</option>
-                    {#if draft.trackerTracking !== "wars" || rule.statSource === "tracker"}
+                    {#if draft.trackerKind !== "wars" || rule.statSource === "tracker"}
                       <option value="tracker">from the mod tracker</option>
                     {/if}
                   </Select>

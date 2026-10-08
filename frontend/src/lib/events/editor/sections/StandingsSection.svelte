@@ -128,9 +128,15 @@
           </Field>
           <Field label="Tracking source">
             <Select bind:value={draft.newTrackerTracking}>
-              <option value="mod">Guild mod</option>
-              <option value="api">Wynncraft API</option>
-              <option value="wars">Guild mod - war points</option>
+              <!-- Linked events read the board in the tracker's unit, so an
+                   edit stays on its side of raids vs war points. -->
+              {#if draft.trackerEditor !== "edit" || draft.trackerEditTracking !== "wars"}
+                <option value="mod">Guild mod</option>
+                <option value="api">Wynncraft API</option>
+              {/if}
+              {#if draft.trackerEditor !== "edit" || draft.trackerEditTracking === "wars"}
+                <option value="wars">Guild mod - war points</option>
+              {/if}
             </Select>
           </Field>
           <Field label="Starts (UTC)">

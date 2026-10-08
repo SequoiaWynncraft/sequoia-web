@@ -46,6 +46,9 @@ export const GET: RequestHandler = async ({ params, url, cookies, fetch, locals 
     result = await loadTrackerLeaderboard(fetch, trackerId);
   }
   if (result.error) requestError(locals, 503, result.error);
+  // Places follow the count, as on the standings board - no feed promises an
+  // order. The sort is stable, so ties keep the order the backend sent.
+  const leaderboard = [...result.leaderboard].sort((a, b) => b.raids - a.raids);
 
   const wars = tracking === "wars";
   const rows: CsvValue[][] = [
@@ -57,7 +60,7 @@ export const GET: RequestHandler = async ({ params, url, cookies, fetch, locals 
       "progression_rank",
       ...(wars ? ["war_points", "pending_wars"] : ["raids"]),
     ],
-    ...result.leaderboard.map((entry, index) => [
+    ...leaderboard.map((entry, index) => [
       index + 1,
       entry.username,
       entry.player_uuid,

@@ -101,9 +101,9 @@
 
   // A war-point total with wars still awaiting their points is partial: mark
   // it, and never show a member whose only wars are pending as a confirmed 0.
-  const formatStanding = (entry: RaidLeaderboardEntry) => {
-    if (!entry.pendingWars) return formatUnits(entry.raids);
-    return entry.raids === 0 ? "pending" : `${formatUnits(entry.raids)}*`;
+  const formatStanding = (value: number, pendingWars: number | undefined) => {
+    if (!pendingWars) return formatUnits(value);
+    return value === 0 ? "pending" : `${formatUnits(value)}*`;
   };
   const hasPending = $derived(
     data.standings?.state === "board" && data.standings.leaderboard.some((entry) => entry.pendingWars),
@@ -136,7 +136,7 @@
       key: "raids",
       label: unit === "raids" ? "Raids" : "War points",
       numeric: true,
-      value: formatStanding,
+      value: (entry) => formatStanding(entry.raids, entry.pendingWars),
       sortValue: (entry) => entry.raids,
     },
     // The milestone column only appears when the event defines personal milestones.
@@ -262,11 +262,17 @@
       <section class="ev-section" aria-label="Your milestones">
         <h2 class="ev-label">
           <span class="ev-spark" aria-hidden="true">✦</span>Your progress
-          <span class="ev-label-meta">{formatUnits(data.viewerRaids)} {unit}</span>
+          <span class="ev-label-meta">{formatStanding(data.viewerRaids, data.viewerPendingWars)} {unit}</span>
         </h2>
         <div class="ev-personal">
           <GoalMeter goal={viewerGoal} current={data.viewerRaids} />
         </div>
+        {#if data.viewerPendingWars > 0}
+          <p class="ev-muted">
+            * {data.viewerPendingWars} of your wars {data.viewerPendingWars === 1 ? "is" : "are"} still awaiting
+            point values, so this total may change.
+          </p>
+        {/if}
       </section>
     {/if}
 

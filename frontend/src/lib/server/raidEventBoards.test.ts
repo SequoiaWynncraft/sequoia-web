@@ -286,4 +286,45 @@ describe("war-point trackers", () => {
     // Alice: floor(52.5/10)=5. Bob: floor(9/10)=0, dropped.
     expect(result.entrants).toEqual([{ player_uuid: "uuid-alice", username: "Alice", tickets: 5 }]);
   });
+
+  it("fails a draw closed while wars still await their points", async () => {
+    stubRoutes({
+      tracked: [WARS],
+      warEntries: [war("uuid-alice", "Alice", 52.5, 1), war("uuid-bob", "Bob", 30)],
+    });
+    const tracker = { eventId: "wars", tracking: "wars" as const };
+
+    const strict = await loadRaffleEligible(fetch, tracker, ROSTER, {
+      perTicket: 10,
+      failOnPending: true,
+    });
+    expect(strict).toEqual({
+      entrants: [],
+      error: "1 war is still waiting for point values - roll once they're calculated.",
+    });
+
+    const lenient = await loadRaffleEligible(fetch, tracker, ROSTER, { perTicket: 10 });
+    expect(lenient.error).toBeNull();
+    expect(lenient.entrants).toHaveLength(2);
+  });
+
+  it("checks the full-window milestone board for pending wars too", async () => {
+    // The windowed ticket board is final, but the unwindowed gate is not.
+    stubRoutes({ tracked: [WARS], warEntries: [] });
+    const fetchImpl: typeof fetch = async (input, init) => {
+      const url = new URL(String(input));
+      if (url.pathname === "/internal/war-points/leaderboard" && url.searchParams.get("to") === WARS.ends_at) {
+        return new Response(JSON.stringify({ entries: [war("uuid-alice", "Alice", 80, 2)] }));
+      }
+      return fetch(input, init);
+    };
+
+    const result = await loadRaffleEligible(fetchImpl, { eventId: "wars", tracking: "wars" }, ROSTER, {
+      perTicket: 10,
+      window: { from: "2026-08-01T00:00:00.000Z", to: "2026-08-07T00:00:00.000Z" },
+      requiredRaids: 50,
+      failOnPending: true,
+    });
+    expect(result.error).toBe("2 wars are still waiting for point values - roll once they're calculated.");
+  });
 });
