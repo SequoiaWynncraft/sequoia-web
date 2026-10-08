@@ -24,6 +24,7 @@
     issues,
     context,
     attachments = [],
+    gallery = null,
     onmove,
     onduplicate,
     onremove,
@@ -34,6 +35,7 @@
     issues: Issues;
     context: DiscordContext;
     attachments?: AttachmentRef[];
+    gallery?: { position: number; count: number; lead: number } | null;
     onmove: (by: -1 | 1) => void;
     onduplicate: () => void;
     onremove: () => void;
@@ -84,6 +86,7 @@
       <button type="button" aria-label={`Remove embed ${index + 1}`} onclick={onremove}>Remove</button>
     </div>
   </header>
+  {#if gallery}<p class="gallery-hint">Gallery image {gallery.position} of {gallery.count}. Keep these images together with the same title link; text and metadata belong on embed {gallery.lead}.</p>{/if}
   {#if issues[at]}<p class="embed-issue" role="alert">{issues[at]}</p>{/if}
 
   <div class="two-fields">
@@ -179,6 +182,7 @@
 </section>
 
 <style>
+  .gallery-hint { margin: 0; color: var(--text-muted); font-size: var(--text-sm); }
   .embed-editor {
     display: grid;
     gap: 14px;

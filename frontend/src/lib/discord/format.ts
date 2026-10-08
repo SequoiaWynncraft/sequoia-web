@@ -46,6 +46,25 @@ export function trimEmbedText(text: string | undefined): string {
   return (text ?? "").replace(/^\p{White_Space}+|\p{White_Space}+$/gu, "");
 }
 
+function galleryImage(embed: Embed): boolean {
+  return !!embed.image?.url && !trimEmbedText(embed.title) && !trimEmbedText(embed.description) &&
+    !embed.author && !embed.footer && embed.color === undefined && !(embed.fields?.length) &&
+    !embed.thumbnail && !embed.timestamp;
+}
+
+/** Shared-link image continuations belong to their lead card, not separate text embeds. */
+export function embedGroups(embeds: Embed[]) {
+  const groups: { index: number; embed: Embed; indices: number[] }[] = [];
+  embeds.forEach((embed, index) => {
+    const previous = groups.at(-1);
+    if (previous && previous.embed.url && previous.embed.url === embed.url &&
+      previous.embed.image?.url && previous.indices.length < 4 && galleryImage(embed)) {
+      previous.indices.push(index);
+    } else groups.push({ index, embed, indices: [index] });
+  });
+  return groups;
+}
+
 /** Discord trims surrounding whitespace from embed text before measuring limits. */
 export function embedCount(text: string | undefined): number {
   return charCount(trimEmbedText(text));
@@ -124,7 +143,7 @@ export function definitionIssues(draft: Definition, available: Availability = {}
   }
   if ((draft.attachments?.length ?? 0) > 10) issues.attachments = "A message can have at most 10 attachments.";
   let total = 0;
-  const embedUrls = new Set<string>();
+  const embedUrls = new Map<string, { last: number; count: number; image: boolean }>();
   draft.embeds.forEach((embed, index) => {
     const at = `embeds.${index}`;
     tooLong(issues, `${at}.title`, "The title", embed.title, LIMITS.title, embedCount);
@@ -135,8 +154,11 @@ export function definitionIssues(draft: Definition, available: Availability = {}
     if (embed.footer && !trimEmbedText(embed.footer.text)) issues[`${at}.footer`] = "Footers need text.";
     url(issues, `${at}.url`, embed.url);
     if (embed.url) {
-      if (embedUrls.has(embed.url)) issues[`${at}.url`] = "Discord shows only the first embed with this link. Use a different link or remove it.";
-      embedUrls.add(embed.url);
+      const group = embedUrls.get(embed.url);
+      if (group && (group.last !== index - 1 || group.count >= 4 || !group.image || !galleryImage(embed))) {
+        issues[`${at}.url`] = "Discord shows only the first embed with this link unless it is a contiguous gallery of up to four images with text only on the first embed.";
+      }
+      embedUrls.set(embed.url, { last: index, count: (group?.count ?? 0) + 1, image: group?.image ?? !!embed.image?.url });
     }
     for (const [part, raw] of [["image", embed.image?.url], ["thumbnail", embed.thumbnail?.url]] as const) {
       if (raw?.startsWith("attachment://")) { if (!draft.attachments?.some((a) => a.filename === raw.slice(13))) issues[`${at}.${part}`] = "Choose an attachment belonging to this message."; }

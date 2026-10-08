@@ -12,7 +12,7 @@
   import LayoutEditor from "./LayoutEditor.svelte";
   import EmbedEditor from "./EmbedEditor.svelte";
   import MarkdownField from "./MarkdownField.svelte";
-  import { LIMITS, charCount, definitionIssues, issuesUnder, truncateChars } from "./format";
+  import { LIMITS, charCount, definitionIssues, embedGroups, issuesUnder, truncateChars } from "./format";
   import type { Definition, DiscordContext, ManagedMessage, RoleButton, AttachmentRef } from "./types";
 
   let { initial, context: initialContext, problem }: { initial: ManagedMessage[]; context: DiscordContext; problem: string | null } = $props();
@@ -64,6 +64,8 @@
   const guildId = $derived(context.guild_id ?? mainGuild);
   const guilds = $derived(context.guilds ?? [{ id: mainGuild, name: "Sequoia" }]);
   const dirty = $derived(draft !== null && JSON.stringify(draft) !== baseline);
+  const galleries = $derived(new Map(embedGroups(draft?.embeds ?? []).flatMap((group) => group.indices.length > 1
+    ? group.indices.map((index, position) => [index, { position: position + 1, count: group.indices.length, lead: group.index + 1 }] as const) : [])));
   const held = $derived(selected?.source?.replacement === true && !selected.source.retired && !selected.source.replacement_allowed);
   const unresolved = $derived(selected?.delivery_state === "uncertain" || selected?.delivery_state === "publishing");
   const filtered = $derived(messages.filter((m) => (m.definition.guild_id ?? mainGuild) === guildId && m.definition.name.toLowerCase().includes(search.toLowerCase())));
@@ -394,7 +396,7 @@
               {#if issues.embeds}<p class="inline-issue" role="alert">{issues.embeds}</p>{/if}
               {#key session}
                 {#each draft.embeds as _, index (index)}
-                  <EmbedEditor bind:embed={draft.embeds[index]} {index} count={draft.embeds.length} {issues} {context} attachments={draft.attachments ?? []}
+                  <EmbedEditor bind:embed={draft.embeds[index]} {index} count={draft.embeds.length} {issues} {context} attachments={draft.attachments ?? []} gallery={galleries.get(index) ?? null}
                     onmove={(by) => draft && move(draft.embeds, index, by)}
                     onduplicate={() => draft && draft.embeds.length < LIMITS.embeds && draft.embeds.splice(index + 1, 0, structuredClone($state.snapshot(draft.embeds[index])))}
                     onremove={() => draft?.embeds.splice(index, 1)} />

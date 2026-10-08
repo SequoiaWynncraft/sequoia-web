@@ -3,7 +3,7 @@
 
   import LayoutPreview from "./LayoutPreview.svelte";
   import DiscordMarkdown from "./DiscordMarkdown.svelte";
-  import { calendarTime, fieldColumns, hexColor, isWebUrl, standaloneAttachments } from "./format";
+  import { calendarTime, embedGroups, fieldColumns, hexColor, isWebUrl, standaloneAttachments } from "./format";
   import type { Definition, DiscordContext, Embed, RoleButton } from "./types";
 
   let { draft, context }: { draft: Definition; context: DiscordContext } = $props();
@@ -21,6 +21,7 @@
   /** Images that failed to load, so staff see a broken link instead of a gap. */
   const failed = new SvelteSet<string>();
   const standalone = $derived(standaloneAttachments(draft));
+  const groups = $derived(embedGroups(draft.embeds));
 
   function image(raw: string | undefined): string | null {
     if (raw?.startsWith("attachment://")) {
@@ -68,7 +69,9 @@
 
       {#if draft.components_v2?.length}<LayoutPreview components={draft.components_v2} {names} {now} />{/if}
 
-      {#each draft.embeds as embed, index (index)}
+      {#each groups as group (group.index)}
+        {@const embed = group.embed}
+        {@const index = group.index}
         {@const thumbnail = image(embed.thumbnail?.url)}
         {@const columns = fieldColumns(embed.fields ?? [], thumbnail !== null)}
         <article
@@ -112,7 +115,12 @@
               </div>
             {/if}
             {#if image(embed.image?.url)}
-              <div class="dp-embed-image">{@render picture(image(embed.image?.url) ?? "", "dp-image", "Embed image")}</div>
+              <div class="dp-embed-image" class:dp-gallery={group.indices.length > 1} class:dp-gallery-three={group.indices.length === 3} class:dp-gallery-four={group.indices.length === 4}>
+                {#each group.indices as imageIndex (imageIndex)}
+                  {@const url = image(draft.embeds[imageIndex].image?.url)}
+                  {#if url}<a href={url} target="_blank" rel="noopener noreferrer" aria-label={`Open embed image ${imageIndex + 1}`}>{@render picture(url, "dp-image", `Embed image ${imageIndex + 1}`)}</a>{/if}
+                {/each}
+              </div>
             {/if}
             {#if thumbnail}
               <div class="dp-embed-thumb">{@render picture(thumbnail, "dp-thumb", "Embed thumbnail")}</div>
@@ -322,6 +330,18 @@
     grid-column: 1 / -1;
     margin-top: 16px;
   }
+
+  .dp-gallery {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    height: 300px;
+    gap: 4px;
+  }
+
+  .dp-gallery-three, .dp-gallery-four { grid-template-rows: repeat(2, minmax(0, 1fr)); }
+  .dp-gallery a { min-width: 0; height: 100%; overflow: hidden; border-radius: 4px; }
+  .dp-gallery :global(.dp-image) { width: 100%; height: 100%; max-height: none; object-fit: cover; }
+  .dp-gallery-three a:first-child { grid-row: span 2; }
 
   .dp-embed-thumb {
     grid-column: 2 / 3;
