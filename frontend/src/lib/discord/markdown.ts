@@ -132,7 +132,12 @@ const TITLE_RULES = [
   "emoji", "twemoji", "text", "newline", "br",
 ] as const;
 const titleParser = SimpleMarkdown.parserFor(
-  { ...Object.fromEntries(TITLE_RULES.map((name) => [name, rulesExtended[name]])), shortcode },
+  {
+    ...Object.fromEntries(TITLE_RULES.map((name) => [name, rulesExtended[name]])),
+    shortcode,
+    // Titles keep URLs as text, but their spelling must not become emoji.
+    literalUrl: { ...rulesExtended.url, parse: (capture) => ({ content: capture[0] }) },
+  },
 );
 
 const GUILD_NAVIGATION: Record<string, string> = {

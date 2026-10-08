@@ -117,6 +117,13 @@ describe("parseDiscordMarkdown", () => {
     expect(parseDiscordMarkdown("<:shield:1178447759733440523>")).toEqual([
       { type: "emoji", name: "shield", id: "1178447759733440523", animated: false },
     ]);
+    expect(parseDiscordMarkdown("[Guide :shield:](https://seqwawa.com/:shield:)", "title")).toEqual([
+      text("[Guide "), { type: "emoji", name: "🛡", id: null, animated: false },
+      text("](https://seqwawa.com/:shield:)"),
+    ]);
+    expect(parseDiscordMarkdown("Visit https://seqwawa.com/:shield:", "title")).toEqual([
+      text("Visit https://seqwawa.com/:shield:"),
+    ]);
   });
 
   it("keeps out-of-range timestamp mentions literal so live preview cannot throw", () => {
