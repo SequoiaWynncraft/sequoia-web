@@ -92,6 +92,33 @@ describe("parseDiscordMarkdown", () => {
     expect(parseDiscordMarkdown("\\*literal\\*")).toEqual([text("*literal*")]);
   });
 
+  it("renders standard shortcode aliases in ordinary text and embed headings", () => {
+    const emoji = (name: string): DiscordNode => ({ type: "emoji", name, id: null, animated: false });
+    expect(parseDiscordMarkdown("Guide :crossed_swords: :bow_and_arrow: :shield:")).toEqual([
+      text("Guide "), emoji("⚔"), text(" "), emoji("🏹"), text(" "), emoji("🛡"),
+    ]);
+    expect(parseDiscordMarkdown(":+1: :thumbsup: :woman_technologist: :wave_tone3:", "title")).toEqual([
+      emoji("👍"), text(" "), emoji("👍"), text(" "), emoji("👩‍💻"), text(" "), emoji("👋🏽"),
+    ]);
+  });
+
+  it("keeps shortcode text literal in code, escapes and link destinations", () => {
+    expect(parseDiscordMarkdown("`:shield:` \\:shield: :not_a_real_emoji:")).toEqual([
+      { type: "inlineCode", text: ":shield:" }, text(" :shield: :not_a_real_emoji:"),
+    ]);
+    expect(parseDiscordMarkdown("```\n:shield:\n```")).toEqual([
+      { type: "codeBlock", lang: "", text: ":shield:" },
+    ]);
+    expect(parseDiscordMarkdown("[Guide :shield:](https://seqwawa.com/:shield:)")).toEqual([
+      { type: "link", href: "https://seqwawa.com/:shield:", children: [
+        text("Guide "), { type: "emoji", name: "🛡", id: null, animated: false },
+      ] },
+    ]);
+    expect(parseDiscordMarkdown("<:shield:1178447759733440523>")).toEqual([
+      { type: "emoji", name: "shield", id: "1178447759733440523", animated: false },
+    ]);
+  });
+
   it("keeps out-of-range timestamp mentions literal so live preview cannot throw", () => {
     for (const token of ["<t:9999999999999999:F>", "<t:-9999999999999999:R>", "<t:9999999999999999>"]) {
       expect(parseDiscordMarkdown(token)).toEqual([text(token)]);

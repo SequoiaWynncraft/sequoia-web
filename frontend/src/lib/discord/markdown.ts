@@ -7,6 +7,8 @@
  * http(s) link targets survive.
  */
 
+import shortcodeData from "emojibase-data/en/shortcodes/joypixels.json";
+
 import { SimpleMarkdown, rulesExtended, type Capture, type ParserRule, type SingleASTNode } from "./parser";
 
 export type TimestampFormat = "t" | "T" | "d" | "D" | "f" | "F" | "R";
@@ -36,6 +38,23 @@ export type DiscordNode =
 export type MarkdownSurface = "content" | "title";
 
 const ITEM = /^( *)([-*]|\d{1,9}\.) +(\S[^\n]*)(?:\n|$)/;
+
+// Emojibase's Discord preset uses JoyPixels names. Keep this inside the grammar
+// so code, escapes, custom emoji and link destinations retain their own rules.
+const SHORTCODES = new Map(
+  Object.entries(shortcodeData).flatMap(([hex, names]) => {
+    const unicode = String.fromCodePoint(...hex.split("-").map((point) => Number.parseInt(point, 16)));
+    return (Array.isArray(names) ? names : [names]).map((name) => [name, unicode] as const);
+  }),
+);
+const shortcode: ParserRule = {
+  order: rulesExtended.twemoji.order,
+  match(source) {
+    const capture = /^:([a-zA-Z0-9_+-]+):/.exec(source);
+    return capture && SHORTCODES.has(capture[1]) ? capture as Capture : null;
+  },
+  parse: (capture) => ({ name: SHORTCODES.get(capture[1]) }),
+};
 
 /**
  * Discord lists: `-`/`*` or `1.` at a line start, consecutive lines of one
@@ -105,6 +124,7 @@ const contentParser = SimpleMarkdown.parserFor({
   heading: atLineStart(rulesExtended.heading),
   subtext: atLineStart(rulesExtended.subtext),
   list,
+  shortcode,
 });
 
 const TITLE_RULES = [
@@ -112,7 +132,7 @@ const TITLE_RULES = [
   "emoji", "twemoji", "text", "newline", "br",
 ] as const;
 const titleParser = SimpleMarkdown.parserFor(
-  Object.fromEntries(TITLE_RULES.map((name) => [name, rulesExtended[name]])),
+  { ...Object.fromEntries(TITLE_RULES.map((name) => [name, rulesExtended[name]])), shortcode },
 );
 
 const GUILD_NAVIGATION: Record<string, string> = {
@@ -204,6 +224,7 @@ function convert(node: SingleASTNode): DiscordNode | DiscordNode[] {
     case "emoji":
       return { type: "emoji", name: str(node.name), id: str(node.id), animated: node.animated === true };
     case "twemoji":
+    case "shortcode":
       return { type: "emoji", name: str(node.name), id: null, animated: false };
     case "timestamp": {
       const seconds = Number(node.timestamp);
