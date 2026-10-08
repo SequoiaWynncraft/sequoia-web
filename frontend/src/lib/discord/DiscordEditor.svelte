@@ -9,10 +9,11 @@
   import Select from "$lib/design-system/components/forms/Select.svelte";
   import ManageHeader from "$lib/manage/ManageHeader.svelte";
   import DiscordPreview from "./DiscordPreview.svelte";
+  import LayoutEditor from "./LayoutEditor.svelte";
   import EmbedEditor from "./EmbedEditor.svelte";
   import MarkdownField from "./MarkdownField.svelte";
-  import { LIMITS, charCount, definitionIssues, issuesUnder, truncateChars } from "./format";
-  import type { Definition, DiscordContext, ManagedMessage, RoleButton } from "./types";
+  import { LIMITS, charCount, definitionIssues, embedGroups, issuesUnder, truncateChars } from "./format";
+  import type { Definition, DiscordContext, ManagedMessage, RoleButton, AttachmentRef } from "./types";
 
   let { initial, context: initialContext, problem }: { initial: ManagedMessage[]; context: DiscordContext; problem: string | null } = $props();
   // svelte-ignore state_referenced_locally
@@ -45,6 +46,7 @@
   let importLink = $state("");
   let search = $state("");
   let discardDialog = $state<ConfirmDialog | null>(null);
+  let retireDialog = $state<ConfirmDialog | null>(null);
   let deleteDialog = $state<ConfirmDialog | null>(null);
   let pendingSelection = $state<ManagedMessage | "close" | null>(null);
   let roleSearch = $state("");
@@ -53,10 +55,20 @@
   const pickerButton = $derived(draft?.rows.flat().find((button) => button.id === pickerButtonId) ?? null);
 
   /** Side-by-side preview needs room for both; below that, staff switch views. */
+  const layout = $derived(!!draft?.components_v2?.length);
+  const visibleTabs = $derived(TABS.filter((item) => !layout || item.id !== "buttons"));
   const narrow = $derived(width > 0 && width < 780);
+  const mainGuild = "1030187086722109570";
+  // svelte-ignore state_referenced_locally
+  let guildSelection = $state(initialContext.guild_id ?? mainGuild);
+  const guildId = $derived(context.guild_id ?? mainGuild);
+  const guilds = $derived(context.guilds ?? [{ id: mainGuild, name: "Sequoia" }]);
   const dirty = $derived(draft !== null && JSON.stringify(draft) !== baseline);
+  const galleries = $derived(new Map(embedGroups(draft?.embeds ?? []).flatMap((group) => group.indices.length > 1
+    ? group.indices.map((index, position) => [index, { position: position + 1, count: group.indices.length, lead: group.index + 1 }] as const) : [])));
+  const held = $derived(selected?.source?.replacement === true && !selected.source.retired && !selected.source.replacement_allowed);
   const unresolved = $derived(selected?.delivery_state === "uncertain" || selected?.delivery_state === "publishing");
-  const filtered = $derived(messages.filter((m) => m.definition.name.toLowerCase().includes(search.toLowerCase())));
+  const filtered = $derived(messages.filter((m) => (m.definition.guild_id ?? mainGuild) === guildId && m.definition.name.toLowerCase().includes(search.toLowerCase())));
   const eligibleRoles = $derived(context.roles.filter((r) => r.eligible && r.approved));
   const selfServiceRoleIds = $derived(new Set(eligibleRoles.map((role) => role.id)));
   const channelIds = $derived(new Set(context.channels.map((channel) => channel.id)));
@@ -80,6 +92,7 @@
     return selected.published_version ? "Saved · Discord shows an older version" : "Saved draft · not on Discord yet";
   });
   const publishHint = $derived.by(() => {
+    if (held) return "This source is held for editing only. Its original stays unchanged until replacement is explicitly reviewed.";
     if (unresolved) return "Recover the publication before changing Discord again.";
     if (dirty) return "Saving keeps Discord unchanged. Publish sends the saved version.";
     if (issueCount > 0) return `Fix ${issueCount === 1 ? "1 problem" : `${issueCount} problems`} before publishing.`;
@@ -95,11 +108,11 @@
     return false;
   }
   function tabKeys(event: KeyboardEvent) {
-    const at = TABS.findIndex((item) => item.id === tab);
-    const to = event.key === "ArrowRight" ? at + 1 : event.key === "ArrowLeft" ? at - 1 : event.key === "Home" ? 0 : event.key === "End" ? TABS.length - 1 : null;
+    const at = visibleTabs.findIndex((item) => item.id === tab);
+    const to = event.key === "ArrowRight" ? at + 1 : event.key === "ArrowLeft" ? at - 1 : event.key === "Home" ? 0 : event.key === "End" ? visibleTabs.length - 1 : null;
     if (to === null) return;
     event.preventDefault();
-    tab = TABS[(to + TABS.length) % TABS.length].id;
+    tab = visibleTabs[(to + visibleTabs.length) % visibleTabs.length].id;
     document.getElementById(`discord-tab-${tab}`)?.focus();
   }
   function status(message: ManagedMessage) {
@@ -117,6 +130,7 @@
     selected = message;
     draft = message ? structuredClone($state.snapshot(message.definition)) : {
       name: "New message", channel_id: context.channels[0]?.id ?? "", content: "Choose your roles below.", embeds: [], rows: [],
+      guild_id: guildId, attachments: [], pinned: false, components_v2: [],
     };
     baseline = message ? JSON.stringify(draft) : "";
     error = null; notice = null; tab = "message"; view = "edit"; pickerButtonId = null; session += 1;
@@ -160,22 +174,60 @@
   }
 
   function parseLink(raw: string) {
-    const match = /^https:\/\/(?:discord\.com|canary\.discord\.com|ptb\.discord\.com)\/channels\/1030187086722109570\/([0-9]+)\/([0-9]+)$/.exec(raw.trim());
-    if (!match) throw new Error("Paste a Sequoia Discord message link");
-    return { channel_id: match[1], message_id: match[2] };
+    const match = /^https:\/\/(?:discord\.com|canary\.discord\.com|ptb\.discord\.com)\/channels\/([0-9]+)\/([0-9]+)\/([0-9]+)$/.exec(raw.trim());
+    if (!match || !guilds.some((guild) => guild.id === match[1])) throw new Error("Paste a Sequoia or Branchmasters Discord message link");
+    return { guild_id: match[1], channel_id: match[2], message_id: match[3] };
   }
   async function importMessage() {
     if (dirty) { error = "Save or discard your current draft before importing another message."; return; }
-    const imported = await request<ManagedMessage>("messages/adopt", "POST", parseLink(importLink));
+    const link = parseLink(importLink);
+    if (!await loadGuild(link.guild_id)) return;
+    selected = null; draft = null; baseline = "";
+    const imported = await request<ManagedMessage>("messages/adopt", "POST", { channel_id: link.channel_id, message_id: link.message_id });
     if (!imported) return;
     received(imported);
+    tab = "message"; view = "edit"; pickerButtonId = null;
     session += 1;
     importLink = ""; notice = "Message imported. Discord has not changed.";
   }
   async function recover() {
     if (!selected) return;
-    const recovered = await request<ManagedMessage>(`messages/${selected.id}/recover`, "POST", parseLink(importLink));
+    const link = parseLink(importLink);
+    const recovered = await request<ManagedMessage>(`messages/${selected.id}/recover`, "POST", { channel_id: link.channel_id, message_id: link.message_id });
     if (recovered) { received(recovered); importLink = ""; notice = "Recovered and verified the existing message."; }
+  }
+  async function loadGuild(id: string) {
+    if (id === guildId) return true;
+    const fresh = await request<DiscordContext>(`context?guild_id=${id}`);
+    if (!fresh) return false;
+    context = fresh;
+    guildSelection = fresh.guild_id ?? mainGuild;
+    return true;
+  }
+  async function switchGuild(event: Event) {
+    if (dirty) { error = "Save or discard your draft before changing servers."; return; }
+    const id = (event.currentTarget as HTMLSelectElement).value;
+    await perform(async () => {
+      if (await loadGuild(id)) { selected = null; draft = null; baseline = ""; pickerButtonId = null; }
+      guildSelection = guildId;
+    });
+  }
+  async function retireSource() {
+    if (!selected || dirty) return;
+    const retired = await request<ManagedMessage>(`messages/${selected.id}/retire-source`, "POST", { version: selected.version });
+    if (retired) { received(retired); notice = "Original removed and verified. The source snapshot and replacement mapping are retained."; }
+  }
+  async function uploadAttachment(event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file || !draft) return;
+    if (file.size > 10 * 1024 * 1024 || !["image/png", "image/jpeg", "image/gif", "image/webp"].includes(file.type)) { error = "Use a PNG, JPEG, GIF or WebP no larger than 10 MiB."; input.value = ""; return; }
+    await perform(async () => {
+      const image = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = reject; reader.readAsDataURL(file); });
+      const attachment = await request<AttachmentRef>("assets", "POST", { guild_id: guildId, filename: file.name, image, description: null });
+      if (attachment && draft) { draft.attachments ??= []; draft.attachments.push(attachment); notice = "Attachment stored. Save and publish to change Discord."; }
+    });
+    input.value = "";
   }
   function addEmbed() {
     draft?.embeds.push({ type: "rich", title: "", description: "", color: 0x19a775, fields: [] });
@@ -214,7 +266,7 @@
     if (emojiFile === file) emojiImage = image;
   }
   async function upload() {
-    const emoji = await request<DiscordContext["emojis"][number]>("emojis", "POST", { name: emojiName, image: emojiImage });
+    const emoji = await request<DiscordContext["emojis"][number]>("emojis", "POST", { guild_id: guildId, name: emojiName, image: emojiImage });
     if (!emoji) return;
     context.emojis = [...context.emojis.filter((existing) => existing.id !== emoji.id), emoji];
     if (pickerButton) pickerButton.emoji = { id: emoji.id, name: emoji.name, animated: emoji.animated };
@@ -222,7 +274,7 @@
     notice = `Uploaded :${emoji.name}: to Discord.`;
   }
   async function approve(role: DiscordContext["roles"][number]) {
-    if (!await request("self-service-roles", "POST", { role_id: role.id, enabled: !role.approved })) return;
+    if (!await request("self-service-roles", "POST", { guild_id: guildId, role_id: role.id, enabled: !role.approved })) return;
     context.roles = context.roles.map((r) => r.id === role.id ? { ...r, approved: !r.approved } : r);
     notice = role.approved ? "Self-service disabled. Existing memberships are unchanged." : "Role enabled for self-service buttons.";
   }
@@ -252,7 +304,7 @@
       <h2><span class="diamond" aria-hidden="true">◆</span>Preview</h2>
       <span class="preview-channel">#{channelName ?? "choose a channel"}</span>
       <span class="preview-state" class:preview-unsaved={dirty}>{dirty ? "Includes unsaved changes" : "Saved version"}</span>
-      {#if selected?.message_id}<a class="preview-open" href={`https://discord.com/channels/1030187086722109570/${selected.channel_id}/${selected.message_id}`} target="_blank" rel="noopener noreferrer">Open in Discord</a>{/if}
+      {#if selected?.message_id}<a class="preview-open" href={`https://discord.com/channels/${selected.definition.guild_id ?? mainGuild}/${selected.channel_id}/${selected.message_id}`} target="_blank" rel="noopener noreferrer">Open in Discord</a>{/if}
     </div>
     <DiscordPreview {draft} {context} />
     <p class="preview-note">Approximates Discord's dark theme. Discord's own apps decide the final look.</p>
@@ -267,6 +319,7 @@
 
   <div class="workspace-grid" class:has-draft={!!draft}>
     <aside class="message-list" aria-label="Managed messages">
+      <Field label="Server"><Select aria-label="Server" bind:value={guildSelection} disabled={busy || dirty} onchange={switchGuild}>{#each guilds as guild}<option value={guild.id}>{guild.name}</option>{/each}</Select></Field>
       <Field label="Find a message"><TextInput bind:value={search} placeholder="Search messages" /></Field>
       <nav aria-label="Messages">{#each filtered as message (message.id)}
         {@const state = status(message)}
@@ -277,7 +330,7 @@
         </button>
       {:else}<p class="empty">{search ? "No matching messages." : "No managed messages yet."}</p>{/each}</nav>
       <details class="import"><summary>Edit an existing message</summary>
-        <p class="hint">Import a Sierra message by its Discord link. Application and trial messages stay in their workflows.</p>
+        <p class="hint">Import a reviewed maintained panel by its Discord link. Sierra messages keep their identity. Controlled webhook posts become a Sierra replacement; the original stays until verified retirement. Automated and other-workflow messages are excluded.</p>
         <Field label="Discord message link"><TextInput bind:value={importLink} placeholder="https://discord.com/channels/…" inputmode="url" /></Field>
         <Button variant="secondary" size="sm" disabled={busy || !importLink} onclick={() => perform(importMessage)}>Import message</Button>
       </details>
@@ -306,7 +359,7 @@
           <div class="inline-preview">{@render preview()}</div>
         {:else}
           <div class="editor-tabs" role="tablist" aria-label="Message editor sections">
-            {#each TABS as item (item.id)}
+            {#each visibleTabs as item (item.id)}
               <button type="button" role="tab" id={`discord-tab-${item.id}`} aria-selected={tab === item.id} aria-controls="discord-editor-panel" tabindex={tab === item.id ? 0 : -1} onclick={() => (tab = item.id)} onkeydown={tabKeys}>{item.label}{#if tabHasIssues(item.id)}<span class="tab-flag" aria-hidden="true"></span><span class="visually-hidden"> (needs attention)</span>{/if}</button>
             {/each}
           </div>
@@ -316,23 +369,46 @@
                 {#if selected?.delivery_state === "uncertain"}<Field label="Link to the published Discord message"><TextInput bind:value={importLink} inputmode="url" /></Field><Button variant="secondary" disabled={busy || !importLink} onclick={() => perform(recover)}>Recover message</Button>{/if}
               </div>
             {/if}
+            {#if selected?.source?.pending_thread_restore}
+              <div class="delivery-warning" role="status"><p>The original thread state still needs restoration. Restore it before recovering the message or retrying retirement.</p><Button variant="secondary" disabled={busy} onclick={() => perform(async () => { if (!selected) return; const restored = await request<ManagedMessage>(`messages/${selected.id}/restore-thread`, "POST", {}); if (restored) received(restored); })}>Restore thread state</Button></div>
+            {/if}
             <fieldset class="editor-body" disabled={busy || unresolved}>
             {#if tab === "message"}
               <div class="two-fields">
                 <Field label="Name" hint="Only staff see this." error={issues.name}><TextInput bind:value={draft.name} invalid={!!issues.name} /></Field>
-                <Field label="Channel" hint={selected?.message_id ? "Published messages stay in their channel; duplicate to move." : undefined} error={issues.channel_id}><Select aria-label="Channel" bind:value={draft.channel_id} disabled={busy || !!selected?.message_id}><option value="" disabled>Choose a channel…</option>{#if draft.channel_id && !channelIds.has(draft.channel_id)}<option value={draft.channel_id} disabled>Unavailable channel</option>{/if}{#each context.channels as channel (channel.id)}<option value={channel.id}>#{channel.name}</option>{/each}</Select></Field>
+                <Field label="Channel" hint={selected?.source ? "An imported source stays in its reviewed channel." : selected?.message_id ? "Published messages stay in their channel; duplicate to move." : undefined} error={issues.channel_id}><Select aria-label="Channel" bind:value={draft.channel_id} disabled={busy || !!selected?.message_id || !!selected?.source}><option value="" disabled>Choose a channel…</option>{#if draft.channel_id && !channelIds.has(draft.channel_id)}<option value={draft.channel_id} disabled>Unavailable channel</option>{/if}{#each context.channels as channel (channel.id)}<option value={channel.id}>#{channel.name}</option>{/each}</Select></Field>
               </div>
+              <label class="hint"><input type="checkbox" checked={draft.pinned ?? false} onchange={(e) => { if (draft) draft.pinned = e.currentTarget.checked; }} /> Pin this message on Discord</label>
+              {#if selected?.source}
+                <section class="delivery-warning" aria-label="Imported source">
+                  <strong>{held ? "Replacement on hold" : !selected.source.replacement ? "Imported Sierra message" : selected.source.retired ? "Source ownership transferred" : "Original preserved"}</strong>
+                  {#if selected.source.thread?.archived}<p>This reviewed guide is temporarily reopened only for the update, then its fresh original archive and lock state are restored and verified.</p>{/if}
+                  <p><a href={`https://discord.com/channels/${selected.source.guild_id}/${selected.source.channel_id}/${selected.source.message_id}`} target="_blank" rel="noopener noreferrer">Original message</a>. {#if selected.source.replacement}A webhook replacement has a new message ID and Sierra author. Existing links to the original will not redirect.{:else}Sierra updates this message at its existing identity.{/if}</p>
+                  {#if held}<p>This draft is not approved for replacement. Keep the original unchanged. It is not a completed migration.</p>{/if}
+                  {#if selected.source.replacement && !selected.source.retired}<p>Publish, then save and update through this manager. Retirement rechecks source payload, channel order, bot-visible indexed references and replacement bytes before deleting only the original. External bookmarks and unseen channels cannot be verified.</p><Button variant="secondary" disabled={busy || dirty || held || selected.published_version !== selected.version || selected.source.verified_version !== selected.version} onclick={() => retireDialog?.open()}>Retire original</Button>{/if}
+                </section>
+              {/if}
+              {#if layout}
+                <p class="hint">Text layout panel. Keep its container structure, text and separators; workflow controls are not imported.</p>
+                {#if issues.components_v2}<p class="inline-issue" role="alert">{issues.components_v2}</p>{/if}
+                <LayoutEditor bind:components={draft.components_v2!} {context} />
+              {:else}
               <MarkdownField label="Message text" bind:value={draft.content} limit={LIMITS.content} rows={5} issue={issues.content} {context} />
               {#if issues.embeds}<p class="inline-issue" role="alert">{issues.embeds}</p>{/if}
               {#key session}
                 {#each draft.embeds as _, index (index)}
-                  <EmbedEditor bind:embed={draft.embeds[index]} {index} count={draft.embeds.length} {issues} {context}
+                  <EmbedEditor bind:embed={draft.embeds[index]} {index} count={draft.embeds.length} {issues} {context} attachments={draft.attachments ?? []} gallery={galleries.get(index) ?? null}
                     onmove={(by) => draft && move(draft.embeds, index, by)}
                     onduplicate={() => draft && draft.embeds.length < LIMITS.embeds && draft.embeds.splice(index + 1, 0, structuredClone($state.snapshot(draft.embeds[index])))}
                     onremove={() => draft?.embeds.splice(index, 1)} />
                 {/each}
               {/key}
               <div class="add-row"><Button variant="secondary" disabled={draft.embeds.length >= LIMITS.embeds} onclick={addEmbed}>Add embed</Button><span>{draft.embeds.length} / {LIMITS.embeds} embeds</span></div>
+              <section class="attachments-editor"><h3>Attachments</h3><p class="hint">Image bytes are retained by Sierra, independent of the original message. Use an attachment as an embed image or thumbnail, or keep it as a file.</p>
+                {#each draft.attachments ?? [] as attachment, index (attachment.id)}<div class="attachment-row"><img src={`/manage/discord/api/assets/${attachment.id}`} alt={attachment.description ?? attachment.filename} /><Field label="Attachment filename"><TextInput bind:value={attachment.filename} /></Field><Field label="Attachment description"><TextInput value={attachment.description ?? ""} oninput={(e) => attachment.description = e.currentTarget.value || null} /></Field><button type="button" aria-label={`Remove attachment ${attachment.filename}`} onclick={() => draft?.attachments?.splice(index, 1)}>Remove</button></div>{/each}
+                <Field label="Add image attachment" hint="PNG, JPEG, GIF or WebP, up to 10 MiB"><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" disabled={(draft.attachments?.length ?? 0) >= 10} onchange={uploadAttachment} /></Field>
+              </section>
+              {/if}
             {:else if tab === "buttons"}
               <p class="hint">Role buttons toggle an approved self-service role for whoever clicks. Link buttons open a page.</p>
               {#each draft.rows as row, ri (ri)}
@@ -370,7 +446,7 @@
               <p class="hint">{pickerButton ? "Choose the emoji shown on this button." : "Open this from a button to choose its emoji. Text fields insert emoji from their Insert menu."}</p>
               <Field label="Find an emoji"><TextInput bind:value={emojiSearch} placeholder="Search emoji" /></Field>
               <div class="emoji-grid">{#each emojiChoices as emoji (emoji.id)}<button type="button" title={`:${emoji.name}:`} aria-label={`Use ${emoji.name}`} disabled={!pickerButton} onclick={() => { if (pickerButton) pickerButton.emoji = { id: emoji.id, name: emoji.name, animated: emoji.animated }; tab = "buttons"; }}><img src={emojiUrl(emoji.id, emoji.animated)} alt={emoji.name} loading="lazy" /></button>{:else}<p class="empty">No matching emoji.</p>{/each}</div>
-              <section class="upload"><h3>Upload an emoji</h3><p class="hint">Uploads reach the Sequoia server immediately, separately from any draft.</p><Field label="Image" hint="PNG, JPEG or GIF, up to 256 KiB"><input type="file" accept="image/png,image/jpeg,image/gif" bind:this={uploadInput} onchange={chooseUpload} /></Field>
+              <section class="upload"><h3>Upload an emoji</h3><p class="hint">Uploads reach the selected server immediately, separately from any draft.</p><Field label="Image" hint="PNG, JPEG or GIF, up to 256 KiB"><input type="file" accept="image/png,image/jpeg,image/gif" bind:this={uploadInput} onchange={chooseUpload} /></Field>
                 {#if emojiFile}<div class="upload-preview"><img src={emojiImage} alt="Emoji upload preview" /><Field label="Emoji name" error={emojiNameIssue}><TextInput bind:value={emojiName} maxlength={32} invalid={!!emojiNameIssue} /></Field></div>{/if}
                 <Button disabled={busy || !emojiFile || !emojiImage || !!emojiNameIssue} onclick={() => perform(upload)}>Upload to Discord</Button>
               </section>
@@ -392,7 +468,7 @@
           <FormStatus error={error} warning={selected?.delivery_error} saved={!!notice} savedText={notice ?? ""} compact />
           <div class="action-buttons">
             <Button variant={dirty ? "primary" : "secondary"} disabled={busy || !dirty || unresolved} onclick={() => perform(saveDraft)}>Save draft</Button>
-            <Button variant={dirty ? "secondary" : "primary"} disabled={busy || dirty || !selected || unresolved || issueCount > 0} onclick={() => perform(publishDraft)}>{busy ? "Working…" : selected?.message_id ? "Update Discord" : "Publish to Discord"}</Button>
+            <Button variant={dirty ? "secondary" : "primary"} disabled={busy || dirty || !selected || unresolved || held || issueCount > 0} onclick={() => perform(publishDraft)}>{busy ? "Working…" : selected?.message_id ? "Update Discord" : "Publish to Discord"}</Button>
             <p class="publish-hint">{publishHint}</p>
           </div>
         </footer>
@@ -407,7 +483,8 @@
   </div>
 </div>
 
-<ConfirmDialog bind:this={deleteDialog} title="Delete this message?" body="The published Discord message will be deleted. Roles and memberships are not affected." confirmLabel="Delete message" danger onconfirm={() => void perform(confirmedDelete)} />
+<ConfirmDialog bind:this={retireDialog} title="Retire the original webhook message?" body="Sierra will recheck the unchanged original, the verified replacement and its assets before deleting only the original. Old message links will no longer work. The original snapshot and old-to-new mapping remain stored." confirmLabel="Retire original" danger onconfirm={() => void perform(retireSource)} />
+<ConfirmDialog bind:this={deleteDialog} title="Delete this message?" body={selected?.source?.replacement && !selected.source.retired ? "Delete only the Sierra replacement. The unchanged original must still exist, and the copy must have no bot-visible indexed references. The source snapshot and copy history remain retained." : "The published Discord message will be deleted. Roles and memberships are not affected."} confirmLabel="Delete message" danger onconfirm={() => void perform(confirmedDelete)} />
 <ConfirmDialog bind:this={discardDialog} title="Discard unsaved changes?" body="The published message and last saved draft will remain unchanged." confirmLabel="Discard changes" onconfirm={discard} />
 
 <style>
@@ -415,6 +492,10 @@
   h2 { margin: 0; color: var(--text-heading); font-size: var(--text-lg); overflow-wrap: anywhere; }
   h3 { margin: 0; color: var(--text-heading); font-family: var(--font-display); font-size: var(--text-xs); font-weight: var(--weight-regular); letter-spacing: var(--tracking-wider); text-transform: uppercase; }
   p { line-height: 1.5; }
+  .attachments-editor { display: grid; gap: 12px; }
+  .attachment-row { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--border-default); border-radius: 6px; }
+  .attachment-row img { max-width: 100%; max-height: 100px; object-fit: contain; }
+
   .hint, .empty, .preview-note { margin: 0; color: var(--text-muted); font-size: var(--text-xs); }
   .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .problem, .inline-issue { margin: 0 0 16px; color: var(--status-error); font-size: var(--text-sm); }

@@ -1,6 +1,7 @@
 <script lang="ts">
   import Button from "$lib/design-system/components/Button.svelte";
   import Field from "$lib/design-system/components/forms/Field.svelte";
+  import Select from "$lib/design-system/components/forms/Select.svelte";
   import TextInput from "$lib/design-system/components/forms/TextInput.svelte";
   import Toggle from "$lib/design-system/components/forms/Toggle.svelte";
   import MarkdownField from "./MarkdownField.svelte";
@@ -14,7 +15,7 @@
     toLocalInput,
     type Issues,
   } from "./format";
-  import type { DiscordContext, Embed } from "./types";
+  import type { DiscordContext, Embed, AttachmentRef } from "./types";
 
   let {
     embed = $bindable(),
@@ -22,6 +23,8 @@
     count,
     issues,
     context,
+    attachments = [],
+    gallery = null,
     onmove,
     onduplicate,
     onremove,
@@ -31,6 +34,8 @@
     count: number;
     issues: Issues;
     context: DiscordContext;
+    attachments?: AttachmentRef[];
+    gallery?: { position: number; count: number; lead: number } | null;
     onmove: (by: -1 | 1) => void;
     onduplicate: () => void;
     onremove: () => void;
@@ -81,6 +86,7 @@
       <button type="button" aria-label={`Remove embed ${index + 1}`} onclick={onremove}>Remove</button>
     </div>
   </header>
+  {#if gallery}<p class="gallery-hint">Gallery image {gallery.position} of {gallery.count}. Keep these images together with the same title link; text and metadata belong on embed {gallery.lead}.</p>{/if}
   {#if issues[at]}<p class="embed-issue" role="alert">{issues[at]}</p>{/if}
 
   <div class="two-fields">
@@ -98,8 +104,15 @@
   <Field label="Title link" hint="Makes the title open this page." error={issues[`${at}.url`]}>
     <TextInput bind:value={embed.url} placeholder="https://" inputmode="url" invalid={!!issues[`${at}.url`]} />
   </Field>
-  <MarkdownField label="Description" bind:value={embed.description} limit={LIMITS.description} rows={5} issue={issues[`${at}.description`]} {context} embedText />
+  <MarkdownField label="Description" bind:value={() => embed.description ?? "", (value) => embed.description = value} limit={LIMITS.description} rows={5} issue={issues[`${at}.description`]} {context} embedText />
 
+  {#if attachments.length}
+    <div class="two-fields">
+      {#each ["image", "thumbnail"] as part}
+        <Field label={part === "image" ? "Image attachment" : "Thumbnail attachment"}><Select aria-label={part === "image" ? "Image attachment" : "Thumbnail attachment"} value={embed[part as "image" | "thumbnail"]?.url?.startsWith("attachment://") ? embed[part as "image" | "thumbnail"]?.url : ""} onchange={(e) => setImage(part as "image" | "thumbnail", e.currentTarget.value)}><option value="">None or external URL</option>{#each attachments as attachment (attachment.id)}<option value={`attachment://${attachment.filename}`}>{attachment.filename}</option>{/each}</Select></Field>
+      {/each}
+    </div>
+  {/if}
   <div class="embed-fields">
     <div class="fields-head"><h4>Fields</h4><span>{embed.fields?.length ?? 0} / {LIMITS.fields}</span></div>
     {#each embed.fields ?? [] as field, fieldIndex (fieldIndex)}
@@ -134,6 +147,7 @@
         <TextInput value={embed.author?.icon_url ?? ""} placeholder="https://" inputmode="url" oninput={(event) => setAuthor({ icon_url: event.currentTarget.value || undefined })} />
       </Field>
     </div>
+    {#if attachments.length}<Field label="Author icon attachment"><Select aria-label="Author icon attachment" value={embed.author?.icon_url?.startsWith("attachment://") ? embed.author.icon_url : ""} onchange={(e) => setAuthor({ icon_url: e.currentTarget.value || undefined })}><option value="">None or external URL</option>{#each attachments as attachment (attachment.id)}<option value={`attachment://${attachment.filename}`}>{attachment.filename}</option>{/each}</Select></Field>{/if}
   </details>
 
   <details class="embed-group" bind:open={imagesOpen}>
@@ -165,10 +179,12 @@
         </div>
       </Field>
     </div>
+    {#if attachments.length}<Field label="Footer icon attachment"><Select aria-label="Footer icon attachment" value={embed.footer?.icon_url?.startsWith("attachment://") ? embed.footer.icon_url : ""} onchange={(e) => setFooter({ icon_url: e.currentTarget.value || undefined })}><option value="">None or external URL</option>{#each attachments as attachment (attachment.id)}<option value={`attachment://${attachment.filename}`}>{attachment.filename}</option>{/each}</Select></Field>{/if}
   </details>
 </section>
 
 <style>
+  .gallery-hint { margin: 0; color: var(--text-muted); font-size: var(--text-sm); }
   .embed-editor {
     display: grid;
     gap: 14px;

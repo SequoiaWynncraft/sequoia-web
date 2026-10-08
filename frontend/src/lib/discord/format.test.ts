@@ -5,6 +5,7 @@ import {
   charCount,
   definitionIssues,
   embedCharacters,
+  embedGroups,
   truncateChars,
   fieldColumns,
   formatTimestamp,
@@ -12,12 +13,35 @@ import {
   issuesUnder,
   parseHexColor,
   toLocalInput,
+  standaloneAttachments,
 } from "./format";
-import type { Definition } from "./types";
+import type { Definition, Embed } from "./types";
 
 function draft(overrides: Partial<Definition> = {}): Definition {
   return { name: "Rules", channel_id: "1", content: "Read these", embeds: [], rows: [], ...overrides };
 }
+
+it("keeps a four-thumbnail insignia panel free of duplicate standalone images", () => {
+  const attachments = [1, 2, 3, 4].map((id) => ({ id: `asset-${id}`, filename: `insignia-${id}.png`, description: null }));
+  const panel = draft({ attachments, embeds: attachments.map((a) => ({ type: "rich", title: "Insignia", thumbnail: { url: `attachment://${a.filename}` } })) });
+  expect(standaloneAttachments(panel)).toEqual([]);
+  panel.embeds.pop();
+  expect(standaloneAttachments(panel)).toEqual([attachments[3]]);
+  panel.embeds[0].author = { name: "Staff", icon_url: "attachment://insignia-4.png" };
+  expect(standaloneAttachments(panel)).toEqual([]);
+  expect(definitionIssues(panel)).toEqual({});
+  panel.embeds[0].author.icon_url = "attachment://foreign.png";
+  expect(definitionIssues(panel)["embeds.0.author_icon"]).toContain("belonging");
+  panel.embeds[0].author.icon_url = undefined;
+  panel.embeds[0].footer = { text: "Guide", icon_url: "attachment://insignia-4.png" };
+  expect(standaloneAttachments(panel)).toEqual([]);
+  expect(definitionIssues(panel)).toEqual({});
+  panel.embeds[0].footer.icon_url = "attachment://foreign.png";
+  expect(definitionIssues(panel)["embeds.0.footer_icon"]).toContain("belonging");
+  panel.embeds[0].footer.icon_url = undefined;
+  panel.embeds.push({ type: "rich", title: "Image", image: { url: "attachment://insignia-4.png" } });
+  expect(standaloneAttachments(panel)).toEqual([]);
+});
 
 describe("definitionIssues", () => {
   it("accepts a realistic panel", () => {
@@ -142,6 +166,26 @@ describe("definitionIssues", () => {
     embeds[1].url = "https://seqwawa.com/events";
     expect(definitionIssues(draft({ embeds }))).toEqual({});
     expect(definitionIssues(draft({ embeds: [{ type: "rich", title: "First" }, { type: "rich", title: "Second" }] }))).toEqual({});
+    const shared = "https://discohook.app#gallery-maintained";
+    const image = (url = shared) => ({ type: "rich" as const, url, image: { url: "https://seqwawa.com/map.webp" } });
+    const lead = { ...image(), description: "Guide" };
+    const final = { type: "rich" as const, description: "Final text", footer: { text: "Guide" } };
+    const hq: Embed[] = [image("https://discohook.app#gallery-first"), lead, image(), image(), image(), { ...image(), url: undefined }, final];
+    const ffa: Embed[] = [lead, image(), image(), final];
+    for (const gallery of [hq, ffa]) {
+      const original = structuredClone(gallery);
+      expect(definitionIssues(draft({ embeds: gallery }))).toEqual({});
+      expect(embedGroups(gallery).flatMap((group) => group.indices)).toEqual(gallery.map((_, index) => index));
+      expect(gallery).toEqual(original);
+    }
+    expect(embedGroups(hq).map((group) => group.indices.filter((index) => hq[index].image).length)).toEqual([1, 4, 1, 0]);
+    expect(embedGroups(ffa).map((group) => group.indices.filter((index) => ffa[index].image).length)).toEqual([3, 0]);
+    for (const invalid of [
+      [lead, lead],
+      [lead, image("https://seqwawa.com/other"), image()],
+      [lead, image(), image(), image(), image()],
+      [{ type: "rich" as const, description: "No image", url: shared }, image()],
+    ]) expect(Object.keys(definitionIssues(draft({ embeds: invalid }))).some((key) => key.endsWith(".url"))).toBe(true);
   });
 
   it("accepts button-only panels but flags roles outside current self-service approval", () => {

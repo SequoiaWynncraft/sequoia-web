@@ -1,8 +1,9 @@
 <script lang="ts">
   import { SvelteSet } from "svelte/reactivity";
 
+  import LayoutPreview from "./LayoutPreview.svelte";
   import DiscordMarkdown from "./DiscordMarkdown.svelte";
-  import { calendarTime, fieldColumns, hexColor, isWebUrl } from "./format";
+  import { calendarTime, embedGroups, fieldColumns, hexColor, isWebUrl, standaloneAttachments } from "./format";
   import type { Definition, DiscordContext, Embed, RoleButton } from "./types";
 
   let { draft, context }: { draft: Definition; context: DiscordContext } = $props();
@@ -19,8 +20,14 @@
   });
   /** Images that failed to load, so staff see a broken link instead of a gap. */
   const failed = new SvelteSet<string>();
+  const standalone = $derived(standaloneAttachments(draft));
+  const groups = $derived(embedGroups(draft.embeds));
 
   function image(raw: string | undefined): string | null {
+    if (raw?.startsWith("attachment://")) {
+      const attachment = draft.attachments?.find((a) => a.filename === raw.slice(13));
+      return attachment ? `/manage/discord/api/assets/${attachment.id}` : null;
+    }
     return raw && isWebUrl(raw) ? raw : null;
   }
 
@@ -60,7 +67,11 @@
         <div class="dp-content"><DiscordMarkdown source={draft.content} {names} {now} jumbo /></div>
       {/if}
 
-      {#each draft.embeds as embed, index (index)}
+      {#if draft.components_v2?.length}<LayoutPreview components={draft.components_v2} {names} {now} />{/if}
+
+      {#each groups as group (group.index)}
+        {@const embed = group.embed}
+        {@const index = group.index}
         {@const thumbnail = image(embed.thumbnail?.url)}
         {@const columns = fieldColumns(embed.fields ?? [], thumbnail !== null)}
         <article
@@ -72,7 +83,7 @@
             {#if embed.author?.name}
               <div class="dp-embed-author">
                 {#if image(embed.author.icon_url)}
-                  {@render picture(embed.author.icon_url ?? "", "dp-author-icon", "Author icon")}
+                  {@render picture(image(embed.author.icon_url) ?? "", "dp-author-icon", "Author icon")}
                 {/if}
                 {#if isWebUrl(embed.author.url)}
                   <a href={embed.author.url} target="_blank" rel="noopener noreferrer">{embed.author.name}</a>
@@ -104,7 +115,12 @@
               </div>
             {/if}
             {#if image(embed.image?.url)}
-              <div class="dp-embed-image">{@render picture(embed.image?.url ?? "", "dp-image", "Embed image")}</div>
+              <div class="dp-embed-image" class:dp-gallery={group.indices.length > 1} class:dp-gallery-three={group.indices.length === 3} class:dp-gallery-four={group.indices.length === 4}>
+                {#each group.indices as imageIndex (imageIndex)}
+                  {@const url = image(draft.embeds[imageIndex].image?.url)}
+                  {#if url}<a href={url} target="_blank" rel="noopener noreferrer" aria-label={`Open embed image ${imageIndex + 1}`}>{@render picture(url, "dp-image", `Embed image ${imageIndex + 1}`)}</a>{/if}
+                {/each}
+              </div>
             {/if}
             {#if thumbnail}
               <div class="dp-embed-thumb">{@render picture(thumbnail, "dp-thumb", "Embed thumbnail")}</div>
@@ -112,7 +128,7 @@
             {#if embed.footer?.text || embed.timestamp}
               <div class="dp-embed-footer">
                 {#if embed.footer?.text && image(embed.footer.icon_url)}
-                  {@render picture(embed.footer.icon_url ?? "", "dp-footer-icon", "Footer icon")}
+                  {@render picture(image(embed.footer.icon_url) ?? "", "dp-footer-icon", "Footer icon")}
                 {/if}
                 <span>{embed.footer?.text ?? ""}{#if embed.footer?.text && embed.timestamp}<span class="dp-dot" aria-hidden="true">•</span>{/if}{footerTime(embed)}</span>
               </div>
@@ -121,6 +137,9 @@
         </article>
       {/each}
 
+      {#if standalone.length}
+        <div class="dp-attachments">{#each standalone as attachment (attachment.id)}<figure><img src={`/manage/discord/api/assets/${attachment.id}`} alt={attachment.description ?? attachment.filename} loading="lazy" /><figcaption>{attachment.filename}</figcaption></figure>{/each}</div>
+      {/if}
       {#if draft.rows.some((row) => row.length > 0)}
         <div class="dp-components">
           {#each draft.rows as row, rowIndex (rowIndex)}
@@ -312,6 +331,18 @@
     margin-top: 16px;
   }
 
+  .dp-gallery {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    height: 300px;
+    gap: 4px;
+  }
+
+  .dp-gallery-three, .dp-gallery-four { grid-template-rows: repeat(2, minmax(0, 1fr)); }
+  .dp-gallery a { min-width: 0; height: 100%; overflow: hidden; border-radius: 4px; }
+  .dp-gallery :global(.dp-image) { width: 100%; height: 100%; max-height: none; object-fit: cover; }
+  .dp-gallery-three a:first-child { grid-row: span 2; }
+
   .dp-embed-thumb {
     grid-column: 2 / 3;
     grid-row: 1 / 8;
@@ -379,6 +410,11 @@
     line-height: 1rem;
     text-align: center;
   }
+
+  .dp-attachments { display: grid; gap: 8px; margin-top: 8px; }
+  .dp-attachments figure { margin: 0; min-width: 0; }
+  .dp-attachments img { max-width: 100%; max-height: 300px; object-fit: contain; border-radius: 4px; }
+  .dp-attachments figcaption { color: #949ba4; font-size: .75rem; overflow-wrap: anywhere; }
 
   .dp-components {
     display: grid;
