@@ -75,6 +75,9 @@ the parser lacks, and only keeps http(s) link targets. `parser.d.ts` types the s
 surface used because the package's bundled declarations fail this project's strict library
 checks. The preview approximates Discord's dark theme with the site's text face; Discord's
 own clients decide the final rendering, and unicode emoji use the device's emoji font.
+Standard emoji shortcodes use Emojibase's JoyPixels preset (its Discord alias) inside the
+markdown grammar, so code, escapes and link destinations are not rewritten. The pinned
+dataset is bundled locally; preview rendering makes no emoji-data network requests.
 
 Set server-only `SEQUOIA_DISCORD_MANAGEMENT_URL=http://<private-sierra-service>:8082` on
 both websites after enabling Sierra's `SEQUOIA_SIERRA_MANAGEMENT_BIND` on the private
