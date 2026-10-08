@@ -186,6 +186,7 @@
     const imported = await request<ManagedMessage>("messages/adopt", "POST", { channel_id: link.channel_id, message_id: link.message_id });
     if (!imported) return;
     received(imported);
+    tab = "message"; view = "edit"; pickerButtonId = null;
     session += 1;
     importLink = ""; notice = "Message imported. Discord has not changed.";
   }

@@ -27,6 +27,18 @@ it("keeps a four-thumbnail insignia panel free of duplicate standalone images", 
   expect(standaloneAttachments(panel)).toEqual([]);
   panel.embeds.pop();
   expect(standaloneAttachments(panel)).toEqual([attachments[3]]);
+  panel.embeds[0].author = { name: "Staff", icon_url: "attachment://insignia-4.png" };
+  expect(standaloneAttachments(panel)).toEqual([]);
+  expect(definitionIssues(panel)).toEqual({});
+  panel.embeds[0].author.icon_url = "attachment://foreign.png";
+  expect(definitionIssues(panel)["embeds.0.author_icon"]).toContain("belonging");
+  panel.embeds[0].author.icon_url = undefined;
+  panel.embeds[0].footer = { text: "Guide", icon_url: "attachment://insignia-4.png" };
+  expect(standaloneAttachments(panel)).toEqual([]);
+  expect(definitionIssues(panel)).toEqual({});
+  panel.embeds[0].footer.icon_url = "attachment://foreign.png";
+  expect(definitionIssues(panel)["embeds.0.footer_icon"]).toContain("belonging");
+  panel.embeds[0].footer.icon_url = undefined;
   panel.embeds.push({ type: "rich", title: "Image", image: { url: "attachment://insignia-4.png" } });
   expect(standaloneAttachments(panel)).toEqual([]);
 });

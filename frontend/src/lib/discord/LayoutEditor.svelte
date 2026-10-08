@@ -19,7 +19,7 @@
       <header><strong>{component.type === 17 ? "Container" : component.type === 10 ? "Text block" : "Separator"}</strong><div>
         <button type="button" aria-label={`Move layout block ${index + 1} up`} disabled={index === 0} onclick={() => move(index, -1)}>↑</button>
         <button type="button" aria-label={`Move layout block ${index + 1} down`} disabled={index === components.length - 1} onclick={() => move(index, 1)}>↓</button>
-        <button type="button" aria-label={`Remove layout block ${index + 1}`} onclick={() => components.splice(index, 1)}>Remove</button>
+        <button type="button" aria-label={`Remove layout block ${index + 1}`} disabled={!nested && components.length === 1} onclick={() => components.splice(index, 1)}>Remove</button>
       </div></header>
       {#if component.type === 10}
         <MarkdownField label={`Text block ${index + 1}`} bind:value={component.content} limit={4000} rows={8} {context} />

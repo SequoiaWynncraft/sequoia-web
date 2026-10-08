@@ -104,7 +104,7 @@
   <Field label="Title link" hint="Makes the title open this page." error={issues[`${at}.url`]}>
     <TextInput bind:value={embed.url} placeholder="https://" inputmode="url" invalid={!!issues[`${at}.url`]} />
   </Field>
-  <MarkdownField label="Description" bind:value={embed.description} limit={LIMITS.description} rows={5} issue={issues[`${at}.description`]} {context} embedText />
+  <MarkdownField label="Description" bind:value={() => embed.description ?? "", (value) => embed.description = value} limit={LIMITS.description} rows={5} issue={issues[`${at}.description`]} {context} embedText />
 
   {#if attachments.length}
     <div class="two-fields">
@@ -147,6 +147,7 @@
         <TextInput value={embed.author?.icon_url ?? ""} placeholder="https://" inputmode="url" oninput={(event) => setAuthor({ icon_url: event.currentTarget.value || undefined })} />
       </Field>
     </div>
+    {#if attachments.length}<Field label="Author icon attachment"><Select aria-label="Author icon attachment" value={embed.author?.icon_url?.startsWith("attachment://") ? embed.author.icon_url : ""} onchange={(e) => setAuthor({ icon_url: e.currentTarget.value || undefined })}><option value="">None or external URL</option>{#each attachments as attachment (attachment.id)}<option value={`attachment://${attachment.filename}`}>{attachment.filename}</option>{/each}</Select></Field>{/if}
   </details>
 
   <details class="embed-group" bind:open={imagesOpen}>
@@ -178,6 +179,7 @@
         </div>
       </Field>
     </div>
+    {#if attachments.length}<Field label="Footer icon attachment"><Select aria-label="Footer icon attachment" value={embed.footer?.icon_url?.startsWith("attachment://") ? embed.footer.icon_url : ""} onchange={(e) => setFooter({ icon_url: e.currentTarget.value || undefined })}><option value="">None or external URL</option>{#each attachments as attachment (attachment.id)}<option value={`attachment://${attachment.filename}`}>{attachment.filename}</option>{/each}</Select></Field>{/if}
   </details>
 </section>
 

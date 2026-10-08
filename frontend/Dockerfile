@@ -14,6 +14,8 @@ FROM oven/bun:1.3.14-alpine AS runtime
 WORKDIR /app/frontend
 ENV NODE_ENV=production
 ENV PORT=3000
+# Match Sierra's 14 MiB JSON limit, including base64 for a supported 10 MiB image.
+ENV BODY_SIZE_LIMIT=14M
 # The app keeps its listener open while active requests finish, then exits in
 # one step so the retiring container is never a dead Traefik endpoint.
 STOPSIGNAL SIGUSR2

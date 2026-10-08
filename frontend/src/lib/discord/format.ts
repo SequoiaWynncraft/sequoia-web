@@ -26,9 +26,9 @@ export const LIMITS = {
   buttonUrl: 512,
 } as const;
 
-/** Discord hides attached images consumed by an embed's image or thumbnail. */
+/** Discord hides attachments consumed by the embed's four typed media slots. */
 export function standaloneAttachments(draft: Definition) {
-  const consumed = new Set(draft.embeds.flatMap((embed) => [embed.image?.url, embed.thumbnail?.url])
+  const consumed = new Set(draft.embeds.flatMap((embed) => [embed.image?.url, embed.thumbnail?.url, embed.author?.icon_url, embed.footer?.icon_url])
     .filter((url): url is string => !!url?.startsWith("attachment://")).map((url) => url.slice(13)));
   return (draft.attachments ?? []).filter((attachment) => !consumed.has(attachment.filename));
 }
@@ -160,13 +160,11 @@ export function definitionIssues(draft: Definition, available: Availability = {}
       }
       embedUrls.set(embed.url, { last: index, count: (group?.count ?? 0) + 1, image: group?.image ?? !!embed.image?.url });
     }
-    for (const [part, raw] of [["image", embed.image?.url], ["thumbnail", embed.thumbnail?.url]] as const) {
+    for (const [part, raw] of [["image", embed.image?.url], ["thumbnail", embed.thumbnail?.url], ["author_icon", embed.author?.icon_url], ["footer_icon", embed.footer?.icon_url]] as const) {
       if (raw?.startsWith("attachment://")) { if (!draft.attachments?.some((a) => a.filename === raw.slice(13))) issues[`${at}.${part}`] = "Choose an attachment belonging to this message."; }
       else url(issues, `${at}.${part}`, raw);
     }
     url(issues, `${at}.author_url`, embed.author?.url);
-    url(issues, `${at}.author_icon`, embed.author?.icon_url);
-    url(issues, `${at}.footer_icon`, embed.footer?.icon_url);
     if (embed.timestamp && Number.isNaN(Date.parse(embed.timestamp))) issues[`${at}.timestamp`] = "Choose a valid date and time.";
     const visible = trimEmbedText(embed.title) || trimEmbedText(embed.description) || trimEmbedText(embed.author?.name) || trimEmbedText(embed.footer?.text) ||
       embed.image?.url || embed.thumbnail?.url || (embed.fields?.length ?? 0) > 0 ||
