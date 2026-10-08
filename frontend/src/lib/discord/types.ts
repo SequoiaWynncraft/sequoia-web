@@ -58,6 +58,7 @@ export interface DiscordContext {
   guilds?: { id: string; name: string }[];
   can_approve_roles: boolean;
   roles: { id: string; name: string; eligible: boolean; approved: boolean }[];
-  channels: { id: string; name: string }[];
+  /** Postable channels, then reviewed threads; only threads carry `archived`. */
+  channels: { id: string; name: string; archived?: boolean }[];
   emojis: { id: string; name: string; animated: boolean; available: boolean }[];
 }

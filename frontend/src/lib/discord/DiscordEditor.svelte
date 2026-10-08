@@ -1,6 +1,8 @@
 <script lang="ts">
+  import { tick } from "svelte";
   import { requestDiscord } from "$lib/api/discordManagement";
-  import { beforeNavigate } from "$app/navigation";
+  import { beforeNavigate, pushState, replaceState } from "$app/navigation";
+  import { page } from "$app/state";
   import ConfirmDialog from "$lib/design-system/components/forms/ConfirmDialog.svelte";
   import Button from "$lib/design-system/components/Button.svelte";
   import Field from "$lib/design-system/components/forms/Field.svelte";
@@ -12,6 +14,8 @@
   import LayoutEditor from "./LayoutEditor.svelte";
   import EmbedEditor from "./EmbedEditor.svelte";
   import MarkdownField from "./MarkdownField.svelte";
+  import MessageBrowser from "./MessageBrowser.svelte";
+  import { MAIN_GUILD, UNPLACED, isThread, place, threadLabel, threadParents } from "./navigation";
   import { LIMITS, charCount, definitionIssues, embedGroups, issuesUnder, truncateChars } from "./format";
   import type { Definition, DiscordContext, ManagedMessage, RoleButton, AttachmentRef } from "./types";
 
@@ -44,7 +48,6 @@
   let emojiImage = $state("");
   let emojiSearch = $state("");
   let importLink = $state("");
-  let search = $state("");
   let discardDialog = $state<ConfirmDialog | null>(null);
   let retireDialog = $state<ConfirmDialog | null>(null);
   let deleteDialog = $state<ConfirmDialog | null>(null);
@@ -54,21 +57,25 @@
   let pickerButtonId = $state<string | null>(null);
   const pickerButton = $derived(draft?.rows.flat().find((button) => button.id === pickerButtonId) ?? null);
 
-  /** Side-by-side preview needs room for both; below that, staff switch views. */
+  let browser = $state<MessageBrowser>();
+  let heading = $state<HTMLElement>();
+  let editorSection = $state<HTMLElement>();
+
   const layout = $derived(!!draft?.components_v2?.length);
   const visibleTabs = $derived(TABS.filter((item) => !layout || item.id !== "buttons"));
+  /** Side-by-side preview needs room for both; below that, staff switch views. */
   const narrow = $derived(width > 0 && width < 780);
-  const mainGuild = "1030187086722109570";
-  // svelte-ignore state_referenced_locally
-  let guildSelection = $state(initialContext.guild_id ?? mainGuild);
-  const guildId = $derived(context.guild_id ?? mainGuild);
-  const guilds = $derived(context.guilds ?? [{ id: mainGuild, name: "Sequoia" }]);
+  /** Without room for the browser beside both, staff pick a message, then work on it alone. */
+  const compact = $derived(width > 0 && width < 1040);
+  // A shallow history entry, so the device's back gesture returns to the list, not off the page.
+  const showDetail = $derived(!!draft && (!compact || page.state.discordDetail === true));
+  const guildId = $derived(context.guild_id ?? MAIN_GUILD);
+  const guilds = $derived(context.guilds ?? [{ id: MAIN_GUILD, name: "Sequoia" }]);
   const dirty = $derived(draft !== null && JSON.stringify(draft) !== baseline);
   const galleries = $derived(new Map(embedGroups(draft?.embeds ?? []).flatMap((group) => group.indices.length > 1
     ? group.indices.map((index, position) => [index, { position: position + 1, count: group.indices.length, lead: group.index + 1 }] as const) : [])));
   const held = $derived(selected?.source?.replacement === true && !selected.source.retired && !selected.source.replacement_allowed);
   const unresolved = $derived(selected?.delivery_state === "uncertain" || selected?.delivery_state === "publishing");
-  const filtered = $derived(messages.filter((m) => (m.definition.guild_id ?? mainGuild) === guildId && m.definition.name.toLowerCase().includes(search.toLowerCase())));
   const eligibleRoles = $derived(context.roles.filter((r) => r.eligible && r.approved));
   const selfServiceRoleIds = $derived(new Set(eligibleRoles.map((role) => role.id)));
   const channelIds = $derived(new Set(context.channels.map((channel) => channel.id)));
@@ -83,6 +90,7 @@
   const issues = $derived(draft ? definitionIssues(draft, { roles: selfServiceRoleIds, channels: channelIds, emojis: availableEmojiIds }) : {});
   const issueCount = $derived(Object.keys(issues).length);
   const channelName = $derived(context.channels.find((c) => c.id === draft?.channel_id)?.name);
+  const placement = $derived(draft ? place(guildId, draft.channel_id, new Map(context.channels.map((c) => [c.id, c])), threadParents(messages)) : null);
   const stateLabel = $derived.by(() => {
     if (!selected) return "New message · not saved";
     if (selected.delivery_state === "uncertain") return "Needs recovery";
@@ -102,6 +110,14 @@
 
   beforeNavigate(({ cancel }) => { if (dirty) { cancel(); error = "Save your draft before leaving, or select Discard changes."; } });
 
+  // Returning to the list lands on the open message's row, not at the top of the page.
+  let detailEntry = false;
+  $effect(() => {
+    const entry = page.state.discordDetail === true;
+    if (detailEntry && !entry && compact) void browser?.focusCurrent();
+    detailEntry = entry;
+  });
+
   function tabHasIssues(id: Tab) {
     if (id === "message") return Object.keys(issues).some((key) => !key.startsWith("rows"));
     if (id === "buttons") return issuesUnder(issues, "rows").length > 0;
@@ -115,14 +131,10 @@
     tab = visibleTabs[(to + visibleTabs.length) % visibleTabs.length].id;
     document.getElementById(`discord-tab-${tab}`)?.focus();
   }
-  function status(message: ManagedMessage) {
-    if (message.delivery_state === "uncertain") return { text: "Needs recovery", tone: "error" };
-    if (message.published_version === message.version) return { text: "Live", tone: "live" };
-    if (message.published_version) return { text: "Unpublished changes", tone: "changed" };
-    return { text: "Draft", tone: "draft" };
-  }
 
   function select(message: ManagedMessage | null) {
+    // The open message only comes back into view; it never reloads over unsaved work.
+    if (message && message.id === selected?.id) { void showMessage(); return; }
     if (dirty) { pendingSelection = message; discardDialog?.open(); return; }
     open(message);
   }
@@ -134,12 +146,31 @@
     };
     baseline = message ? JSON.stringify(draft) : "";
     error = null; notice = null; tab = "message"; view = "edit"; pickerButtonId = null; session += 1;
+    if (message) browser?.reveal(message);
+    void showMessage();
   }
   function received(message: ManagedMessage) {
     messages = [message, ...messages.filter((m) => m.id !== message.id)];
     selected = message;
     draft = structuredClone(message.definition);
     baseline = JSON.stringify(draft);
+    browser?.reveal(message);
+  }
+  function close() {
+    selected = null; draft = null; baseline = ""; pickerButtonId = null;
+    if (page.state.discordDetail) history.back();
+  }
+  /** On compact screens the open message replaces the list, with its own history entry. */
+  async function showMessage() {
+    if (!compact) return;
+    if (page.state.discordDetail !== true) {
+      // Reload restores the picker, but browser history may still hold an old detail marker.
+      replaceState("", { ...page.state, discordDetail: false });
+      pushState("", { ...page.state, discordDetail: true });
+    }
+    await tick();
+    if ((editorSection?.getBoundingClientRect().top ?? 0) < 0) editorSection?.scrollIntoView({ block: "start" });
+    heading?.focus({ preventScroll: true });
   }
   async function request<T>(path: string, method = "GET", body?: unknown): Promise<T | null> {
     const result = await requestDiscord<T>(globalThis.fetch.bind(globalThis), path, method, body);
@@ -189,6 +220,7 @@
     tab = "message"; view = "edit"; pickerButtonId = null;
     session += 1;
     importLink = ""; notice = "Message imported. Discord has not changed.";
+    void showMessage();
   }
   async function recover() {
     if (!selected) return;
@@ -201,16 +233,11 @@
     const fresh = await request<DiscordContext>(`context?guild_id=${id}`);
     if (!fresh) return false;
     context = fresh;
-    guildSelection = fresh.guild_id ?? mainGuild;
     return true;
   }
-  async function switchGuild(event: Event) {
+  async function switchGuild(id: string) {
     if (dirty) { error = "Save or discard your draft before changing servers."; return; }
-    const id = (event.currentTarget as HTMLSelectElement).value;
-    await perform(async () => {
-      if (await loadGuild(id)) { selected = null; draft = null; baseline = ""; pickerButtonId = null; }
-      guildSelection = guildId;
-    });
+    await perform(async () => { if (await loadGuild(id)) close(); });
   }
   async function retireSource() {
     if (!selected || dirty) return;
@@ -245,11 +272,6 @@
     button.action = kind === "role" ? { kind, role_id: eligibleRoles[0]?.id ?? "" } : { kind, url: "https://seqwawa.com" };
     button.style = kind === "link" ? 5 : 2;
   }
-  function destination(channelId: string) {
-    if (!channelId) return "No channel yet";
-    const name = context.channels.find((c) => c.id === channelId)?.name;
-    return name ? `#${name}` : "Unavailable channel";
-  }
   function roleName(id: string) {
     return context.roles.find((role) => role.id === id)?.name ?? "Unknown role";
   }
@@ -281,7 +303,7 @@
   async function confirmedDelete() {
     if (!selected) return;
     if (!await request(`messages/${selected.id}`, "DELETE", { version: selected.version })) return;
-    messages = messages.filter((m) => m.id !== selected?.id); selected = null; draft = null; baseline = "";
+    messages = messages.filter((m) => m.id !== selected?.id); close();
     notice = "Message deleted. Roles and memberships are unchanged.";
   }
   function duplicate() {
@@ -293,8 +315,8 @@
   }
   function discard() {
     if (pendingSelection !== "close") { open(pendingSelection); return; }
-    selected = null; draft = null; baseline = "";
-    error = null; notice = null; pickerButtonId = null;
+    close();
+    error = null; notice = null;
   }
 </script>
 
@@ -304,7 +326,7 @@
       <h2><span class="diamond" aria-hidden="true">◆</span>Preview</h2>
       <span class="preview-channel">#{channelName ?? "choose a channel"}</span>
       <span class="preview-state" class:preview-unsaved={dirty}>{dirty ? "Includes unsaved changes" : "Saved version"}</span>
-      {#if selected?.message_id}<a class="preview-open" href={`https://discord.com/channels/${selected.definition.guild_id ?? mainGuild}/${selected.channel_id}/${selected.message_id}`} target="_blank" rel="noopener noreferrer">Open in Discord</a>{/if}
+      {#if selected?.message_id}<a class="preview-open" href={`https://discord.com/channels/${selected.definition.guild_id ?? MAIN_GUILD}/${selected.channel_id}/${selected.message_id}`} target="_blank" rel="noopener noreferrer">Open in Discord</a>{/if}
     </div>
     <DiscordPreview {draft} {context} />
     <p class="preview-note">Approximates Discord's dark theme. Discord's own apps decide the final look.</p>
@@ -317,30 +339,32 @@
   </ManageHeader>
   {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
 
-  <div class="workspace-grid" class:has-draft={!!draft}>
-    <aside class="message-list" aria-label="Managed messages">
-      <Field label="Server"><Select aria-label="Server" bind:value={guildSelection} disabled={busy || dirty} onchange={switchGuild}>{#each guilds as guild}<option value={guild.id}>{guild.name}</option>{/each}</Select></Field>
-      <Field label="Find a message"><TextInput bind:value={search} placeholder="Search messages" /></Field>
-      <nav aria-label="Messages">{#each filtered as message (message.id)}
-        {@const state = status(message)}
-        <button type="button" class:active={selected?.id === message.id} aria-current={selected?.id === message.id ? "true" : undefined} onclick={() => select(message)} disabled={busy}>
-          <strong>{message.definition.name}</strong>
-          <span>{destination(message.definition.channel_id)}</span>
-          <small class={`tone-${state.tone}`}>{state.text}</small>
-        </button>
-      {:else}<p class="empty">{search ? "No matching messages." : "No managed messages yet."}</p>{/each}</nav>
+  <div class="workspace-grid" class:has-detail={showDetail}>
+    <MessageBrowser bind:this={browser} {messages} {context} {guildId} selectedId={selected?.id ?? null} fresh={draft && !selected ? draft.name : null} {dirty} {busy}
+      hidden={compact && showDetail} onselect={select} onresume={() => void showMessage()} onguild={switchGuild}>
       <details class="import"><summary>Edit an existing message</summary>
         <p class="hint">Import a reviewed maintained panel by its Discord link. Sierra messages keep their identity. Controlled webhook posts become a Sierra replacement; the original stays until verified retirement. Automated and other-workflow messages are excluded.</p>
         <Field label="Discord message link"><TextInput bind:value={importLink} placeholder="https://discord.com/channels/…" inputmode="url" /></Field>
         <Button variant="secondary" size="sm" disabled={busy || !importLink} onclick={() => perform(importMessage)}>Import message</Button>
       </details>
-    </aside>
+      {#snippet status()}{#if compact && !showDetail}<FormStatus error={error} saved={!!notice} savedText={notice ?? ""} compact />{/if}{/snippet}
+    </MessageBrowser>
 
     {#if draft}
-      <section class="editor-main" aria-label="Message editor">
+      <section class="editor-main" aria-label="Message editor" hidden={!showDetail} bind:this={editorSection}>
         <div class="editor-heading">
-          <h2>{draft.name || "Untitled message"}</h2>
-          <span class="state" class:state-dirty={dirty || !selected} class:state-live={!dirty && selected?.published_version === selected?.version} class:state-error={unresolved}>{stateLabel}</span>
+          {#if compact}<button type="button" class="back" onclick={() => { if (page.state.discordDetail) history.back(); }}><span aria-hidden="true">‹</span>All messages</button>{/if}
+          <p class="editor-place">
+            {guilds.find((guild) => guild.id === guildId)?.name ?? "Sequoia"} <span class="sep" aria-hidden="true">›</span>
+            {#if !placement || placement.kind === "unplaced"}{UNPLACED}
+            {:else if !placement.channel}Unavailable channel
+            {:else if isThread(placement.channel)}{placement.channel.name} {threadLabel(placement.channel).toLowerCase()}
+            {:else}#{placement.channel.name}{#if placement.thread}{" "}<span class="sep" aria-hidden="true">›</span> {placement.thread.name} {threadLabel(placement.thread).toLowerCase()}{/if}{/if}
+          </p>
+          <div class="editor-title">
+            <h2 tabindex="-1" bind:this={heading}>{draft.name || "Untitled message"}</h2>
+            <span class="state" class:state-dirty={dirty || !selected} class:state-live={!dirty && selected?.published_version === selected?.version} class:state-error={unresolved}>{stateLabel}</span>
+          </div>
         </div>
         {#if selected || dirty}
           <div class="message-actions">
@@ -475,7 +499,7 @@
       </section>
 
       {#if !narrow}
-        <aside class="discord-preview" aria-label="Discord message preview">{@render preview()}</aside>
+        <aside class="discord-preview" aria-label="Discord message preview" hidden={!showDetail}>{@render preview()}</aside>
       {/if}
     {:else}
       <section class="choose-message"><h2>Choose a message</h2><p>Edit an existing panel or create a message with embeds and buttons.</p><Button onclick={() => select(null)}>New message</Button><FormStatus error={error} saved={!!notice} savedText={notice ?? ""} /></section>
@@ -501,22 +525,20 @@
   .problem, .inline-issue { margin: 0 0 16px; color: var(--status-error); font-size: var(--text-sm); }
   .inline-issue { margin: 0; font-size: var(--text-xs); }
 
-  /* Narrow: one column with an Edit/Preview switch. */
+  /* Compact: the message browser, or the open message with an Edit/Preview switch. */
   .workspace-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; align-items: start; }
-  .message-list { display: grid; gap: 12px; min-width: 0; padding-bottom: 16px; border-bottom: 1px solid var(--border-default); }
-  .message-list nav { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
-  .message-list nav button { flex: 0 0 auto; display: grid; gap: 4px; width: 190px; min-height: 44px; padding: 10px 12px; text-align: left; background: transparent; border: 1px solid var(--border-default); border-left-width: 2px; color: var(--text-body); cursor: pointer; }
-  .message-list nav button.active { border-left-color: var(--color-gold); background: var(--color-surface); }
-  .message-list nav button:hover:not(:disabled) { background: var(--color-surface); }
-  .message-list strong { color: var(--text-heading); font-size: var(--text-sm); overflow-wrap: anywhere; }
-  .message-list span, .message-list small { font-size: var(--text-xs); }
-  .tone-live { color: var(--color-gold); } .tone-changed { color: var(--accent-secondary); } .tone-error { color: var(--status-error); } .tone-draft { color: var(--text-muted); }
+  .editor-main[hidden], .discord-preview[hidden] { display: none; }
   .import { border-top: 1px solid var(--border-default); padding-top: 10px; display: grid; gap: 10px; justify-items: start; }
   .import > :global(*) { justify-self: stretch; } .import > :global(.seq-button) { justify-self: start; }
   summary { min-height: 32px; display: flex; align-items: center; color: var(--text-heading); font-size: var(--text-sm); cursor: pointer; }
 
-  .editor-main { container: discord-editor / inline-size; min-width: 0; }
-  .editor-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px 12px; }
+  .editor-main { container: discord-editor / inline-size; min-width: 0; scroll-margin-top: 4.5rem; }
+  .editor-heading { display: grid; gap: 4px; }
+  .back { justify-self: start; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; margin-top: -10px; padding: 0 12px 0 0; border: 0; background: none; color: var(--color-gold); font-family: var(--font-display); font-size: var(--text-2xs); letter-spacing: var(--tracking-wider); text-transform: uppercase; cursor: pointer; }
+  .back span { font-family: var(--font-body); font-size: var(--text-lg); line-height: 1; }
+  .editor-place { margin: 0; color: var(--text-muted); font-size: var(--text-xs); overflow-wrap: anywhere; }
+  .sep { margin: 0 2px; }
+  .editor-title { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px 12px; }
   .state { font-size: var(--text-xs); color: var(--text-muted); }
   .state-dirty { color: var(--color-gold); } .state-live { color: var(--status-positive); } .state-error { color: var(--status-error); }
   .view-switch { position: sticky; top: 3.5rem; z-index: 3; display: grid; grid-template-columns: 1fr 1fr; margin: 12px 0 0; background: var(--bg-page); border: 1px solid var(--border-default); }
@@ -568,30 +590,30 @@
   .preview-open { margin-left: auto; color: var(--color-gold); font-size: var(--text-xs); }
   .preview-note { margin-top: 10px; }
   .discord-preview { min-width: 0; }
-  .choose-message { padding: 24px 0; }
+  /* Only beside the browser; compact screens start at the list itself. */
+  .choose-message { display: none; padding: 24px 0; }
   .choose-message p { color: var(--text-body); }
 
   button:focus-visible, summary:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid var(--color-gold); outline-offset: 2px; }
   /* Inset where a scrolling strip would clip an outer ring. */
-  .editor-tabs button:focus-visible, .view-switch button:focus-visible, .message-list nav button:focus-visible { outline-offset: -2px; }
+  .editor-tabs button:focus-visible, .view-switch button:focus-visible { outline-offset: -2px; }
+  h2:focus-visible { outline: 2px solid var(--color-gold); outline-offset: 4px; }
   button:disabled { opacity: 0.5; cursor: default; }
 
-  /* Medium: messages across the top, editor and preview side by side. */
+  /* Medium: the open message's editor and preview side by side. */
   @container discord-workspace (min-width: 780px) {
-    .workspace-grid.has-draft { grid-template-columns: minmax(0, 1fr) minmax(300px, 0.8fr); }
-    .message-list { grid-column: 1 / -1; grid-template-columns: minmax(180px, 240px) minmax(0, 1fr); align-items: start; }
-    .message-list nav { grid-column: 2; grid-row: 1 / span 2; }
+    .workspace-grid.has-detail { grid-template-columns: minmax(0, 1fr) minmax(300px, 0.8fr); }
     .discord-preview { position: sticky; top: 4.5rem; max-height: calc(100vh - 5.5rem); overflow-y: auto; }
   }
 
-  /* Wide: message list, editor and preview as three columns. */
-  @container discord-workspace (min-width: 1220px) {
-    .workspace-grid, .workspace-grid.has-draft { grid-template-columns: 200px minmax(0, 1.25fr) minmax(360px, 1fr); }
+  /* Wide: message browser, editor and preview as three columns. Matches `compact`. */
+  @container discord-workspace (min-width: 1040px) {
+    .workspace-grid, .workspace-grid.has-detail { grid-template-columns: 232px minmax(0, 1.2fr) minmax(320px, 1fr); }
     .discord-preview { max-width: 580px; }
-    .message-list { grid-column: auto; grid-template-columns: minmax(0, 1fr); position: sticky; top: 4.5rem; padding-bottom: 0; border-bottom: 0; }
-    .message-list nav { grid-column: auto; grid-row: auto; flex-direction: column; max-height: 55vh; overflow-x: hidden; overflow-y: auto; }
-    .message-list nav button { width: auto; }
-    .choose-message { grid-column: 2 / -1; }
+    .choose-message { display: block; grid-column: 2 / -1; }
+  }
+  @container discord-workspace (min-width: 1360px) {
+    .workspace-grid, .workspace-grid.has-detail { grid-template-columns: 264px minmax(0, 1.25fr) minmax(360px, 1fr); }
   }
 
   @container discord-editor (max-width: 520px) {
