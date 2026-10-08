@@ -20,6 +20,15 @@ function event(method: string, origin: string | null = "https://seqwawa.com", to
 beforeEach(() => { privateEnv.SEQUOIA_DISCORD_MANAGEMENT_URL = "http://sierra:8082"; });
 
 describe("Discord management server boundary", () => {
+  it("forwards durable WebP bytes privately rather than parsing them as JSON", async () => {
+    const request = event("GET", null, "cookie-session", "assets/11111111-1111-1111-1111-111111111111");
+    const bytes = new Uint8Array([82, 73, 70, 70, 4, 0, 0, 0, 87, 69, 66, 80]);
+    vi.mocked(request.fetch).mockResolvedValueOnce(new Response(bytes, { headers: { "content-type": "image/webp" } }));
+    const response = await GET(request as never);
+    expect(response.headers.get("content-type")).toBe("image/webp");
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(bytes);
+  });
   it("rejects missing or foreign write origins before forwarding", async () => {
     for (const origin of [null, "https://other.example"]) {
       const request = event("POST", origin);
@@ -41,6 +50,12 @@ describe("Discord management server boundary", () => {
     const request = event("GET", null, "cookie-session", "access");
     expect((await GET(request as never)).status).toBe(200);
     expect(request.fetch).toHaveBeenCalledWith("http://sierra:8082/v1/access", expect.objectContaining({ method: "GET" }));
+  });
+  it("forwards selected-guild context without changing the protected path", async () => {
+    const request = event("GET", null, "cookie-session", "context");
+    request.url.searchParams.set("guild_id", "1104432054717927544");
+    expect((await GET(request as never)).status).toBe(200);
+    expect(request.fetch).toHaveBeenCalledWith("http://sierra:8082/v1/context?guild_id=1104432054717927544", expect.objectContaining({ method: "GET" }));
   });
   it("does not forward unauthenticated requests or arbitrary paths", async () => {
     const request = event("GET", null, "");

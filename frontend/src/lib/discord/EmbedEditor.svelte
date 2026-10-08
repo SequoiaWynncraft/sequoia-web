@@ -1,6 +1,7 @@
 <script lang="ts">
   import Button from "$lib/design-system/components/Button.svelte";
   import Field from "$lib/design-system/components/forms/Field.svelte";
+  import Select from "$lib/design-system/components/forms/Select.svelte";
   import TextInput from "$lib/design-system/components/forms/TextInput.svelte";
   import Toggle from "$lib/design-system/components/forms/Toggle.svelte";
   import MarkdownField from "./MarkdownField.svelte";
@@ -14,7 +15,7 @@
     toLocalInput,
     type Issues,
   } from "./format";
-  import type { DiscordContext, Embed } from "./types";
+  import type { DiscordContext, Embed, AttachmentRef } from "./types";
 
   let {
     embed = $bindable(),
@@ -22,6 +23,7 @@
     count,
     issues,
     context,
+    attachments = [],
     onmove,
     onduplicate,
     onremove,
@@ -31,6 +33,7 @@
     count: number;
     issues: Issues;
     context: DiscordContext;
+    attachments?: AttachmentRef[];
     onmove: (by: -1 | 1) => void;
     onduplicate: () => void;
     onremove: () => void;
@@ -100,6 +103,13 @@
   </Field>
   <MarkdownField label="Description" bind:value={embed.description} limit={LIMITS.description} rows={5} issue={issues[`${at}.description`]} {context} embedText />
 
+  {#if attachments.length}
+    <div class="two-fields">
+      {#each ["image", "thumbnail"] as part}
+        <Field label={part === "image" ? "Image attachment" : "Thumbnail attachment"}><Select aria-label={part === "image" ? "Image attachment" : "Thumbnail attachment"} value={embed[part as "image" | "thumbnail"]?.url?.startsWith("attachment://") ? embed[part as "image" | "thumbnail"]?.url : ""} onchange={(e) => setImage(part as "image" | "thumbnail", e.currentTarget.value)}><option value="">None or external URL</option>{#each attachments as attachment (attachment.id)}<option value={`attachment://${attachment.filename}`}>{attachment.filename}</option>{/each}</Select></Field>
+      {/each}
+    </div>
+  {/if}
   <div class="embed-fields">
     <div class="fields-head"><h4>Fields</h4><span>{embed.fields?.length ?? 0} / {LIMITS.fields}</span></div>
     {#each embed.fields ?? [] as field, fieldIndex (fieldIndex)}

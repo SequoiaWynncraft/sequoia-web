@@ -79,8 +79,11 @@ Bearer credentials. Missing configuration renders an unavailable gate, not a fak
 
 Definitions have distinct saved and published revisions. Saving never edits Discord;
 publication is explicit and read back. Uncertain delivery requires recovery by exact message
-link instead of a blind retry. Existing automated application/trial messages, other bots,
-attachments and Components V2 remain under their existing workflow owners. Server emoji
+link instead of a blind retry. Exact reviewed maintained panels can use durable image
+attachments and bounded Components V2 text layouts. Import, replacement publication and
+original retirement are separate gates, with source/order/reference and actual byte checks
+owned by Rust. Automated application/trial messages, separately managed controls and other
+people's integrations remain under their existing workflow owners. Server emoji
 uploads affect the guild immediately and are shown separately from draft publication.
 See the backend's `docs/sierra-discord-management.md` for admission, protected-role setup,
 bootstrap, persistence and recovery operations.

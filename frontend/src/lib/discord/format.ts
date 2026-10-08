@@ -26,6 +26,13 @@ export const LIMITS = {
   buttonUrl: 512,
 } as const;
 
+/** Discord hides attached images consumed by an embed's image or thumbnail. */
+export function standaloneAttachments(draft: Definition) {
+  const consumed = new Set(draft.embeds.flatMap((embed) => [embed.image?.url, embed.thumbnail?.url])
+    .filter((url): url is string => !!url?.startsWith("attachment://")).map((url) => url.slice(13)));
+  return (draft.attachments ?? []).filter((attachment) => !consumed.has(attachment.filename));
+}
+
 /** Discord counts characters, not UTF-16 units: an emoji is one. */
 export function charCount(text: string | undefined): number {
   return text ? [...text].length : 0;
@@ -102,7 +109,20 @@ export function definitionIssues(draft: Definition, available: Availability = {}
   if (!draft.channel_id) issues.channel_id = "Choose a channel.";
   else if (available.channels && !available.channels.has(draft.channel_id)) issues.channel_id = "Choose an available channel.";
   tooLong(issues, "content", "Message text", draft.content, LIMITS.content);
-  if (!draft.content.trim() && draft.embeds.length === 0 && !draft.rows.some((row) => row.length > 0)) issues.content = "Add message text, an embed or a button.";
+  if (!draft.content.trim() && draft.embeds.length === 0 && !draft.rows.some((row) => row.length > 0) && !draft.components_v2?.length && !draft.attachments?.length) issues.content = "Add message text, an embed or a button.";
+  if (draft.components_v2?.length) {
+    let characters = 0, nodes = 0;
+    const visit = (components: NonNullable<Definition["components_v2"]>) => {
+      for (const component of components) {
+        nodes += 1;
+        if (component.type === 10) { characters += charCount(component.content); if (!component.content.trim()) issues.components_v2 = "Give every text block content."; }
+        else if (component.type === 17) { if (!component.components.length) issues.components_v2 = "Give every container content."; visit(component.components); }
+      }
+    };
+    visit(draft.components_v2);
+    if (characters > 4000 || nodes > 40) issues.components_v2 = "Layout panels allow 4000 text characters and 40 components together.";
+  }
+  if ((draft.attachments?.length ?? 0) > 10) issues.attachments = "A message can have at most 10 attachments.";
   let total = 0;
   const embedUrls = new Set<string>();
   draft.embeds.forEach((embed, index) => {
@@ -118,8 +138,10 @@ export function definitionIssues(draft: Definition, available: Availability = {}
       if (embedUrls.has(embed.url)) issues[`${at}.url`] = "Discord shows only the first embed with this link. Use a different link or remove it.";
       embedUrls.add(embed.url);
     }
-    url(issues, `${at}.image`, embed.image?.url);
-    url(issues, `${at}.thumbnail`, embed.thumbnail?.url);
+    for (const [part, raw] of [["image", embed.image?.url], ["thumbnail", embed.thumbnail?.url]] as const) {
+      if (raw?.startsWith("attachment://")) { if (!draft.attachments?.some((a) => a.filename === raw.slice(13))) issues[`${at}.${part}`] = "Choose an attachment belonging to this message."; }
+      else url(issues, `${at}.${part}`, raw);
+    }
     url(issues, `${at}.author_url`, embed.author?.url);
     url(issues, `${at}.author_icon`, embed.author?.icon_url);
     url(issues, `${at}.footer_icon`, embed.footer?.icon_url);

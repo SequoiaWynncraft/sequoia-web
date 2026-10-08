@@ -12,12 +12,23 @@ import {
   issuesUnder,
   parseHexColor,
   toLocalInput,
+  standaloneAttachments,
 } from "./format";
 import type { Definition } from "./types";
 
 function draft(overrides: Partial<Definition> = {}): Definition {
   return { name: "Rules", channel_id: "1", content: "Read these", embeds: [], rows: [], ...overrides };
 }
+
+it("keeps a four-thumbnail insignia panel free of duplicate standalone images", () => {
+  const attachments = [1, 2, 3, 4].map((id) => ({ id: `asset-${id}`, filename: `insignia-${id}.png`, description: null }));
+  const panel = draft({ attachments, embeds: attachments.map((a) => ({ type: "rich", title: "Insignia", thumbnail: { url: `attachment://${a.filename}` } })) });
+  expect(standaloneAttachments(panel)).toEqual([]);
+  panel.embeds.pop();
+  expect(standaloneAttachments(panel)).toEqual([attachments[3]]);
+  panel.embeds.push({ type: "rich", title: "Image", image: { url: "attachment://insignia-4.png" } });
+  expect(standaloneAttachments(panel)).toEqual([]);
+});
 
 describe("definitionIssues", () => {
   it("accepts a realistic panel", () => {
