@@ -55,6 +55,12 @@ The Rust Sierra module in `sequoia-backend` owns authorization, definition valid
 database persistence, Discord delivery, emoji uploads and role-button dispatch. The Svelte
 component owns only the editable workspace and preview; WASM adds no useful boundary here.
 
+The message browser (`src/lib/discord/navigation.ts`) arranges Rust's existing context and
+listing metadata as Discord's server › channel › thread hierarchy: reviewed threads sit under
+the parent their import source records, and drafts without a destination stay apart. It adds
+no requests. On narrow workspaces the list and the open message alternate, with a shallow
+history entry so the device's back gesture returns to the list instead of leaving the page.
+
 Sierra decides who may manage Discord messages (Senior Moderators, Treants and higher,
 leadership, full Community/Military/Development branch members and website admins). The
 sidebar and navbar ask its `/v1/access` probe through the same-origin adapter, memoized per
