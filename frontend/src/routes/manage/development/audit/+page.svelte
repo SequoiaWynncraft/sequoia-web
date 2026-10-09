@@ -1,6 +1,7 @@
 <script lang="ts">
   import ManageHeader from "$lib/manage/ManageHeader.svelte";
   import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
+  import { messageLink } from "$lib/manage/auditTarget";
   import type { AuditEntry } from "$lib/server/auditLog";
   import AreaGate from "$lib/manage/AreaGate.svelte";
 
@@ -28,18 +29,6 @@
     try { return JSON.stringify(JSON.parse(entry.detail), null, 2); }
     catch { return entry.detail; }
   }
-
-  function messageLink(entry: AuditEntry): string | null {
-    if (entry.source !== "discord" || !entry.detail) return null;
-    try {
-      const change = JSON.parse(entry.detail);
-      const target = change.after?.message_id ? change.after : change;
-      const ids = [target.guild_id, target.channel_id, target.message_id];
-      return ids.every((id) => typeof id === "string" && /^[1-9][0-9]*$/.test(id))
-        ? `https://discord.com/channels/${ids.join("/")}` : null;
-    } catch { return null; }
-  }
-
 </script>
 
 <svelte:head>
