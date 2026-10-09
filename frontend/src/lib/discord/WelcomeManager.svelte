@@ -440,7 +440,7 @@
   .link-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; width: 100%; padding-bottom: 12px; border-bottom: 1px solid var(--border-default); }
   .link-row :global(.seq-button) { justify-self: start; }
   .link-editor :global(.seq-button), .variant-navigation :global(.seq-button) { min-height: 44px; }
-  .preview { position: sticky; top: 5rem; display: grid; gap: 14px; scroll-margin-top: 5rem; max-height: calc(100vh - 5.5rem); overflow-y: auto; }
+  .preview { position: sticky; top: 5rem; display: grid; grid-auto-rows: max-content; align-content: start; gap: 14px; scroll-margin-top: 5rem; max-height: calc(100vh - 5.5rem); overflow-y: auto; }
   .preview-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
   .variant-navigation { display: flex; gap: 4px; }
   .preview-title { font-family: var(--font-display); color: var(--color-gold); font-size: var(--text-base); overflow-wrap: anywhere; }
