@@ -1,9 +1,12 @@
 import { createClient } from "@libsql/client";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type { Viewer } from "$lib/site/viewer";
 
-import { createAuditLog } from "./auditLog";
+import { createAuditLog, listManagementAudit, mergeAuditEntries, type AuditEntry } from "./auditLog";
+
+vi.mock("./db", () => ({ database: () => Promise.resolve(createClient({ url: ":memory:" })) }));
+vi.mock("$env/dynamic/private", () => ({ env: { SEQUOIA_DISCORD_MANAGEMENT_URL: "http://sierra:8082" } }));
 
 const MANAGER: Viewer = {
   discordId: "1234",
@@ -37,5 +40,38 @@ describe("audit log", () => {
   it("propagates read failures so callers render unavailable, not empty", async () => {
     const log = createAuditLog(() => Promise.reject(new Error("db down")));
     await expect(log.list()).rejects.toThrow("db down");
+  });
+});
+
+describe("combined management audit", () => {
+  const entry: AuditEntry = { id: 1, at: 10, actor: "Tester", actorDiscordId: "1234", actorMinecraftUuid: "", action: "event.create", subject: "spring", detail: null };
+
+  it("keeps colliding source IDs distinct and orders equal timestamps deterministically", () => {
+    const discord: AuditEntry[] = [
+      { ...entry, id: "discord:2", source: "discord" },
+      { ...entry, id: "discord:10", source: "discord" },
+    ];
+    expect(mergeAuditEntries([entry], discord).map((e) => e.id)).toEqual(["discord:10", "discord:2", "website:1"]);
+  });
+
+  it("selects the newest 200 across both sources, not 200 from each", () => {
+    const website = Array.from({ length: 200 }, (_, id) => ({ ...entry, id, at: id }));
+    const discord = [{ ...entry, id: "discord:1", source: "discord" as const, at: 201 }];
+    const merged = mergeAuditEntries(website, discord);
+    expect(merged).toHaveLength(200);
+    expect([merged[0].id, merged.at(-1)?.id]).toEqual(["discord:1", "website:1"]);
+  });
+
+  it("uses the real session cookie, never raw browser actor fields", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(Response.json([{ ...entry, id: "discord:1", source: "discord" }]));
+    expect(await listManagementAudit(fetchImpl, "session")).toHaveLength(1);
+    expect(fetchImpl).toHaveBeenCalledWith("http://sierra:8082/v1/audit", expect.objectContaining({
+      headers: { authorization: "Bearer session", "content-type": "application/json" },
+    }));
+  });
+
+  it("marks an unreadable or malformed source unavailable instead of an empty log", async () => {
+    await expect(listManagementAudit(vi.fn().mockResolvedValue(Response.json({ error: "unavailable" }, { status: 503 })), "session")).rejects.toThrow("unavailable");
+    await expect(listManagementAudit(vi.fn().mockResolvedValue(Response.json([{ ...entry, source: "discord" }])), "session")).rejects.toThrow("Invalid Discord audit response");
   });
 });

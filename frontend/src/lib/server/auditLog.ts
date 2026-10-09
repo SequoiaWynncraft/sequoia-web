@@ -3,9 +3,11 @@ import type { Client } from "@libsql/client";
 import type { Viewer } from "$lib/site/viewer";
 
 import { database } from "./db";
+import { discordManagement } from "./discordManagement";
 
 export interface AuditEntry {
-  id: number;
+  id: number | string;
+  source?: "website" | "discord";
   /** Epoch milliseconds. */
   at: number;
   actor: string;
@@ -123,3 +125,33 @@ const auditLog = createAuditLog(database);
 
 export const recordAudit = auditLog.record;
 export const listAudit = auditLog.list;
+
+/** One bounded audit view over the existing website and Rust-owned manager trails. */
+export async function listManagementAudit(fetchImpl: typeof fetch, token: string | undefined): Promise<AuditEntry[]> {
+  const [website, response] = await Promise.all([listAudit(), discordManagement(fetchImpl, token, "audit")]);
+  if (!response.ok) throw new Error("Discord audit log unavailable");
+  const discord: unknown = await response.json();
+  if (!Array.isArray(discord) || !discord.every(isDiscordAuditEntry)) throw new Error("Invalid Discord audit response");
+  return mergeAuditEntries(website, discord);
+}
+
+function isDiscordAuditEntry(entry: unknown): entry is AuditEntry {
+  if (!entry || typeof entry !== "object") return false;
+  const e = entry as Record<string, unknown>;
+  return typeof e.id === "string" && /^discord:\d+$/.test(e.id) && e.source === "discord"
+    && typeof e.at === "number" && Number.isSafeInteger(e.at)
+    && [e.actor, e.actorDiscordId, e.actorMinecraftUuid, e.action, e.subject].every((v) => typeof v === "string")
+    && (e.detail === null || typeof e.detail === "string");
+}
+
+/** Source-qualified IDs prevent collisions; equal timestamps have a stable numeric tie-break. */
+export function mergeAuditEntries(website: AuditEntry[], discord: AuditEntry[]): AuditEntry[] {
+  return [...website.map((entry): AuditEntry => ({ ...entry, id: `website:${entry.id}`, source: "website" })), ...discord]
+    .sort((a, b) => {
+      if (a.at !== b.at) return b.at - a.at;
+      if (a.source !== b.source) return (a.source ?? "website").localeCompare(b.source ?? "website");
+      const left = BigInt(String(a.id).split(":").at(-1)!);
+      const right = BigInt(String(b.id).split(":").at(-1)!);
+      return left === right ? 0 : left > right ? -1 : 1;
+    }).slice(0, LIST_LIMIT);
+}
