@@ -18,6 +18,7 @@ export interface WelcomeSettings {
   variants: { id: string; enabled: boolean; weight: number }[];
   links: { label: string; url: string }[];
   message: WelcomeMessage;
+  name_font: WelcomeFont;
   effects: { sky: { id: WelcomeSkyEffect; percent: number }[] };
 }
 export interface WelcomeState {
@@ -43,8 +44,8 @@ export function welcomeMessageIssue(message: WelcomeMessage): string | null {
 }
 
 /** PNG stills and GIF playback must refer to exactly the same unsaved draft. */
-export function welcomePreviewKey(variantId: string, season: WelcomeSeason, name: string, message: WelcomeMessage, effect: WelcomePreviewEffect = "none"): string {
-  return JSON.stringify([variantId, season, name, message.headline, message.subtitle, message.font, effect]);
+export function welcomePreviewKey(variantId: string, season: WelcomeSeason, name: string, message: WelcomeMessage, effect: WelcomePreviewEffect = "none", nameFont: WelcomeFont = "minecraft"): string {
+  return JSON.stringify([variantId, season, name, message.headline, message.subtitle, message.font, effect, nameFont]);
 }
 
 export function welcomeSkyEffectIssue(sky: WelcomeSettings["effects"]["sky"]): string | null {

@@ -10,6 +10,7 @@ const settings: WelcomeSettings = {
   winter_start: { month: 10, day: 1 }, winter_end: { month: 3, day: 31 }, links: [],
   variants: [{ id: "ready", enabled: true, weight: 1 }, { id: "pending", enabled: true, weight: 1 }],
   message: { headline: "Welcome", subtitle: "TO SEQUOIA", font: "minecraft" },
+  name_font: "minecraft",
   effects: { sky: [{ id: "aurora", percent: 35 }] },
 };
 
@@ -67,6 +68,16 @@ describe("independent welcome sky effects", () => {
 });
 
 describe("welcome message draft", () => {
+  it("keys stills and animation by independent name font without invalidating greeting copy", () => {
+    const message = structuredClone(settings.message);
+    const key = welcomePreviewKey("ready", "normal", "Member", message, "none");
+    expect(welcomePreviewKey("ready", "normal", "Member", message, "none", "minecraft")).toBe(key);
+    for (const font of ["jersey_15", "pixelify_sans"] as const) {
+      expect(welcomePreviewKey("ready", "normal", "Member", message, "none", font)).not.toBe(key);
+      expect(welcomePreviewMessageChanged(settings.message, message)).toBe(false);
+      expect(message).toEqual(settings.message);
+    }
+  });
   it("retains a previous still when only motif, season or sample name changes", () => {
     const previous = structuredClone(settings.message);
     const previousKey = welcomePreviewKey("ready", "normal", "Member", previous);
