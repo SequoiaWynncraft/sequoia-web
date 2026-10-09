@@ -2,9 +2,11 @@ import { createClient } from "@libsql/client";
 import { describe, expect, it, vi } from "vitest";
 
 import type { Viewer } from "$lib/site/viewer";
+import { load as loadAudit } from "../../routes/manage/development/audit/+page.server";
 
 import { createAuditLog, listManagementAudit, mergeAuditEntries, type AuditEntry } from "./auditLog";
 
+vi.mock("$lib/server/manageCapabilities", () => ({ pageAreaAccess: vi.fn().mockResolvedValue("granted") }));
 vi.mock("./db", () => ({ database: () => Promise.resolve(createClient({ url: ":memory:" })) }));
 vi.mock("$env/dynamic/private", () => ({ env: { SEQUOIA_DISCORD_MANAGEMENT_URL: "http://sierra:8082" } }));
 
@@ -68,6 +70,19 @@ describe("combined management audit", () => {
     expect(fetchImpl).toHaveBeenCalledWith("http://sierra:8082/v1/audit", expect.objectContaining({
       headers: { authorization: "Bearer session", "content-type": "application/json" },
     }));
+  });
+
+  it.each([8640000000000001, -8640000000000001, Number.MAX_SAFE_INTEGER, -Number.MAX_SAFE_INTEGER])("renders audit unavailable for out-of-Date-range timestamp %s", async (at) => {
+    const fetchImpl = vi.fn().mockResolvedValue(Response.json([{ ...entry, at, id: "discord:1", source: "discord" }]));
+    const result = await loadAudit({ fetch: fetchImpl, parent: async () => ({ viewer: MANAGER }), cookies: { get: () => "session" } } as never);
+    expect(result).toEqual({ access: "granted", entries: null });
+  });
+
+  it.each([-8640000000000000, 0, 8640000000000000])("accepts valid Date-range boundary timestamp %s", async (at) => {
+    const fetchImpl = vi.fn().mockResolvedValue(Response.json([{ ...entry, at, id: "discord:1", source: "discord" }]));
+    const entries = await listManagementAudit(fetchImpl, "session");
+    expect(entries[0].at).toBe(at);
+    expect(() => new Date(entries[0].at).toISOString()).not.toThrow();
   });
 
   it("marks an unreadable or malformed source unavailable instead of an empty log", async () => {

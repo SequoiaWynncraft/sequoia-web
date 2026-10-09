@@ -139,7 +139,7 @@ function isDiscordAuditEntry(entry: unknown): entry is AuditEntry {
   if (!entry || typeof entry !== "object") return false;
   const e = entry as Record<string, unknown>;
   return typeof e.id === "string" && /^discord:\d+$/.test(e.id) && e.source === "discord"
-    && typeof e.at === "number" && Number.isSafeInteger(e.at)
+    && typeof e.at === "number" && Number.isSafeInteger(e.at) && Number.isFinite(new Date(e.at).getTime())
     && [e.actor, e.actorDiscordId, e.actorMinecraftUuid, e.action, e.subject].every((v) => typeof v === "string")
     && (e.detail === null || typeof e.detail === "string");
 }
