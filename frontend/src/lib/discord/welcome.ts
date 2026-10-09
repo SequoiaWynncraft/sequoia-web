@@ -1,5 +1,7 @@
 export type WelcomeSeason = "normal" | "winter";
 export type WelcomeFont = "minecraft" | "jersey_15" | "pixelify_sans";
+export type WelcomeSkyEffect = "aurora";
+export type WelcomePreviewEffect = "none" | WelcomeSkyEffect;
 export interface WelcomeMessage {
   headline: string;
   subtitle: string;
@@ -16,6 +18,7 @@ export interface WelcomeSettings {
   variants: { id: string; enabled: boolean; weight: number }[];
   links: { label: string; url: string }[];
   message: WelcomeMessage;
+  effects: { sky: { id: WelcomeSkyEffect; percent: number }[] };
 }
 export interface WelcomeState {
   settings: WelcomeSettings;
@@ -25,6 +28,8 @@ export interface WelcomeState {
   ready: boolean;
   viewer: { display_name: string };
   fonts: { id: WelcomeFont; label: string }[];
+  effects: { sky: { id: WelcomeSkyEffect; label: string; description: string; normal_ready: boolean; winter_ready: boolean }[] };
+  effective_effect_chances: { sky: { id: WelcomePreviewEffect; percent: number }[] };
 }
 
 /** The renderer remains the authority for glyph support and visible text fit. */
@@ -38,8 +43,29 @@ export function welcomeMessageIssue(message: WelcomeMessage): string | null {
 }
 
 /** PNG stills and GIF playback must refer to exactly the same unsaved draft. */
-export function welcomePreviewKey(variantId: string, season: WelcomeSeason, name: string, message: WelcomeMessage): string {
-  return JSON.stringify([variantId, season, name, message.headline, message.subtitle, message.font]);
+export function welcomePreviewKey(variantId: string, season: WelcomeSeason, name: string, message: WelcomeMessage, effect: WelcomePreviewEffect = "none"): string {
+  return JSON.stringify([variantId, season, name, message.headline, message.subtitle, message.font, effect]);
+}
+
+export function welcomeSkyEffectIssue(sky: WelcomeSettings["effects"]["sky"]): string | null {
+  if (sky.some(({ percent }) => !Number.isInteger(percent) || percent < 0 || percent > 100)) return "Use whole-number sky effect percentages from 0 to 100.";
+  if (sky.reduce((sum, { percent }) => sum + percent, 0) > 100) return "Sky effect percentages must total 100 or less.";
+  return null;
+}
+
+/** Display-only draft chances. Unavailable effects fall back to no effect; Rust owns delivery. */
+export function welcomeSkyChances(sky: WelcomeSettings["effects"]["sky"], catalog: WelcomeState["effects"]["sky"]): Map<WelcomePreviewEffect, number> | null {
+  if (welcomeSkyEffectIssue(sky)) return null;
+  const chances = new Map<WelcomePreviewEffect, number>();
+  let total = 0;
+  for (const { id, percent } of sky) {
+    const effect = catalog.find((entry) => entry.id === id);
+    const eligible = effect?.normal_ready && effect.winter_ready ? percent : 0;
+    chances.set(id, eligible);
+    total += eligible;
+  }
+  chances.set("none", 100 - total);
+  return chances;
 }
 
 /** Only copy or font changes remove the previous raster while its replacement loads. */
@@ -64,6 +90,8 @@ export function welcomeReadinessIssue(settings: WelcomeSettings, catalog: Welcom
 export function welcomeInputIssue(settings: WelcomeSettings): string | null {
   const messageIssue = welcomeMessageIssue(settings.message);
   if (messageIssue) return messageIssue;
+  const effectIssue = welcomeSkyEffectIssue(settings.effects.sky);
+  if (effectIssue) return effectIssue;
   if (settings.enabled && !settings.channel_id.trim()) return "Choose a destination channel.";
   const dates = [settings.winter_start, settings.winter_end];
   if (dates.some(({ month, day }) => !Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(day) || day < 1 || day > 31)) return "Enter a month from 1 to 12 and a day from 1 to 31.";

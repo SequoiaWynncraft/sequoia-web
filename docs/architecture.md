@@ -118,10 +118,19 @@ The website's display-only enable guard evaluates the complete proposed eligibil
 destination, so disabling or zeroing a pending motif and enabling ready motifs needs only
 one save. Destination problems are shown separately from pending normal/winter artwork.
 
+Sky effects form an independent percentage category, separate from welcome variant weights.
+The sky-category total is at most 100; unused percentage means no effect. Aurora defaults
+to 35% with 65% no effect once both seasonal bundles are ready. Pending effect artwork
+falls back to no effect without blocking emergency disable. The editor shows Rust's saved
+effective chances or readiness-aware proposed chances for the draft.
+
 Previews use the authenticated member's real avatar and an optional sample display name.
 Their explicit-fetch binary client lives in `src/lib/api/welcome.ts`; cancellation serials,
 object URLs and playback remain in the Svelte workspace.
 They call the same Rust renderer as member joins, never a browser compositor or WASM.
+The explicit sky-effect preview choice is independent of saved odds and defaults to no effect.
+It participates in the exact PNG/GIF cache identity. Effect selection changes retain the
+correctly labeled previous still, like other non-message preview changes.
 One selected PNG still loads at a time. Previous/next controls compare motifs without
 returning to the odds list. Replacement requests retain the correctly labeled previous
 image until actual new bytes arrive when changing motif, season or sample name.

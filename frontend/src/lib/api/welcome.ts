@@ -1,6 +1,6 @@
 import type { ApiResult } from "./client";
 import { isRecord } from "./guards";
-import type { WelcomeMessage, WelcomeSeason } from "$lib/discord/welcome";
+import type { WelcomeMessage, WelcomePreviewEffect, WelcomeSeason } from "$lib/discord/welcome";
 
 export interface WelcomePreviewRequest {
   variant_id: string;
@@ -8,6 +8,7 @@ export interface WelcomePreviewRequest {
   display_name?: string;
   format: "png" | "gif";
   message?: WelcomeMessage;
+  effect?: WelcomePreviewEffect;
 }
 
 /** Same-origin binary transport only. The caller owns cancellation and image playback. */

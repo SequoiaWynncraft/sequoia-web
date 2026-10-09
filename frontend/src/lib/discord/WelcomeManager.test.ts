@@ -12,11 +12,14 @@ const unavailable: WelcomeState = {
     winter_start: { month: 10, day: 1 }, winter_end: { month: 3, day: 31 },
     variants: [{ id: "quiet", enabled: true, weight: 8 }], links: [],
     message: { headline: "Welcome", subtitle: "TO SEQUOIA", font: "minecraft" },
+    effects: { sky: [{ id: "aurora", percent: 35 }] },
   },
   catalog: [{ id: "quiet", label: "Quiet forest", description: "", normal_ready: false, winter_ready: false }],
   effective_season: "winter", effective_chances: [], ready: false,
   viewer: { display_name: "Member" },
   fonts: [],
+  effects: { sky: [{ id: "aurora", label: "Aurora Borealis", description: "", normal_ready: false, winter_ready: false }] },
+  effective_effect_chances: { sky: [{ id: "aurora", percent: 0 }, { id: "none", percent: 100 }] },
 };
 
 describe("welcome unavailable interface", () => {
@@ -38,6 +41,10 @@ describe("welcome unavailable interface", () => {
     expect(body).toContain("Up to five");
     expect(body).toContain("Message text");
     expect(body).toContain("Fonts unavailable");
+    expect(body).toContain("Sky effects");
+    expect(body).toContain("Independent of welcome odds");
+    expect(body).toContain("No sky effect chance: 100%");
+    expect(body).toMatch(/<option[^>]*value="aurora"[^>]*disabled/);
   });
   it("renders saved copy and only the curated message fonts, with a separate sample name", () => {
     const state = structuredClone(unavailable);
@@ -51,6 +58,21 @@ describe("welcome unavailable interface", () => {
     expect(body).toContain("Member names keep the Minecraft font.");
     expect(body).toContain("Sample name");
     expect(body).not.toContain('type="file"');
+    expect(body).not.toContain("\u2014");
+  });
+  it("shows actual saved effect chances and an independent explicit preview choice", () => {
+    const state = structuredClone(unavailable);
+    state.effects.sky[0].normal_ready = true;
+    state.effects.sky[0].winter_ready = true;
+    state.effective_effect_chances.sky = [{ id: "aurora", percent: 35 }, { id: "none", percent: 65 }];
+    const { body } = render(WelcomeManager, { props: { initial: state, channels: [] } });
+    expect(body).toContain("Aurora Borealis sky effect percent");
+    expect(body).toContain("Aurora Borealis saved chance: 35%");
+    expect(body).toContain("No sky effect chance: 65%");
+    expect(body).toMatch(/<option[^>]*value="none"[^>]*selected/);
+    expect(body).toMatch(/<option[^>]*value="aurora"(?![^>]*disabled)[^>]*>/);
+    expect(body).toContain("Preview choice only. Saved odds apply to member welcomes.");
+    expect(body).toContain("Quiet forest weight");
     expect(body).not.toContain("\u2014");
   });
 });
