@@ -96,3 +96,37 @@ people's integrations remain under their existing workflow owners. Server emoji
 uploads affect the guild immediately and are shown separately from draft publication.
 See the backend's `docs/sierra-discord-management.md` for admission, protected-role setup,
 bootstrap, persistence and recovery operations.
+
+### Personalized welcomes
+
+`/manage/discord/welcome` lives under the same Discord category and admission rule.
+Its server load asks Rust for fresh welcome configuration before reading channel choices;
+it never authorizes from the console layout's cached capabilities. The existing private
+adapter permits only GET/PUT `welcome` and POST `welcome/preview`, including private,
+uncached PNG/GIF bytes from the renderer. No preview sends a Discord message.
+
+The Svelte workspace holds one editable settings object and the last saved response.
+Version conflicts retain edits until staff explicitly reload, and navigation protects
+unsaved changes with a reachable focused status. Odds are relative integer weights.
+Clean drafts show Rust's saved percentages; dirty drafts show display-only proposed shares
+over enabled weights, labeled "after save". Asset readiness is a separate enable guard,
+not another odds filter. Staff can edit up to five welcome link labels and HTTPS URLs
+through the same settings draft. Rust validates their content. The recurring winter window includes
+both dates in UTC, with explicit normal/winter overrides. Rust validates destinations,
+known variants, dates, readiness and positive eligible weights.
+The website's display-only enable guard evaluates the complete proposed eligibility and
+destination, so disabling or zeroing a pending motif and enabling ready motifs needs only
+one save. Destination problems are shown separately from pending normal/winter artwork.
+
+Previews use the authenticated member's real avatar and an optional sample display name.
+Their explicit-fetch binary client lives in `src/lib/api/welcome.ts`; cancellation serials,
+object URLs and playback remain in the Svelte workspace.
+They call the same Rust renderer as member joins, never a browser compositor or WASM.
+One selected PNG still loads at a time. Previous/next controls compare motifs without
+returning to the odds list. Replacement requests retain the correctly labeled previous
+image until actual new bytes arrive. Play animation explicitly requests a GIF and returns
+to its one cached exact-identity PNG after the authored 16-second loop, without another
+render. Reduced-motion changes stop ongoing or pending animation playback.
+Missing artwork remains a visible pending state, not a substitute image or fake success.
+Saving configuration changes future joins, not previously delivered messages. Automatic
+delivery remains disabled until the deployment owner verifies the separate Java cutover.

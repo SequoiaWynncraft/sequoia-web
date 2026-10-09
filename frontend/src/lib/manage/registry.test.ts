@@ -77,6 +77,7 @@ describe("registry", () => {
   it("gives Discord one ✦ category instead of links repeated under branches", () => {
     const discord = MANAGE_AREAS.find((area) => area.id === "discord");
     expect(discord).toMatchObject({ label: "Discord", marker: "✦", branch: null, href: "/manage/discord" });
+    expect(discord?.links).toContainEqual({ label: "Welcome messages", href: "/manage/discord/welcome" });
     const owners = MANAGE_AREAS.filter((area) =>
       [area.href, ...area.links.map((link) => link.href)].includes("/manage/discord"),
     );
