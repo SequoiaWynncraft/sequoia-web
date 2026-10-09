@@ -12,6 +12,7 @@ const unavailable: WelcomeState = {
     winter_start: { month: 10, day: 1 }, winter_end: { month: 3, day: 31 },
     variants: [{ id: "quiet", enabled: true, weight: 8 }], links: [],
     message: { headline: "Welcome", subtitle: "TO SEQUOIA", font: "minecraft" },
+    name_font: "minecraft",
     effects: { sky: [{ id: "aurora", percent: 35 }] },
   },
   catalog: [{ id: "quiet", label: "Quiet forest", description: "", normal_ready: false, winter_ready: false }],
@@ -46,16 +47,19 @@ describe("welcome unavailable interface", () => {
     expect(body).toContain("No sky effect chance: 100%");
     expect(body).toMatch(/<option[^>]*value="aurora"[^>]*disabled/);
   });
-  it("renders saved copy and only the curated message fonts, with a separate sample name", () => {
+  it("renders independently saved greeting and name fonts from the shared curated catalog", () => {
     const state = structuredClone(unavailable);
     state.settings.message = { headline: "Greetings", subtitle: "to Sequoia", font: "jersey_15" };
+    state.settings.name_font = "pixelify_sans";
     state.fonts = [{ id: "minecraft", label: "Minecraft" }, { id: "jersey_15", label: "Jersey 15" }, { id: "pixelify_sans", label: "Pixelify Sans" }];
     const { body } = render(WelcomeManager, { props: { initial: state, channels: [] } });
     expect(body).toMatch(/<input[^>]*value="Greetings"/);
     expect(body).toMatch(/<input[^>]*value="to Sequoia"/);
     expect(body).toMatch(/<option[^>]*value="jersey_15"[^>]*selected/);
-    expect(body).toContain("Pixelify Sans");
-    expect(body).toContain("Member names keep the Minecraft font.");
+    expect(body).toMatch(/<option[^>]*value="pixelify_sans"[^>]*selected/);
+    expect(body).toContain("Headline and subtitle only.");
+    expect(body).toContain("Name font");
+    expect(body).toContain("Member name on the sign.");
     expect(body).toContain("Sample name");
     expect(body).not.toContain('type="file"');
     expect(body).not.toContain("\u2014");

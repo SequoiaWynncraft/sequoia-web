@@ -72,7 +72,8 @@
   const destinationChannels = $derived(channels.filter((channel) => channel.archived === undefined));
   const knownChannel = $derived(destinationChannels.some((item) => item.id === draft.channel_id));
   const previewRequest = $derived({
-    key: welcomePreviewKey(selectedId, season, sampleName || saved.viewer.display_name, draft.message, previewEffect),
+    key: welcomePreviewKey(selectedId, season, sampleName || saved.viewer.display_name, draft.message, previewEffect, draft.name_font),
+    nameFont: draft.name_font,
     id: selectedId, season, name: sampleName || saved.viewer.display_name, effect: previewEffect,
     message: { ...draft.message },
     description: `${selected?.label ?? "Welcome"}, ${season} version with ${selectedEffect?.label ?? "no sky effect"} for ${sampleName || saved.viewer.display_name}: ${draft.message.headline}, ${draft.message.subtitle}`,
@@ -123,7 +124,7 @@
     controller = new AbortController();
     try {
       const result = await requestWelcomePreview(globalThis.fetch.bind(globalThis), {
-        variant_id: input.id, season: input.season, display_name: input.name, message: input.message, effect: input.effect, format,
+        variant_id: input.id, season: input.season, display_name: input.name, message: input.message, name_font: input.nameFont, effect: input.effect, format,
       }, controller.signal);
       if (requestSerial !== serial) return;
       if (!result.ok) { previewError = result.error.message; return; }
@@ -372,9 +373,15 @@
         <Field label="Headline"><TextInput bind:value={draft.message.headline} required /></Field>
         <Field label="Subtitle"><TextInput bind:value={draft.message.subtitle} required /></Field>
       </div>
-      <Field label="Message font" hint="Headline and subtitle only. Member names keep the Minecraft font.">
+      <Field label="Message font" hint="Headline and subtitle only.">
         <Select bind:value={draft.message.font} disabled={saved.fonts.length === 0}>
           {#if saved.fonts.length === 0}<option value={draft.message.font}>Fonts unavailable</option>{/if}
+          {#each saved.fonts as font (font.id)}<option value={font.id}>{font.label}</option>{/each}
+        </Select>
+      </Field>
+      <Field label="Name font" hint="Member name on the sign.">
+        <Select bind:value={draft.name_font} disabled={saved.fonts.length === 0}>
+          {#if saved.fonts.length === 0}<option value={draft.name_font}>Fonts unavailable</option>{/if}
           {#each saved.fonts as font (font.id)}<option value={font.id}>{font.label}</option>{/each}
         </Select>
       </Field>
