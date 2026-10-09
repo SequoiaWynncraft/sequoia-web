@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { welcomeReadinessIssue, type WelcomeSettings, type WelcomeState } from "./welcome";
+import { welcomeMessageIssue, welcomePreviewKey, welcomeReadinessIssue, type WelcomeMessage, type WelcomeSettings, type WelcomeState } from "./welcome";
 
 const catalog: WelcomeState["catalog"] = [
   { id: "ready", label: "Ready motif", description: "", normal_ready: true, winter_ready: true },
@@ -9,6 +9,7 @@ const settings: WelcomeSettings = {
   version: 1, guild_id: "1", channel_id: "2", enabled: false, season_mode: "normal",
   winter_start: { month: 10, day: 1 }, winter_end: { month: 3, day: 31 }, links: [],
   variants: [{ id: "ready", enabled: true, weight: 1 }, { id: "pending", enabled: true, weight: 1 }],
+  message: { headline: "Welcome", subtitle: "TO SEQUOIA", font: "minecraft" },
 };
 
 describe("proposed welcome enable guard", () => {
@@ -27,5 +28,31 @@ describe("proposed welcome enable guard", () => {
     expect(welcomeReadinessIssue(draft, catalog)).toContain("destination channel");
     draft.channel_id = "2";
     expect(welcomeReadinessIssue(draft, catalog)).toContain("normal and winter artwork");
+  });
+});
+
+describe("welcome message draft", () => {
+  it("keeps exact case and includes every rendering input in the still/playback identity", () => {
+    const message: WelcomeMessage = { headline: "Welcome", subtitle: "to Sequoia", font: "jersey_15" };
+    const key = welcomePreviewKey("ready", "normal", "Member", message);
+    expect(welcomePreviewKey("ready", "normal", "Member", structuredClone(message))).toBe(key);
+    for (const changed of [{ headline: "HELLO" }, { subtitle: "TO SEQUOIA" }, { font: "pixelify_sans" as const }]) {
+      expect(welcomePreviewKey("ready", "normal", "Member", { ...message, ...changed })).not.toBe(key);
+    }
+    expect(welcomePreviewKey("pending", "normal", "Member", message)).not.toBe(key);
+    expect(welcomePreviewKey("ready", "winter", "Member", message)).not.toBe(key);
+    expect(welcomePreviewKey("ready", "normal", "Another member", message)).not.toBe(key);
+    expect(message.subtitle).toBe("to Sequoia");
+  });
+  it("rejects empty, multiline and over-limit text without truncating a draft", () => {
+    for (const field of ["headline", "subtitle"] as const) {
+      for (const text of [" ", "Line\nBreak", "Tab\tBreak", "a".repeat(65)]) {
+        const message = { ...settings.message, [field]: text };
+        expect(welcomeMessageIssue(message)).not.toBeNull();
+        expect(message[field]).toBe(text);
+      }
+    }
+    expect(welcomeMessageIssue({ ...settings.message, headline: "😀".repeat(64) })).toBeNull();
+    expect(welcomeMessageIssue(settings.message)).toBeNull();
   });
 });
