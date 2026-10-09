@@ -12,7 +12,7 @@
   import Toggle from "$lib/design-system/components/forms/Toggle.svelte";
   import ConfirmDialog from "$lib/design-system/components/forms/ConfirmDialog.svelte";
   import ManageHeader from "$lib/manage/ManageHeader.svelte";
-  import { welcomeChance, welcomeInputIssue, welcomeReadinessIssue, type WelcomeSeason, type WelcomeState } from "./welcome";
+  import { welcomeChance, welcomeInputIssue, welcomeMessageIssue, welcomePreviewKey, welcomePreviewMessageChanged, welcomeReadinessIssue, type WelcomeMessage, type WelcomeSeason, type WelcomeState } from "./welcome";
   import type { DiscordContext } from "./types";
 
   let { initial, channels }: { initial: WelcomeState; channels: DiscordContext["channels"] } = $props();
@@ -34,13 +34,13 @@
   let reloadDialog = $state<ConfirmDialog>();
   let discardDialog = $state<ConfirmDialog>();
   let previewUrl = $state("");
-  let previewIdentity = $state<{ key: string; description: string } | null>(null);
+  let previewIdentity = $state<{ key: string; description: string; message: WelcomeMessage } | null>(null);
   let previewError = $state<string | null>(null);
   let previewBusy = $state(false);
   let animated = $state(false);
   let navigationBlocked = $state(false);
   let saveStatus = $state<HTMLDivElement>();
-  let pngCache: { url: string; key: string; description: string } | undefined;
+  let pngCache: { url: string; key: string; description: string; message: WelcomeMessage } | undefined;
   let pendingFormat: "png" | "gif" | null = null;
   let controller: AbortController | undefined;
   let playbackTimer: ReturnType<typeof setTimeout> | undefined;
@@ -51,6 +51,7 @@
   const readinessIssue = $derived(welcomeReadinessIssue(draft, saved.catalog));
   const draftReady = $derived(readinessIssue === null);
   const selected = $derived(saved.catalog.find((item) => item.id === selectedId));
+  const messageIssue = $derived(welcomeMessageIssue(draft.message));
   const previewReady = $derived(selected?.[season === "winter" ? "winter_ready" : "normal_ready"] === true);
   const chanceById = $derived(new Map(saved.effective_chances.map((item) => [item.id, item.percent])));
   // Display-only normalization matches Rust Settings::chances. Asset readiness is a separate enable guard.
@@ -65,9 +66,10 @@
   const destinationChannels = $derived(channels.filter((channel) => channel.archived === undefined));
   const knownChannel = $derived(destinationChannels.some((item) => item.id === draft.channel_id));
   const previewRequest = $derived({
-    key: JSON.stringify([selectedId, season, sampleName || saved.viewer.display_name]),
+    key: welcomePreviewKey(selectedId, season, sampleName || saved.viewer.display_name, draft.message),
     id: selectedId, season, name: sampleName || saved.viewer.display_name,
-    description: `${selected?.label ?? "Welcome"}, ${season} version for ${sampleName || saved.viewer.display_name}`,
+    message: { ...draft.message },
+    description: `${selected?.label ?? "Welcome"}, ${season} version for ${sampleName || saved.viewer.display_name}: ${draft.message.headline}, ${draft.message.subtitle}`,
   });
   const selectedIndex = $derived(draft.variants.findIndex((item) => item.id === selectedId));
   const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -92,7 +94,7 @@
     if (!pngCache) return;
     if (previewUrl && previewUrl !== pngCache.url) URL.revokeObjectURL(previewUrl);
     previewUrl = pngCache.url;
-    previewIdentity = { key: pngCache.key, description: pngCache.description };
+    previewIdentity = { key: pngCache.key, description: pngCache.description, message: pngCache.message };
     animated = false;
   }
 
@@ -115,7 +117,7 @@
     controller = new AbortController();
     try {
       const result = await requestWelcomePreview(globalThis.fetch.bind(globalThis), {
-        variant_id: input.id, season: input.season, display_name: input.name, format,
+        variant_id: input.id, season: input.season, display_name: input.name, message: input.message, format,
       }, controller.signal);
       if (requestSerial !== serial) return;
       if (!result.ok) { previewError = result.error.message; return; }
@@ -123,10 +125,10 @@
       if (previewUrl && previewUrl !== pngCache?.url) URL.revokeObjectURL(previewUrl);
       if (format === "png") {
         if (pngCache) URL.revokeObjectURL(pngCache.url);
-        pngCache = { url: nextUrl, key: input.key, description: input.description };
+        pngCache = { url: nextUrl, key: input.key, description: input.description, message: input.message };
       }
       previewUrl = nextUrl;
-      previewIdentity = { key: input.key, description: input.description };
+      previewIdentity = { key: input.key, description: input.description, message: input.message };
       animated = format === "gif";
       // Authored loops are 16 seconds. Return to a still after one requested playback.
       if (animated) playbackTimer = setTimeout(showCachedStill, 16_000);
@@ -142,9 +144,14 @@
   $effect(() => {
     const input = previewRequest;
     const ready = previewReady;
-    untrack(() => { cancelPreview(); if (animated) showCachedStill(); });
+    const invalid = messageIssue;
+    // New copy must not display the old text. Other replacements retain a labeled still.
+    untrack(() => {
+      if (previewIdentity && welcomePreviewMessageChanged(previewIdentity.message, input.message)) clearPreview();
+      else { cancelPreview(); if (animated) showCachedStill(); }
+    });
     previewError = null;
-    if (!ready) { untrack(clearPreview); return; }
+    if (!ready || invalid) { untrack(clearPreview); return; }
     if (untrack(() => pngCache?.key === input.key)) { untrack(showCachedStill); return; }
     previewBusy = true;
     const timer = setTimeout(() => void renderPreview(input, "png"), 350);
@@ -319,14 +326,29 @@
         <img src={previewUrl} alt={previewIdentity?.description ?? "Welcome preview"} width="768" height="432" />
       {:else if previewBusy}<p role="status">Rendering your welcome…</p>
       {:else if !previewReady}<p>This {season} preview is not ready. Its artwork is still being prepared.</p>
+      {:else if messageIssue}<p>{messageIssue}</p>
       {:else if !previewError}<p>Preparing preview…</p>{/if}
     </div>
     {#if previewBusy && previewUrl}<p class="hint" role="status">Rendering the selected welcome…</p>{/if}
     <FormStatus error={previewError} compact />
     <div class="preview-actions">
-      <Button variant="secondary" disabled={!previewReady || previewBusy || !previewUrl || previewIdentity?.key !== previewRequest.key} onclick={() => animated ? showCachedStill() : void renderPreview(previewRequest, "gif")}>{animated ? "Stop animation" : "Play animation"}</Button>
-      {#if previewError}<Button variant="ghost" disabled={!previewReady || previewBusy} onclick={() => void renderPreview(previewRequest, "png")}>Retry preview</Button>{/if}
+      <Button variant="secondary" disabled={!previewReady || !!messageIssue || previewBusy || !previewUrl || previewIdentity?.key !== previewRequest.key} onclick={() => animated ? showCachedStill() : void renderPreview(previewRequest, "gif")}>{animated ? "Stop animation" : "Play animation"}</Button>
+      {#if previewError}<Button variant="ghost" disabled={!previewReady || !!messageIssue || previewBusy} onclick={() => void renderPreview(previewRequest, "png")}>Retry preview</Button>{/if}
     </div>
+    <fieldset class="message-editor" disabled={busy}>
+      <legend>Message text</legend>
+      <div class="message-lines">
+        <Field label="Headline"><TextInput bind:value={draft.message.headline} required /></Field>
+        <Field label="Subtitle"><TextInput bind:value={draft.message.subtitle} required /></Field>
+      </div>
+      <Field label="Message font" hint="Headline and subtitle only. Member names keep the Minecraft font.">
+        <Select bind:value={draft.message.font} disabled={saved.fonts.length === 0}>
+          {#if saved.fonts.length === 0}<option value={draft.message.font}>Fonts unavailable</option>{/if}
+          {#each saved.fonts as font (font.id)}<option value={font.id}>{font.label}</option>{/each}
+        </Select>
+      </Field>
+      <FormStatus error={messageIssue} compact />
+    </fieldset>
     {#if draft.links.length > 0}
       <div class="welcome-links" role="group" aria-label="Message buttons">
         <span class="hint">Message buttons{dirty ? " after save" : ""}</span>
@@ -391,6 +413,9 @@
   .preview-image { display: grid; place-items: center; aspect-ratio: 16 / 9; border: 1px solid var(--border-default); background: var(--color-deep); overflow: hidden; }
   .preview-image img { display: block; width: 100%; height: auto; image-rendering: pixelated; }
   .preview-image[aria-busy="true"] img { opacity: 0.6; }
+  .message-editor { border-top: 1px solid var(--border-default); padding-top: 12px; }
+  .message-editor legend { padding: 0 8px 0 0; color: var(--text-heading); font-size: var(--text-sm); }
+  .message-lines { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
   .preview-image p { max-width: 32ch; padding: 16px; margin: 0; text-align: center; color: var(--text-body); font-size: var(--text-sm); line-height: 1.5; }
   .welcome-links { display: flex; flex-wrap: wrap; gap: 8px 16px; padding-top: 12px; border-top: 1px solid var(--border-default); font-size: var(--text-xs); }
   .welcome-links a { color: var(--color-gold); }
@@ -402,6 +427,7 @@
     .preview { position: static; max-width: 768px; max-height: none; overflow-y: visible; order: -1; }
   }
   @media (max-width: 520px) {
+    .message-lines { grid-template-columns: 1fr; }
     .winter-window { gap: 12px; }
     .variant-columns, .variant { grid-template-columns: minmax(0, 1fr) 64px 70px; gap: 8px; padding-inline: 4px; }
     .variant-columns { font-size: var(--text-2xs); }

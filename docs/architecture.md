@@ -124,7 +124,9 @@ object URLs and playback remain in the Svelte workspace.
 They call the same Rust renderer as member joins, never a browser compositor or WASM.
 One selected PNG still loads at a time. Previous/next controls compare motifs without
 returning to the odds list. Replacement requests retain the correctly labeled previous
-image until actual new bytes arrive. Play animation explicitly requests a GIF and returns
+image until actual new bytes arrive when changing motif, season or sample name.
+Headline, subtitle or font edits clear the old image immediately so outdated copy is not shown.
+Play animation explicitly requests a GIF and returns
 to its one cached exact-identity PNG after the authored 16-second loop, without another
 render. Reduced-motion changes stop ongoing or pending animation playback.
 Missing artwork remains a visible pending state, not a substitute image or fake success.
