@@ -1,0 +1,52 @@
+export type WelcomeSeason = "normal" | "winter";
+export interface WelcomeSettings {
+  version: number;
+  guild_id: string;
+  enabled: boolean;
+  channel_id: string;
+  season_mode: "automatic" | WelcomeSeason;
+  winter_start: { month: number; day: number };
+  winter_end: { month: number; day: number };
+  variants: { id: string; enabled: boolean; weight: number }[];
+  links: { label: string; url: string }[];
+}
+export interface WelcomeState {
+  settings: WelcomeSettings;
+  catalog: { id: string; label: string; description: string; normal_ready: boolean; winter_ready: boolean }[];
+  effective_season: WelcomeSeason;
+  effective_chances: { id: string; percent: number }[];
+  ready: boolean;
+  viewer: { display_name: string };
+}
+
+/** Draft display guard only. Rust still verifies permissions and actual renderer readiness on save. */
+export function welcomeReadinessIssue(settings: WelcomeSettings, catalog: WelcomeState["catalog"]): string | null {
+  if (!/^[1-9][0-9]*$/.test(settings.channel_id) || BigInt(settings.channel_id) > 18446744073709551615n) return "Choose a valid destination channel before enabling welcomes.";
+  if (settings.variants.some(({ weight }) => !Number.isInteger(weight) || weight < 0 || weight > 1000)) return "Use whole-number weights from 0 to 1000 before enabling welcomes.";
+  const eligible = settings.variants.filter(({ enabled, weight }) => enabled && weight > 0);
+  if (eligible.length === 0) return "Enable at least one welcome with a positive weight.";
+  if (eligible.some(({ id }) => {
+    const item = catalog.find((entry) => entry.id === id);
+    return !item?.normal_ready || !item.winter_ready;
+  })) return "Enabled welcomes need normal and winter artwork. Disable pending variants or set their weight to zero.";
+  return null;
+}
+
+/** Only local input completeness. Rust remains the date, odds and destination authority. */
+export function welcomeInputIssue(settings: WelcomeSettings): string | null {
+  if (settings.enabled && !settings.channel_id.trim()) return "Choose a destination channel.";
+  const dates = [settings.winter_start, settings.winter_end];
+  if (dates.some(({ month, day }) => !Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(day) || day < 1 || day > 31)) return "Enter a month from 1 to 12 and a day from 1 to 31.";
+  if (settings.variants.some(({ weight }) => !Number.isInteger(weight) || weight < 0 || weight > 1000)) return "Use whole-number weights from 0 to 1000.";
+  if (!settings.variants.some(({ enabled, weight }) => enabled && weight > 0)) return "Enable at least one welcome with a positive weight.";
+  if (settings.links.length > 5) return "Use at most five welcome links.";
+  if (settings.links.some(({ label, url }) => !label.trim() || !url.trim())) return "Give each welcome link a label and URL, or remove it.";
+  return null;
+}
+
+export function welcomeChance(percent: number | undefined): string {
+  if (percent === undefined || !Number.isFinite(percent)) return "n/a";
+  if (percent === 0) return "0%";
+  if (percent < 0.1) return "<0.1%";
+  return `${new Intl.NumberFormat("en", { maximumFractionDigits: 1 }).format(percent)}%`;
+}

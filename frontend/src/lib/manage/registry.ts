@@ -140,10 +140,13 @@ export const MANAGE_AREAS: readonly ManageArea[] = [
     branch: null,
     href: "/manage/discord",
     marker: "✦",
-    links: [{ label: "Messages", href: "/manage/discord" }],
+    links: [
+      { label: "Messages", href: "/manage/discord" },
+      { label: "Welcome messages", href: "/manage/discord/welcome" },
+    ],
     gate: {
       title: "Discord staff only",
-      signinText: "Sign in to manage Discord messages.",
+      signinText: "Sign in to manage Discord messages and welcomes.",
       deniedText:
         "Discord messages are managed by Senior Moderators, Treants and higher, guild leadership, and the Community, Military and Development branches.",
       backHref: "/",
