@@ -42,6 +42,11 @@ export function welcomePreviewKey(variantId: string, season: WelcomeSeason, name
   return JSON.stringify([variantId, season, name, message.headline, message.subtitle, message.font]);
 }
 
+/** Only copy or font changes remove the previous raster while its replacement loads. */
+export function welcomePreviewMessageChanged(previous: WelcomeMessage, next: WelcomeMessage): boolean {
+  return previous.headline !== next.headline || previous.subtitle !== next.subtitle || previous.font !== next.font;
+}
+
 /** Draft display guard only. Rust still verifies permissions and actual renderer readiness on save. */
 export function welcomeReadinessIssue(settings: WelcomeSettings, catalog: WelcomeState["catalog"]): string | null {
   if (!/^[1-9][0-9]*$/.test(settings.channel_id) || BigInt(settings.channel_id) > 18446744073709551615n) return "Choose a valid destination channel before enabling welcomes.";

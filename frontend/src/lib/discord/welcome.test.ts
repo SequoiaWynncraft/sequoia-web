@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { welcomeMessageIssue, welcomePreviewKey, welcomeReadinessIssue, type WelcomeMessage, type WelcomeSettings, type WelcomeState } from "./welcome";
+import { welcomeMessageIssue, welcomePreviewKey, welcomePreviewMessageChanged, welcomeReadinessIssue, type WelcomeMessage, type WelcomeSettings, type WelcomeState } from "./welcome";
 
 const catalog: WelcomeState["catalog"] = [
   { id: "ready", label: "Ready motif", description: "", normal_ready: true, winter_ready: true },
@@ -32,6 +32,23 @@ describe("proposed welcome enable guard", () => {
 });
 
 describe("welcome message draft", () => {
+  it("retains a previous still when only motif, season or sample name changes", () => {
+    const previous = structuredClone(settings.message);
+    const previousKey = welcomePreviewKey("ready", "normal", "Member", previous);
+    for (const [motif, season, name] of [["pending", "normal", "Member"], ["ready", "winter", "Member"], ["ready", "normal", "Another member"]] as const) {
+      const next = structuredClone(previous);
+      expect(welcomePreviewKey(motif, season, name, next)).not.toBe(previousKey);
+      expect(welcomePreviewMessageChanged(previous, next)).toBe(false);
+    }
+  });
+  it("clears the previous still for each copy or font edit, including a combined motif change", () => {
+    const previous = structuredClone(settings.message);
+    for (const edit of [{ headline: "Hello" }, { subtitle: "to Sequoia" }, { font: "jersey_15" as const }]) {
+      const next = { ...previous, ...edit };
+      expect(welcomePreviewMessageChanged(previous, next)).toBe(true);
+      expect(welcomePreviewKey("pending", "winter", "Another member", next)).not.toBe(welcomePreviewKey("ready", "normal", "Member", previous));
+    }
+  });
   it("keeps exact case and includes every rendering input in the still/playback identity", () => {
     const message: WelcomeMessage = { headline: "Welcome", subtitle: "to Sequoia", font: "jersey_15" };
     const key = welcomePreviewKey("ready", "normal", "Member", message);

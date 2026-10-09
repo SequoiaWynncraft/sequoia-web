@@ -12,7 +12,7 @@
   import Toggle from "$lib/design-system/components/forms/Toggle.svelte";
   import ConfirmDialog from "$lib/design-system/components/forms/ConfirmDialog.svelte";
   import ManageHeader from "$lib/manage/ManageHeader.svelte";
-  import { welcomeChance, welcomeInputIssue, welcomeMessageIssue, welcomePreviewKey, welcomeReadinessIssue, type WelcomeSeason, type WelcomeState } from "./welcome";
+  import { welcomeChance, welcomeInputIssue, welcomeMessageIssue, welcomePreviewKey, welcomePreviewMessageChanged, welcomeReadinessIssue, type WelcomeMessage, type WelcomeSeason, type WelcomeState } from "./welcome";
   import type { DiscordContext } from "./types";
 
   let { initial, channels }: { initial: WelcomeState; channels: DiscordContext["channels"] } = $props();
@@ -34,13 +34,13 @@
   let reloadDialog = $state<ConfirmDialog>();
   let discardDialog = $state<ConfirmDialog>();
   let previewUrl = $state("");
-  let previewIdentity = $state<{ key: string; description: string } | null>(null);
+  let previewIdentity = $state<{ key: string; description: string; message: WelcomeMessage } | null>(null);
   let previewError = $state<string | null>(null);
   let previewBusy = $state(false);
   let animated = $state(false);
   let navigationBlocked = $state(false);
   let saveStatus = $state<HTMLDivElement>();
-  let pngCache: { url: string; key: string; description: string } | undefined;
+  let pngCache: { url: string; key: string; description: string; message: WelcomeMessage } | undefined;
   let pendingFormat: "png" | "gif" | null = null;
   let controller: AbortController | undefined;
   let playbackTimer: ReturnType<typeof setTimeout> | undefined;
@@ -94,7 +94,7 @@
     if (!pngCache) return;
     if (previewUrl && previewUrl !== pngCache.url) URL.revokeObjectURL(previewUrl);
     previewUrl = pngCache.url;
-    previewIdentity = { key: pngCache.key, description: pngCache.description };
+    previewIdentity = { key: pngCache.key, description: pngCache.description, message: pngCache.message };
     animated = false;
   }
 
@@ -125,10 +125,10 @@
       if (previewUrl && previewUrl !== pngCache?.url) URL.revokeObjectURL(previewUrl);
       if (format === "png") {
         if (pngCache) URL.revokeObjectURL(pngCache.url);
-        pngCache = { url: nextUrl, key: input.key, description: input.description };
+        pngCache = { url: nextUrl, key: input.key, description: input.description, message: input.message };
       }
       previewUrl = nextUrl;
-      previewIdentity = { key: input.key, description: input.description };
+      previewIdentity = { key: input.key, description: input.description, message: input.message };
       animated = format === "gif";
       // Authored loops are 16 seconds. Return to a still after one requested playback.
       if (animated) playbackTimer = setTimeout(showCachedStill, 16_000);
@@ -145,8 +145,11 @@
     const input = previewRequest;
     const ready = previewReady;
     const invalid = messageIssue;
-    // An old raster must never represent newly edited copy, including during debounce.
-    untrack(() => { if (previewIdentity?.key !== input.key) clearPreview(); else cancelPreview(); });
+    // New copy must not display the old text. Other replacements retain a labeled still.
+    untrack(() => {
+      if (previewIdentity && welcomePreviewMessageChanged(previewIdentity.message, input.message)) clearPreview();
+      else { cancelPreview(); if (animated) showCachedStill(); }
+    });
     previewError = null;
     if (!ready || invalid) { untrack(clearPreview); return; }
     if (untrack(() => pngCache?.key === input.key)) { untrack(showCachedStill); return; }
@@ -317,6 +320,7 @@
     <Field label="Sample name" hint="Real joins use the member's display name automatically.">
       <TextInput bind:value={sampleName} placeholder={saved.viewer.display_name} />
     </Field>
+    {#if previewIdentity && previewIdentity.key !== previewRequest.key}<p class="hint">Showing previous preview: {previewIdentity.description}.</p>{/if}
     <div class="preview-image" aria-busy={previewBusy}>
       {#if previewUrl}
         <img src={previewUrl} alt={previewIdentity?.description ?? "Welcome preview"} width="768" height="432" />
