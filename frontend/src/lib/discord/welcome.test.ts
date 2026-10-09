@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { welcomeMessageIssue, welcomePreviewKey, welcomePreviewMessageChanged, welcomeReadinessIssue, type WelcomeMessage, type WelcomeSettings, type WelcomeState } from "./welcome";
+import { welcomeInputIssue, welcomeMessageIssue, welcomePreviewKey, welcomePreviewMessageChanged, welcomeReadinessIssue, welcomeSkyChances, welcomeSkyEffectIssue, type WelcomeMessage, type WelcomeSettings, type WelcomeState } from "./welcome";
 
 const catalog: WelcomeState["catalog"] = [
   { id: "ready", label: "Ready motif", description: "", normal_ready: true, winter_ready: true },
@@ -10,6 +10,7 @@ const settings: WelcomeSettings = {
   winter_start: { month: 10, day: 1 }, winter_end: { month: 3, day: 31 }, links: [],
   variants: [{ id: "ready", enabled: true, weight: 1 }, { id: "pending", enabled: true, weight: 1 }],
   message: { headline: "Welcome", subtitle: "TO SEQUOIA", font: "minecraft" },
+  effects: { sky: [{ id: "aurora", percent: 35 }] },
 };
 
 describe("proposed welcome enable guard", () => {
@@ -28,6 +29,40 @@ describe("proposed welcome enable guard", () => {
     expect(welcomeReadinessIssue(draft, catalog)).toContain("destination channel");
     draft.channel_id = "2";
     expect(welcomeReadinessIssue(draft, catalog)).toContain("normal and winter artwork");
+  });
+});
+
+describe("independent welcome sky effects", () => {
+  const effects: WelcomeState["effects"]["sky"] = [{ id: "aurora", label: "Aurora Borealis", description: "", normal_ready: true, winter_ready: true }];
+  it("uses absolute percentages and a no-effect remainder, without editing welcome weights", () => {
+    const draft = structuredClone(settings);
+    expect(welcomeSkyChances(draft.effects.sky, effects)?.get("none")).toBe(65);
+    draft.effects.sky[0].percent = 50;
+    expect(welcomeSkyChances(draft.effects.sky, effects)?.get("aurora")).toBe(50);
+    expect(welcomeSkyChances(draft.effects.sky, effects)?.get("none")).toBe(50);
+    expect(draft.variants).toEqual(settings.variants);
+    draft.effects.sky[0].percent = 0;
+    expect(welcomeSkyChances(draft.effects.sky, effects)?.get("none")).toBe(100);
+  });
+  it("falls back unavailable seasonal artwork to no effect without blocking emergency disable", () => {
+    const pending = [{ ...effects[0], winter_ready: false }];
+    expect(welcomeSkyChances(settings.effects.sky, pending)?.get("aurora")).toBe(0);
+    expect(welcomeSkyChances(settings.effects.sky, pending)?.get("none")).toBe(100);
+    expect(welcomeInputIssue({ ...settings, enabled: false })).toBeNull();
+  });
+  it("rejects invalid percentages and totals, rather than displaying a false zero", () => {
+    for (const percent of [-1, 101, 0.5, Number.NaN]) {
+      const sky = [{ id: "aurora" as const, percent }];
+      expect(welcomeSkyEffectIssue(sky)).toContain("whole-number");
+      expect(welcomeSkyChances(sky, effects)).toBeNull();
+    }
+    expect(welcomeSkyEffectIssue([{ id: "aurora", percent: 60 }, { id: "aurora", percent: 50 }])).toContain("total 100 or less");
+  });
+  it("separates explicit effect previews from both their still cache and the saved random odds", () => {
+    const none = welcomePreviewKey("ready", "normal", "Member", settings.message, "none");
+    expect(welcomePreviewKey("ready", "normal", "Member", settings.message)).toBe(none);
+    expect(welcomePreviewKey("ready", "normal", "Member", settings.message, "aurora")).not.toBe(none);
+    expect(welcomePreviewMessageChanged(settings.message, structuredClone(settings.message))).toBe(false);
   });
 });
 

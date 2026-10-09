@@ -23,17 +23,18 @@ describe("welcome preview transport", () => {
     fetchImpl.mockRejectedValueOnce(new Error("offline"));
     expect(await requestWelcomePreview(fetchImpl, input, signal)).toMatchObject({ ok: false, error: { code: "network_error" } });
   });
-  it("sends the unsaved message unchanged for both stills and animation, or omits it for saved previews", async () => {
+  it("sends the unsaved message and explicit effect unchanged for both stills and animation, or omits them for stable saved previews", async () => {
     const fetchImpl = vi.fn();
     const message = { headline: "Hello", subtitle: "to Sequoia", font: "pixelify_sans" as const };
     const signal = new AbortController().signal;
     for (const format of ["png", "gif"] as const) {
       fetchImpl.mockResolvedValueOnce(new Response(new Uint8Array([9]), { headers: { "content-type": `image/${format}` } }));
-      await requestWelcomePreview(fetchImpl, { ...input, format, message }, signal);
-      expect(JSON.parse(fetchImpl.mock.lastCall![1].body)).toEqual({ ...input, format, message });
+      await requestWelcomePreview(fetchImpl, { ...input, format, message, effect: "aurora" }, signal);
+      expect(JSON.parse(fetchImpl.mock.lastCall![1].body)).toEqual({ ...input, format, message, effect: "aurora" });
     }
     fetchImpl.mockResolvedValueOnce(new Response(new Uint8Array([9]), { headers: { "content-type": "image/png" } }));
     await requestWelcomePreview(fetchImpl, input, signal);
     expect(JSON.parse(fetchImpl.mock.lastCall![1].body)).not.toHaveProperty("message");
+    expect(JSON.parse(fetchImpl.mock.lastCall![1].body)).not.toHaveProperty("effect");
   });
 });

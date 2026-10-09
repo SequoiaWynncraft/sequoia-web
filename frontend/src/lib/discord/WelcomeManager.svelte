@@ -12,7 +12,7 @@
   import Toggle from "$lib/design-system/components/forms/Toggle.svelte";
   import ConfirmDialog from "$lib/design-system/components/forms/ConfirmDialog.svelte";
   import ManageHeader from "$lib/manage/ManageHeader.svelte";
-  import { welcomeChance, welcomeInputIssue, welcomeMessageIssue, welcomePreviewKey, welcomePreviewMessageChanged, welcomeReadinessIssue, type WelcomeMessage, type WelcomeSeason, type WelcomeState } from "./welcome";
+  import { welcomeChance, welcomeInputIssue, welcomeMessageIssue, welcomePreviewKey, welcomePreviewMessageChanged, welcomeReadinessIssue, welcomeSkyChances, welcomeSkyEffectIssue, type WelcomeMessage, type WelcomePreviewEffect, type WelcomeSeason, type WelcomeState } from "./welcome";
   import type { DiscordContext } from "./types";
 
   let { initial, channels }: { initial: WelcomeState; channels: DiscordContext["channels"] } = $props();
@@ -25,6 +25,7 @@
   let selectedId = $state(initial.catalog[0]?.id ?? "");
   // svelte-ignore state_referenced_locally
   let season = $state<WelcomeSeason>(initial.effective_season);
+  let previewEffect = $state<WelcomePreviewEffect>("none");
   // svelte-ignore state_referenced_locally
   let sampleName = $state(initial.viewer.display_name);
   let busy = $state(false);
@@ -52,7 +53,12 @@
   const draftReady = $derived(readinessIssue === null);
   const selected = $derived(saved.catalog.find((item) => item.id === selectedId));
   const messageIssue = $derived(welcomeMessageIssue(draft.message));
-  const previewReady = $derived(selected?.[season === "winter" ? "winter_ready" : "normal_ready"] === true);
+  const selectedEffect = $derived(saved.effects.sky.find((effect) => effect.id === previewEffect));
+  const previewEffectReady = $derived(previewEffect === "none" || selectedEffect?.[season === "winter" ? "winter_ready" : "normal_ready"] === true);
+  const previewReady = $derived(selected?.[season === "winter" ? "winter_ready" : "normal_ready"] === true && previewEffectReady);
+  const skyEffectIssue = $derived(welcomeSkyEffectIssue(draft.effects.sky));
+  const skyCatalogById = $derived(new Map(saved.effects.sky.map((effect) => [effect.id, effect])));
+  const displayedSkyChances = $derived(dirty ? welcomeSkyChances(draft.effects.sky, saved.effects.sky) : new Map(saved.effective_effect_chances.sky.map((effect) => [effect.id, effect.percent])));
   const chanceById = $derived(new Map(saved.effective_chances.map((item) => [item.id, item.percent])));
   // Display-only normalization matches Rust Settings::chances. Asset readiness is a separate enable guard.
   const proposedChances = $derived.by(() => {
@@ -66,10 +72,10 @@
   const destinationChannels = $derived(channels.filter((channel) => channel.archived === undefined));
   const knownChannel = $derived(destinationChannels.some((item) => item.id === draft.channel_id));
   const previewRequest = $derived({
-    key: welcomePreviewKey(selectedId, season, sampleName || saved.viewer.display_name, draft.message),
-    id: selectedId, season, name: sampleName || saved.viewer.display_name,
+    key: welcomePreviewKey(selectedId, season, sampleName || saved.viewer.display_name, draft.message, previewEffect),
+    id: selectedId, season, name: sampleName || saved.viewer.display_name, effect: previewEffect,
     message: { ...draft.message },
-    description: `${selected?.label ?? "Welcome"}, ${season} version for ${sampleName || saved.viewer.display_name}: ${draft.message.headline}, ${draft.message.subtitle}`,
+    description: `${selected?.label ?? "Welcome"}, ${season} version with ${selectedEffect?.label ?? "no sky effect"} for ${sampleName || saved.viewer.display_name}: ${draft.message.headline}, ${draft.message.subtitle}`,
   });
   const selectedIndex = $derived(draft.variants.findIndex((item) => item.id === selectedId));
   const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -117,7 +123,7 @@
     controller = new AbortController();
     try {
       const result = await requestWelcomePreview(globalThis.fetch.bind(globalThis), {
-        variant_id: input.id, season: input.season, display_name: input.name, message: input.message, format,
+        variant_id: input.id, season: input.season, display_name: input.name, message: input.message, effect: input.effect, format,
       }, controller.signal);
       if (requestSerial !== serial) return;
       if (!result.ok) { previewError = result.error.message; return; }
@@ -283,6 +289,24 @@
       </div>
       <p class="hint">Zero weight never wins. {dirty ? "Proposed chances apply after saving." : "Chances reflect the saved settings."}</p>
 
+      <div class="section-head effects-head"><h2>Sky effects</h2><span class="hint">Independent of welcome odds</span></div>
+      <div class="effect-columns" aria-hidden="true"><span>Sky effect</span><span>Percent</span><span>{dirty ? "After save" : "Chance"}</span></div>
+      <div class="sky-effects">
+        {#each draft.effects.sky as effect (effect.id)}
+          {@const item = skyCatalogById.get(effect.id)}
+          <div class="sky-effect">
+            <div class="effect-identity"><span>{item?.label ?? effect.id}</span>
+              {#if !item?.normal_ready || !item.winter_ready}<span class="effect-pending">{!item?.normal_ready && !item?.winter_ready ? "Artwork pending" : !item?.winter_ready ? "Winter pending" : "Normal pending"}</span>{/if}
+            </div>
+            <NumberInput bind:value={effect.percent} min={0} max={100} step={1} required aria-label={`${item?.label ?? effect.id} sky effect percent`} />
+            <span class="chance" aria-label={`${item?.label ?? effect.id} ${dirty ? "chance after save" : "saved chance"}: ${welcomeChance(displayedSkyChances?.get(effect.id))}`}>{welcomeChance(displayedSkyChances?.get(effect.id))}</span>
+          </div>
+        {/each}
+        <div class="sky-effect no-effect"><span>No effect</span><span aria-hidden="true"></span><span class="chance" aria-label={`No sky effect chance: ${welcomeChance(displayedSkyChances?.get("none"))}`}>{welcomeChance(displayedSkyChances?.get("none"))}</span></div>
+      </div>
+      <FormStatus error={skyEffectIssue} compact />
+      <p class="hint">Unused percentage means no effect. Effects with pending artwork count as no effect until both seasons are ready.</p>
+
       <div class="section-head links-head"><h2>Welcome links</h2><span class="hint">Up to five</span></div>
       <div class="link-editor">
         {#each draft.links as link, index (index)}
@@ -317,6 +341,12 @@
       <button type="button" aria-pressed={season === "normal"} onclick={() => { season = "normal"; }}>Normal</button>
       <button type="button" aria-pressed={season === "winter"} onclick={() => { season = "winter"; }}>Winter</button>
     </div>
+    <Field label="Sky effect" hint="Preview choice only. Saved odds apply to member welcomes.">
+      <Select bind:value={previewEffect}>
+        <option value="none">No effect</option>
+        {#each saved.effects.sky as effect (effect.id)}<option value={effect.id} disabled={!effect[season === "winter" ? "winter_ready" : "normal_ready"]}>{effect.label}{!effect[season === "winter" ? "winter_ready" : "normal_ready"] ? " (artwork pending)" : ""}</option>{/each}
+      </Select>
+    </Field>
     <Field label="Sample name" hint="Real joins use the member's display name automatically.">
       <TextInput bind:value={sampleName} placeholder={saved.viewer.display_name} />
     </Field>
@@ -325,6 +355,7 @@
       {#if previewUrl}
         <img src={previewUrl} alt={previewIdentity?.description ?? "Welcome preview"} width="768" height="432" />
       {:else if previewBusy}<p role="status">Rendering your welcome…</p>
+      {:else if !previewEffectReady}<p>{selectedEffect?.label ?? "This sky effect"} is not ready for this season. Choose No effect to preview the welcome.</p>
       {:else if !previewReady}<p>This {season} preview is not ready. Its artwork is still being prepared.</p>
       {:else if messageIssue}<p>{messageIssue}</p>
       {:else if !previewError}<p>Preparing preview…</p>{/if}
@@ -375,7 +406,7 @@
   .hint { overflow-wrap: anywhere; }
   .season-state { color: var(--color-gold); }
   .readiness { margin: 0; padding: 10px 12px; border-left: 2px solid var(--color-gold); color: var(--text-body); background: var(--color-surface); font-size: var(--text-sm); line-height: 1.5; }
-  .season-head, .variants-head, .links-head { padding-top: 16px; margin-top: 4px; border-top: 1px solid var(--border-default); }
+  .season-head, .variants-head, .effects-head, .links-head { padding-top: 16px; margin-top: 4px; border-top: 1px solid var(--border-default); }
   .winter-window { display: grid; gap: 10px; }
   .winter-window.overridden { opacity: 0.65; }
   .date-boundary { display: grid; grid-template-columns: 44px minmax(0, 1fr) 80px; gap: 10px; align-items: center; }
@@ -394,6 +425,13 @@
   .variant.off .variant-select, .variant.off .chance { color: var(--text-muted); }
   .asset-state { grid-column: 2; font-size: var(--text-xs); color: var(--text-body); }
   .chance { text-align: right; color: var(--text-body); font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
+  .sky-effects { display: grid; }
+  .effect-columns, .sky-effect { display: grid; grid-template-columns: minmax(0, 1fr) 80px 88px; gap: 12px; align-items: center; padding: 10px; }
+  .effect-columns { padding-block: 0; color: var(--text-body); font-size: var(--text-xs); }
+  .effect-columns span:last-child { text-align: right; }
+  .sky-effect { border-top: 1px solid var(--border-default); color: var(--text-body); font-size: var(--text-sm); }
+  .effect-identity { display: grid; gap: 4px; overflow-wrap: anywhere; }
+  .effect-pending { color: var(--text-body); font-size: var(--text-xs); }
   .save-bar { position: sticky; bottom: 0; display: grid; gap: 10px; margin-top: 20px; padding: 12px 0 max(12px, env(safe-area-inset-bottom)); border-top: 1px solid var(--border-default); background: var(--bg-page); z-index: 2; }
   .save-actions, .preview-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
   .dirty-state { flex-basis: 100%; color: var(--color-gold); font-size: var(--text-xs); }
@@ -429,8 +467,8 @@
   @media (max-width: 520px) {
     .message-lines { grid-template-columns: 1fr; }
     .winter-window { gap: 12px; }
-    .variant-columns, .variant { grid-template-columns: minmax(0, 1fr) 64px 70px; gap: 8px; padding-inline: 4px; }
-    .variant-columns { font-size: var(--text-2xs); }
+    .variant-columns, .variant, .effect-columns, .sky-effect { grid-template-columns: minmax(0, 1fr) 64px 70px; gap: 8px; padding-inline: 4px; }
+    .variant-columns, .effect-columns { font-size: var(--text-2xs); }
     .variant-identity { gap: 2px 0; }
     .save-actions :global(.seq-button) { flex: 1; min-height: 44px; padding-inline: 8px; }
   }
