@@ -10,6 +10,10 @@ export interface WelcomePreviewRequest {
   message?: WelcomeMessage;
   name_font?: WelcomeFont;
   effect?: WelcomePreviewEffect;
+  /** Absent follows the saved schedule on the server right now; true or false compares without saving. */
+  night?: boolean;
+  /** Absent follows the saved moon setting. */
+  moon?: boolean;
 }
 
 /** Same-origin binary transport only. The caller owns cancellation and image playback. */

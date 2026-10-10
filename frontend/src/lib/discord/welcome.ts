@@ -7,6 +7,14 @@ export interface WelcomeMessage {
   subtitle: string;
   font: WelcomeFont;
 }
+/** Time of day is its own mode, independent of season, motif and sky effect. */
+export interface WelcomeNight {
+  enabled: boolean;
+  start: string;
+  end: string;
+  timezone: string;
+  moon: boolean;
+}
 export interface WelcomeSettings {
   version: number;
   guild_id: string;
@@ -20,6 +28,7 @@ export interface WelcomeSettings {
   message: WelcomeMessage;
   name_font: WelcomeFont;
   effects: { sky: { id: WelcomeSkyEffect; percent: number }[] };
+  night: WelcomeNight;
 }
 export interface WelcomeState {
   settings: WelcomeSettings;
@@ -31,6 +40,39 @@ export interface WelcomeState {
   fonts: { id: WelcomeFont; label: string }[];
   effects: { sky: { id: WelcomeSkyEffect; label: string; description: string; normal_ready: boolean; winter_ready: boolean }[] };
   effective_effect_chances: { sky: { id: WelcomePreviewEffect; percent: number }[] };
+  effective_night: { active: boolean; scheduled: boolean; local_time: string | null; timezone: string; ready: boolean; timezones: string[] };
+}
+/** Wire shape. Sierra builds from before night scheduling omit both night fields. */
+export type WelcomeResponse = Omit<WelcomeState, "settings" | "effective_night"> & {
+  settings: Omit<WelcomeSettings, "night"> & { night?: WelcomeNight };
+  effective_night?: WelcomeState["effective_night"];
+};
+export const WELCOME_NIGHT_DEFAULT: WelcomeNight = { enabled: false, start: "21:00", end: "07:00", timezone: "UTC", moon: true };
+
+/** Fills the night defaults for older servers. Unsupported night is never sent back to them. */
+export function welcomeStateWithNight(response: WelcomeResponse): { state: WelcomeState; nightSupported: boolean } {
+  const nightSupported = response.settings.night !== undefined && response.effective_night !== undefined;
+  return {
+    nightSupported,
+    state: {
+      ...response,
+      settings: { ...response.settings, night: response.settings.night ?? { ...WELCOME_NIGHT_DEFAULT } },
+      effective_night: response.effective_night ?? { active: false, scheduled: false, local_time: null, timezone: "UTC", ready: false, timezones: [] },
+    },
+  };
+}
+
+/** Full settings definition for save. Older servers reject the unknown night field. */
+export function welcomeSaveBody(settings: WelcomeSettings, nightSupported: boolean): WelcomeSettings | Omit<WelcomeSettings, "night"> {
+  if (nightSupported) return settings;
+  const { night: _night, ...legacy } = settings;
+  return legacy;
+}
+
+/** Explicit preview scene overrides. Absent fields follow the saved schedule and moon setting. */
+export interface WelcomePreviewScene {
+  night?: boolean;
+  moon?: boolean;
 }
 
 /** The renderer remains the authority for glyph support and visible text fit. */
@@ -44,8 +86,35 @@ export function welcomeMessageIssue(message: WelcomeMessage): string | null {
 }
 
 /** PNG stills and GIF playback must refer to exactly the same unsaved draft. */
-export function welcomePreviewKey(variantId: string, season: WelcomeSeason, name: string, message: WelcomeMessage, effect: WelcomePreviewEffect = "none", nameFont: WelcomeFont = "minecraft"): string {
-  return JSON.stringify([variantId, season, name, message.headline, message.subtitle, message.font, effect, nameFont]);
+export function welcomePreviewKey(variantId: string, season: WelcomeSeason, name: string, message: WelcomeMessage, effect: WelcomePreviewEffect = "none", nameFont: WelcomeFont = "minecraft", scene: WelcomePreviewScene & { saved?: WelcomeNight } = {}): string {
+  // A scene that follows the saved schedule or moon changes whenever that saved setting changes.
+  const follows = scene.night === undefined || scene.moon === undefined ? scene.saved ?? null : null;
+  return JSON.stringify([variantId, season, name, message.headline, message.subtitle, message.font, effect, nameFont, scene.night ?? null, scene.moon ?? null, follows]);
+}
+
+const NIGHT_TIME = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
+
+/** Mirrors the Rust schedule rules. Rust remains the timezone and boundary authority. */
+export function welcomeNightIssue(night: WelcomeNight, timezones: readonly string[]): { start?: string; end?: string; timezone?: string } | null {
+  const issue: { start?: string; end?: string; timezone?: string } = {};
+  if (!NIGHT_TIME.test(night.start)) issue.start = "Use a 24-hour time such as 21:00.";
+  if (!NIGHT_TIME.test(night.end)) issue.end = "Use a 24-hour time such as 07:00.";
+  else if (night.start === night.end) issue.end = "Night must end at a different time than it starts.";
+  if (!night.timezone.trim()) issue.timezone = "Enter a timezone such as Europe/Stockholm.";
+  else if (!timezones.includes(night.timezone)) issue.timezone = "Choose a timezone from the list, such as Europe/Stockholm.";
+  return Object.keys(issue).length ? issue : null;
+}
+
+/** Plain-language active interval, or null while the schedule is incomplete. */
+export function welcomeNightSummary(night: Pick<WelcomeNight, "start" | "end" | "timezone">): string | null {
+  if (!NIGHT_TIME.test(night.start) || !NIGHT_TIME.test(night.end) || night.start === night.end || !night.timezone.trim()) return null;
+  return `Night from ${night.start} to ${night.end} (${night.timezone})${night.start > night.end ? ", crossing midnight" : ""}`;
+}
+
+/** Turning night on, or changing an enabled schedule, needs verified night artwork. Turning it off never does. */
+export function welcomeNightReadinessIssue(draft: WelcomeNight, saved: WelcomeNight, ready: boolean): string | null {
+  if (ready || !draft.enabled || JSON.stringify(draft) === JSON.stringify(saved)) return null;
+  return "Night artwork is not installed yet, so night cannot be enabled. Turn off night to save other changes.";
 }
 
 export function welcomeSkyEffectIssue(sky: WelcomeSettings["effects"]["sky"]): string | null {
@@ -87,10 +156,12 @@ export function welcomeReadinessIssue(settings: WelcomeSettings, catalog: Welcom
   return null;
 }
 
-/** Only local input completeness. Rust remains the date, odds and destination authority. */
-export function welcomeInputIssue(settings: WelcomeSettings): string | null {
+/** Only local input completeness. Rust remains the date, odds and destination authority. Null timezones means the server has no night schedule. */
+export function welcomeInputIssue(settings: WelcomeSettings, timezones: readonly string[] | null): string | null {
   const messageIssue = welcomeMessageIssue(settings.message);
   if (messageIssue) return messageIssue;
+  const nightIssue = timezones && welcomeNightIssue(settings.night, timezones);
+  if (nightIssue) return `Night: ${nightIssue.start ?? nightIssue.end ?? nightIssue.timezone}`;
   const effectIssue = welcomeSkyEffectIssue(settings.effects.sky);
   if (effectIssue) return effectIssue;
   if (settings.enabled && !settings.channel_id.trim()) return "Choose a destination channel.";

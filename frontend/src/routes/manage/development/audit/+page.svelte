@@ -1,7 +1,7 @@
 <script lang="ts">
   import ManageHeader from "$lib/manage/ManageHeader.svelte";
   import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
-  import { messageLink } from "$lib/manage/auditTarget";
+  import { messageLink, welcomeAuditChanges } from "$lib/manage/auditTarget";
   import type { AuditEntry } from "$lib/server/auditLog";
   import AreaGate from "$lib/manage/AreaGate.svelte";
 
@@ -69,6 +69,7 @@
     {:else}
       <ol class="audit-entries">
         {#each visible as entry (entry.id)}
+          {@const changes = welcomeAuditChanges(entry)}
           <li>
             <div class="audit-heading">
               <strong>{entry.action}</strong>
@@ -87,6 +88,13 @@
                 <a href="/manage/discord">Discord manager</a>
                 {#if messageLink(entry)}<a href={messageLink(entry)} target="_blank" rel="noreferrer">Open message in Discord</a>{/if}
               </div>
+            {/if}
+            {#if changes?.length}
+              <ul class="audit-changes" aria-label="Changed settings">
+                {#each changes as change (change.label)}
+                  <li><strong>{change.label}</strong><span>Before: {change.before}</span><span>After: {change.after}</span></li>
+                {/each}
+              </ul>
             {/if}
             {#if entry.detail}
               <details><summary>Change details</summary><pre>{detail(entry)}</pre></details>
@@ -111,6 +119,9 @@
   .audit-meta { margin-top: .5rem; }
   .audit-target { margin: .5rem 0; font-size: var(--text-sm); }
   .audit-links { margin-bottom: .5rem; font-size: var(--text-sm); }
+  .audit-entries .audit-changes { display: grid; gap: .5rem; margin: 0 0 .5rem; padding: 0; list-style: none; font-size: var(--text-sm); }
+  .audit-entries .audit-changes li { display: grid; gap: .15rem; padding: 0; border: 0; overflow-wrap: anywhere; }
+  .audit-changes span { color: var(--text-muted); }
   details { font-size: var(--text-sm); }
   summary { cursor: pointer; }
   pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .75rem; max-height: 24rem; overflow: auto; }

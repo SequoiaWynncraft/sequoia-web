@@ -12,20 +12,26 @@
   import Toggle from "$lib/design-system/components/forms/Toggle.svelte";
   import ConfirmDialog from "$lib/design-system/components/forms/ConfirmDialog.svelte";
   import ManageHeader from "$lib/manage/ManageHeader.svelte";
-  import { welcomeChance, welcomeInputIssue, welcomeMessageIssue, welcomePreviewKey, welcomePreviewMessageChanged, welcomeReadinessIssue, welcomeSkyChances, welcomeSkyEffectIssue, type WelcomeMessage, type WelcomePreviewEffect, type WelcomeSeason, type WelcomeState } from "./welcome";
+  import { welcomeChance, welcomeInputIssue, welcomeMessageIssue, welcomeNightIssue, welcomeNightReadinessIssue, welcomeNightSummary, welcomePreviewKey, welcomePreviewMessageChanged, welcomeReadinessIssue, welcomeSkyChances, welcomeSkyEffectIssue, type WelcomeMessage, type WelcomePreviewEffect, type WelcomePreviewScene, type WelcomeResponse, type WelcomeSeason, type WelcomeState, welcomeSaveBody, welcomeStateWithNight } from "./welcome";
   import type { DiscordContext } from "./types";
 
-  let { initial, channels }: { initial: WelcomeState; channels: DiscordContext["channels"] } = $props();
+  let { initial, channels }: { initial: WelcomeResponse; channels: DiscordContext["channels"] } = $props();
   // The saved response seeds one local draft; Rust owns persistence and normalization.
   // svelte-ignore state_referenced_locally
-  let saved = $state(structuredClone(initial));
-  // svelte-ignore state_referenced_locally
-  let draft = $state(structuredClone(initial.settings));
+  const seeded = welcomeStateWithNight(structuredClone(initial));
+  let saved = $state<WelcomeState>(seeded.state);
+  let nightSupported = $state(seeded.nightSupported);
+  let draft = $state(structuredClone(seeded.state.settings));
   // svelte-ignore state_referenced_locally
   let selectedId = $state(initial.catalog[0]?.id ?? "");
   // svelte-ignore state_referenced_locally
   let season = $state<WelcomeSeason>(initial.effective_season);
   let previewEffect = $state<WelcomePreviewEffect>("none");
+  // Preview-only scene choices. The defaults omit both fields so Rust follows the saved schedule.
+  let previewTime = $state<"scheduled" | "day" | "night">("scheduled");
+  let previewMoon = $state<"saved" | "shown" | "hidden">("saved");
+  // Only an explicit suggestion. The schedule never defaults to the browser's zone or clock.
+  let deviceZone = $state("");
   // svelte-ignore state_referenced_locally
   let sampleName = $state(initial.viewer.display_name);
   let busy = $state(false);
@@ -48,14 +54,24 @@
   let serial = 0;
 
   const dirty = $derived(JSON.stringify(draft) !== JSON.stringify(saved.settings));
-  const issue = $derived(welcomeInputIssue(draft));
+  const issue = $derived(welcomeInputIssue(draft, nightSupported ? saved.effective_night.timezones : null) ?? welcomeNightReadinessIssue(draft.night, saved.settings.night, saved.effective_night.ready));
+  const nightIssue = $derived(welcomeNightIssue(draft.night, saved.effective_night.timezones));
+  const nightSummary = $derived(welcomeNightSummary(draft.night));
+  const nightDirty = $derived(JSON.stringify(draft.night) !== JSON.stringify(saved.settings.night));
   const readinessIssue = $derived(welcomeReadinessIssue(draft, saved.catalog));
   const draftReady = $derived(readinessIssue === null);
   const selected = $derived(saved.catalog.find((item) => item.id === selectedId));
   const messageIssue = $derived(welcomeMessageIssue(draft.message));
   const selectedEffect = $derived(saved.effects.sky.find((effect) => effect.id === previewEffect));
   const previewEffectReady = $derived(previewEffect === "none" || selectedEffect?.[season === "winter" ? "winter_ready" : "normal_ready"] === true);
-  const previewReady = $derived(selected?.[season === "winter" ? "winter_ready" : "normal_ready"] === true && previewEffectReady);
+  const previewNightReady = $derived(previewTime !== "night" || saved.effective_night.ready);
+  const previewReady = $derived(selected?.[season === "winter" ? "winter_ready" : "normal_ready"] === true && previewEffectReady && previewNightReady);
+  const previewScene = $derived<WelcomePreviewScene>(!nightSupported ? {} : {
+    night: previewTime === "scheduled" ? undefined : previewTime === "night",
+    moon: previewTime === "day" || previewMoon === "saved" ? undefined : previewMoon === "shown",
+  });
+  const sceneLabel = $derived(previewTime === "day" ? "by day" : previewTime === "night" ? "at night" : "as scheduled now");
+  const moonLabel = $derived(previewTime === "day" || previewMoon === "saved" ? "" : previewMoon === "shown" ? " with the moon" : " without the moon");
   const skyEffectIssue = $derived(welcomeSkyEffectIssue(draft.effects.sky));
   const skyCatalogById = $derived(new Map(saved.effects.sky.map((effect) => [effect.id, effect])));
   const displayedSkyChances = $derived(dirty ? welcomeSkyChances(draft.effects.sky, saved.effects.sky) : new Map(saved.effective_effect_chances.sky.map((effect) => [effect.id, effect.percent])));
@@ -72,11 +88,11 @@
   const destinationChannels = $derived(channels.filter((channel) => channel.archived === undefined));
   const knownChannel = $derived(destinationChannels.some((item) => item.id === draft.channel_id));
   const previewRequest = $derived({
-    key: welcomePreviewKey(selectedId, season, sampleName || saved.viewer.display_name, draft.message, previewEffect, draft.name_font),
-    nameFont: draft.name_font,
+    key: welcomePreviewKey(selectedId, season, sampleName || saved.viewer.display_name, draft.message, previewEffect, draft.name_font, { ...previewScene, saved: saved.settings.night }),
+    nameFont: draft.name_font, scene: previewScene,
     id: selectedId, season, name: sampleName || saved.viewer.display_name, effect: previewEffect,
     message: { ...draft.message },
-    description: `${selected?.label ?? "Welcome"}, ${season} version with ${selectedEffect?.label ?? "no sky effect"} for ${sampleName || saved.viewer.display_name}: ${draft.message.headline}, ${draft.message.subtitle}`,
+    description: `${selected?.label ?? "Welcome"}, ${season} version ${sceneLabel}${moonLabel} with ${selectedEffect?.label ?? "no sky effect"} for ${sampleName || saved.viewer.display_name}: ${draft.message.headline}, ${draft.message.subtitle}`,
   });
   const selectedIndex = $derived(draft.variants.findIndex((item) => item.id === selectedId));
   const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -124,7 +140,7 @@
     controller = new AbortController();
     try {
       const result = await requestWelcomePreview(globalThis.fetch.bind(globalThis), {
-        variant_id: input.id, season: input.season, display_name: input.name, message: input.message, name_font: input.nameFont, effect: input.effect, format,
+        variant_id: input.id, season: input.season, display_name: input.name, message: input.message, name_font: input.nameFont, effect: input.effect, ...input.scene, format,
       }, controller.signal);
       if (requestSerial !== serial) return;
       if (!result.ok) { previewError = result.error.message; return; }
@@ -166,6 +182,7 @@
   });
 
   onMount(() => {
+    deviceZone = Intl.DateTimeFormat().resolvedOptions().timeZone ?? "";
     const query = window.matchMedia("(prefers-reduced-motion: reduce)");
     function motionChanged() {
       if (query.matches && (animated || pendingFormat === "gif")) showCachedStill();
@@ -174,9 +191,11 @@
     return () => { query.removeEventListener("change", motionChanged); clearPreview(); };
   });
 
-  function received(next: WelcomeState) {
-    saved = next;
-    draft = structuredClone(next.settings);
+  function received(response: WelcomeResponse) {
+    const next = welcomeStateWithNight(response);
+    saved = next.state;
+    nightSupported = next.nightSupported;
+    draft = structuredClone(next.state.settings);
     conflict = false;
     error = null;
     navigationBlocked = false;
@@ -186,7 +205,7 @@
     if (busy || !dirty || issue || conflict || (draft.enabled && !draftReady)) return;
     busy = true; error = null; notice = null; navigationBlocked = false;
     // Freeze the sent draft. Controls stay disabled until normalization returns.
-    const result = await requestDiscord<WelcomeState>(globalThis.fetch.bind(globalThis), "welcome", "PUT", $state.snapshot(draft));
+    const result = await requestDiscord<WelcomeResponse>(globalThis.fetch.bind(globalThis), "welcome", "PUT", welcomeSaveBody($state.snapshot(draft), nightSupported));
     busy = false;
     if (!result.ok) {
       conflict = result.error.status === 409;
@@ -199,7 +218,7 @@
 
   async function reloadSaved() {
     busy = true; error = null; notice = null; navigationBlocked = false;
-    const result = await requestDiscord<WelcomeState>(globalThis.fetch.bind(globalThis), "welcome");
+    const result = await requestDiscord<WelcomeResponse>(globalThis.fetch.bind(globalThis), "welcome");
     busy = false;
     if (!result.ok) { error = result.error.message; return; }
     received(result.data);
@@ -272,6 +291,32 @@
       </div>
       <p class="hint">Repeats each year in UTC, including both dates. The window applies in Automatic mode.</p>
 
+      {#if !nightSupported}
+      <div class="section-head night-head"><h2>Night</h2></div>
+      <p class="hint">Night is not available on this server yet. Welcomes use day scenes.</p>
+      {:else}
+      <div class="section-head night-head"><h2>Night</h2><span class="season-state">{saved.effective_night.active ? "Night now" : "Day now"}{saved.effective_night.local_time ? `, ${saved.effective_night.local_time} ${saved.effective_night.timezone}` : ""}</span></div>
+      <Toggle bind:checked={draft.night.enabled} label="Use night scenes on a schedule" disabled={!saved.effective_night.ready && !draft.night.enabled} />
+      {#if !saved.effective_night.ready}
+        <p class="readiness" role="status">Night artwork is not installed yet, so night cannot be enabled.</p>
+      {/if}
+      <div class="night-window" class:overridden={!draft.night.enabled}>
+        <div class="night-times">
+          <Field label="Night starts" hint="24-hour time" error={nightIssue?.start}><TextInput bind:value={draft.night.start} inputmode="numeric" maxlength={5} placeholder="21:00" autocomplete="off" mono required /></Field>
+          <Field label="Night ends" hint="24-hour time" error={nightIssue?.end}><TextInput bind:value={draft.night.end} inputmode="numeric" maxlength={5} placeholder="07:00" autocomplete="off" mono required /></Field>
+        </div>
+        <Field label="Timezone" hint="Search named zones. Daylight saving follows this zone." error={nightIssue?.timezone}>
+          <TextInput bind:value={draft.night.timezone} list="welcome-timezones" placeholder="UTC" autocomplete="off" spellcheck={false} required />
+        </Field>
+        <datalist id="welcome-timezones">{#each saved.effective_night.timezones as zone (zone)}<option value={zone}></option>{/each}</datalist>
+        {#if deviceZone && deviceZone !== draft.night.timezone && saved.effective_night.timezones.includes(deviceZone)}
+          <Button variant="ghost" size="sm" onclick={() => { draft.night.timezone = deviceZone; }}>Use this device's timezone ({deviceZone})</Button>
+        {/if}
+        <Toggle bind:checked={draft.night.moon} label="Show the moon" />
+      </div>
+      <p class="hint">{nightSummary ? `${nightSummary}. Starts at the start time and ends just before the end time.` : "Enter a start, a different end and a timezone to see the night interval."}{draft.night.enabled ? "" : " Night is off, so welcomes use day scenes."}{nightDirty ? " Night now or Day now reflects the saved schedule." : ""}</p>
+      {/if}
+
       <div class="section-head variants-head"><h2>Welcome odds</h2><span class="hint">Higher weight means more often</span></div>
       <div class="variant-columns" aria-hidden="true"><span>Welcome</span><span>Weight</span><span>{dirty ? "After save" : "Chance"}</span></div>
       <div class="variants">
@@ -342,6 +387,21 @@
       <button type="button" aria-pressed={season === "normal"} onclick={() => { season = "normal"; }}>Normal</button>
       <button type="button" aria-pressed={season === "winter"} onclick={() => { season = "winter"; }}>Winter</button>
     </div>
+    {#if nightSupported}
+    <div class="preview-season preview-time" role="group" aria-label="Preview time of day">
+      <button type="button" aria-pressed={previewTime === "scheduled"} onclick={() => { previewTime = "scheduled"; }}>As scheduled</button>
+      <button type="button" aria-pressed={previewTime === "day"} onclick={() => { previewTime = "day"; }}>Day</button>
+      <button type="button" aria-pressed={previewTime === "night"} disabled={!saved.effective_night.ready} onclick={() => { previewTime = "night"; }}>Night</button>
+    </div>
+    <p class="hint">{previewTime === "scheduled" ? `As scheduled follows the saved schedule: ${saved.effective_night.active ? "night" : "day"} now.` : "Preview choice only. The saved schedule applies to member welcomes."}</p>
+    <Field label="Moon" hint="Night previews only. Not saved.">
+      <Select bind:value={previewMoon} disabled={previewTime === "day"}>
+        <option value="saved">Saved setting ({saved.settings.night.moon ? "moon shown" : "no moon"})</option>
+        <option value="shown">Moon shown</option>
+        <option value="hidden">No moon</option>
+      </Select>
+    </Field>
+    {/if}
     <Field label="Sky effect" hint="Preview choice only. Saved odds apply to member welcomes.">
       <Select bind:value={previewEffect}>
         <option value="none">No effect</option>
@@ -356,6 +416,7 @@
       {#if previewUrl}
         <img src={previewUrl} alt={previewIdentity?.description ?? "Welcome preview"} width="768" height="432" />
       {:else if previewBusy}<p role="status">Rendering your welcome…</p>
+      {:else if !previewNightReady}<p>Night artwork is not installed yet. Choose Day or As scheduled to preview the welcome.</p>
       {:else if !previewEffectReady}<p>{selectedEffect?.label ?? "This sky effect"} is not ready for this season. Choose No effect to preview the welcome.</p>
       {:else if !previewReady}<p>This {season} preview is not ready. Its artwork is still being prepared.</p>
       {:else if messageIssue}<p>{messageIssue}</p>
@@ -413,9 +474,12 @@
   .hint { overflow-wrap: anywhere; }
   .season-state { color: var(--color-gold); }
   .readiness { margin: 0; padding: 10px 12px; border-left: 2px solid var(--color-gold); color: var(--text-body); background: var(--color-surface); font-size: var(--text-sm); line-height: 1.5; }
-  .season-head, .variants-head, .effects-head, .links-head { padding-top: 16px; margin-top: 4px; border-top: 1px solid var(--border-default); }
+  .season-head, .night-head, .variants-head, .effects-head, .links-head { padding-top: 16px; margin-top: 4px; border-top: 1px solid var(--border-default); }
   .winter-window { display: grid; gap: 10px; }
-  .winter-window.overridden { opacity: 0.65; }
+  .winter-window.overridden, .night-window.overridden { opacity: 0.65; }
+  .night-window { display: grid; gap: 14px; justify-items: stretch; }
+  .night-window > :global(.seq-button) { justify-self: start; min-height: 44px; }
+  .night-times { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
   .date-boundary { display: grid; grid-template-columns: 44px minmax(0, 1fr) 80px; gap: 10px; align-items: center; }
   .date-boundary > span { font-size: var(--text-sm); color: var(--text-body); }
   .variant-columns, .variant { display: grid; grid-template-columns: minmax(0, 1fr) 80px 88px; align-items: center; gap: 12px; }
@@ -453,6 +517,7 @@
   .preview-title { font-family: var(--font-display); color: var(--color-gold); font-size: var(--text-base); overflow-wrap: anywhere; }
   .preview-description { margin: 0; color: var(--text-body); font-size: var(--text-sm); line-height: 1.5; }
   .preview-season { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--border-default); }
+  .preview-time { grid-template-columns: repeat(3, 1fr); }
   .preview-season button { min-height: 44px; border: 0; background: none; color: var(--text-body); font: inherit; font-size: var(--text-sm); cursor: pointer; }
   .preview-season button[aria-pressed="true"] { color: var(--color-gold); background: color-mix(in srgb, var(--color-gold) 10%, transparent); }
   .preview-image { display: grid; place-items: center; aspect-ratio: 16 / 9; border: 1px solid var(--border-default); background: var(--color-deep); overflow: hidden; }
