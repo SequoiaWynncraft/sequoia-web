@@ -1,10 +1,10 @@
-# Bun toolchain config. Bun loads bunfig.toml from $cwd only (no upward
-# traversal) — frontend/bunfig.toml duplicates the [run] section.
+# Bun loads bunfig.toml from the current directory only, so frontend keeps
+# its own [run] policy for app tooling.
 
 [run]
-# Shim `node` in PATH to Bun so package-script bins (vite, vitest,
-# svelte-kit, svelte-check) never fall back to Node via their shebangs.
-bun = true
+# Keep Node available for the root Vitest command. Frontend Bun scripts
+# retain their own Bun alias for app tooling in frontend/bunfig.toml.
+bun = false
 
 [install]
 # pnpm-style strict, symlinked node_modules (no phantom dependencies).

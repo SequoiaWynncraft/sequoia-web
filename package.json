@@ -7,7 +7,8 @@
     "frontend"
   ],
   "engines": {
-    "bun": ">=1.3.14"
+    "bun": ">=1.3.14",
+    "node": ">=22.12.0"
   },
   "trustedDependencies": ["esbuild"],
   "overrides": {
@@ -29,7 +30,7 @@
     "clippy:backend": "cargo clippy --manifest-path backend/Cargo.toml --workspace --all-targets --all-features -- -D warnings",
     "fmt:backend": "cargo fmt --manifest-path backend/Cargo.toml --all --check",
     "test": "bun run test:web && bun run test:backend",
-    "test:web": "bun run --cwd frontend test:unit",
+    "test:web": "cd frontend && node --run test:unit --",
     "test:backend": "cargo test --manifest-path backend/Cargo.toml --workspace --all-features",
     "api:types": "bun run --cwd frontend api:types"
   }
