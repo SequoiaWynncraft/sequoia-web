@@ -12,7 +12,7 @@ const settings: WelcomeSettings = {
   message: { headline: "Welcome", subtitle: "TO SEQUOIA", font: "minecraft" },
   name_font: "minecraft",
   effects: { sky: [{ id: "aurora", percent: 35 }] },
-  night: { enabled: false, start: "21:00", end: "07:00", timezone: "UTC", moon: true },
+  night: { enabled: false, start: "21:00", end: "07:00", timezone: "UTC", moon: false },
 };
 const timezones = ["UTC", "Europe/Stockholm", "America/New_York"];
 
@@ -155,7 +155,7 @@ describe("night schedule draft", () => {
     const saved = settings.night;
     expect(welcomeNightReadinessIssue({ ...saved, enabled: true }, saved, false)).toContain("cannot be enabled");
     expect(welcomeNightReadinessIssue({ ...saved, enabled: true }, saved, true)).toBeNull();
-    expect(welcomeNightReadinessIssue({ ...saved, moon: false }, saved, false)).toBeNull();
+    expect(welcomeNightReadinessIssue({ ...saved, moon: true }, saved, false)).toBeNull();
     const enabled = { ...saved, enabled: true };
     expect(welcomeNightReadinessIssue(enabled, enabled, false)).toBeNull();
     expect(welcomeNightReadinessIssue({ ...enabled, start: "22:00" }, enabled, false)).toContain("cannot be enabled");
@@ -175,7 +175,7 @@ describe("night schedule draft", () => {
     ].map((scene) => welcomePreviewKey("ready", "normal", "Member", message, "none", "minecraft", scene));
     expect(new Set(keys).size).toBe(keys.length);
     // Following the saved schedule or moon must not reuse a still rendered before that setting changed.
-    const changed = { ...settings.night, moon: false };
+    const changed = { ...settings.night, moon: true };
     expect(welcomePreviewKey("ready", "normal", "Member", message, "none", "minecraft", { saved: changed })).not.toBe(keys[0]);
     expect(welcomePreviewKey("ready", "normal", "Member", message, "none", "minecraft", { night: true, saved: changed })).not.toBe(keys[2]);
     // Fully explicit scenes do not depend on the saved schedule.
@@ -192,7 +192,7 @@ describe("servers without night scheduling", () => {
   it("fills the documented defaults and reports night as unsupported", () => {
     const { state, nightSupported } = welcomeStateWithNight(structuredClone(legacy));
     expect(nightSupported).toBe(false);
-    expect(state.settings.night).toEqual({ enabled: false, start: "21:00", end: "07:00", timezone: "UTC", moon: true });
+    expect(state.settings.night).toEqual({ enabled: false, start: "21:00", end: "07:00", timezone: "UTC", moon: false });
     expect(state.effective_night).toEqual({ active: false, scheduled: false, local_time: null, timezone: "UTC", ready: false, timezones: [] });
     expect(WELCOME_NIGHT_DEFAULT).toEqual(settings.night);
   });
@@ -200,9 +200,11 @@ describe("servers without night scheduling", () => {
     expect(legacySettings).not.toHaveProperty("night");
     expect(legacySettings).toEqual(Object.fromEntries(Object.entries(settings).filter(([key]) => key !== "night")));
     expect(welcomeSaveBody(settings, true)).toEqual(settings);
-    const { state, nightSupported } = welcomeStateWithNight({ ...legacy, settings, effective_night: { active: true, scheduled: true, local_time: "22:00", timezone: "UTC", ready: true, timezones } });
+    const saved = { ...settings, night: { ...settings.night, moon: true } };
+    const { state, nightSupported } = welcomeStateWithNight({ ...legacy, settings: saved, effective_night: { active: true, scheduled: true, local_time: "22:00", timezone: "UTC", ready: true, timezones } });
     expect(nightSupported).toBe(true);
-    expect(state.settings.night).toEqual(settings.night);
+    expect(state.settings.night).toEqual(saved.night);
+    expect(state.settings.night.moon).toBe(true);
   });
   it("skips night validation when the server has no timezone list for it", () => {
     const { state } = welcomeStateWithNight(structuredClone(legacy));

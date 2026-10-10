@@ -90,7 +90,7 @@ describe("welcome unavailable interface", () => {
   it("renders a separate night section with the named timezone, interval and server status", () => {
     const { body } = render(WelcomeManager, { props: { initial: unavailable, channels: [] } });
     expect(body).toContain(">Night</h2>");
-    expect(body).toContain("Day now, 14:05 UTC");
+    expect(body).toContain("Day at last update, 14:05 UTC");
     expect(body).toContain("Night from 21:00 to 07:00 (UTC), crossing midnight.");
     expect(body).toContain("Night starts");
     expect(body).toContain("Night ends");
@@ -111,12 +111,12 @@ describe("welcome unavailable interface", () => {
     state.effective_night = { ...state.effective_night, ready: true, active: true, scheduled: true, local_time: "23:10", timezone: "Europe/Stockholm" };
     state.settings.night = { enabled: true, start: "22:00", end: "06:00", timezone: "Europe/Stockholm", moon: false };
     const { body } = render(WelcomeManager, { props: { initial: state, channels: [] } });
-    expect(body).toContain("Night now, 23:10 Europe/Stockholm");
+    expect(body).toContain("Night at last update, 23:10 Europe/Stockholm");
     expect(body).toContain('aria-label="Preview time of day"');
     expect(body).toMatch(/<button[^>]*aria-pressed="true"[^>]*>As scheduled<\/button>/);
     expect(body).toMatch(/<button[^>]*aria-pressed="false"[^>]*>Day<\/button>/);
     expect(body).toMatch(/<button[^>]*aria-pressed="false"(?![^>]*disabled)[^>]*>Night<\/button>/);
-    expect(body).toContain("As scheduled follows the saved schedule: night now.");
+    expect(body).toContain("As scheduled uses the last loaded or saved server scene: night.");
     expect(body).toMatch(/<option[^>]*value="saved"[^>]*selected[^>]*>Saved setting \(no moon\)/);
     expect(body).toContain("Night previews only. Not saved.");
     expect(body).not.toContain("cannot be enabled");

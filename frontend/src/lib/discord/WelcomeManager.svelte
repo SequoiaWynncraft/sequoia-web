@@ -12,7 +12,7 @@
   import Toggle from "$lib/design-system/components/forms/Toggle.svelte";
   import ConfirmDialog from "$lib/design-system/components/forms/ConfirmDialog.svelte";
   import ManageHeader from "$lib/manage/ManageHeader.svelte";
-  import { welcomeChance, welcomeInputIssue, welcomeMessageIssue, welcomeNightIssue, welcomeNightReadinessIssue, welcomeNightSummary, welcomePreviewKey, welcomePreviewMessageChanged, welcomeReadinessIssue, welcomeSkyChances, welcomeSkyEffectIssue, type WelcomeMessage, type WelcomePreviewEffect, type WelcomePreviewScene, type WelcomeResponse, type WelcomeSeason, type WelcomeState, welcomeSaveBody, welcomeStateWithNight } from "./welcome";
+  import { welcomeChance, welcomeInputIssue, welcomeMessageIssue, welcomeNightIssue, welcomeNightReadinessIssue, welcomeNightSummary, welcomePreviewKey, welcomePreviewMessageChanged, welcomePreviewScene, welcomeReadinessIssue, welcomeSkyChances, welcomeSkyEffectIssue, type WelcomeMessage, type WelcomePreviewEffect, type WelcomeResponse, type WelcomeSeason, type WelcomeState, welcomeSaveBody, welcomeStateWithNight } from "./welcome";
   import type { DiscordContext } from "./types";
 
   let { initial, channels }: { initial: WelcomeResponse; channels: DiscordContext["channels"] } = $props();
@@ -27,7 +27,7 @@
   // svelte-ignore state_referenced_locally
   let season = $state<WelcomeSeason>(initial.effective_season);
   let previewEffect = $state<WelcomePreviewEffect>("none");
-  // Preview-only scene choices. The defaults omit both fields so Rust follows the saved schedule.
+  // Preview-only scene choices. As scheduled pins the scene in the last server settings response.
   let previewTime = $state<"scheduled" | "day" | "night">("scheduled");
   let previewMoon = $state<"saved" | "shown" | "hidden">("saved");
   // Only an explicit suggestion. The schedule never defaults to the browser's zone or clock.
@@ -66,11 +66,8 @@
   const previewEffectReady = $derived(previewEffect === "none" || selectedEffect?.[season === "winter" ? "winter_ready" : "normal_ready"] === true);
   const previewNightReady = $derived(previewTime !== "night" || saved.effective_night.ready);
   const previewReady = $derived(selected?.[season === "winter" ? "winter_ready" : "normal_ready"] === true && previewEffectReady && previewNightReady);
-  const previewScene = $derived<WelcomePreviewScene>(!nightSupported ? {} : {
-    night: previewTime === "scheduled" ? undefined : previewTime === "night",
-    moon: previewTime === "day" || previewMoon === "saved" ? undefined : previewMoon === "shown",
-  });
-  const sceneLabel = $derived(previewTime === "day" ? "by day" : previewTime === "night" ? "at night" : "as scheduled now");
+  const previewScene = $derived(welcomePreviewScene(nightSupported, { active: saved.effective_night.active, moon: saved.settings.night.moon }, previewTime, previewMoon));
+  const sceneLabel = $derived(previewTime === "day" ? "by day" : previewTime === "night" ? "at night" : "as scheduled at the last update");
   const moonLabel = $derived(previewTime === "day" || previewMoon === "saved" ? "" : previewMoon === "shown" ? " with the moon" : " without the moon");
   const skyEffectIssue = $derived(welcomeSkyEffectIssue(draft.effects.sky));
   const skyCatalogById = $derived(new Map(saved.effects.sky.map((effect) => [effect.id, effect])));
@@ -295,7 +292,7 @@
       <div class="section-head night-head"><h2>Night</h2></div>
       <p class="hint">Night is not available on this server yet. Welcomes use day scenes.</p>
       {:else}
-      <div class="section-head night-head"><h2>Night</h2><span class="season-state">{saved.effective_night.active ? "Night now" : "Day now"}{saved.effective_night.local_time ? `, ${saved.effective_night.local_time} ${saved.effective_night.timezone}` : ""}</span></div>
+      <div class="section-head night-head"><h2>Night</h2><span class="season-state">{saved.effective_night.active ? "Night at last update" : "Day at last update"}{saved.effective_night.local_time ? `, ${saved.effective_night.local_time} ${saved.effective_night.timezone}` : ""}</span></div>
       <Toggle bind:checked={draft.night.enabled} label="Use night scenes on a schedule" disabled={!saved.effective_night.ready && !draft.night.enabled} />
       {#if !saved.effective_night.ready}
         <p class="readiness" role="status">Night artwork is not installed yet, so night cannot be enabled.</p>
@@ -314,7 +311,7 @@
         {/if}
         <Toggle bind:checked={draft.night.moon} label="Show the moon" />
       </div>
-      <p class="hint">{nightSummary ? `${nightSummary}. Starts at the start time and ends just before the end time.` : "Enter a start, a different end and a timezone to see the night interval."}{draft.night.enabled ? "" : " Night is off, so welcomes use day scenes."}{nightDirty ? " Night now or Day now reflects the saved schedule." : ""}</p>
+      <p class="hint">{nightSummary ? `${nightSummary}. Starts at the start time and ends just before the end time.` : "Enter a start, a different end and a timezone to see the night interval."}{draft.night.enabled ? "" : " Night is off, so welcomes use day scenes."}{nightDirty ? " As scheduled reflects the last loaded or saved server scene." : ""}</p>
       {/if}
 
       <div class="section-head variants-head"><h2>Welcome odds</h2><span class="hint">Higher weight means more often</span></div>
@@ -393,7 +390,7 @@
       <button type="button" aria-pressed={previewTime === "day"} onclick={() => { previewTime = "day"; }}>Day</button>
       <button type="button" aria-pressed={previewTime === "night"} disabled={!saved.effective_night.ready} onclick={() => { previewTime = "night"; }}>Night</button>
     </div>
-    <p class="hint">{previewTime === "scheduled" ? `As scheduled follows the saved schedule: ${saved.effective_night.active ? "night" : "day"} now.` : "Preview choice only. The saved schedule applies to member welcomes."}</p>
+    <p class="hint">{previewTime === "scheduled" ? `As scheduled uses the last loaded or saved server scene: ${saved.effective_night.active ? "night" : "day"}.` : "Preview choice only. The saved schedule applies to member welcomes."}</p>
     <Field label="Moon" hint="Night previews only. Not saved.">
       <Select bind:value={previewMoon} disabled={previewTime === "day"}>
         <option value="saved">Saved setting ({saved.settings.night.moon ? "moon shown" : "no moon"})</option>

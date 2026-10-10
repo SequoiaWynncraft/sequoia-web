@@ -47,7 +47,7 @@ export type WelcomeResponse = Omit<WelcomeState, "settings" | "effective_night">
   settings: Omit<WelcomeSettings, "night"> & { night?: WelcomeNight };
   effective_night?: WelcomeState["effective_night"];
 };
-export const WELCOME_NIGHT_DEFAULT: WelcomeNight = { enabled: false, start: "21:00", end: "07:00", timezone: "UTC", moon: true };
+export const WELCOME_NIGHT_DEFAULT: WelcomeNight = { enabled: false, start: "21:00", end: "07:00", timezone: "UTC", moon: false };
 
 /** Fills the night defaults for older servers. Unsupported night is never sent back to them. */
 export function welcomeStateWithNight(response: WelcomeResponse): { state: WelcomeState; nightSupported: boolean } {
@@ -73,6 +73,15 @@ export function welcomeSaveBody(settings: WelcomeSettings, nightSupported: boole
 export interface WelcomePreviewScene {
   night?: boolean;
   moon?: boolean;
+}
+
+/** Pin the saved-state server scene across stills, playback and retries until settings refresh. */
+export function welcomePreviewScene(nightSupported: boolean, snapshot: { active: boolean; moon: boolean }, time: "scheduled" | "day" | "night", moon: "saved" | "shown" | "hidden"): WelcomePreviewScene {
+  if (!nightSupported) return {};
+  return {
+    night: time === "scheduled" ? snapshot.active : time === "night",
+    moon: time === "day" ? undefined : moon === "saved" ? snapshot.moon : moon === "shown",
+  };
 }
 
 /** The renderer remains the authority for glyph support and visible text fit. */
