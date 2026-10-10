@@ -1,5 +1,5 @@
 import type { PageServerLoad } from "./$types";
-import type { WelcomeState } from "$lib/discord/welcome";
+import type { WelcomeResponse } from "$lib/discord/welcome";
 import type { DiscordContext } from "$lib/discord/types";
 import { discordManagement } from "$lib/server/discordManagement";
 
@@ -15,7 +15,8 @@ export const load: PageServerLoad = async ({ fetch, cookies }) => {
       channels: [] as DiscordContext["channels"],
     };
   }
-  const welcome: WelcomeState = await response.json();
+  // Older Sierra builds omit night; the manager fills defaults and never sends night back to them.
+  const welcome: WelcomeResponse = await response.json();
   const contextResponse = await discordManagement(fetch, token, `context?guild_id=${encodeURIComponent(welcome.settings.guild_id)}`);
   const context: DiscordContext | null = contextResponse.ok ? await contextResponse.json() : null;
   return { access: "granted" as const, welcome, channels: context?.channels ?? [] };

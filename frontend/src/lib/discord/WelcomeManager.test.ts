@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render } from "svelte/server";
 import WelcomeManager from "./WelcomeManager.svelte";
-import type { WelcomeState } from "./welcome";
+import type { WelcomeResponse, WelcomeState } from "./welcome";
 
 vi.mock("$app/navigation", () => ({ beforeNavigate: vi.fn() }));
 
@@ -14,6 +14,7 @@ const unavailable: WelcomeState = {
     message: { headline: "Welcome", subtitle: "TO SEQUOIA", font: "minecraft" },
     name_font: "minecraft",
     effects: { sky: [{ id: "aurora", percent: 35 }] },
+    night: { enabled: false, start: "21:00", end: "07:00", timezone: "UTC", moon: true },
   },
   catalog: [{ id: "quiet", label: "Quiet forest", description: "", normal_ready: false, winter_ready: false }],
   effective_season: "winter", effective_chances: [], ready: false,
@@ -21,7 +22,14 @@ const unavailable: WelcomeState = {
   fonts: [],
   effects: { sky: [{ id: "aurora", label: "Aurora Borealis", description: "", normal_ready: false, winter_ready: false }] },
   effective_effect_chances: { sky: [{ id: "aurora", percent: 0 }, { id: "none", percent: 100 }] },
+  effective_night: { active: false, scheduled: false, local_time: "14:05", timezone: "UTC", ready: false, timezones: ["UTC", "Europe/Stockholm"] },
 };
+
+// Ids and copy as the server would return them. The view must not assume a count.
+const fifteen: WelcomeState["catalog"] = [
+  "quiet", "lantern_panda", "fox", "deer", "owl", "rabbit", "hedgehog", "fireflies", "gnomes", "badger",
+  "gnome_party", "duck_parade", "squirrel_chase", "owl_visit", "bunny_hop",
+].map((id, index) => ({ id, label: index === 14 ? "Bunny leapfrog" : index === 10 ? "Gnome hide and seek" : `Event ${index + 1}`, description: `Story ${index + 1}`, normal_ready: true, winter_ready: true }));
 
 describe("welcome unavailable interface", () => {
   it("shows real readiness state without an invented image or enabled welcome switch", () => {
@@ -78,5 +86,70 @@ describe("welcome unavailable interface", () => {
     expect(body).toContain("Preview choice only. Saved odds apply to member welcomes.");
     expect(body).toContain("Quiet forest weight");
     expect(body).not.toContain("\u2014");
+  });
+  it("renders a separate night section with the named timezone, interval and server status", () => {
+    const { body } = render(WelcomeManager, { props: { initial: unavailable, channels: [] } });
+    expect(body).toContain(">Night</h2>");
+    expect(body).toContain("Day at last update, 14:05 UTC");
+    expect(body).toContain("Night from 21:00 to 07:00 (UTC), crossing midnight.");
+    expect(body).toContain("Night starts");
+    expect(body).toContain("Night ends");
+    expect(body).toContain("24-hour time");
+    expect(body).toMatch(/<input[^>]*list="welcome-timezones"[^>]*value="UTC"/);
+    expect(body).toMatch(/<datalist id="welcome-timezones">.*value="Europe\/Stockholm"/s);
+    expect(body).toContain("Show the moon");
+    // Not ready: night cannot be switched on, and night previews are unavailable.
+    expect(body).toContain("Night artwork is not installed yet, so night cannot be enabled.");
+    expect(body).toMatch(/<input[^>]*disabled[^>]*type="checkbox"[^>]*>\s*<span>Use night scenes on a schedule/);
+    expect(body).toMatch(/<button[^>]*aria-pressed="false"[^>]*disabled[^>]*>Night<\/button>/);
+    // No device suggestion is rendered on the server, so the browser zone is never a default.
+    expect(body).not.toContain("this device");
+    expect(body).not.toContain("\u2014");
+  });
+  it("defaults the preview to the saved schedule and saved moon, with explicit day and night choices", () => {
+    const state = structuredClone(unavailable);
+    state.effective_night = { ...state.effective_night, ready: true, active: true, scheduled: true, local_time: "23:10", timezone: "Europe/Stockholm" };
+    state.settings.night = { enabled: true, start: "22:00", end: "06:00", timezone: "Europe/Stockholm", moon: false };
+    const { body } = render(WelcomeManager, { props: { initial: state, channels: [] } });
+    expect(body).toContain("Night at last update, 23:10 Europe/Stockholm");
+    expect(body).toContain('aria-label="Preview time of day"');
+    expect(body).toMatch(/<button[^>]*aria-pressed="true"[^>]*>As scheduled<\/button>/);
+    expect(body).toMatch(/<button[^>]*aria-pressed="false"[^>]*>Day<\/button>/);
+    expect(body).toMatch(/<button[^>]*aria-pressed="false"(?![^>]*disabled)[^>]*>Night<\/button>/);
+    expect(body).toContain("As scheduled uses the last loaded or saved server scene: night.");
+    expect(body).toMatch(/<option[^>]*value="saved"[^>]*selected[^>]*>Saved setting \(no moon\)/);
+    expect(body).toContain("Night previews only. Not saved.");
+    expect(body).not.toContain("cannot be enabled");
+  });
+  it("renders every server catalog entry, including the five new events, in odds and preview", () => {
+    const state = structuredClone(unavailable);
+    state.catalog = fifteen;
+    state.settings.variants = fifteen.map(({ id }, index) => ({ id, enabled: index < 10, weight: 8 }));
+    state.effective_chances = fifteen.map(({ id }, index) => ({ id, percent: index < 10 ? 10 : 0 }));
+    const { body } = render(WelcomeManager, { props: { initial: state, channels: [] } });
+    expect(body.match(/ weight"/g)).toHaveLength(15);
+    for (const label of ["Gnome hide and seek", "Bunny leapfrog", "Event 12", "Event 13", "Event 14"]) {
+      expect(body).toContain(`Enable ${label}`);
+      expect(body).toContain(`${label} weight`);
+    }
+    expect(body).toContain("Bunny leapfrog saved chance: 0%");
+    expect(body).toContain("Event 1 saved chance: 10%");
+    expect(body).toContain("Story 1");
+  });
+  it("keeps the previous interface against a server without night scheduling", () => {
+    const { effective_night: _effective, settings: { night: _night, ...settings }, ...rest } = structuredClone(unavailable);
+    const legacy: WelcomeResponse = { ...rest, settings };
+    expect(legacy).not.toHaveProperty("effective_night");
+    expect(legacy.settings).not.toHaveProperty("night");
+    const { body } = render(WelcomeManager, { props: { initial: legacy, channels: [] } });
+    expect(body).toContain("Night is not available on this server yet. Welcomes use day scenes.");
+    for (const absent of ["Night starts", "welcome-timezones", "Show the moon", "Preview time of day", "As scheduled", "Night previews only", "cannot be enabled", "Night:"]) {
+      expect(body).not.toContain(absent);
+    }
+    // Everything else is unchanged.
+    expect(body).toContain("Enabled welcomes need normal and winter artwork");
+    expect(body).toContain('aria-label="Preview season"');
+    expect(body).toContain("No sky effect chance: 100%");
+    expect(body).toContain("Quiet forest weight");
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { welcomeInputIssue, welcomeMessageIssue, welcomePreviewKey, welcomePreviewMessageChanged, welcomeReadinessIssue, welcomeSkyChances, welcomeSkyEffectIssue, type WelcomeMessage, type WelcomeSettings, type WelcomeState } from "./welcome";
+import { welcomeInputIssue, welcomeMessageIssue, welcomeNightIssue, welcomeNightReadinessIssue, welcomeNightSummary, welcomePreviewKey, welcomePreviewMessageChanged, welcomeReadinessIssue, welcomeSaveBody, welcomeSkyChances, welcomeStateWithNight, WELCOME_NIGHT_DEFAULT, welcomeSkyEffectIssue, type WelcomeMessage, type WelcomeSettings, type WelcomeState } from "./welcome";
 
 const catalog: WelcomeState["catalog"] = [
   { id: "ready", label: "Ready motif", description: "", normal_ready: true, winter_ready: true },
@@ -12,7 +12,9 @@ const settings: WelcomeSettings = {
   message: { headline: "Welcome", subtitle: "TO SEQUOIA", font: "minecraft" },
   name_font: "minecraft",
   effects: { sky: [{ id: "aurora", percent: 35 }] },
+  night: { enabled: false, start: "21:00", end: "07:00", timezone: "UTC", moon: false },
 };
+const timezones = ["UTC", "Europe/Stockholm", "America/New_York"];
 
 describe("proposed welcome enable guard", () => {
   it("allows the complete proposed save after disabling or zeroing a pending motif", () => {
@@ -49,7 +51,7 @@ describe("independent welcome sky effects", () => {
     const pending = [{ ...effects[0], winter_ready: false }];
     expect(welcomeSkyChances(settings.effects.sky, pending)?.get("aurora")).toBe(0);
     expect(welcomeSkyChances(settings.effects.sky, pending)?.get("none")).toBe(100);
-    expect(welcomeInputIssue({ ...settings, enabled: false })).toBeNull();
+    expect(welcomeInputIssue({ ...settings, enabled: false }, timezones)).toBeNull();
   });
   it("rejects invalid percentages and totals, rather than displaying a false zero", () => {
     for (const percent of [-1, 101, 0.5, Number.NaN]) {
@@ -117,5 +119,96 @@ describe("welcome message draft", () => {
     }
     expect(welcomeMessageIssue({ ...settings.message, headline: "😀".repeat(64) })).toBeNull();
     expect(welcomeMessageIssue(settings.message)).toBeNull();
+  });
+});
+
+describe("night schedule draft", () => {
+  it("summarizes the default cross-midnight interval with its named timezone", () => {
+    expect(welcomeNightIssue(settings.night, timezones)).toBeNull();
+    expect(welcomeNightSummary(settings.night)).toBe("Night from 21:00 to 07:00 (UTC), crossing midnight");
+    expect(welcomeNightSummary({ start: "01:30", end: "05:00", timezone: "Europe/Stockholm" })).toBe("Night from 01:30 to 05:00 (Europe/Stockholm)");
+    expect(welcomeNightSummary({ start: "00:00", end: "23:59", timezone: "UTC" })).not.toContain("crossing midnight");
+  });
+  it("rejects equal endpoints as ambiguous rather than all day or never", () => {
+    const night = { ...settings.night, start: "21:00", end: "21:00" };
+    expect(welcomeNightIssue(night, timezones)?.end).toContain("different time");
+    expect(welcomeNightSummary(night)).toBeNull();
+    expect(welcomeInputIssue({ ...settings, night }, timezones)).toContain("Night:");
+  });
+  it("accepts only exact 24-hour HH:MM times", () => {
+    for (const time of ["9:00", "24:00", "21:60", "21:00:00", "9pm", " 21:00", "", "2100"]) {
+      expect(welcomeNightIssue({ ...settings.night, start: time }, timezones)?.start).toContain("24-hour");
+      expect(welcomeNightIssue({ ...settings.night, end: time }, timezones)?.end).toContain("24-hour");
+      expect(welcomeNightSummary({ ...settings.night, start: time })).toBeNull();
+    }
+    for (const time of ["00:00", "23:59", "07:05"]) expect(welcomeNightIssue({ ...settings.night, start: time }, timezones)).toBeNull();
+  });
+  it("accepts only a timezone from the server's list, with exact case", () => {
+    for (const timezone of ["Mars/Olympus", "europe/stockholm", "CET+1", " "]) {
+      expect(welcomeNightIssue({ ...settings.night, timezone }, timezones)?.timezone).toBeTruthy();
+    }
+    expect(welcomeNightIssue({ ...settings.night, timezone: "Europe/Stockholm" }, timezones)).toBeNull();
+    // Validation applies while night is off as well, so a later enable cannot surprise the admin.
+    expect(welcomeInputIssue({ ...settings, night: { ...settings.night, enabled: false, timezone: "Nowhere" } }, timezones)).toContain("timezone");
+  });
+  it("blocks only turning on or changing an enabled schedule while night artwork is not ready", () => {
+    const saved = settings.night;
+    expect(welcomeNightReadinessIssue({ ...saved, enabled: true }, saved, false)).toContain("cannot be enabled");
+    expect(welcomeNightReadinessIssue({ ...saved, enabled: true }, saved, true)).toBeNull();
+    expect(welcomeNightReadinessIssue({ ...saved, moon: true }, saved, false)).toBeNull();
+    const enabled = { ...saved, enabled: true };
+    expect(welcomeNightReadinessIssue(enabled, enabled, false)).toBeNull();
+    expect(welcomeNightReadinessIssue({ ...enabled, start: "22:00" }, enabled, false)).toContain("cannot be enabled");
+    expect(welcomeNightReadinessIssue({ ...enabled, enabled: false }, enabled, false)).toBeNull();
+  });
+  it("keys previews by explicit day, night and moon choices and by the saved schedule they follow", () => {
+    const message = settings.message;
+    const base = welcomePreviewKey("ready", "normal", "Member", message, "none", "minecraft");
+    expect(welcomePreviewKey("ready", "normal", "Member", message, "none", "minecraft", {})).toBe(base);
+    const keys = [
+      { saved: settings.night },
+      { night: false, saved: settings.night },
+      { night: true, saved: settings.night },
+      { night: true, moon: true, saved: settings.night },
+      { night: true, moon: false, saved: settings.night },
+      { moon: false, saved: settings.night },
+    ].map((scene) => welcomePreviewKey("ready", "normal", "Member", message, "none", "minecraft", scene));
+    expect(new Set(keys).size).toBe(keys.length);
+    // Following the saved schedule or moon must not reuse a still rendered before that setting changed.
+    const changed = { ...settings.night, moon: true };
+    expect(welcomePreviewKey("ready", "normal", "Member", message, "none", "minecraft", { saved: changed })).not.toBe(keys[0]);
+    expect(welcomePreviewKey("ready", "normal", "Member", message, "none", "minecraft", { night: true, saved: changed })).not.toBe(keys[2]);
+    // Fully explicit scenes do not depend on the saved schedule.
+    expect(welcomePreviewKey("ready", "normal", "Member", message, "none", "minecraft", { night: true, moon: false, saved: changed })).toBe(keys[4]);
+  });
+});
+
+describe("servers without night scheduling", () => {
+  const legacySettings = welcomeSaveBody(settings, false);
+  const legacy = {
+    settings: legacySettings, catalog, effective_season: "normal" as const, effective_chances: [], ready: true,
+    viewer: { display_name: "Member" }, fonts: [], effects: { sky: [] }, effective_effect_chances: { sky: [] },
+  };
+  it("fills the documented defaults and reports night as unsupported", () => {
+    const { state, nightSupported } = welcomeStateWithNight(structuredClone(legacy));
+    expect(nightSupported).toBe(false);
+    expect(state.settings.night).toEqual({ enabled: false, start: "21:00", end: "07:00", timezone: "UTC", moon: false });
+    expect(state.effective_night).toEqual({ active: false, scheduled: false, local_time: null, timezone: "UTC", ready: false, timezones: [] });
+    expect(WELCOME_NIGHT_DEFAULT).toEqual(settings.night);
+  });
+  it("never sends night back to an older server, and keeps it for a current one", () => {
+    expect(legacySettings).not.toHaveProperty("night");
+    expect(legacySettings).toEqual(Object.fromEntries(Object.entries(settings).filter(([key]) => key !== "night")));
+    expect(welcomeSaveBody(settings, true)).toEqual(settings);
+    const saved = { ...settings, night: { ...settings.night, moon: true } };
+    const { state, nightSupported } = welcomeStateWithNight({ ...legacy, settings: saved, effective_night: { active: true, scheduled: true, local_time: "22:00", timezone: "UTC", ready: true, timezones } });
+    expect(nightSupported).toBe(true);
+    expect(state.settings.night).toEqual(saved.night);
+    expect(state.settings.night.moon).toBe(true);
+  });
+  it("skips night validation when the server has no timezone list for it", () => {
+    const { state } = welcomeStateWithNight(structuredClone(legacy));
+    expect(welcomeInputIssue(state.settings, null)).toBeNull();
+    expect(welcomeInputIssue(state.settings, [])).toContain("Night:");
   });
 });
