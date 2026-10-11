@@ -32,7 +32,8 @@ export function messageLink(entry: Pick<AuditEntry, "source" | "detail" | "actio
   return null;
 }
 
-export interface AuditChange { label: string; before: string; after: string }
+/** `key` identifies the row when labels can repeat; it defaults to the label. */
+export interface AuditChange { label: string; before: string; after: string; key?: string }
 
 const WELCOME_LABELS: Record<string, string> = {
   enabled: "Automatic welcomes", channel_id: "Destination channel", season_mode: "Season mode",
@@ -184,11 +185,15 @@ function catalogValue(category: Record<string, unknown> | undefined, other: Reco
   const hidden = all.length - Math.min(milestones.length, CATALOG_LISTED);
   if (all.length > 0) {
     const number = new Intl.NumberFormat("en");
+    const text = (milestone: Record<string, unknown> | null) => {
+      const style = typeof milestone?.tier === "string" ? ` (${milestone.tier.charAt(0).toUpperCase()}${milestone.tier.slice(1)})` : "";
+      return `${String(milestone?.label)} ${typeof milestone?.at === "number" ? number.format(milestone.at) : "?"}${style}`;
+    };
+    // A milestone that only changed identity (a reset to the default id) shows its id.
     const listed = milestones.slice(0, CATALOG_LISTED)
-      .map((milestone) => {
-        const style = typeof milestone?.tier === "string" ? ` (${milestone.tier.charAt(0).toUpperCase()}${milestone.tier.slice(1)})` : "";
-        return `${String(milestone?.label)} ${typeof milestone?.at === "number" ? number.format(milestone.at) : "?"}${style}`;
-      });
+      .map((milestone) => !same(milestone) && others.some((item) => text(item) === text(milestone)) && typeof milestone?.id === "string"
+        ? `${text(milestone)} [${milestone.id}]`
+        : text(milestone));
     if (hidden > 0) listed.push(`+${hidden} more`);
     parts.push(listed.join(", "));
   }
@@ -210,7 +215,7 @@ export function achievementCatalogAuditChanges(entry: Pick<AuditEntry, "source" 
     return keys.map((key, index) => {
       const [old, next] = [before.get(key), after.get(key)];
       const shared = names.filter((name) => name === names[index]).length > 1;
-      return { label: shared ? `${names[index]} (${key})` : names[index], before: catalogValue(old, next), after: catalogValue(next, old) };
+      return { key, label: shared ? `${names[index]} (${key})` : names[index], before: catalogValue(old, next), after: catalogValue(next, old) };
     });
   } catch { return null; }
 }
