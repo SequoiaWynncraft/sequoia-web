@@ -57,7 +57,6 @@
   const issue = $derived(welcomeInputIssue(draft, nightSupported ? saved.effective_night.timezones : null) ?? welcomeNightReadinessIssue(draft.night, saved.settings.night, saved.effective_night.ready));
   const nightIssue = $derived(welcomeNightIssue(draft.night, saved.effective_night.timezones));
   const nightSummary = $derived(welcomeNightSummary(draft.night));
-  const nightDirty = $derived(JSON.stringify(draft.night) !== JSON.stringify(saved.settings.night));
   const readinessIssue = $derived(welcomeReadinessIssue(draft, saved.catalog));
   const draftReady = $derived(readinessIssue === null);
   const selected = $derived(saved.catalog.find((item) => item.id === selectedId));
@@ -154,7 +153,7 @@
       if (animated) playbackTimer = setTimeout(showCachedStill, 16_000);
     } catch (cause) {
       if (requestSerial === serial && !(cause instanceof DOMException && cause.name === "AbortError")) {
-        previewError = cause instanceof Error ? cause.message : "Could not reach the welcome renderer.";
+        previewError = cause instanceof Error ? cause.message : "Could not load the preview.";
       }
     } finally {
       if (requestSerial === serial) { previewBusy = false; pendingFormat = null; }
@@ -206,11 +205,11 @@
     busy = false;
     if (!result.ok) {
       conflict = result.error.status === 409;
-      error = conflict ? "Someone saved newer settings. Your changes are still here. Reload the saved settings before editing again." : result.error.message;
+      error = conflict ? "Someone saved newer settings. Your edits are kept until you reload." : result.error.message;
       return;
     }
     received(result.data);
-    notice = "Changes saved. Future joins use these settings.";
+    notice = "Saved. Applies to future joins.";
   }
 
   async function reloadSaved() {
@@ -224,7 +223,7 @@
 
   function discard() {
     draft = structuredClone($state.snapshot(saved.settings));
-    error = conflict ? "Reload the saved settings to resolve the version conflict." : null;
+    error = conflict ? "Reload saved settings to resolve the conflict." : null;
     notice = null;
     navigationBlocked = false;
   }
@@ -242,7 +241,7 @@
   }
 </script>
 
-<ManageHeader area="Discord" title="Welcome messages" lead={`Automatic welcomes are ${saved.settings.enabled ? "on" : "off"}. ${saved.effective_season === "winter" ? "Winter" : "Normal"} season is active.`} />
+<ManageHeader area="Discord" title="Welcome messages" lead={`Welcomes are ${saved.settings.enabled ? "on" : "off"}. ${saved.effective_season === "winter" ? "Winter" : "Normal"} season is active.`} />
 
 <div class="welcome-workspace">
   <section class="settings" aria-label="Welcome settings">
@@ -286,35 +285,35 @@
           <NumberInput bind:value={draft.winter_end.day} min={1} max={31} step={1} required aria-label="Winter end day" />
         </div>
       </div>
-      <p class="hint">Repeats each year in UTC, including both dates. The window applies in Automatic mode.</p>
+      <p class="hint">Yearly in UTC, both dates included. Used in Automatic mode.</p>
 
       {#if !nightSupported}
       <div class="section-head night-head"><h2>Night</h2></div>
-      <p class="hint">Night is not available on this server yet. Welcomes use day scenes.</p>
+      <p class="hint">Not available on this server yet. Welcomes use day scenes.</p>
       {:else}
       <div class="section-head night-head"><h2>Night</h2><span class="season-state">{saved.effective_night.active ? "Night at last update" : "Day at last update"}{saved.effective_night.local_time ? `, ${saved.effective_night.local_time} ${saved.effective_night.timezone}` : ""}</span></div>
       <Toggle bind:checked={draft.night.enabled} label="Use night scenes on a schedule" disabled={!saved.effective_night.ready && !draft.night.enabled} />
       {#if !saved.effective_night.ready}
-        <p class="readiness" role="status">Night artwork is not installed yet, so night cannot be enabled.</p>
+        <p class="readiness" role="status">Night artwork is not installed yet, so night stays off.</p>
       {/if}
       <div class="night-window" class:overridden={!draft.night.enabled}>
         <div class="night-times">
           <Field label="Night starts" hint="24-hour time" error={nightIssue?.start}><TextInput bind:value={draft.night.start} inputmode="numeric" maxlength={5} placeholder="21:00" autocomplete="off" mono required /></Field>
           <Field label="Night ends" hint="24-hour time" error={nightIssue?.end}><TextInput bind:value={draft.night.end} inputmode="numeric" maxlength={5} placeholder="07:00" autocomplete="off" mono required /></Field>
         </div>
-        <Field label="Timezone" hint="Search named zones. Daylight saving follows this zone." error={nightIssue?.timezone}>
+        <Field label="Timezone" hint="Named zone, with its daylight saving." error={nightIssue?.timezone}>
           <TextInput bind:value={draft.night.timezone} list="welcome-timezones" placeholder="UTC" autocomplete="off" spellcheck={false} required />
         </Field>
         <datalist id="welcome-timezones">{#each saved.effective_night.timezones as zone (zone)}<option value={zone}></option>{/each}</datalist>
         {#if deviceZone && deviceZone !== draft.night.timezone && saved.effective_night.timezones.includes(deviceZone)}
-          <Button variant="ghost" size="sm" onclick={() => { draft.night.timezone = deviceZone; }}>Use this device's timezone ({deviceZone})</Button>
+          <Button variant="ghost" size="sm" onclick={() => { draft.night.timezone = deviceZone; }}>Use device timezone ({deviceZone})</Button>
         {/if}
         <Toggle bind:checked={draft.night.moon} label="Show the moon" />
       </div>
-      <p class="hint">{nightSummary ? `${nightSummary}. Starts at the start time and ends just before the end time.` : "Enter a start, a different end and a timezone to see the night interval."}{draft.night.enabled ? "" : " Night is off, so welcomes use day scenes."}{nightDirty ? " As scheduled reflects the last loaded or saved server scene." : ""}</p>
+      <p class="hint">{nightSummary ? `${nightSummary}.` : "Enter a start, a different end and a timezone."}{draft.night.enabled ? "" : " Off: welcomes use day scenes."}</p>
       {/if}
 
-      <div class="section-head variants-head"><h2>Welcome odds</h2><span class="hint">Higher weight means more often</span></div>
+      <div class="section-head variants-head"><h2>Welcome odds</h2><span class="hint">Higher weight, more often. Zero never wins.</span></div>
       <div class="variant-columns" aria-hidden="true"><span>Welcome</span><span>Weight</span><span>{dirty ? "After save" : "Chance"}</span></div>
       <div class="variants">
         {#each draft.variants as variant (variant.id)}
@@ -330,7 +329,6 @@
           </div>
         {/each}
       </div>
-      <p class="hint">Zero weight never wins. {dirty ? "Proposed chances apply after saving." : "Chances reflect the saved settings."}</p>
 
       <div class="section-head effects-head"><h2>Sky effects</h2><span class="hint">Independent of welcome odds</span></div>
       <div class="effect-columns" aria-hidden="true"><span>Sky effect</span><span>Percent</span><span>{dirty ? "After save" : "Chance"}</span></div>
@@ -348,7 +346,7 @@
         <div class="sky-effect no-effect"><span>No effect</span><span aria-hidden="true"></span><span class="chance" aria-label={`No sky effect chance: ${welcomeChance(displayedSkyChances?.get("none"))}`}>{welcomeChance(displayedSkyChances?.get("none"))}</span></div>
       </div>
       <FormStatus error={skyEffectIssue} compact />
-      <p class="hint">Unused percentage means no effect. Effects with pending artwork count as no effect until both seasons are ready.</p>
+      <p class="hint">Unused percent and pending artwork mean no effect.</p>
 
       <div class="section-head links-head"><h2>Welcome links</h2><span class="hint">Up to five</span></div>
       <div class="link-editor">
@@ -375,51 +373,58 @@
   </section>
 
   <aside class="preview" id="welcome-preview" aria-label="Welcome preview">
-    <div class="section-head"><h2>Preview</h2><span class="hint">Your member avatar</span></div>
+    <div class="section-head"><h2>Preview</h2></div>
     <div class="preview-heading"><h3 class="preview-title">{selected?.label ?? "Choose a welcome"}</h3>
       <div class="variant-navigation"><Button variant="ghost" size="sm" disabled={draft.variants.length < 2} aria-label="Previous welcome" onclick={() => nextVariant(-1)}>Previous</Button><Button variant="ghost" size="sm" disabled={draft.variants.length < 2} aria-label="Next welcome" onclick={() => nextVariant(1)}>Next</Button></div>
     </div>
     {#if selected?.description}<p class="preview-description">{selected.description}</p>{/if}
-    <div class="preview-season" role="group" aria-label="Preview season">
-      <button type="button" aria-pressed={season === "normal"} onclick={() => { season = "normal"; }}>Normal</button>
-      <button type="button" aria-pressed={season === "winter"} onclick={() => { season = "winter"; }}>Winter</button>
+    <p class="hint">Uses your avatar and a sample name. Season{nightSupported ? ", time, moon" : ""}, sky effect and name here are preview only, never saved.</p>
+    <div class="preview-modes" class:split={nightSupported}>
+      <div class="preview-season" role="group" aria-label="Preview season">
+        <button type="button" aria-pressed={season === "normal"} onclick={() => { season = "normal"; }}>Normal</button>
+        <button type="button" aria-pressed={season === "winter"} onclick={() => { season = "winter"; }}>Winter</button>
+      </div>
+      {#if nightSupported}
+      <div class="preview-season preview-time" role="group" aria-label="Preview time of day">
+        <button type="button" aria-pressed={previewTime === "scheduled"} onclick={() => { previewTime = "scheduled"; }}>As scheduled</button>
+        <button type="button" aria-pressed={previewTime === "day"} onclick={() => { previewTime = "day"; }}>Day</button>
+        <button type="button" aria-pressed={previewTime === "night"} disabled={!saved.effective_night.ready} onclick={() => { previewTime = "night"; }}>Night</button>
+      </div>
+      {/if}
     </div>
-    {#if nightSupported}
-    <div class="preview-season preview-time" role="group" aria-label="Preview time of day">
-      <button type="button" aria-pressed={previewTime === "scheduled"} onclick={() => { previewTime = "scheduled"; }}>As scheduled</button>
-      <button type="button" aria-pressed={previewTime === "day"} onclick={() => { previewTime = "day"; }}>Day</button>
-      <button type="button" aria-pressed={previewTime === "night"} disabled={!saved.effective_night.ready} onclick={() => { previewTime = "night"; }}>Night</button>
+    {#if nightSupported && previewTime === "scheduled"}<p class="hint">As scheduled: {saved.effective_night.active ? "night" : "day"} at last update.</p>{/if}
+    <div class="preview-options">
+      {#if nightSupported}
+      <Field label="Moon" hint="Night only">
+        <Select bind:value={previewMoon} disabled={previewTime === "day"}>
+          <option value="saved">Saved setting ({saved.settings.night.moon ? "moon shown" : "no moon"})</option>
+          <option value="shown">Moon shown</option>
+          <option value="hidden">No moon</option>
+        </Select>
+      </Field>
+      {/if}
+      <Field label="Sky effect">
+        <Select bind:value={previewEffect}>
+          <option value="none">No effect</option>
+          {#each saved.effects.sky as effect (effect.id)}<option value={effect.id} disabled={!effect[season === "winter" ? "winter_ready" : "normal_ready"]}>{effect.label}{!effect[season === "winter" ? "winter_ready" : "normal_ready"] ? " (artwork pending)" : ""}</option>{/each}
+        </Select>
+      </Field>
+      <Field label="Sample name">
+        <TextInput bind:value={sampleName} placeholder={saved.viewer.display_name} />
+      </Field>
     </div>
-    <p class="hint">{previewTime === "scheduled" ? `As scheduled uses the last loaded or saved server scene: ${saved.effective_night.active ? "night" : "day"}.` : "Preview choice only. The saved schedule applies to member welcomes."}</p>
-    <Field label="Moon" hint="Night previews only. Not saved.">
-      <Select bind:value={previewMoon} disabled={previewTime === "day"}>
-        <option value="saved">Saved setting ({saved.settings.night.moon ? "moon shown" : "no moon"})</option>
-        <option value="shown">Moon shown</option>
-        <option value="hidden">No moon</option>
-      </Select>
-    </Field>
-    {/if}
-    <Field label="Sky effect" hint="Preview choice only. Saved odds apply to member welcomes.">
-      <Select bind:value={previewEffect}>
-        <option value="none">No effect</option>
-        {#each saved.effects.sky as effect (effect.id)}<option value={effect.id} disabled={!effect[season === "winter" ? "winter_ready" : "normal_ready"]}>{effect.label}{!effect[season === "winter" ? "winter_ready" : "normal_ready"] ? " (artwork pending)" : ""}</option>{/each}
-      </Select>
-    </Field>
-    <Field label="Sample name" hint="Real joins use the member's display name automatically.">
-      <TextInput bind:value={sampleName} placeholder={saved.viewer.display_name} />
-    </Field>
-    {#if previewIdentity && previewIdentity.key !== previewRequest.key}<p class="hint">Showing previous preview: {previewIdentity.description}.</p>{/if}
+    {#if previewIdentity && previewIdentity.key !== previewRequest.key}<p class="hint">Showing previous: {previewIdentity.description}.</p>{/if}
     <div class="preview-image" aria-busy={previewBusy}>
       {#if previewUrl}
         <img src={previewUrl} alt={previewIdentity?.description ?? "Welcome preview"} width="768" height="432" />
-      {:else if previewBusy}<p role="status">Rendering your welcome…</p>
-      {:else if !previewNightReady}<p>Night artwork is not installed yet. Choose Day or As scheduled to preview the welcome.</p>
-      {:else if !previewEffectReady}<p>{selectedEffect?.label ?? "This sky effect"} is not ready for this season. Choose No effect to preview the welcome.</p>
-      {:else if !previewReady}<p>This {season} preview is not ready. Its artwork is still being prepared.</p>
+      {:else if previewBusy}<p role="status">Rendering preview…</p>
+      {:else if !previewNightReady}<p>Night artwork is not installed yet. Choose Day or As scheduled.</p>
+      {:else if !previewEffectReady}<p>{selectedEffect?.label ?? "This sky effect"} is not ready for this season. Choose No effect.</p>
+      {:else if !previewReady}<p>{season === "winter" ? "Winter" : "Normal"} artwork for this welcome is still being prepared.</p>
       {:else if messageIssue}<p>{messageIssue}</p>
       {:else if !previewError}<p>Preparing preview…</p>{/if}
     </div>
-    {#if previewBusy && previewUrl}<p class="hint" role="status">Rendering the selected welcome…</p>{/if}
+    {#if previewBusy && previewUrl}<p class="hint" role="status">Updating preview…</p>{/if}
     <FormStatus error={previewError} compact />
     <div class="preview-actions">
       <Button variant="secondary" disabled={!previewReady || !!messageIssue || previewBusy || !previewUrl || previewIdentity?.key !== previewRequest.key} onclick={() => animated ? showCachedStill() : void renderPreview(previewRequest, "gif")}>{animated ? "Stop animation" : "Play animation"}</Button>
@@ -456,8 +461,8 @@
   </aside>
 </div>
 
-<ConfirmDialog bind:this={reloadDialog} title="Reload saved settings?" body="Your unsaved changes will be discarded. The newest settings will be loaded." confirmLabel="Reload settings" onconfirm={() => void reloadSaved()} />
-<ConfirmDialog bind:this={discardDialog} title="Discard unsaved changes?" body="The saved settings and existing welcome messages will remain unchanged." confirmLabel="Discard changes" onconfirm={discard} />
+<ConfirmDialog bind:this={reloadDialog} title="Reload saved settings?" body="Unsaved changes will be lost." confirmLabel="Reload settings" onconfirm={() => void reloadSaved()} />
+<ConfirmDialog bind:this={discardDialog} title="Discard unsaved changes?" body="Saved settings and posted welcomes stay as they are." confirmLabel="Discard changes" onconfirm={discard} />
 
 <style>
   .welcome-workspace { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(300px, 1fr); gap: 32px; align-items: start; }
@@ -515,6 +520,9 @@
   .preview-description { margin: 0; color: var(--text-body); font-size: var(--text-sm); line-height: 1.5; }
   .preview-season { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--border-default); }
   .preview-time { grid-template-columns: repeat(3, 1fr); }
+  .preview-modes { display: grid; gap: 8px; }
+  .preview-modes.split { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); }
+  .preview-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); align-items: start; gap: 12px; }
   .preview-season button { min-height: 44px; border: 0; background: none; color: var(--text-body); font: inherit; font-size: var(--text-sm); cursor: pointer; }
   .preview-season button[aria-pressed="true"] { color: var(--color-gold); background: color-mix(in srgb, var(--color-gold) 10%, transparent); }
   .preview-image { display: grid; place-items: center; aspect-ratio: 16 / 9; border: 1px solid var(--border-default); background: var(--color-deep); overflow: hidden; }
@@ -534,7 +542,7 @@
     .preview { position: static; max-width: 768px; max-height: none; overflow-y: visible; order: -1; }
   }
   @media (max-width: 520px) {
-    .message-lines { grid-template-columns: 1fr; }
+    .message-lines, .preview-modes.split { grid-template-columns: 1fr; }
     .winter-window { gap: 12px; }
     .variant-columns, .variant, .effect-columns, .sky-effect { grid-template-columns: minmax(0, 1fr) 64px 70px; gap: 8px; padding-inline: 4px; }
     .variant-columns, .effect-columns { font-size: var(--text-2xs); }

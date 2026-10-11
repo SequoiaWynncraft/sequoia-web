@@ -135,7 +135,7 @@
       if (animated) playbackTimer = setTimeout(showCachedStill, CEREMONY_LOOP_MS);
     } catch (cause) {
       if (requestSerial === serial && !(cause instanceof DOMException && cause.name === "AbortError")) {
-        previewError = cause instanceof Error ? cause.message : "Could not reach the ceremony renderer.";
+        previewError = cause instanceof Error ? cause.message : "Could not load the preview.";
       }
     } finally {
       if (requestSerial === serial) { previewBusy = false; pendingFormat = null; }
@@ -180,11 +180,11 @@
     busy = false;
     if (!result.ok) {
       conflict = result.error.status === 409;
-      error = conflict ? "Someone saved newer settings. Your changes are still here. Reload the saved settings before editing again." : result.error.message;
+      error = conflict ? "Someone saved newer settings. Your edits are kept until you reload." : result.error.message;
       return;
     }
     received(result.data);
-    notice = "Changes saved. Future achievements use these settings.";
+    notice = "Saved. Applies to future achievements.";
   }
 
   async function reloadSaved() {
@@ -198,7 +198,7 @@
 
   function discard() {
     draft = structuredClone($state.snapshot(saved.settings));
-    error = conflict ? "Reload the saved settings to resolve the version conflict." : null;
+    error = conflict ? "Reload saved settings to resolve the conflict." : null;
     notice = null;
     navigationBlocked = false;
   }
@@ -210,10 +210,10 @@
   <section class="settings" aria-label="Ceremony settings">
     <fieldset disabled={busy}>
       <div class="section-head">
-        <h2>Achievement ceremonies</h2>
+        <h2>Posting</h2>
         <span class="saved-state">Saved version {saved.settings.version}</span>
       </div>
-      <p class="hint">Earned achievements post an animated ceremony with the member's head, name, tier and progress. Without ceremonies the plain announcement is posted as before.</p>
+      <p class="hint">When off, achievements post the plain announcement.</p>
       <Toggle bind:checked={draft.enabled} label="Post achievement ceremonies" disabled={!draftReady && !draft.enabled} />
       {#if readinessIssue}
         <p class="readiness" role="status">{readinessIssue}</p>
@@ -230,9 +230,9 @@
           <TextInput bind:value={draft.channel_id} inputmode="numeric" />
         {/if}
       </Field>
-      <p class="hint">Season and night follow the welcome schedule. Scene now: <span class="scene-state">{scheduledLabel}</span>.</p>
+      <p class="hint">Season and night follow the welcome schedule.</p>
 
-      <div class="section-head stories-head"><h2>Story odds</h2><span class="hint">Higher weight means more often</span></div>
+      <div class="section-head stories-head"><h2>Story odds</h2><span class="hint">Higher weight, more often. Zero never wins.</span></div>
       <div class="story-columns" aria-hidden="true"><span>Story</span><span>Weight</span><span>{dirty ? "After save" : "Chance"}</span></div>
       <div class="stories">
         {#each rows as story (story.id)}
@@ -251,7 +251,6 @@
           <p class="hint">No stories are installed on this server.</p>
         {/each}
       </div>
-      <p class="hint">Zero weight never wins. {dirty ? "Proposed chances apply after saving." : "Chances reflect the saved settings."}</p>
     </fieldset>
 
     <footer class="save-bar">
@@ -266,8 +265,8 @@
   </section>
 
   <aside class="preview" id="ceremony-preview" aria-label="Ceremony preview">
-    <div class="section-head"><h2>Preview</h2><span class="hint">Your head and name</span></div>
-    <p class="hint">Previews use your own head and in-game name ({saved.viewer.display_name}) with the sample values below. They carry a DEMO stamp and are never posted to Discord.</p>
+    <div class="section-head"><h2>Preview</h2></div>
+    <p class="hint">Uses your head and name ({saved.viewer.display_name}) with sample values. Marked DEMO, never posted.</p>
     <Field label="Story">
       <Select bind:value={storyId} disabled={saved.catalog.length === 0}>
         {#if saved.catalog.length === 0}<option value="">No stories installed</option>{/if}
@@ -288,21 +287,21 @@
       <Field label="Count" error={countIssue ?? undefined}>
         <NumberInput bind:value={count} min={1} max={1000000} step={1} required invalid={!!countIssue} />
       </Field>
-      <Field label="Scene" hint={sceneChoice === "scheduled" ? `Now: ${scheduledLabel}` : "Preview choice only"}>
+      <Field label="Scene" hint={sceneChoice === "scheduled" ? `Now: ${scheduledLabel}` : "Preview only"}>
         <Select bind:value={sceneChoice}>{#each CEREMONY_SCENES as option (option.id)}<option value={option.id}>{option.label}</option>{/each}</Select>
       </Field>
     </div>
-    {#if previewIdentity && previewIdentity.key !== previewRequest.key}<p class="hint">Showing previous preview: {previewIdentity.description}.</p>{/if}
+    {#if previewIdentity && previewIdentity.key !== previewRequest.key}<p class="hint">Showing previous: {previewIdentity.description}.</p>{/if}
     <div class="preview-image" aria-busy={previewBusy}>
       {#if previewUrl}
         <img src={previewUrl} alt={previewIdentity?.description ?? "Ceremony preview"} width="768" height="432" />
-      {:else if previewBusy}<p role="status">Rendering your ceremony…</p>
-      {:else if !selected}<p>No story is available to preview.</p>
-      {:else if !selected.ready}<p>This story is not ready. Its artwork is still being prepared.</p>
+      {:else if previewBusy}<p role="status">Rendering preview…</p>
+      {:else if !selected}<p>No story to preview.</p>
+      {:else if !selected.ready}<p>Artwork for this story is still being prepared.</p>
       {:else if countIssue}<p>{countIssue}</p>
       {:else if !previewError}<p>Preparing preview…</p>{/if}
     </div>
-    {#if previewBusy && previewUrl}<p class="hint" role="status">Rendering the selected ceremony…</p>{/if}
+    {#if previewBusy && previewUrl}<p class="hint" role="status">Updating preview…</p>{/if}
     <FormStatus error={previewError} compact />
     <div class="preview-actions">
       <Button variant="secondary" disabled={!previewReady || previewBusy || !previewUrl || previewIdentity?.key !== previewRequest.key} onclick={() => animated ? showCachedStill() : void renderPreview(previewRequest, "gif")}>{animated ? "Stop animation" : "Play animation"}</Button>
@@ -311,8 +310,8 @@
   </aside>
 </div>
 
-<ConfirmDialog bind:this={reloadDialog} title="Reload saved settings?" body="Your unsaved changes will be discarded. The newest settings will be loaded." confirmLabel="Reload settings" onconfirm={() => void reloadSaved()} />
-<ConfirmDialog bind:this={discardDialog} title="Discard unsaved changes?" body="The saved ceremony settings will remain unchanged." confirmLabel="Discard changes" onconfirm={discard} />
+<ConfirmDialog bind:this={reloadDialog} title="Reload saved settings?" body="Unsaved changes will be lost." confirmLabel="Reload settings" onconfirm={() => void reloadSaved()} />
+<ConfirmDialog bind:this={discardDialog} title="Discard unsaved changes?" body="Saved settings stay as they are." confirmLabel="Discard changes" onconfirm={discard} />
 
 <style>
   .ceremony-workspace { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 1fr); gap: 32px; align-items: start; }
@@ -321,7 +320,6 @@
   .section-head { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 6px 14px; }
   h2 { margin: 0; color: var(--text-heading); font-weight: var(--weight-regular); font-family: var(--font-display); font-size: var(--text-sm); letter-spacing: var(--tracking-wide); text-transform: uppercase; }
   .hint, .saved-state { margin: 0; color: var(--text-body); font-size: var(--text-xs); line-height: 1.5; overflow-wrap: anywhere; }
-  .scene-state { color: var(--color-gold); }
   .readiness { margin: 0; padding: 10px 12px; border-left: 2px solid var(--color-gold); color: var(--text-body); background: var(--color-surface); font-size: var(--text-sm); line-height: 1.5; }
   .stories-head { padding-top: 16px; margin-top: 4px; border-top: 1px solid var(--border-default); }
   .story-columns, .story { display: grid; grid-template-columns: minmax(0, 1fr) 80px 88px; align-items: center; gap: 12px; }
@@ -344,7 +342,7 @@
   .save-status:focus-visible { outline: 2px solid var(--color-gold); outline-offset: 4px; }
   .preview { position: sticky; top: 5rem; display: grid; grid-auto-rows: max-content; align-content: start; gap: 14px; scroll-margin-top: 5rem; max-height: calc(100vh - 5.5rem); overflow-y: auto; }
   .preview-description { margin: 0; color: var(--text-body); font-size: var(--text-sm); line-height: 1.5; }
-  .preview-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .preview-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); align-items: start; gap: 12px; }
   .preview-image { display: grid; place-items: center; aspect-ratio: 16 / 9; border: 1px solid var(--border-default); background: var(--color-deep); overflow: hidden; }
   .preview-image img { display: block; width: 100%; height: auto; image-rendering: pixelated; }
   .preview-image[aria-busy="true"] img { opacity: 0.6; }

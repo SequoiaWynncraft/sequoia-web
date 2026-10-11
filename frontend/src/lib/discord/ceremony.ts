@@ -51,7 +51,7 @@ export function ceremonySceneLabel(scene: CeremonyScene): string {
   return `${scene.season === "winter" ? "Snow" : "Normal"} ${scene.ambiance}`;
 }
 
-/** Explicit scene for the renderer. Scheduled sends the last loaded server scene so stills and playback match. */
+/** Explicit preview scene. Scheduled sends the last loaded server scene so stills and playback match. */
 export function ceremonyPreviewScene(choice: CeremonySceneChoice, scheduled: CeremonyScene): CeremonyScene {
   if (choice === "scheduled") return { ...scheduled };
   const [season, ambiance] = choice.split("-") as [CeremonySeason, CeremonyAmbiance];
@@ -76,11 +76,11 @@ export function ceremonyInputIssue(settings: CeremonySettings): string | null {
   return null;
 }
 
-/** Draft display guard for enabling. Rust still verifies the bundle, channel permissions and odds on save. */
+/** Draft display guard for enabling. Rust still verifies artwork, channel permissions and odds on save. */
 export function ceremonyReadinessIssue(settings: CeremonySettings, ready: boolean): string | null {
-  if (!ready) return "Ceremony artwork is not installed yet, so ceremonies cannot be enabled.";
-  if (!validSnowflake(settings.channel_id)) return "Choose a valid destination channel before enabling ceremonies.";
-  if (ceremonyWeightIssue(settings.stories)) return "Use whole-number weights from 0 to 1000 before enabling ceremonies.";
+  if (!ready) return "Ceremony artwork is not installed yet, so ceremonies stay off.";
+  if (!validSnowflake(settings.channel_id)) return "Choose a valid channel before turning ceremonies on.";
+  if (ceremonyWeightIssue(settings.stories)) return "Use whole-number weights from 0 to 1000.";
   if (!settings.stories.some(({ enabled, weight }) => enabled && weight > 0)) return "Enable at least one story with a positive weight.";
   return null;
 }
@@ -94,7 +94,7 @@ export function ceremonyProposedChances(stories: CeremonySettings["stories"]): M
 }
 
 export function ceremonyCountIssue(count: number | null | undefined): string | null {
-  if (typeof count !== "number" || !Number.isInteger(count) || count < 1 || count > CEREMONY_COUNT_MAX) return "Enter a whole-number sample count from 1 to 1,000,000.";
+  if (typeof count !== "number" || !Number.isInteger(count) || count < 1 || count > CEREMONY_COUNT_MAX) return "Use a whole number from 1 to 1,000,000.";
   return null;
 }
 

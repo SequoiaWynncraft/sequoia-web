@@ -42,7 +42,7 @@ export interface WelcomeState {
   effective_effect_chances: { sky: { id: WelcomePreviewEffect; percent: number }[] };
   effective_night: { active: boolean; scheduled: boolean; local_time: string | null; timezone: string; ready: boolean; timezones: string[] };
 }
-/** Wire shape. Sierra builds from before night scheduling omit both night fields. */
+/** Wire shape. Servers from before night scheduling omit both night fields. */
 export type WelcomeResponse = Omit<WelcomeState, "settings" | "effective_night"> & {
   settings: Omit<WelcomeSettings, "night"> & { night?: WelcomeNight };
   effective_night?: WelcomeState["effective_night"];
@@ -84,7 +84,7 @@ export function welcomePreviewScene(nightSupported: boolean, snapshot: { active:
   };
 }
 
-/** The renderer remains the authority for glyph support and visible text fit. */
+/** The server remains the authority for glyph support and visible text fit. */
 export function welcomeMessageIssue(message: WelcomeMessage): string | null {
   for (const [label, text] of [["Headline", message.headline], ["Subtitle", message.subtitle]]) {
     if (!text.trim()) return `Enter a ${label.toLowerCase()}.`;
@@ -123,7 +123,7 @@ export function welcomeNightSummary(night: Pick<WelcomeNight, "start" | "end" | 
 /** Turning night on, or changing an enabled schedule, needs verified night artwork. Turning it off never does. */
 export function welcomeNightReadinessIssue(draft: WelcomeNight, saved: WelcomeNight, ready: boolean): string | null {
   if (ready || !draft.enabled || JSON.stringify(draft) === JSON.stringify(saved)) return null;
-  return "Night artwork is not installed yet, so night cannot be enabled. Turn off night to save other changes.";
+  return "Night artwork is not installed yet. Turn off night to save other changes.";
 }
 
 export function welcomeSkyEffectIssue(sky: WelcomeSettings["effects"]["sky"]): string | null {
@@ -152,16 +152,16 @@ export function welcomePreviewMessageChanged(previous: WelcomeMessage, next: Wel
   return previous.headline !== next.headline || previous.subtitle !== next.subtitle || previous.font !== next.font;
 }
 
-/** Draft display guard only. Rust still verifies permissions and actual renderer readiness on save. */
+/** Draft display guard only. Rust still verifies permissions and actual artwork readiness on save. */
 export function welcomeReadinessIssue(settings: WelcomeSettings, catalog: WelcomeState["catalog"]): string | null {
-  if (!/^[1-9][0-9]*$/.test(settings.channel_id) || BigInt(settings.channel_id) > 18446744073709551615n) return "Choose a valid destination channel before enabling welcomes.";
-  if (settings.variants.some(({ weight }) => !Number.isInteger(weight) || weight < 0 || weight > 1000)) return "Use whole-number weights from 0 to 1000 before enabling welcomes.";
+  if (!/^[1-9][0-9]*$/.test(settings.channel_id) || BigInt(settings.channel_id) > 18446744073709551615n) return "Choose a valid channel before turning welcomes on.";
+  if (settings.variants.some(({ weight }) => !Number.isInteger(weight) || weight < 0 || weight > 1000)) return "Use whole-number weights from 0 to 1000.";
   const eligible = settings.variants.filter(({ enabled, weight }) => enabled && weight > 0);
   if (eligible.length === 0) return "Enable at least one welcome with a positive weight.";
   if (eligible.some(({ id }) => {
     const item = catalog.find((entry) => entry.id === id);
     return !item?.normal_ready || !item.winter_ready;
-  })) return "Enabled welcomes need normal and winter artwork. Disable pending variants or set their weight to zero.";
+  })) return "Enabled welcomes need normal and winter artwork. Turn off pending ones or set their weight to 0.";
   return null;
 }
 

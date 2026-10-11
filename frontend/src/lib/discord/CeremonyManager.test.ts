@@ -40,9 +40,9 @@ describe("achievement ceremony interface", () => {
   it("shows real readiness without an invented image or an enabled ceremony switch", () => {
     const { body } = render(CeremonyManager, { props: { initial: unavailable, channels: [] } });
     expect(body).toContain("Ceremonies are off. Scene now: Normal dusk.");
-    expect(body).toContain("Ceremony artwork is not installed yet, so ceremonies cannot be enabled.");
+    expect(body).toContain("Ceremony artwork is not installed yet, so ceremonies stay off.");
     expect(body).toMatch(/<input[^>]*disabled[^>]*type="checkbox"[^>]*>\s*<span>Post achievement ceremonies/);
-    expect(body).toContain("Its artwork is still being prepared");
+    expect(body).toContain("Artwork for this story is still being prepared.");
     expect(body).toContain("Artwork pending");
     expect(body).toMatch(/<option[^>]*value="sample_story"[^>]*disabled/);
     expect(body).toContain("Sample story saved chance: Not available");
@@ -70,8 +70,10 @@ describe("achievement ceremony interface", () => {
     expect(body).toMatch(/<option[^>]*value="diamond"[^>]*selected/);
     expect(body).toMatch(/<option[^>]*value="scheduled"[^>]*selected/);
     expect(body).toContain("Now: Snow night");
-    expect(body).toContain("Previews use your own head and in-game name (FictionalMember)");
-    expect(body).toContain("They carry a DEMO stamp and are never posted to Discord.");
+    expect(body).toContain("Uses your head and name (FictionalMember) with sample values. Marked DEMO, never posted.");
+    // The scene is stated once in the header and once beside the scene control, not repeated in hints.
+    expect(body.match(/Snow night\./g)).toHaveLength(1);
+    expect(body).not.toMatch(/renderer|bundle|Sierra/i);
     expect(body).toContain("Play animation");
     expect(body).toMatch(/<input[^>]*type="number"[^>]*value="1000"/);
     expect(body).not.toContain("\u2014");
