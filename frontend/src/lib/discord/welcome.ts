@@ -158,9 +158,9 @@ export function welcomeNightSummary(night: Pick<WelcomeNight, "start" | "end" | 
   return `Night from ${night.start} to ${night.end} (${night.timezone})${night.start > night.end ? ", crossing midnight" : ""}`;
 }
 
-/** Turning night on, or changing an enabled schedule, needs verified night artwork. Turning it off never does. */
-export function welcomeNightReadinessIssue(draft: WelcomeNight, saved: WelcomeNight, ready: boolean): string | null {
-  if (ready || !draft.enabled || JSON.stringify(draft) === JSON.stringify(saved)) return null;
+/** Turning night on, or changing an enabled schedule, needs verified night artwork. Turning it off, or sending text only, never does. */
+export function welcomeNightReadinessIssue(draft: WelcomeNight, saved: WelcomeNight, ready: boolean, sendImages = true): string | null {
+  if (!sendImages || ready || !draft.enabled || JSON.stringify(draft) === JSON.stringify(saved)) return null;
   return "Night artwork is not installed yet. Turn off night to save other changes.";
 }
 
@@ -190,13 +190,13 @@ export function welcomePreviewMessageChanged(previous: WelcomeMessage, next: Wel
   return previous.headline !== next.headline || previous.subtitle !== next.subtitle || previous.font !== next.font;
 }
 
-/** Draft display guard only. Rust still verifies permissions and actual artwork readiness on save. */
-export function welcomeReadinessIssue(settings: WelcomeSettings, catalog: WelcomeState["catalog"]): string | null {
+/** Draft display guard only. Rust still verifies permissions and actual artwork readiness on save. Text-only delivery needs no artwork. */
+export function welcomeReadinessIssue(settings: WelcomeSettings, catalog: WelcomeState["catalog"], sendImages = settings.send_images): string | null {
   if (!/^[1-9][0-9]*$/.test(settings.channel_id) || BigInt(settings.channel_id) > 18446744073709551615n) return "Choose a valid channel before turning welcomes on.";
   if (settings.variants.some(({ weight }) => !Number.isInteger(weight) || weight < 0 || weight > 1000)) return "Use whole-number weights from 0 to 1000.";
   const eligible = settings.variants.filter(({ enabled, weight }) => enabled && weight > 0);
   if (eligible.length === 0) return "Enable at least one welcome with a positive weight.";
-  if (eligible.some(({ id }) => {
+  if (sendImages && eligible.some(({ id }) => {
     const item = catalog.find((entry) => entry.id === id);
     return !item?.normal_ready || !item.winter_ready;
   })) return "Enabled welcomes need normal and winter artwork. Turn off pending ones or set their weight to 0.";

@@ -36,6 +36,15 @@ describe("proposed welcome enable guard", () => {
     draft.channel_id = "2";
     expect(welcomeReadinessIssue(draft, catalog)).toContain("normal and winter artwork");
   });
+  it("needs no artwork for text-only welcomes but still needs a channel and an eligible welcome", () => {
+    const draft = { ...structuredClone(settings), enabled: true, send_images: false };
+    expect(welcomeReadinessIssue(draft, catalog)).toBeNull();
+    expect(welcomeReadinessIssue(draft, [])).toBeNull();
+    expect(welcomeReadinessIssue({ ...draft, channel_id: "" }, catalog)).toContain("valid channel");
+    expect(welcomeReadinessIssue({ ...draft, variants: draft.variants.map((variant) => ({ ...variant, weight: 0 })) }, catalog)).toContain("positive weight");
+    // An older server always sends images, so the caller passes true.
+    expect(welcomeReadinessIssue(draft, catalog, true)).toContain("normal and winter artwork");
+  });
 });
 
 describe("independent welcome sky effects", () => {
@@ -163,6 +172,13 @@ describe("night schedule draft", () => {
     expect(welcomeNightReadinessIssue(enabled, enabled, false)).toBeNull();
     expect(welcomeNightReadinessIssue({ ...enabled, start: "22:00" }, enabled, false)).toContain("Turn off night");
     expect(welcomeNightReadinessIssue({ ...enabled, enabled: false }, enabled, false)).toBeNull();
+  });
+  it("skips the night artwork guard for text-only welcomes", () => {
+    const saved = settings.night;
+    const enabled = { ...saved, enabled: true };
+    expect(welcomeNightReadinessIssue(enabled, saved, false, false)).toBeNull();
+    expect(welcomeNightReadinessIssue({ ...enabled, start: "22:00" }, enabled, false, false)).toBeNull();
+    expect(welcomeNightReadinessIssue(enabled, saved, false, true)).toContain("Turn off night");
   });
   it("keys previews by explicit day, night and moon choices and by the saved schedule they follow", () => {
     const message = settings.message;

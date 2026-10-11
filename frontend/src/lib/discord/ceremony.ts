@@ -7,6 +7,13 @@ export type CeremonyRaid = "NOTG" | "TNA" | "TCC" | "NOL" | "TWP";
 /** Preview-only scene choice. Scheduled pins the scene in the last server settings response. */
 export type CeremonySceneChoice = "scheduled" | "normal-dusk" | "normal-night" | "winter-dusk" | "winter-night";
 
+export type ImageTier = CeremonyTier | "badge";
+/** Per-tier image choice. An award attaches an image only when send_images and its tier are both on. */
+export type ImageTiers = Record<ImageTier, boolean>;
+export const IMAGE_TIERS_DEFAULT: Readonly<ImageTiers> = {
+  bronze: false, silver: false, gold: true, platinum: true, diamond: true, obsidian: true, mythril: true, badge: true,
+};
+
 export interface CeremonySettings {
   version: number;
   guild_id: string;
@@ -17,15 +24,16 @@ export interface CeremonySettings {
   mention_member: boolean;
   /** Attach the ceremony image. Off sends a text-only post. */
   send_images: boolean;
+  image_tiers: ImageTiers;
   repeat: RepeatPenalty;
 }
 export interface CeremonyScene {
   season: CeremonySeason;
   ambiance: CeremonyAmbiance;
 }
-/** Wire shape. Older servers omit mention_member and send_images; servers without repeat penalties omit repeat, recent_events and current_chances. */
+/** Wire shape. Older servers omit mention_member, send_images and image_tiers; servers without repeat penalties omit repeat, recent_events and current_chances. */
 export interface CeremonyResponse {
-  settings: Omit<CeremonySettings, "mention_member" | "send_images" | "repeat"> & { mention_member?: boolean; send_images?: boolean; repeat?: RepeatPenalty };
+  settings: Omit<CeremonySettings, "mention_member" | "send_images" | "image_tiers" | "repeat"> & { mention_member?: boolean; send_images?: boolean; image_tiers?: Partial<ImageTiers>; repeat?: RepeatPenalty };
   catalog: { id: string; label: string; description: string; layout: string; ready: boolean }[];
   ready: boolean;
   effective_chances: { id: string; percent: number }[];
@@ -41,11 +49,13 @@ export interface CeremonyResponse {
 /** Loaded state with every settings field present. */
 export type CeremonyState = Omit<CeremonyResponse, "settings"> & { settings: CeremonySettings };
 
-/** Fills the mention, images and repeat defaults for older servers. Unsupported fields are never sent back to them. */
-export function ceremonyState(response: CeremonyResponse): { state: CeremonyState; mentionSupported: boolean; imagesSupported: boolean; repeatSupported: boolean } {
+/** Fills the mention, images, image tier and repeat defaults for older servers. Unsupported fields are never sent back to them. */
+export function ceremonyState(response: CeremonyResponse): { state: CeremonyState; mentionSupported: boolean; imagesSupported: boolean; imageTiersSupported: boolean; repeatSupported: boolean } {
+  const tiers = response.settings.image_tiers;
   return {
     mentionSupported: typeof response.settings.mention_member === "boolean",
     imagesSupported: typeof response.settings.send_images === "boolean",
+    imageTiersSupported: typeof tiers === "object" && tiers !== null,
     repeatSupported: response.settings.repeat !== undefined,
     state: {
       ...response,
@@ -54,21 +64,34 @@ export function ceremonyState(response: CeremonyResponse): { state: CeremonyStat
         mention_member: response.settings.mention_member === true,
         // Servers that omit the field always attach images, so it reads as on.
         send_images: response.settings.send_images !== false,
+        image_tiers: { ...IMAGE_TIERS_DEFAULT, ...(typeof tiers === "object" && tiers !== null ? tiers : {}) },
         repeat: response.settings.repeat ?? { ...REPEAT_DEFAULT },
       },
     },
   };
 }
 
-/** Full settings definition for save. Older servers reject the unknown mention_member, send_images and repeat fields. */
+/** Full settings definition for save. Older servers reject the unknown mention_member, send_images, image_tiers and repeat fields. */
 export function ceremonySaveBody(
   settings: CeremonySettings,
   mentionSupported: boolean,
   repeatSupported: boolean,
   imagesSupported: boolean,
-): Omit<CeremonySettings, "mention_member" | "send_images" | "repeat"> & Partial<Pick<CeremonySettings, "mention_member" | "send_images" | "repeat">> {
-  const { mention_member, send_images, repeat, ...body } = settings;
-  return { ...body, ...(mentionSupported ? { mention_member } : {}), ...(imagesSupported ? { send_images } : {}), ...(repeatSupported ? { repeat } : {}) };
+  imageTiersSupported: boolean,
+): Omit<CeremonySettings, "mention_member" | "send_images" | "image_tiers" | "repeat"> & Partial<Pick<CeremonySettings, "mention_member" | "send_images" | "image_tiers" | "repeat">> {
+  const { mention_member, send_images, image_tiers, repeat, ...body } = settings;
+  return {
+    ...body,
+    ...(mentionSupported ? { mention_member } : {}),
+    ...(imagesSupported ? { send_images } : {}),
+    ...(imageTiersSupported ? { image_tiers } : {}),
+    ...(repeatSupported ? { repeat } : {}),
+  };
+}
+
+/** Whether any award would attach an image. Unsupported fields read as on, matching older servers that always attach images. */
+export function ceremonyImagesInUse(settings: Pick<CeremonySettings, "send_images" | "image_tiers">, imagesSupported: boolean, imageTiersSupported: boolean): boolean {
+  return (!imagesSupported || settings.send_images) && (!imageTiersSupported || Object.values(settings.image_tiers).some(Boolean));
 }
 
 /** Unsaved edits, including unsupported fields that are never sent. */
@@ -101,6 +124,7 @@ export const CEREMONY_TIERS: readonly { id: CeremonyTier; label: string }[] = [
   { id: "obsidian", label: "Obsidian" },
   { id: "mythril", label: "Mythril" },
 ];
+export const IMAGE_TIERS: readonly { id: ImageTier; label: string }[] = [...CEREMONY_TIERS, { id: "badge", label: "Badge" }];
 export const CEREMONY_RAIDS: readonly CeremonyRaid[] = ["NOTG", "TNA", "TCC", "NOL", "TWP"];
 export const CEREMONY_SCENES: readonly { id: CeremonySceneChoice; label: string }[] = [
   { id: "scheduled", label: "As scheduled" },
@@ -145,9 +169,9 @@ export function ceremonyInputIssue(settings: CeremonySettings): string | null {
   return null;
 }
 
-/** Draft display guard for enabling. Rust still verifies artwork, channel permissions and odds on save. */
-export function ceremonyReadinessIssue(settings: CeremonySettings, ready: boolean): string | null {
-  if (!ready) return "Ceremony artwork is not installed yet, so ceremonies stay off.";
+/** Draft display guard for enabling. Rust still verifies artwork, channel permissions and odds on save. Text-only delivery needs no artwork. */
+export function ceremonyReadinessIssue(settings: CeremonySettings, ready: boolean, sendImages = ceremonyImagesInUse(settings, true, true)): string | null {
+  if (sendImages && !ready) return "Ceremony artwork is not installed yet, so ceremonies stay off.";
   if (!validSnowflake(settings.channel_id)) return "Choose a valid channel before turning ceremonies on.";
   if (ceremonyWeightIssue(settings.stories)) return "Use whole-number weights from 0 to 1000.";
   if (!settings.stories.some(({ enabled, weight }) => enabled && weight > 0)) return "Enable at least one story with a positive weight.";

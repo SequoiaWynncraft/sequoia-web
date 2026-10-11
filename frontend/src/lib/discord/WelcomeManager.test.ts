@@ -237,4 +237,11 @@ describe("welcome images control", () => {
     expect(body).toMatch(/<span>Send images<\/span><\/label>(?:\s|<!--[^>]*-->)*<small[^>]*>Not available on this server yet\.<\/small>/);
     expect(body).not.toContain("\u2014");
   });
+  it("allows enabling text-only welcomes without ready artwork", () => {
+    const textOnly = structuredClone(unavailable);
+    textOnly.settings.send_images = false;
+    const { body } = render(WelcomeManager, { props: { initial: textOnly, channels: [] } });
+    expect(body.match(/<input([^>]*)type="checkbox"[^>]*>\s*<span>Welcome new members/)?.[1]).not.toContain("disabled");
+    expect(body).not.toContain("Enabled welcomes need normal and winter artwork");
+  });
 });

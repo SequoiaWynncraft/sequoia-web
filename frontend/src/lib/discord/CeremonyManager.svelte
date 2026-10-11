@@ -15,7 +15,7 @@
   import {
     CEREMONY_ALL_RAIDS, CEREMONY_BADGE_TITLE_MAX, CEREMONY_LOOP_MS, CEREMONY_RAIDS, CEREMONY_SCENES, CEREMONY_TIERS,
     ceremonyAchievementBody, ceremonyAchievementDescription, ceremonyAchievementIssue, ceremonyCategories, ceremonyChance,
-    ceremonyInputIssue, ceremonyKeyLabel, ceremonyPreviewKey, ceremonyPreviewScene, ceremonyProposedChances, ceremonyReadinessIssue,
+    ceremonyInputIssue, ceremonyKeyLabel, ceremonyPreviewKey, ceremonyPreviewScene, ceremonyImagesInUse, ceremonyProposedChances, ceremonyReadinessIssue, IMAGE_TIERS,
     ceremonyRoleLabel, ceremonySaveBody, ceremonySceneLabel, ceremonySettingsDirty, ceremonyState, ceremonyTierLabel,
     type CeremonyAchievement, type CeremonyCategory, type CeremonyCategoryKind, type CeremonyResponse, type CeremonySceneChoice, type CeremonyState,
   } from "./ceremony";
@@ -29,6 +29,7 @@
   let saved = $state<CeremonyState>(seeded.state);
   let mentionSupported = $state(seeded.mentionSupported);
   let imagesSupported = $state(seeded.imagesSupported);
+  let imageTiersSupported = $state(seeded.imageTiersSupported);
   let repeatSupported = $state(seeded.repeatSupported);
   let draft = $state(structuredClone(seeded.state.settings));
   // svelte-ignore state_referenced_locally
@@ -81,7 +82,9 @@
 
   const dirty = $derived(ceremonySettingsDirty(draft, saved.settings));
   const issue = $derived(ceremonyInputIssue(draft));
-  const readinessIssue = $derived(ceremonyReadinessIssue(draft, saved.ready));
+  // Older servers always send images, so their artwork rule still applies.
+  const imagesInUse = $derived(ceremonyImagesInUse(draft, imagesSupported, imageTiersSupported));
+  const readinessIssue = $derived(ceremonyReadinessIssue(draft, saved.ready, imagesInUse));
   const draftReady = $derived(readinessIssue === null);
   const catalogById = $derived(new Map(saved.catalog.map((item) => [item.id, item])));
   // Only stories the server catalog lists are shown; unknown saved rows are kept and sent back untouched.
@@ -229,6 +232,7 @@
     saved = next.state;
     mentionSupported = next.mentionSupported;
     imagesSupported = next.imagesSupported;
+    imageTiersSupported = next.imageTiersSupported;
     repeatSupported = next.repeatSupported;
     draft = structuredClone(next.state.settings);
     conflict = false;
@@ -240,7 +244,7 @@
     if (busy || !dirty || issue || conflict || (draft.enabled && !draftReady)) return;
     busy = true; error = null; notice = null; navigationBlocked = false;
     // Freeze the sent draft. Controls stay disabled until normalization returns.
-    const result = await requestDiscord<CeremonyResponse>(globalThis.fetch.bind(globalThis), "ceremonies", "PUT", ceremonySaveBody($state.snapshot(draft), mentionSupported, repeatSupported, imagesSupported));
+    const result = await requestDiscord<CeremonyResponse>(globalThis.fetch.bind(globalThis), "ceremonies", "PUT", ceremonySaveBody($state.snapshot(draft), mentionSupported, repeatSupported, imagesSupported, imageTiersSupported));
     busy = false;
     if (!result.ok) {
       conflict = result.error.status === 409;
@@ -296,6 +300,12 @@
       </Field>
       <Toggle bind:checked={draft.mention_member} label="Mention member" hint={mentionSupported ? undefined : "Not available on this server yet."} disabled={!mentionSupported} />
       <Toggle bind:checked={draft.send_images} label="Send images" hint={imagesSupported ? undefined : "Not available on this server yet."} disabled={!imagesSupported} />
+      <fieldset class="image-tiers">
+        <legend>Images by tier</legend>
+        {#each IMAGE_TIERS as tier (tier.id)}
+          <Toggle bind:checked={draft.image_tiers[tier.id]} label={tier.label} disabled={!imageTiersSupported || !draft.send_images} />
+        {/each}
+      </fieldset>
       <p class="hint">Season and night follow the welcome schedule.</p>
 
       <div class="section-head stories-head"><h2>Story odds</h2><span class="hint">Higher weight, more often. Zero never wins.</span></div>
@@ -423,6 +433,8 @@
   h2 { margin: 0; color: var(--text-heading); font-weight: var(--weight-regular); font-family: var(--font-display); font-size: var(--text-sm); letter-spacing: var(--tracking-wide); text-transform: uppercase; }
   .hint, .saved-state { margin: 0; color: var(--text-body); font-size: var(--text-xs); line-height: 1.5; overflow-wrap: anywhere; }
   .readiness { margin: 0; padding: 10px 12px; border-left: 2px solid var(--color-gold); color: var(--text-body); background: var(--color-surface); font-size: var(--text-sm); line-height: 1.5; }
+  .image-tiers { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px 12px; }
+  .image-tiers legend { padding: 0; margin-bottom: 6px; color: var(--text-body); font-size: var(--text-xs); }
   .stories-head { padding-top: 16px; margin-top: 4px; border-top: 1px solid var(--border-default); }
   .repeat-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 160px)); gap: 12px; }
   .story-columns, .story { display: grid; grid-template-columns: minmax(0, 1fr) 72px 60px 60px; align-items: center; gap: 12px; }

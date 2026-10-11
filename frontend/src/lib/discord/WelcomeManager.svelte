@@ -58,10 +58,12 @@
   let serial = 0;
 
   const dirty = $derived(welcomeSettingsDirty(draft, saved.settings));
-  const issue = $derived(welcomeInputIssue(draft, nightSupported ? saved.effective_night.timezones : null) ?? welcomeNightReadinessIssue(draft.night, saved.settings.night, saved.effective_night.ready));
+  // Older servers always send images, so their artwork rules still apply.
+  const sendImages = $derived(!imagesSupported || draft.send_images);
+  const issue = $derived(welcomeInputIssue(draft, nightSupported ? saved.effective_night.timezones : null) ?? welcomeNightReadinessIssue(draft.night, saved.settings.night, saved.effective_night.ready, sendImages));
   const nightIssue = $derived(welcomeNightIssue(draft.night, saved.effective_night.timezones));
   const nightSummary = $derived(welcomeNightSummary(draft.night));
-  const readinessIssue = $derived(welcomeReadinessIssue(draft, saved.catalog));
+  const readinessIssue = $derived(welcomeReadinessIssue(draft, saved.catalog, sendImages));
   const draftReady = $derived(readinessIssue === null);
   const selected = $derived(saved.catalog.find((item) => item.id === selectedId));
   const messageIssue = $derived(welcomeMessageIssue(draft.message));

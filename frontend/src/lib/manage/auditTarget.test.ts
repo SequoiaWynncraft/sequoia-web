@@ -142,3 +142,19 @@ describe("send images audit summaries", () => {
     expect(ceremonyAuditChanges(save("discord.ceremony.settings.save", {}, { send_images: true }))?.[0]).toEqual({ label: "Send images", before: "Not set", after: "On" });
   });
 });
+
+describe("image tier audit summaries", () => {
+  const save = (before: object, after: object) => entry({ outcome: "performed", changed: ["image_tiers"], before, after }, "discord.ceremony.settings.save");
+  const tiers = { bronze: false, silver: false, gold: true, platinum: true, diamond: true, obsidian: true, mythril: true, badge: true };
+  const none = { bronze: false, silver: false, gold: false, platinum: false, diamond: false, obsidian: false, mythril: false, badge: false };
+  it("lists the enabled tiers in order, or None when all are off", () => {
+    expect(ceremonyAuditChanges(save({ image_tiers: tiers }, { image_tiers: none }))).toEqual([
+      { label: "Images by tier", before: "Gold, Platinum, Diamond, Obsidian, Mythril, Badge", after: "None" },
+    ]);
+  });
+  it("keeps a snapshot from before the field existed as Not set", () => {
+    expect(ceremonyAuditChanges(save({}, { image_tiers: { ...none, bronze: true } }))).toEqual([
+      { label: "Images by tier", before: "Not set", after: "Bronze" },
+    ]);
+  });
+});
