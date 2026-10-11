@@ -23,7 +23,25 @@ export interface CeremonyResponse {
   effective_chances: { id: string; percent: number }[];
   effective_scene: CeremonyScene;
   viewer: { display_name: string };
+  /** Previewable achievement categories. Absent on older servers, which only preview raids. */
+  achievement_catalog?: CeremonyCategory[];
 }
+
+export type CeremonyCategory =
+  | { kind: "raid"; label: string; raids: string[]; tiers: string[] }
+  | { kind: "war"; label: string; tiers: string[] }
+  | { kind: "profession"; label: string; professions: string[]; levels: number[] }
+  | { kind: "role"; label: string; categories: string[]; tiers: string[] }
+  | { kind: "badge"; label: string };
+export type CeremonyCategoryKind = CeremonyCategory["kind"];
+
+/** Sample achievement sent with a preview. A null raid is the combined All raids total. */
+export type CeremonyAchievement =
+  | { kind: "raid"; raid: string | null; tier: string; count: number }
+  | { kind: "war"; tier: string; count: number }
+  | { kind: "profession"; profession: string; level: number }
+  | { kind: "role"; category: string; tier: string; label: string }
+  | { kind: "badge"; title: string };
 
 export const CEREMONY_TIERS: readonly { id: CeremonyTier; label: string }[] = [
   { id: "bronze", label: "Bronze" },
@@ -98,9 +116,88 @@ export function ceremonyCountIssue(count: number | null | undefined): string | n
   return null;
 }
 
+export const CEREMONY_BADGE_TITLE_MAX = 64;
+/** The raid list entry that stands for the combined total. */
+export const CEREMONY_ALL_RAIDS = "All raids";
+
+export function ceremonyBadgeTitleIssue(title: string): string | null {
+  const trimmed = title.trim();
+  if (!trimmed) return "Enter a badge title.";
+  if (trimmed.length > CEREMONY_BADGE_TITLE_MAX) return `Use ${CEREMONY_BADGE_TITLE_MAX} characters or fewer.`;
+  return null;
+}
+
+function strings(value: unknown): value is string[] {
+  return Array.isArray(value) && value.length > 0 && value.every((item) => typeof item === "string" && item.length > 0);
+}
+
+/** Usable catalog entries in server order, or null for an older server without a catalog (raid-only previews). */
+export function ceremonyCategories(response: Pick<CeremonyResponse, "achievement_catalog">): CeremonyCategory[] | null {
+  const catalog: unknown = response.achievement_catalog;
+  if (!Array.isArray(catalog)) return null;
+  const usable = catalog.filter((entry): entry is CeremonyCategory => {
+    if (typeof entry !== "object" || entry === null || typeof entry.label !== "string") return false;
+    switch (entry.kind) {
+      case "raid": return strings(entry.raids) && strings(entry.tiers);
+      case "war": return strings(entry.tiers);
+      case "profession": return strings(entry.professions) && Array.isArray(entry.levels) && entry.levels.length > 0
+        && entry.levels.every((level: unknown) => typeof level === "number" && Number.isInteger(level) && level > 0);
+      case "role": return strings(entry.categories) && strings(entry.tiers);
+      case "badge": return true;
+      default: return false;
+    }
+  });
+  return usable.length > 0 ? usable : null;
+}
+
+/** Readable form of a server key: "war_honour" to "War Honour", "mining" to "Mining". */
+export function ceremonyKeyLabel(key: string): string {
+  return key.split("_").filter(Boolean).map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ");
+}
+
+/** The role name a role preview announces, e.g. "Gold Insignia". */
+export function ceremonyRoleLabel(category: string, tier: string): string {
+  return `${ceremonyTierLabel(tier)} ${ceremonyKeyLabel(category)}`;
+}
+
+/** Local completeness of the sample achievement. Rust validates the rest. */
+export function ceremonyAchievementIssue(achievement: CeremonyAchievement): string | null {
+  switch (achievement.kind) {
+    case "raid":
+    case "war": return ceremonyCountIssue(achievement.count);
+    case "badge": return ceremonyBadgeTitleIssue(achievement.title);
+    default: return null;
+  }
+}
+
+/** What the sample announces, for the preview alt text. */
+export function ceremonyAchievementDescription(achievement: CeremonyAchievement): string {
+  const number = new Intl.NumberFormat("en");
+  switch (achievement.kind) {
+    case "raid": return `${ceremonyTierLabel(achievement.tier)} with ${number.format(achievement.count)} raids in ${achievement.raid ?? CEREMONY_ALL_RAIDS}`;
+    case "war": return `${ceremonyTierLabel(achievement.tier)} with ${number.format(achievement.count)} guild wars`;
+    case "profession": return `${ceremonyKeyLabel(achievement.profession)} level ${achievement.level}`;
+    case "role": return achievement.label;
+    case "badge": return `${achievement.title.trim()} badge`;
+  }
+}
+
+/**
+ * Achievement part of the preview body. Servers with a catalog take `{achievement}`;
+ * older servers only understand the raid fields at the top level.
+ */
+export function ceremonyAchievementBody(achievement: CeremonyAchievement, legacy: boolean):
+  { achievement: CeremonyAchievement } | { tier: CeremonyTier; raid: CeremonyRaid | null; count: number } {
+  if (legacy && achievement.kind === "raid") {
+    return { tier: achievement.tier as CeremonyTier, raid: achievement.raid as CeremonyRaid | null, count: achievement.count };
+  }
+  if (achievement.kind === "badge") return { achievement: { kind: "badge", title: achievement.title.trim() } };
+  return { achievement };
+}
+
 /** PNG stills and GIF playback must refer to exactly the same request. */
-export function ceremonyPreviewKey(storyId: string, tier: CeremonyTier, raid: CeremonyRaid | null, count: number, scene: CeremonyScene): string {
-  return JSON.stringify([storyId, tier, raid, count, scene.season, scene.ambiance]);
+export function ceremonyPreviewKey(storyId: string, achievement: CeremonyAchievement, scene: CeremonyScene): string {
+  return JSON.stringify([storyId, ceremonyAchievementBody(achievement, false), scene.season, scene.ambiance]);
 }
 
 export function ceremonyChance(percent: number | undefined): string {
@@ -110,6 +207,6 @@ export function ceremonyChance(percent: number | undefined): string {
   return `${new Intl.NumberFormat("en", { maximumFractionDigits: 1 }).format(percent)}%`;
 }
 
-export function ceremonyTierLabel(tier: CeremonyTier): string {
-  return CEREMONY_TIERS.find(({ id }) => id === tier)?.label ?? tier;
+export function ceremonyTierLabel(tier: string): string {
+  return CEREMONY_TIERS.find(({ id }) => id === tier)?.label ?? ceremonyKeyLabel(tier);
 }

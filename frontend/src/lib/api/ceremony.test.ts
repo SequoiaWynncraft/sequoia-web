@@ -43,6 +43,21 @@ describe("ceremony preview transport", () => {
     expect(body).not.toHaveProperty("season");
     expect(body).not.toHaveProperty("ambiance");
   });
+  it("sends the achievement object for catalog servers", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(new Response(new Uint8Array([9]), { headers: { "content-type": "image/png" } }));
+    const signal = new AbortController().signal;
+    const achievements = [
+      { kind: "raid", raid: null, tier: "diamond", count: 1000 },
+      { kind: "war", tier: "gold", count: 100 },
+      { kind: "profession", profession: "mining", level: 110 },
+      { kind: "role", category: "insignia", tier: "gold", label: "Gold Insignia" },
+      { kind: "badge", title: "Founder" },
+    ] as const;
+    for (const achievement of achievements) {
+      await requestCeremonyPreview(fetchImpl, { story_id: "sample_story", season: "winter", ambiance: "dusk", format: "png", achievement }, signal);
+      expect(JSON.parse(fetchImpl.mock.lastCall![1].body)).toEqual({ story_id: "sample_story", season: "winter", ambiance: "dusk", format: "png", achievement });
+    }
+  });
   it("saves the full settings with its version and surfaces a conflict unchanged", async () => {
     const draft = { version: 3, guild_id: "1111111111111111111", enabled: true, channel_id: "2222222222222222222", stories: [{ id: "sample_story", enabled: true, weight: 10 }] };
     const fetchImpl = vi.fn().mockResolvedValueOnce(Response.json({ error: "Settings changed" }, { status: 409 }));

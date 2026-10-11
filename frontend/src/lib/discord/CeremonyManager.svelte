@@ -13,9 +13,11 @@
   import ConfirmDialog from "$lib/design-system/components/forms/ConfirmDialog.svelte";
   import ManageHeader from "$lib/manage/ManageHeader.svelte";
   import {
-    CEREMONY_LOOP_MS, CEREMONY_RAIDS, CEREMONY_SCENES, CEREMONY_TIERS, ceremonyChance, ceremonyCountIssue, ceremonyInputIssue,
-    ceremonyPreviewKey, ceremonyPreviewScene, ceremonyProposedChances, ceremonyReadinessIssue, ceremonySceneLabel, ceremonyTierLabel,
-    type CeremonyRaid, type CeremonyResponse, type CeremonySceneChoice, type CeremonyTier,
+    CEREMONY_ALL_RAIDS, CEREMONY_BADGE_TITLE_MAX, CEREMONY_LOOP_MS, CEREMONY_RAIDS, CEREMONY_SCENES, CEREMONY_TIERS,
+    ceremonyAchievementBody, ceremonyAchievementDescription, ceremonyAchievementIssue, ceremonyCategories, ceremonyChance,
+    ceremonyInputIssue, ceremonyKeyLabel, ceremonyPreviewKey, ceremonyPreviewScene, ceremonyProposedChances, ceremonyReadinessIssue,
+    ceremonyRoleLabel, ceremonySceneLabel, ceremonyTierLabel,
+    type CeremonyAchievement, type CeremonyCategory, type CeremonyCategoryKind, type CeremonyResponse, type CeremonySceneChoice,
   } from "./ceremony";
   import type { DiscordContext } from "./types";
 
@@ -27,9 +29,32 @@
   let draft = $state(structuredClone(initial.settings));
   // svelte-ignore state_referenced_locally
   let storyId = $state((initial.catalog.find((item) => item.ready) ?? initial.catalog[0])?.id ?? "");
-  let tier = $state<CeremonyTier>("diamond");
-  let raid = $state<"all" | CeremonyRaid>("TNA");
+  // Sample values per category. Older servers without a catalog only preview raids with the fixed lists.
+  const LEGACY_TIERS = CEREMONY_TIERS.map(({ id }) => id as string);
+  const LEGACY_RAIDS = [CEREMONY_ALL_RAIDS, ...CEREMONY_RAIDS];
+  function pick<T>(wanted: T, options: readonly T[]): T {
+    return options.includes(wanted) ? wanted : options[0] ?? wanted;
+  }
+  function entryOf<K extends CeremonyCategoryKind>(list: CeremonyCategory[] | null, kind: K) {
+    return list?.find((item): item is Extract<CeremonyCategory, { kind: K }> => item.kind === kind);
+  }
+  // svelte-ignore state_referenced_locally
+  const initialCategories = ceremonyCategories(initial);
+  const initialRaid = entryOf(initialCategories, "raid");
+  const initialWar = entryOf(initialCategories, "war");
+  const initialProfession = entryOf(initialCategories, "profession");
+  const initialRole = entryOf(initialCategories, "role");
+  let kind = $state<CeremonyCategoryKind>(initialRaid || !initialCategories ? "raid" : initialCategories[0].kind);
+  let tier = $state(pick("diamond", initialRaid?.tiers ?? LEGACY_TIERS));
+  let raid = $state(pick("TNA", initialRaid?.raids ?? LEGACY_RAIDS));
   let count = $state<number | null | undefined>(1000);
+  let warTier = $state(pick("gold", initialWar?.tiers ?? LEGACY_TIERS));
+  let warCount = $state<number | null | undefined>(100);
+  let profession = $state(pick("mining", initialProfession?.professions ?? []));
+  let level = $state(String(pick(110, initialProfession?.levels ?? [])));
+  let roleCategory = $state(pick("insignia", initialRole?.categories ?? []));
+  let roleTier = $state(pick("gold", initialRole?.tiers ?? []));
+  let badgeTitle = $state("Founder");
   let sceneChoice = $state<CeremonySceneChoice>("scheduled");
   let busy = $state(false);
   let error = $state<string | null>(null);
@@ -62,17 +87,42 @@
   const destinationChannels = $derived(channels.filter((channel) => channel.archived === undefined));
   const knownChannel = $derived(destinationChannels.some((item) => item.id === draft.channel_id));
   const selected = $derived(catalogById.get(storyId));
-  const countIssue = $derived(ceremonyCountIssue(count));
-  const previewReady = $derived(selected?.ready === true && countIssue === null);
+  const categories = $derived(ceremonyCategories(saved));
+  const legacy = $derived(categories === null);
+  const activeKind = $derived(categories?.some((item) => item.kind === kind) ? kind : "raid");
+  const raidEntry = $derived(entryOf(categories, "raid"));
+  const warEntry = $derived(entryOf(categories, "war"));
+  const professionEntry = $derived(entryOf(categories, "profession"));
+  const roleEntry = $derived(entryOf(categories, "role"));
+  const raidOptions = $derived(raidEntry?.raids ?? LEGACY_RAIDS);
+  const raidTiers = $derived(raidEntry?.tiers ?? LEGACY_TIERS);
+  const warTiers = $derived(warEntry?.tiers ?? LEGACY_TIERS);
+  const achievement = $derived.by((): CeremonyAchievement => {
+    const sample = (value: number | null | undefined) => typeof value === "number" ? value : 0;
+    switch (activeKind) {
+      case "war": return { kind: "war", tier: pick(warTier, warTiers), count: sample(warCount) };
+      case "profession": return { kind: "profession", profession: pick(profession, professionEntry?.professions ?? []), level: Number(pick(level, (professionEntry?.levels ?? []).map(String))) };
+      case "role": {
+        const category = pick(roleCategory, roleEntry?.categories ?? []);
+        const roleTierValue = pick(roleTier, roleEntry?.tiers ?? []);
+        return { kind: "role", category, tier: roleTierValue, label: ceremonyRoleLabel(category, roleTierValue) };
+      }
+      case "badge": return { kind: "badge", title: badgeTitle };
+      default: {
+        const raidValue = pick(raid, raidOptions);
+        return { kind: "raid", raid: raidValue === CEREMONY_ALL_RAIDS ? null : raidValue, tier: pick(tier, raidTiers), count: sample(count) };
+      }
+    }
+  });
+  const achievementIssue = $derived(ceremonyAchievementIssue(achievement));
+  const previewReady = $derived(selected?.ready === true && achievementIssue === null);
   const scheduledLabel = $derived(ceremonySceneLabel(saved.effective_scene));
   const previewRequest = $derived.by(() => {
     const scene = ceremonyPreviewScene(sceneChoice, saved.effective_scene);
-    const sampleCount = typeof count === "number" ? count : 0;
-    const category = raid === "all" ? "All raids" : raid;
     return {
-      key: ceremonyPreviewKey(storyId, tier, raid === "all" ? null : raid, sampleCount, scene),
-      story_id: storyId, tier, raid: raid === "all" ? null : raid, count: sampleCount, scene,
-      description: `${selected?.label ?? "Ceremony"}, ${ceremonySceneLabel(scene)}${sceneChoice === "scheduled" ? " as scheduled" : ""}, ${ceremonyTierLabel(tier)} with ${new Intl.NumberFormat("en").format(sampleCount)} raids in ${category} for ${saved.viewer.display_name}`,
+      key: ceremonyPreviewKey(storyId, achievement, scene),
+      story_id: storyId, achievement, legacy, scene,
+      description: `${selected?.label ?? "Ceremony"}, ${ceremonySceneLabel(scene)}${sceneChoice === "scheduled" ? " as scheduled" : ""}, ${ceremonyAchievementDescription(achievement)} for ${saved.viewer.display_name}`,
     };
   });
 
@@ -119,7 +169,7 @@
     controller = new AbortController();
     try {
       const result = await requestCeremonyPreview(globalThis.fetch.bind(globalThis), {
-        story_id: input.story_id, ...input.scene, tier: input.tier, raid: input.raid, count: input.count, format,
+        story_id: input.story_id, ...input.scene, ...ceremonyAchievementBody(input.achievement, input.legacy), format,
       }, controller.signal);
       if (requestSerial !== serial) return;
       if (!result.ok) { previewError = result.error.message; return; }
@@ -275,18 +325,47 @@
     </Field>
     {#if selected?.description}<p class="preview-description">{selected.description}</p>{/if}
     <div class="preview-controls">
-      <Field label="Tier">
-        <Select bind:value={tier}>{#each CEREMONY_TIERS as option (option.id)}<option value={option.id}>{option.label}</option>{/each}</Select>
-      </Field>
-      <Field label="Raid">
-        <Select bind:value={raid}>
-          <option value="all">All raids</option>
-          {#each CEREMONY_RAIDS as option (option)}<option value={option}>{option}</option>{/each}
-        </Select>
-      </Field>
-      <Field label="Count" error={countIssue ?? undefined}>
-        <NumberInput bind:value={count} min={1} max={1000000} step={1} required invalid={!!countIssue} />
-      </Field>
+      {#if categories}
+        <Field label="Category">
+          <Select bind:value={kind}>{#each categories as option (option.kind)}<option value={option.kind}>{option.label}</option>{/each}</Select>
+        </Field>
+      {/if}
+      {#if activeKind === "war"}
+        <Field label="Tier">
+          <Select bind:value={warTier}>{#each warTiers as option (option)}<option value={option}>{ceremonyTierLabel(option)}</option>{/each}</Select>
+        </Field>
+        <Field label="Wars" error={achievementIssue ?? undefined}>
+          <NumberInput bind:value={warCount} min={1} max={1000000} step={1} required invalid={!!achievementIssue} />
+        </Field>
+      {:else if activeKind === "profession"}
+        <Field label="Profession">
+          <Select bind:value={profession}>{#each professionEntry?.professions ?? [] as option (option)}<option value={option}>{ceremonyKeyLabel(option)}</option>{/each}</Select>
+        </Field>
+        <Field label="Level">
+          <Select bind:value={level}>{#each professionEntry?.levels ?? [] as option (option)}<option value={String(option)}>{option}</option>{/each}</Select>
+        </Field>
+      {:else if activeKind === "role"}
+        <Field label="Role">
+          <Select bind:value={roleCategory}>{#each roleEntry?.categories ?? [] as option (option)}<option value={option}>{ceremonyKeyLabel(option)}</option>{/each}</Select>
+        </Field>
+        <Field label="Tier">
+          <Select bind:value={roleTier}>{#each roleEntry?.tiers ?? [] as option (option)}<option value={option}>{ceremonyTierLabel(option)}</option>{/each}</Select>
+        </Field>
+      {:else if activeKind === "badge"}
+        <Field label="Badge title" error={achievementIssue ?? undefined}>
+          <TextInput bind:value={badgeTitle} maxlength={CEREMONY_BADGE_TITLE_MAX} required invalid={!!achievementIssue} />
+        </Field>
+      {:else}
+        <Field label="Tier">
+          <Select bind:value={tier}>{#each raidTiers as option (option)}<option value={option}>{ceremonyTierLabel(option)}</option>{/each}</Select>
+        </Field>
+        <Field label="Raid">
+          <Select bind:value={raid}>{#each raidOptions as option (option)}<option value={option}>{option}</option>{/each}</Select>
+        </Field>
+        <Field label="Count" error={achievementIssue ?? undefined}>
+          <NumberInput bind:value={count} min={1} max={1000000} step={1} required invalid={!!achievementIssue} />
+        </Field>
+      {/if}
       <Field label="Scene" hint={sceneChoice === "scheduled" ? `Now: ${scheduledLabel}` : "Preview only"}>
         <Select bind:value={sceneChoice}>{#each CEREMONY_SCENES as option (option.id)}<option value={option.id}>{option.label}</option>{/each}</Select>
       </Field>
@@ -298,7 +377,7 @@
       {:else if previewBusy}<p role="status">Rendering preview…</p>
       {:else if !selected}<p>No story to preview.</p>
       {:else if !selected.ready}<p>Artwork for this story is still being prepared.</p>
-      {:else if countIssue}<p>{countIssue}</p>
+      {:else if achievementIssue}<p>{achievementIssue}</p>
       {:else if !previewError}<p>Preparing preview…</p>{/if}
     </div>
     {#if previewBusy && previewUrl}<p class="hint" role="status">Updating preview…</p>{/if}

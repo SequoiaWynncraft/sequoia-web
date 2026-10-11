@@ -78,4 +78,48 @@ describe("achievement ceremony interface", () => {
     expect(body).toMatch(/<input[^>]*type="number"[^>]*value="1000"/);
     expect(body).not.toContain("\u2014");
   });
+  it("keeps the raid-only controls for an older server without a catalog", () => {
+    const { body } = render(CeremonyManager, { props: { initial: ready, channels: [] } });
+    expect(body).not.toContain(">Category<");
+    expect(body).toMatch(/<option[^>]*value="TNA"[^>]*selected/);
+    expect(body).toContain(">Count<");
+  });
+  it("offers a category select with only the selected category's fields", () => {
+    const tiers = ["bronze", "silver", "gold", "platinum", "diamond", "obsidian", "mythril"];
+    const catalog: CeremonyResponse = {
+      ...ready,
+      achievement_catalog: [
+        { kind: "raid", label: "Raids", raids: ["All raids", "NOTG", "TNA", "TCC", "NOL", "TWP"], tiers },
+        { kind: "war", label: "Guild wars", tiers },
+        { kind: "profession", label: "Professions", professions: ["fishing", "mining"], levels: [100, 110, 120, 132] },
+        { kind: "role", label: "Roles", categories: ["insignia", "war_honour"], tiers: ["bronze", "silver", "gold", "diamond"] },
+        { kind: "badge", label: "Badges" },
+      ],
+    };
+    const { body } = render(CeremonyManager, { props: { initial: catalog, channels: [] } });
+    expect(body).toContain(">Category<");
+    for (const label of ["Raids", "Guild wars", "Professions", "Roles", "Badges"]) expect(body).toContain(`>${label}</option>`);
+    expect(body).toMatch(/<option[^>]*value="raid"[^>]*selected/);
+    expect(body).toMatch(/<option[^>]*value="All raids"[^>]*>All raids<\/option>/);
+    expect(body).toMatch(/<option[^>]*value="diamond"[^>]*selected/);
+    expect(body).toContain(">Count<");
+    for (const absent of [">Profession<", ">Level<", ">Role<", ">Badge title<", ">Wars<"]) expect(body).not.toContain(absent);
+    expect(body).toContain("Marked DEMO, never posted.");
+    expect(body).not.toContain("\u2014");
+  });
+  it("starts on the first catalog category when raids are not offered", () => {
+    const catalog: CeremonyResponse = {
+      ...ready,
+      achievement_catalog: [
+        { kind: "profession", label: "Professions", professions: ["fishing", "mining"], levels: [100, 110, 120, 132] },
+        { kind: "badge", label: "Badges" },
+      ],
+    };
+    const { body } = render(CeremonyManager, { props: { initial: catalog, channels: [] } });
+    expect(body).toMatch(/<option[^>]*value="profession"[^>]*selected/);
+    expect(body).toMatch(/<option[^>]*value="mining"[^>]*selected[^>]*>Mining/);
+    expect(body).toMatch(/<option[^>]*value="110"[^>]*selected/);
+    expect(body).not.toContain(">Count<");
+    expect(body).not.toContain(">Tier<");
+  });
 });
