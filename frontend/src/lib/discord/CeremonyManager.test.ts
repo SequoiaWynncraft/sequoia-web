@@ -9,7 +9,7 @@ vi.mock("$app/navigation", () => ({ beforeNavigate: vi.fn() }));
 const unavailable: CeremonyResponse = {
   settings: {
     version: 0, guild_id: "1111111111111111111", enabled: false, channel_id: "",
-    stories: [{ id: "sample_story", enabled: true, weight: 10 }], mention_member: false,
+    stories: [{ id: "sample_story", enabled: true, weight: 10 }], mention_member: false, repeat: { percent: 50, recent: 1 },
   },
   catalog: [{ id: "sample_story", label: "Sample story", description: "A fictional story.", layout: "banner", ready: false }],
   ready: false, effective_chances: [],
@@ -26,6 +26,7 @@ const ready: CeremonyResponse = {
       { id: "retired_story", enabled: true, weight: 10 },
     ],
     mention_member: true,
+    repeat: { percent: 50, recent: 1 },
   },
   catalog: [
     { id: "sample_story", label: "Sample story", description: "", layout: "banner", ready: true },
@@ -62,6 +63,33 @@ describe("achievement ceremony interface", () => {
     expect(body).not.toContain("retired_story");
     expect(body).toContain("Saved version 5");
     expect(body).not.toContain("Ceremony artwork is not installed");
+  });
+  it("shows repeat controls, base and next odds with the recent story tagged", () => {
+    const current: CeremonyResponse = {
+      ...ready,
+      settings: { ...ready.settings, repeat: { percent: 50, recent: 1 } },
+      recent_events: ["sample_story"],
+      current_chances: [{ id: "sample_story", percent: 60 }, { id: "other_story", percent: 40 }],
+    };
+    const { body } = render(CeremonyManager, { props: { initial: current, channels: [] } });
+    expect(body).toContain(">Repeat penalty<");
+    expect(body).toContain(">Recent events<");
+    expect(body).toMatch(/<input[^>]*min="0"[^>]*max="100"[^>]*value="50"/);
+    expect(body).toMatch(/<input[^>]*min="1"[^>]*max="20"[^>]*value="1"/);
+    expect(body).toMatch(/<span[^>]*>Base<\/span><span[^>]*>Next<\/span>/);
+    expect(body).toContain("Sample story saved chance: 75%");
+    expect(body).toContain("Sample story next chance: 60%");
+    expect(body).toContain("Other story next chance: 40%");
+    expect(body.match(/class="recent-tag[^"]*">recent</g)).toHaveLength(1);
+    expect(body).not.toContain("not available on this server");
+    expect(body).not.toContain("\u2014");
+  });
+  it("shows the repeat default locked for an older server, with next odds equal to base", () => {
+    const { settings: { repeat: _repeat, ...settings }, ...rest } = structuredClone(ready);
+    const { body } = render(CeremonyManager, { props: { initial: { ...rest, settings }, channels: [] } });
+    expect(body).toContain("Repeat penalty is not available on this server yet.");
+    expect(body).toContain("Sample story next chance: 75%");
+    expect(body).not.toContain(">recent<");
   });
   it("offers every preview control with exact labels and states the demo rules", () => {
     const { body } = render(CeremonyManager, { props: { initial: ready, channels: [] } });

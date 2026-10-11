@@ -1,5 +1,6 @@
 import type { AuditEntry } from "$lib/server/auditLog";
 import { welcomeNightSummary } from "$lib/discord/welcome";
+import { repeatSummary } from "$lib/discord/repeat";
 
 function object(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === "object" && !Array.isArray(value)
@@ -36,7 +37,7 @@ const WELCOME_LABELS: Record<string, string> = {
   enabled: "Automatic welcomes", channel_id: "Destination channel", season_mode: "Season mode",
   winter_start: "Winter start", winter_end: "Winter end", variants: "Welcome odds", links: "Welcome links",
   message: "Message text", name_font: "Name font", effects: "Sky effects", night: "Night schedule",
-  mention_member: "Mention member",
+  mention_member: "Mention member", repeat: "Repeat penalty",
 };
 const SEASON_MODES: Record<string, string> = { automatic: "Automatic", normal: "Always normal", winter: "Always winter" };
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -69,6 +70,7 @@ function welcomeValue(key: string, value: unknown, other: unknown): string {
     case "winter_start": case "winter_end":
       return record && typeof record.month === "number" && MONTHS[record.month - 1] ? `${String(record.day)} ${MONTHS[record.month - 1]}` : "Not set";
     case "name_font": return readableId(value);
+    case "repeat": return repeatSummary(value);
     case "message": return record ? `"${String(record.headline)}" / "${String(record.subtitle)}", ${readableId(record.font)} font` : "Not set";
     case "effects": {
       const sky = Array.isArray(record?.sky) ? record.sky.map(object) : [];
@@ -111,6 +113,7 @@ export function welcomeAuditChanges(entry: Pick<AuditEntry, "source" | "detail" 
 
 const CEREMONY_LABELS: Record<string, string> = {
   enabled: "Achievement ceremonies", channel_id: "Destination channel", stories: "Story odds", mention_member: "Mention member",
+  repeat: "Repeat penalty",
 };
 
 function ceremonyValue(key: string, value: unknown, other: unknown): string {
@@ -120,6 +123,7 @@ function ceremonyValue(key: string, value: unknown, other: unknown): string {
     case "enabled": return value === true ? "On" : "Off";
     // Story rows share the welcome odds shape, so only differing rows are listed.
     case "stories": return welcomeValue("variants", value, other);
+    case "repeat": return repeatSummary(value);
     default: return typeof value === "string" ? value : JSON.stringify(value);
   }
 }

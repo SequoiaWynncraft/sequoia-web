@@ -65,6 +65,12 @@ describe("welcome settings audit summaries", () => {
     expect(changes?.[3]).toMatchObject({ before: "1 links", after: "2 links" });
     expect(changes?.[4]).toMatchObject({ before: "Not set", after: "true" });
   });
+  it("reads repeat penalty changes as percent and event count", () => {
+    expect(welcomeAuditChanges(save(["repeat"], { repeat: { percent: 50, recent: 1 } }, { repeat: { percent: 25, recent: 3 } }))).toEqual([
+      { label: "Repeat penalty", before: "50% for 1 event", after: "25% for 3 events" },
+    ]);
+    expect(welcomeAuditChanges(save(["repeat"], {}, { repeat: { percent: 0, recent: 1 } }))?.[0]).toMatchObject({ before: "Not set", after: "Off" });
+  });
   it("ignores other actions, sources and malformed details", () => {
     expect(welcomeAuditChanges(entry({ changed: ["night"] }, "discord.message.publish"))).toBeNull();
     expect(welcomeAuditChanges({ ...save(["night"], {}, {}), source: "website" })).toBeNull();
@@ -83,6 +89,11 @@ describe("achievement ceremony settings audit summaries", () => {
       { label: "Achievement ceremonies", before: "Off", after: "On" },
       { label: "Destination channel", before: "3333333333333333333", after: "4444444444444444444" },
       { label: "Story odds", before: "Other story on, weight 5", after: "Other story off, weight 0" },
+    ]);
+  });
+  it("reads repeat penalty changes as percent and event count", () => {
+    expect(ceremonyAuditChanges(save(["repeat"], { repeat: { percent: 50, recent: 1 } }, { repeat: { percent: 100, recent: 2 } }))).toEqual([
+      { label: "Repeat penalty", before: "50% for 1 event", after: "100% for 2 events" },
     ]);
   });
   it("keeps unknown keys visible and reads missing values as not set", () => {

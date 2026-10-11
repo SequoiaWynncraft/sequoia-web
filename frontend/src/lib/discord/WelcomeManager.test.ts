@@ -16,6 +16,7 @@ const unavailable: WelcomeState = {
     effects: { sky: [{ id: "aurora", percent: 35 }] },
     night: { enabled: false, start: "21:00", end: "07:00", timezone: "UTC", moon: true },
     mention_member: false,
+    repeat: { percent: 50, recent: 1 },
   },
   catalog: [{ id: "quiet", label: "Quiet forest", description: "", normal_ready: false, winter_ready: false }],
   effective_season: "winter", effective_chances: [], ready: false,
@@ -139,12 +140,40 @@ describe("welcome unavailable interface", () => {
     expect(body).toContain("Event 1 saved chance: 10%");
     expect(body).toContain("Story 1");
   });
+  it("shows repeat controls, base and next odds with the recent events tagged", () => {
+    const state = structuredClone(unavailable);
+    state.catalog = fifteen.slice(0, 3);
+    state.settings.variants = fifteen.slice(0, 3).map(({ id }) => ({ id, enabled: true, weight: 10 }));
+    state.settings.repeat = { percent: 100, recent: 2 };
+    state.effective_chances = state.settings.variants.map(({ id }) => ({ id, percent: 100 / 3 }));
+    state.recent_events = ["quiet", "lantern_panda"];
+    state.current_chances = [{ id: "quiet", percent: 0 }, { id: "lantern_panda", percent: 0 }, { id: "fox", percent: 100 }];
+    const { body } = render(WelcomeManager, { props: { initial: state, channels: [] } });
+    expect(body).toContain(">Repeat penalty<");
+    expect(body).toContain(">Recent events<");
+    expect(body).toContain("0 to 100%");
+    expect(body).toContain("1 to 20");
+    expect(body).toMatch(/<input[^>]*min="0"[^>]*max="100"[^>]*value="100"/);
+    expect(body).toMatch(/<input[^>]*min="1"[^>]*max="20"[^>]*value="2"/);
+    expect(body).toMatch(/<span[^>]*>Base<\/span><span[^>]*>Next<\/span>/);
+    expect(body).toContain("Event 1 saved chance: 33.3%");
+    expect(body).toContain("Event 1 next chance: 0%");
+    expect(body).toContain("Event 3 next chance: 100%");
+    expect(body.match(/class="recent-tag[^"]*">recent</g)).toHaveLength(2);
+    expect(body).toContain("If none remain, base odds apply.");
+    expect(body).not.toContain("not available on this server");
+    expect(body).not.toContain("\u2014");
+  });
   it("keeps the previous interface against a server without night scheduling", () => {
-    const { effective_night: _effective, settings: { night: _night, ...settings }, ...rest } = structuredClone(unavailable);
+    const { effective_night: _effective, settings: { night: _night, repeat: _repeat, ...settings }, ...rest } = structuredClone(unavailable);
     const legacy: WelcomeResponse = { ...rest, settings };
     expect(legacy).not.toHaveProperty("effective_night");
     expect(legacy.settings).not.toHaveProperty("night");
     const { body } = render(WelcomeManager, { props: { initial: legacy, channels: [] } });
+    // Repeat shows its default for display only, locked, with next odds equal to base.
+    expect(body).toContain("Repeat penalty is not available on this server yet.");
+    expect(body).toMatch(/<input[^>]*min="0"[^>]*max="100"[^>]*disabled[^>]*value="50"|<input[^>]*disabled[^>]*min="0"[^>]*max="100"[^>]*value="50"/);
+    expect(body).not.toContain(">recent<");
     expect(body).toContain("Not available on this server yet. Welcomes use day scenes.");
     expect(body).toContain("Uses your avatar and a sample name. Season, sky effect and name here are preview only, never saved.");
     for (const absent of ["Night starts", "welcome-timezones", "Show the moon", "Preview time of day", "As scheduled", "Night only", "stays off", "Night:"]) {

@@ -16,17 +16,19 @@
     CEREMONY_ALL_RAIDS, CEREMONY_BADGE_TITLE_MAX, CEREMONY_LOOP_MS, CEREMONY_RAIDS, CEREMONY_SCENES, CEREMONY_TIERS,
     ceremonyAchievementBody, ceremonyAchievementDescription, ceremonyAchievementIssue, ceremonyCategories, ceremonyChance,
     ceremonyInputIssue, ceremonyKeyLabel, ceremonyPreviewKey, ceremonyPreviewScene, ceremonyProposedChances, ceremonyReadinessIssue,
-    ceremonyRoleLabel, ceremonySaveBody, ceremonySceneLabel, ceremonySettingsDirty, ceremonyStateWithMention, ceremonyTierLabel,
+    ceremonyRoleLabel, ceremonySaveBody, ceremonySceneLabel, ceremonySettingsDirty, ceremonyState, ceremonyTierLabel,
     type CeremonyAchievement, type CeremonyCategory, type CeremonyCategoryKind, type CeremonyResponse, type CeremonySceneChoice, type CeremonyState,
   } from "./ceremony";
+  import { REPEAT_RECENT_MAX, repeatChances, repeatFieldIssue, repeatHistory, repeatRecentIds } from "./repeat";
   import type { DiscordContext } from "./types";
 
   let { initial, channels }: { initial: CeremonyResponse; channels: DiscordContext["channels"] } = $props();
   // The saved response seeds one local draft; Rust owns persistence and normalization.
   // svelte-ignore state_referenced_locally
-  const seeded = ceremonyStateWithMention(structuredClone(initial));
+  const seeded = ceremonyState(structuredClone(initial));
   let saved = $state<CeremonyState>(seeded.state);
   let mentionSupported = $state(seeded.mentionSupported);
+  let repeatSupported = $state(seeded.repeatSupported);
   let draft = $state(structuredClone(seeded.state.settings));
   // svelte-ignore state_referenced_locally
   let storyId = $state((initial.catalog.find((item) => item.ready) ?? initial.catalog[0])?.id ?? "");
@@ -85,6 +87,12 @@
   const rows = $derived(draft.stories.filter((story) => catalogById.has(story.id)));
   const savedChances = $derived(new Map(saved.effective_chances.map((item) => [item.id, item.percent])));
   const displayedChances = $derived(dirty ? ceremonyProposedChances(draft.stories) : savedChances);
+  // Next pick odds: the server's while clean, otherwise the same penalty rule over the draft.
+  const history = $derived(repeatHistory(saved));
+  const recentIds = $derived(repeatSupported ? repeatRecentIds(history.recent, draft.repeat.recent) : new Set<string>());
+  const repeatIssues = $derived(repeatFieldIssue(draft.repeat));
+  // Older servers have no penalty, so their next pick uses the base odds.
+  const nextChances = $derived(!dirty ? history.current ?? (repeatSupported ? repeatChances(rows, draft.repeat, history.recent) : savedChances) : repeatChances(rows, draft.repeat, repeatSupported ? history.recent : []));
   const destinationChannels = $derived(channels.filter((channel) => channel.archived === undefined));
   const knownChannel = $derived(destinationChannels.some((item) => item.id === draft.channel_id));
   const selected = $derived(catalogById.get(storyId));
@@ -216,9 +224,10 @@
   });
 
   function received(response: CeremonyResponse) {
-    const next = ceremonyStateWithMention(response);
+    const next = ceremonyState(response);
     saved = next.state;
     mentionSupported = next.mentionSupported;
+    repeatSupported = next.repeatSupported;
     draft = structuredClone(next.state.settings);
     conflict = false;
     error = null;
@@ -229,7 +238,7 @@
     if (busy || !dirty || issue || conflict || (draft.enabled && !draftReady)) return;
     busy = true; error = null; notice = null; navigationBlocked = false;
     // Freeze the sent draft. Controls stay disabled until normalization returns.
-    const result = await requestDiscord<CeremonyResponse>(globalThis.fetch.bind(globalThis), "ceremonies", "PUT", ceremonySaveBody($state.snapshot(draft), mentionSupported));
+    const result = await requestDiscord<CeremonyResponse>(globalThis.fetch.bind(globalThis), "ceremonies", "PUT", ceremonySaveBody($state.snapshot(draft), mentionSupported, repeatSupported));
     busy = false;
     if (!result.ok) {
       conflict = result.error.status === 409;
@@ -287,7 +296,12 @@
       <p class="hint">Season and night follow the welcome schedule.</p>
 
       <div class="section-head stories-head"><h2>Story odds</h2><span class="hint">Higher weight, more often. Zero never wins.</span></div>
-      <div class="story-columns" aria-hidden="true"><span>Story</span><span>Weight</span><span>{dirty ? "After save" : "Chance"}</span></div>
+      <div class="repeat-controls">
+        <Field label="Repeat penalty" hint="0 to 100%" error={repeatIssues?.percent}><NumberInput bind:value={draft.repeat.percent} min={0} max={100} step={1} required disabled={!repeatSupported} invalid={!!repeatIssues?.percent} /></Field>
+        <Field label="Recent events" hint={`1 to ${REPEAT_RECENT_MAX}`} error={repeatIssues?.recent}><NumberInput bind:value={draft.repeat.recent} min={1} max={REPEAT_RECENT_MAX} step={1} required disabled={!repeatSupported} invalid={!!repeatIssues?.recent} /></Field>
+      </div>
+      <p class="hint">{repeatSupported ? "Recent picks lose this share of weight, once. 0 is off. If none remain, base odds apply." : "Repeat penalty is not available on this server yet."}</p>
+      <div class="story-columns" aria-hidden="true"><span>Story</span><span>Weight</span><span>Base</span><span>Next</span></div>
       <div class="stories">
         {#each rows as story (story.id)}
           {@const item = catalogById.get(story.id)}
@@ -297,9 +311,11 @@
               <Toggle bind:checked={story.enabled} label={`Enable ${label}`} />
               <button type="button" class="story-select" aria-pressed={storyId === story.id} onclick={() => { storyId = story.id; }}>{label}</button>
               {#if item && !item.ready}<span class="asset-state">Artwork pending</span>{/if}
+              {#if recentIds.has(story.id)}<span class="recent-tag">recent</span>{/if}
             </div>
             <NumberInput bind:value={story.weight} min={0} max={1000} step={1} required aria-label={`${label} weight`} />
             <span class="chance" aria-label={`${label} ${dirty ? "chance after save" : "saved chance"}: ${displayedChances?.has(story.id) ? ceremonyChance(displayedChances.get(story.id)) : "Not available"}`}>{ceremonyChance(displayedChances?.get(story.id))}</span>
+            <span class="chance" aria-label={`${label} ${dirty ? "next chance after save" : "next chance"}: ${nextChances?.has(story.id) ? ceremonyChance(nextChances.get(story.id)) : "Not available"}`}>{ceremonyChance(nextChances?.get(story.id))}</span>
           </div>
         {:else}
           <p class="hint">No stories are installed on this server.</p>
@@ -405,9 +421,11 @@
   .hint, .saved-state { margin: 0; color: var(--text-body); font-size: var(--text-xs); line-height: 1.5; overflow-wrap: anywhere; }
   .readiness { margin: 0; padding: 10px 12px; border-left: 2px solid var(--color-gold); color: var(--text-body); background: var(--color-surface); font-size: var(--text-sm); line-height: 1.5; }
   .stories-head { padding-top: 16px; margin-top: 4px; border-top: 1px solid var(--border-default); }
-  .story-columns, .story { display: grid; grid-template-columns: minmax(0, 1fr) 80px 88px; align-items: center; gap: 12px; }
+  .repeat-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 160px)); gap: 12px; }
+  .story-columns, .story { display: grid; grid-template-columns: minmax(0, 1fr) 72px 60px 60px; align-items: center; gap: 12px; }
   .story-columns { padding: 0 10px; font-size: var(--text-xs); color: var(--text-body); }
-  .story-columns span:last-child { text-align: right; }
+  .story-columns span:nth-child(n + 3) { text-align: right; }
+  .recent-tag { grid-column: 2; justify-self: start; padding: 0 6px; border: 1px solid var(--border-default); color: var(--color-gold); font-size: var(--text-2xs); line-height: 1.6; }
   .stories { display: grid; }
   .story { padding: 10px; border-top: 1px solid var(--border-default); border-left: 2px solid transparent; }
   .story.selected { border-left-color: var(--color-gold); background: color-mix(in srgb, var(--color-gold) 5%, transparent); }
@@ -438,7 +456,7 @@
   }
   @media (max-width: 520px) {
     .preview-controls { grid-template-columns: 1fr; }
-    .story-columns, .story { grid-template-columns: minmax(0, 1fr) 64px 70px; gap: 8px; padding-inline: 4px; }
+    .story-columns, .story { grid-template-columns: minmax(0, 1fr) 60px 48px 48px; gap: 6px; padding-inline: 4px; }
     .story-columns { font-size: var(--text-2xs); }
     .save-actions :global(.seq-button) { flex: 1; min-height: 44px; padding-inline: 8px; }
   }

@@ -1,3 +1,5 @@
+import { REPEAT_DEFAULT, repeatIssue, type RepeatPenalty } from "./repeat";
+
 export type WelcomeSeason = "normal" | "winter";
 export type WelcomeFont = "minecraft" | "jersey_15" | "pixelify_sans";
 export type WelcomeSkyEffect = "aurora";
@@ -31,6 +33,7 @@ export interface WelcomeSettings {
   night: WelcomeNight;
   /** Ping the new member in the welcome post. */
   mention_member: boolean;
+  repeat: RepeatPenalty;
 }
 export interface WelcomeState {
   settings: WelcomeSettings;
@@ -43,33 +46,48 @@ export interface WelcomeState {
   effects: { sky: { id: WelcomeSkyEffect; label: string; description: string; normal_ready: boolean; winter_ready: boolean }[] };
   effective_effect_chances: { sky: { id: WelcomePreviewEffect; percent: number }[] };
   effective_night: { active: boolean; scheduled: boolean; local_time: string | null; timezone: string; ready: boolean; timezones: string[] };
+  /** Last live picks, most recent first. Absent on servers without repeat penalties. */
+  recent_events?: string[];
+  /** Next live pick odds after the repeat penalty. Absent on servers without repeat penalties. */
+  current_chances?: { id: string; percent: number }[];
 }
-/** Wire shape. Servers from before night scheduling omit both night fields; older servers omit mention_member. */
+/** Wire shape. Servers from before night scheduling omit both night fields; older servers omit mention_member and repeat. */
 export type WelcomeResponse = Omit<WelcomeState, "settings" | "effective_night"> & {
-  settings: Omit<WelcomeSettings, "night" | "mention_member"> & { night?: WelcomeNight; mention_member?: boolean };
+  settings: Omit<WelcomeSettings, "night" | "mention_member" | "repeat"> & { night?: WelcomeNight; mention_member?: boolean; repeat?: RepeatPenalty };
   effective_night?: WelcomeState["effective_night"];
 };
 export const WELCOME_NIGHT_DEFAULT: WelcomeNight = { enabled: false, start: "21:00", end: "07:00", timezone: "UTC", moon: false };
 
-/** Fills the night and mention defaults for older servers. Unsupported fields are never sent back to them. */
-export function welcomeStateWithNight(response: WelcomeResponse): { state: WelcomeState; nightSupported: boolean; mentionSupported: boolean } {
+/** Fills the night, mention and repeat defaults for older servers. Unsupported fields are never sent back to them. */
+export function welcomeStateWithNight(response: WelcomeResponse): { state: WelcomeState; nightSupported: boolean; mentionSupported: boolean; repeatSupported: boolean } {
   const nightSupported = response.settings.night !== undefined && response.effective_night !== undefined;
   const mentionSupported = typeof response.settings.mention_member === "boolean";
   return {
     nightSupported,
     mentionSupported,
+    repeatSupported: response.settings.repeat !== undefined,
     state: {
       ...response,
-      settings: { ...response.settings, night: response.settings.night ?? { ...WELCOME_NIGHT_DEFAULT }, mention_member: response.settings.mention_member === true },
+      settings: {
+        ...response.settings,
+        night: response.settings.night ?? { ...WELCOME_NIGHT_DEFAULT },
+        mention_member: response.settings.mention_member === true,
+        repeat: response.settings.repeat ?? { ...REPEAT_DEFAULT },
+      },
       effective_night: response.effective_night ?? { active: false, scheduled: false, local_time: null, timezone: "UTC", ready: false, timezones: [] },
     },
   };
 }
 
-/** Full settings definition for save. Older servers reject the unknown night and mention_member fields. */
-export function welcomeSaveBody(settings: WelcomeSettings, nightSupported: boolean, mentionSupported: boolean): Omit<WelcomeSettings, "night" | "mention_member"> & Partial<Pick<WelcomeSettings, "night" | "mention_member">> {
-  const { night, mention_member, ...body } = settings;
-  return { ...body, ...(nightSupported ? { night } : {}), ...(mentionSupported ? { mention_member } : {}) };
+/** Full settings definition for save. Older servers reject the unknown night, mention_member and repeat fields. */
+export function welcomeSaveBody(
+  settings: WelcomeSettings,
+  nightSupported: boolean,
+  mentionSupported: boolean,
+  repeatSupported: boolean,
+): Omit<WelcomeSettings, "night" | "mention_member" | "repeat"> & Partial<Pick<WelcomeSettings, "night" | "mention_member" | "repeat">> {
+  const { night, mention_member, repeat, ...body } = settings;
+  return { ...body, ...(nightSupported ? { night } : {}), ...(mentionSupported ? { mention_member } : {}), ...(repeatSupported ? { repeat } : {}) };
 }
 
 /** Unsaved edits, including unsupported fields that are never sent. */
@@ -181,6 +199,8 @@ export function welcomeInputIssue(settings: WelcomeSettings, timezones: readonly
   if (nightIssue) return `Night: ${nightIssue.start ?? nightIssue.end ?? nightIssue.timezone}`;
   const effectIssue = welcomeSkyEffectIssue(settings.effects.sky);
   if (effectIssue) return effectIssue;
+  const repeat = repeatIssue(settings.repeat);
+  if (repeat) return repeat;
   if (settings.enabled && !settings.channel_id.trim()) return "Choose a destination channel.";
   const dates = [settings.winter_start, settings.winter_end];
   if (dates.some(({ month, day }) => !Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(day) || day < 1 || day > 31)) return "Enter a month from 1 to 12 and a day from 1 to 31.";
