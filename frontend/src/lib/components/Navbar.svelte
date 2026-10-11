@@ -155,6 +155,11 @@
                     </span>
                   </a>
                 {/if}
+                <a href="/achievements" onclick={() => open = null} class="seq-dropdown-item">
+                  <span class="seq-dropdown-item-text">
+                    <span class="seq-dropdown-item-label">Achievements</span>
+                  </span>
+                </a>
                 {#if manage}
                   <a href="/manage" onclick={() => open = null} class="seq-dropdown-item">
                     <span class="seq-dropdown-item-text">
@@ -227,6 +232,7 @@
               {viewer.minecraftUsername}
             </a>
           {/if}
+          <a href="/achievements" onclick={() => mobileOpen = false} class="seq-mobile-link">Achievements</a>
           {#if manage}
             <a href="/manage" onclick={() => mobileOpen = false} class="seq-mobile-link">Manage</a>
           {/if}
