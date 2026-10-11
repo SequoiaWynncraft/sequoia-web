@@ -91,7 +91,7 @@
             {/if}
             {#if changes?.length}
               <ul class="audit-changes" aria-label="Changed settings">
-                {#each changes as change (change.label)}
+                {#each changes as change (change.key ?? change.label)}
                   <li><strong>{change.label}</strong><span>Before: {change.before}</span><span>After: {change.after}</span></li>
                 {/each}
               </ul>

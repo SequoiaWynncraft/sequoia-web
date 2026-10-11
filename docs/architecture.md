@@ -160,3 +160,13 @@ enabled, destination and changed story rows.
 Missing artwork remains a visible pending state, not a substitute image or fake success.
 Saving configuration changes future joins, not previously delivered messages. Automatic
 delivery remains disabled until the deployment owner verifies the separate Java cutover.
+
+### Achievement catalog
+
+`/manage/discord/achievements` edits achievement milestones, names, styles and enabled
+categories. It uses the same Discord category and a fresh Rust load, and the private adapter
+permits only GET/PUT `achievements/catalog`. Rust owns validation, milestone ids, defaults and
+award claims; the page only mirrors limits as hints and sends new milestones with an empty id.
+Saves send the version and keep edits on a 409 until staff reload. Saved milestones preview
+through POST `ceremonies/preview` with `{milestone: {key, id}}`. Saves are audited as
+`achievements.catalog.save`, summarized per changed category.

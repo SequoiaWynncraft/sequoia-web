@@ -79,6 +79,8 @@ describe("registry", () => {
     expect(discord).toMatchObject({ label: "Discord", marker: "✦", branch: null, href: "/manage/discord" });
     expect(discord?.links).toContainEqual({ label: "Welcome messages", href: "/manage/discord/welcome" });
     expect(discord?.links).toContainEqual({ label: "Achievement ceremonies", href: "/manage/discord/ceremonies" });
+    expect(discord?.links.map((link) => link.label).slice(-2)).toEqual(["Achievement ceremonies", "Achievements"]);
+    expect(discord?.links).toContainEqual({ label: "Achievements", href: "/manage/discord/achievements" });
     const owners = MANAGE_AREAS.filter((area) =>
       [area.href, ...area.links.map((link) => link.href)].includes("/manage/discord"),
     );

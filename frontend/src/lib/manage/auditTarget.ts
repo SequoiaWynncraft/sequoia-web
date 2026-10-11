@@ -32,7 +32,8 @@ export function messageLink(entry: Pick<AuditEntry, "source" | "detail" | "actio
   return null;
 }
 
-export interface AuditChange { label: string; before: string; after: string }
+/** `key` identifies the row when labels can repeat; it defaults to the label. */
+export interface AuditChange { label: string; before: string; after: string; key?: string }
 
 const WELCOME_LABELS: Record<string, string> = {
   enabled: "Automatic welcomes", channel_id: "Destination channel", season_mode: "Season mode",
@@ -159,7 +160,67 @@ export function ceremonyAuditChanges(entry: Pick<AuditEntry, "source" | "detail"
   } catch { return null; }
 }
 
+const CATALOG_LISTED = 4;
+
+function catalogCategories(snapshot: unknown): Map<string, Record<string, unknown>> {
+  const rows = new Map<string, Record<string, unknown>>();
+  const categories = object(snapshot)?.categories;
+  if (!Array.isArray(categories)) return rows;
+  for (const row of categories.map(object)) if (row && typeof row.key === "string") rows.set(row.key, row);
+  return rows;
+}
+
+function catalogValue(category: Record<string, unknown> | undefined, other: Record<string, unknown> | undefined): string {
+  if (!category) return "Not set";
+  const parts = [category.enabled === true ? "On" : "Off"];
+  if (other && typeof category.label === "string" && category.label !== other.label) parts.push(`"${category.label}"`);
+  const all = Array.isArray(category.milestones) ? category.milestones.map(object) : [];
+  // Beyond the cutoff, show the milestones that differ from the other side so an edit to a
+  // later milestone stays visible; the remainder is counted.
+  const others = Array.isArray(other?.milestones) ? other.milestones.map(object) : [];
+  const same = (milestone: Record<string, unknown> | null) =>
+    others.some((item) => JSON.stringify(item) === JSON.stringify(milestone));
+  const changed = all.filter((milestone) => !same(milestone));
+  const milestones = all.length > CATALOG_LISTED && changed.length > 0 && other ? changed : all;
+  const hidden = all.length - Math.min(milestones.length, CATALOG_LISTED);
+  if (all.length > 0) {
+    const number = new Intl.NumberFormat("en");
+    const text = (milestone: Record<string, unknown> | null) => {
+      const style = typeof milestone?.tier === "string" ? ` (${milestone.tier.charAt(0).toUpperCase()}${milestone.tier.slice(1)})` : "";
+      return `${String(milestone?.label)} ${typeof milestone?.at === "number" ? number.format(milestone.at) : "?"}${style}`;
+    };
+    // A milestone that only changed identity (a reset to the default id) shows its id.
+    const listed = milestones.slice(0, CATALOG_LISTED)
+      .map((milestone) => !same(milestone) && others.some((item) => text(item) === text(milestone)) && typeof milestone?.id === "string"
+        ? `${text(milestone)} [${milestone.id}]`
+        : text(milestone));
+    if (hidden > 0) listed.push(`+${hidden} more`);
+    parts.push(listed.join(", "));
+  }
+  return parts.join(" · ");
+}
+
+/** Readable achievement catalog changes, one per changed category. The raw detail stays available. */
+export function achievementCatalogAuditChanges(entry: Pick<AuditEntry, "source" | "detail" | "action">): AuditChange[] | null {
+  if (entry.source !== "discord" || !entry.detail || !entry.action.endsWith("achievements.catalog.save")) return null;
+  try {
+    const change = object(JSON.parse(entry.detail));
+    if (!change || !Array.isArray(change.changed)) return null;
+    const before = catalogCategories(change.before);
+    const after = catalogCategories(change.after);
+    const keys = change.changed.filter((key): key is string => typeof key === "string");
+    const names = keys.map((key) => [after.get(key)?.label, before.get(key)?.label]
+      .find((value): value is string => typeof value === "string" && value.length > 0) ?? key);
+    // Rows are keyed by label, so a name shared by two categories falls back to its stable key.
+    return keys.map((key, index) => {
+      const [old, next] = [before.get(key), after.get(key)];
+      const shared = names.filter((name) => name === names[index]).length > 1;
+      return { key, label: shared ? `${names[index]} (${key})` : names[index], before: catalogValue(old, next), after: catalogValue(next, old) };
+    });
+  } catch { return null; }
+}
+
 /** The readable settings summary for any audited Discord settings save, or null. */
 export function settingsAuditChanges(entry: Pick<AuditEntry, "source" | "detail" | "action">): AuditChange[] | null {
-  return welcomeAuditChanges(entry) ?? ceremonyAuditChanges(entry);
+  return welcomeAuditChanges(entry) ?? ceremonyAuditChanges(entry) ?? achievementCatalogAuditChanges(entry);
 }

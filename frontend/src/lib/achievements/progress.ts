@@ -40,7 +40,7 @@ export interface AchievementGroup {
   categories: AchievementCategory[];
 }
 
-const GROUP_LABELS: Record<string, string> = {
+export const GROUP_LABELS: Record<string, string> = {
   raid: "Raids",
   war: "Guild wars",
   profession: "Professions",

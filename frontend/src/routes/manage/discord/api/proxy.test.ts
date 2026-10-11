@@ -87,6 +87,35 @@ describe("Discord management server boundary", () => {
     expect(response.status).toBe(409);
     expect(await response.json()).toEqual({ error: "Stale version" });
   });
+  it("forwards the achievement catalog only with GET and PUT", async () => {
+    for (const [method, handler] of [["GET", GET], ["PUT", PUT]] as const) {
+      const request = event(method, "https://seqwawa.com", "cookie-session", "achievements/catalog");
+      expect((await handler(request as never)).status).toBe(200);
+      expect(request.fetch).toHaveBeenCalledWith("http://sierra:8082/v1/achievements/catalog", expect.objectContaining({
+        method, headers: { authorization: "Bearer cookie-session", "content-type": "application/json" },
+      }));
+    }
+    for (const [method, handler] of [["POST", POST], ["DELETE", DELETE]] as const) {
+      const invalid = event(method, "https://seqwawa.com", "cookie-session", "achievements/catalog");
+      await expect(handler(invalid as never)).rejects.toMatchObject({ status: 405 });
+      expect(invalid.fetch).not.toHaveBeenCalled();
+    }
+    for (const path of ["achievements", "achievements/catalog/extra", "achievements/progress"]) {
+      const arbitrary = event("GET", null, "cookie-session", path);
+      await expect(GET(arbitrary as never)).rejects.toMatchObject({ status: 404 });
+      expect(arbitrary.fetch).not.toHaveBeenCalled();
+    }
+    const foreign = event("PUT", "https://other.example", "cookie-session", "achievements/catalog");
+    await expect(PUT(foreign as never)).rejects.toMatchObject({ status: 403 });
+    expect(foreign.fetch).not.toHaveBeenCalled();
+    for (const status of [400, 409]) {
+      const request = event("PUT", "https://seqwawa.com", "cookie-session", "achievements/catalog");
+      vi.mocked(request.fetch).mockResolvedValueOnce(Response.json({ error: "Rejected" }, { status }));
+      const response = await PUT(request as never);
+      expect(response.status).toBe(status);
+      expect(await response.json()).toEqual({ error: "Rejected" });
+    }
+  });
   it("preserves ceremony renderer bytes privately without treating them as JSON", async () => {
     // Transport sentinels only, not a rendered ceremony.
     for (const type of ["image/png", "image/gif"]) {
