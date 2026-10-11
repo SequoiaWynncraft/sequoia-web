@@ -177,15 +177,22 @@ describe("achievement catalog audit summaries", () => {
       { ...before[2], enabled: false },
     ];
     expect(achievementCatalogAuditChanges(save(["raid:TNA", "war:completed", "badge"], before, after))).toEqual([
-      { label: "TNA", before: "On · Step 1 25, Step 2 50, Step 3 75, Step 4 100, +2 more", after: "On · Step 1 25, Step 2 50" },
-      { label: "Guild wars", before: 'On · "Wars" · Step 1 25', after: 'Off · "Guild wars" · Step 1 25' },
+      { label: "TNA", before: "On · Step 1 25 (Gold), Step 2 50 (Gold), Step 3 75 (Gold), Step 4 100 (Gold), +2 more", after: "On · Step 1 25 (Gold), Step 2 50 (Gold)" },
+      { label: "Guild wars", before: 'On · "Wars" · Step 1 25 (Gold)', after: 'Off · "Guild wars" · Step 1 25 (Gold)' },
       { label: "Badges", before: "On", after: "Off" },
+    ]);
+  });
+  it("shows a style-only change and keeps rows unique when names repeat", () => {
+    const raid = (key: string, tier: string) => ({ key, kind: "raid", enabled: true, label: "Raids", milestones: [{ id: "a", at: 25, label: "Bronze", tier }] });
+    expect(achievementCatalogAuditChanges(save(["raid:TNA", "raid:NOL"], [raid("raid:TNA", "bronze"), raid("raid:NOL", "bronze")], [raid("raid:TNA", "obsidian"), raid("raid:NOL", "bronze")]))).toEqual([
+      { label: "Raids (raid:TNA)", before: "On · Bronze 25 (Bronze)", after: "On · Bronze 25 (Obsidian)" },
+      { label: "Raids (raid:NOL)", before: "On · Bronze 25 (Bronze)", after: "On · Bronze 25 (Bronze)" },
     ]);
   });
   it("names unknown or one-sided categories readably", () => {
     const added = { key: "raid:new", kind: "raid", enabled: true, label: "", milestones: ladder(1) };
     expect(achievementCatalogAuditChanges(save(["raid:new", 7], [], [added]))).toEqual([
-      { label: "raid:new", before: "Not set", after: "On · Step 1 25" },
+      { label: "raid:new", before: "Not set", after: "On · Step 1 25 (Gold)" },
     ]);
   });
   it("is routed from the settings summary and ignores other entries", () => {

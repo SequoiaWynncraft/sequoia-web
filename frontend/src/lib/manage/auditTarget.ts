@@ -177,7 +177,10 @@ function catalogValue(category: Record<string, unknown> | undefined, other: Reco
   if (milestones.length > 0) {
     const number = new Intl.NumberFormat("en");
     const listed = milestones.slice(0, CATALOG_LISTED)
-      .map((milestone) => `${String(milestone?.label)} ${typeof milestone?.at === "number" ? number.format(milestone.at) : "?"}`);
+      .map((milestone) => {
+        const style = typeof milestone?.tier === "string" ? ` (${milestone.tier.charAt(0).toUpperCase()}${milestone.tier.slice(1)})` : "";
+        return `${String(milestone?.label)} ${typeof milestone?.at === "number" ? number.format(milestone.at) : "?"}${style}`;
+      });
     if (milestones.length > CATALOG_LISTED) listed.push(`+${milestones.length - CATALOG_LISTED} more`);
     parts.push(listed.join(", "));
   }
@@ -192,10 +195,14 @@ export function achievementCatalogAuditChanges(entry: Pick<AuditEntry, "source" 
     if (!change || !Array.isArray(change.changed)) return null;
     const before = catalogCategories(change.before);
     const after = catalogCategories(change.after);
-    return change.changed.filter((key): key is string => typeof key === "string").map((key) => {
+    const keys = change.changed.filter((key): key is string => typeof key === "string");
+    const names = keys.map((key) => [after.get(key)?.label, before.get(key)?.label]
+      .find((value): value is string => typeof value === "string" && value.length > 0) ?? key);
+    // Rows are keyed by label, so a name shared by two categories falls back to its stable key.
+    return keys.map((key, index) => {
       const [old, next] = [before.get(key), after.get(key)];
-      const label = [next?.label, old?.label].find((value): value is string => typeof value === "string" && value.length > 0) ?? key;
-      return { label, before: catalogValue(old, next), after: catalogValue(next, old) };
+      const shared = names.filter((name) => name === names[index]).length > 1;
+      return { label: shared ? `${names[index]} (${key})` : names[index], before: catalogValue(old, next), after: catalogValue(next, old) };
     });
   } catch { return null; }
 }

@@ -38,6 +38,7 @@
   let previewStatus = $state<HTMLDivElement>();
   let previewUrl = $state("");
   let previewKey = $state("");
+  let previewed = $state<{ storyId: string; key: string; id: string } | null>(null);
   let previewDescription = $state("");
   let previewBusy = $state(false);
   let previewError = $state<string | null>(null);
@@ -73,10 +74,19 @@
   function clearPreview() {
     cancelPreview();
     if (previewUrl) URL.revokeObjectURL(previewUrl);
-    previewUrl = ""; previewKey = ""; previewDescription = "";
+    previewUrl = ""; previewKey = ""; previewDescription = ""; previewed = null;
   }
 
   onMount(() => clearPreview);
+
+  // A shown image is cleared once its story changes or its milestone is edited away from what was saved.
+  $effect(() => {
+    const shown = previewed;
+    if (!shown) return;
+    const category = draft.find(({ key }) => key === shown.key);
+    const milestone = category?.milestones.find(({ id }) => id === shown.id);
+    if (storyId !== shown.storyId || !category || !milestone || !milestonePreviewable(savedByKey.get(shown.key), category, milestone)) clearPreview();
+  });
 
   async function preview(category: CatalogCategory, milestone: CatalogMilestone) {
     if (!storyId) return;
@@ -99,6 +109,7 @@
       previewUrl = URL.createObjectURL(result.data);
       previewKey = key;
       previewDescription = description;
+      previewed = { storyId, key: category.key, id: milestone.id };
     } catch (cause) {
       if (requestSerial === serial && !(cause instanceof DOMException && cause.name === "AbortError")) {
         previewError = cause instanceof Error ? cause.message : "Could not load the preview.";
@@ -110,6 +121,9 @@
 
   function received(response: CatalogResponse) {
     saved = response;
+    // Keep the chosen story only while the new response still offers it ready.
+    const ready = response.stories.filter((story) => story.ready);
+    storyId = ready.some((story) => story.id === storyId) ? storyId : ready[0]?.id ?? "";
     draft = structuredClone(response.catalog.categories);
     conflict = false;
     error = null;
@@ -182,7 +196,7 @@
               <div class="category-row">
                 <Toggle bind:checked={category.enabled} label={`Enable ${name(category)}`} />
                 {#if editable.label}
-                  <TextInput bind:value={category.label} maxlength={saved.limits.name_max} required invalid={!category.label.trim()} aria-label={`${savedCategory?.label ?? category.key} name`} />
+                  <TextInput bind:value={category.label} required invalid={!category.label.trim()} aria-label={`${savedCategory?.label ?? category.key} name`} />
                 {:else}
                   <span class="fixed-name">{category.label}</span>
                 {/if}
@@ -204,7 +218,7 @@
                     {@const previewable = milestonePreviewable(savedCategory, category, milestone)}
                     <div class="milestone">
                       <NumberInput bind:value={milestone.at} min={1} {max} step={1} required invalid={!Number.isInteger(milestone.at) || milestone.at < 1 || milestone.at > max} aria-label={`${rowName} threshold`} />
-                      <TextInput bind:value={milestone.label} maxlength={saved.limits.label_max} required invalid={!milestone.label.trim()} aria-label={`${rowName} label`} />
+                      <TextInput bind:value={milestone.label} required invalid={!milestone.label.trim()} aria-label={`${rowName} label`} />
                       <Select bind:value={milestone.tier} aria-label={`${rowName} style`}>
                         {#if !tierLabels.has(milestone.tier)}<option value={milestone.tier}>Choose a style</option>{/if}
                         {#each saved.tiers as tier (tier.id)}<option value={tier.id}>{tier.label}</option>{/each}
