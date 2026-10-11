@@ -34,10 +34,19 @@ export interface CeremonyScene {
   season: CeremonySeason;
   ambiance: CeremonyAmbiance;
 }
+/** A catalog story. Older servers omit recommended_tiers; it is advice only and never limits a tier. */
+export interface CeremonyStory {
+  id: string;
+  label: string;
+  description: string;
+  layout: string;
+  ready: boolean;
+  recommended_tiers?: string[];
+}
 /** Wire shape. Older servers omit mention_member, send_images and image_tiers; servers without repeat penalties omit repeat, recent_events and current_chances. */
 export interface CeremonyResponse {
   settings: Omit<CeremonySettings, "mention_member" | "send_images" | "image_tiers" | "story_tiers" | "repeat"> & { mention_member?: boolean; send_images?: boolean; image_tiers?: Partial<ImageTiers>; story_tiers?: StoryTiers; repeat?: RepeatPenalty };
-  catalog: { id: string; label: string; description: string; layout: string; ready: boolean }[];
+  catalog: CeremonyStory[];
   ready: boolean;
   effective_chances: { id: string; percent: number }[];
   effective_scene: CeremonyScene;
@@ -103,6 +112,19 @@ export function ceremonyImagesInUse(settings: Pick<CeremonySettings, "send_image
   return (!imagesSupported || settings.send_images) && tiers.some(id =>
     !settings.stories || settings.stories.some(story =>
       story.enabled && story.weight > 0 && (!settings.story_tiers?.[id] || settings.story_tiers[id]?.includes(story.id))));
+}
+
+/** Saved rows for the stories the catalog lists, in catalog order. Unlisted saved rows stay in the draft untouched. */
+export function ceremonyCatalogRows<T extends { id: string }>(stories: readonly T[], catalog: readonly Pick<CeremonyStory, "id">[]): T[] {
+  const byId = new Map(stories.map(story => [story.id, story]));
+  return catalog.flatMap(({ id }) => byId.get(id) ?? []);
+}
+
+/** Muted hint such as "Suggested for Diamond, Obsidian", or null when the catalog suggests no tiers. */
+export function ceremonySuggestedTiers(story: Pick<CeremonyStory, "recommended_tiers">): string | null {
+  const listed: unknown = story.recommended_tiers;
+  const tiers = Array.isArray(listed) ? [...new Set(listed.filter((tier): tier is string => typeof tier === "string" && tier.length > 0))] : [];
+  return tiers.length > 0 ? `Suggested for ${tiers.map(ceremonyTierLabel).join(", ")}` : null;
 }
 
 export function ceremonyTierStories(settings: Pick<CeremonySettings, "stories" | "story_tiers">, tier: ImageTier): CeremonySettings["stories"] {

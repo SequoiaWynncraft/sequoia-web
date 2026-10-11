@@ -14,9 +14,9 @@
   import ManageHeader from "$lib/manage/ManageHeader.svelte";
   import {
     CEREMONY_ALL_RAIDS, CEREMONY_BADGE_TITLE_MAX, CEREMONY_LOOP_MS, CEREMONY_RAIDS, CEREMONY_SCENES, CEREMONY_TIERS,
-    ceremonyAchievementBody, ceremonyAchievementDescription, ceremonyAchievementIssue, ceremonyCategories, ceremonyChance,
+    ceremonyAchievementBody, ceremonyAchievementDescription, ceremonyAchievementIssue, ceremonyCatalogRows, ceremonyCategories, ceremonyChance,
     ceremonyInputIssue, ceremonyKeyLabel, ceremonyPreviewKey, ceremonyPreviewScene, ceremonyImagesInUse, ceremonyProposedChances, ceremonyReadinessIssue, IMAGE_TIERS,
-    ceremonyRoleLabel, ceremonySaveBody, ceremonySceneLabel, ceremonySettingsDirty, ceremonyState, ceremonyTierLabel, ceremonyTierStories, ceremonyToggleTierStory,
+    ceremonyRoleLabel, ceremonySaveBody, ceremonySceneLabel, ceremonySettingsDirty, ceremonyState, ceremonySuggestedTiers, ceremonyTierLabel, ceremonyTierStories, ceremonyToggleTierStory,
     type CeremonyAchievement, type CeremonyCategory, type CeremonyCategoryKind, type CeremonyResponse, type CeremonySceneChoice, type CeremonyState, type ImageTier,
   } from "./ceremony";
   import { REPEAT_RECENT_MAX, repeatChances, repeatFieldIssue, repeatHistory, repeatRecentIds } from "./repeat";
@@ -85,8 +85,10 @@
   const dirty = $derived(ceremonySettingsDirty(draft, saved.settings));
   const issue = $derived(ceremonyInputIssue(draft));
   const catalogById = $derived(new Map(saved.catalog.map((item) => [item.id, item])));
-  // Only stories the server catalog lists are shown; unknown saved rows are kept and sent back untouched.
-  const rows = $derived(draft.stories.filter((story) => catalogById.has(story.id)));
+  // Only stories the server catalog lists are shown, in catalog order; unknown saved rows are kept and sent back untouched.
+  const rows = $derived(ceremonyCatalogRows(draft.stories, saved.catalog));
+  // Catalog advice only. Managers may allow any story for any tier.
+  const suggestions = $derived(new Map(saved.catalog.map((item) => [item.id, ceremonySuggestedTiers(item)])));
   // Older servers always send images, so their artwork rule still applies.
   const imagesInUse = $derived(ceremonyImagesInUse({ ...draft, stories: rows }, imagesSupported, imageTiersSupported));
   const readinessIssue = $derived(ceremonyReadinessIssue(draft, saved.ready, imagesInUse));
@@ -324,9 +326,9 @@
         <Field label="Tier">
           <Select bind:value={allowedTier} aria-label="Animation tier">{#each IMAGE_TIERS as option (option.id)}<option value={option.id}>{option.label}</option>{/each}</Select>
         </Field>
-        <div class="image-tiers">
+        <div class="tier-stories">
           {#each rows as story (story.id)}
-            <Toggle checked={draft.story_tiers[allowedTier]?.includes(story.id) ?? true} label={`Allow ${catalogById.get(story.id)?.label ?? story.id}`} onchange={event => setAllowed(story.id, event.currentTarget.checked)} />
+            <Toggle checked={draft.story_tiers[allowedTier]?.includes(story.id) ?? true} label={`Allow ${catalogById.get(story.id)?.label ?? story.id}`} hint={suggestions.get(story.id) ?? undefined} onchange={event => setAllowed(story.id, event.currentTarget.checked)} />
           {/each}
         </div>
         {#if !tierRows.some(story => story.enabled && story.weight > 0)}<p class="hint">Text only</p>{/if}
@@ -343,10 +345,12 @@
         {#each rows as story (story.id)}
           {@const item = catalogById.get(story.id)}
           {@const label = item?.label ?? story.id}
+          {@const suggested = suggestions.get(story.id)}
           <div class="story" class:selected={storyId === story.id} class:off={!story.enabled || story.weight === 0}>
             <div class="story-identity">
               <Toggle bind:checked={story.enabled} label={`Enable ${label}`} />
               <button type="button" class="story-select" aria-pressed={storyId === story.id} onclick={() => { storyId = story.id; }}>{label}</button>
+              {#if suggested}<span class="suggested">{suggested}</span>{/if}
               {#if item && !item.ready}<span class="asset-state">Artwork pending</span>{/if}
               {#if recentIds.has(story.id)}<span class="recent-tag">recent</span>{/if}
             </div>
@@ -459,6 +463,7 @@
   .readiness { margin: 0; padding: 10px 12px; border-left: 2px solid var(--color-gold); color: var(--text-body); background: var(--color-surface); font-size: var(--text-sm); line-height: 1.5; }
   .image-tiers { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px 12px; }
   .image-tiers legend { padding: 0; margin-bottom: 6px; color: var(--text-body); font-size: var(--text-xs); }
+  .tier-stories { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px 16px; }
   .stories-head { padding-top: 16px; margin-top: 4px; border-top: 1px solid var(--border-default); }
   .repeat-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 160px)); gap: 12px; }
   .story-columns, .story { display: grid; grid-template-columns: minmax(0, 1fr) 72px 60px 60px; align-items: center; gap: 12px; }
@@ -475,6 +480,7 @@
   .story-select[aria-pressed="true"] { color: var(--color-gold); }
   .story.off .story-select, .story.off .chance { color: var(--text-muted); }
   .asset-state { grid-column: 2; font-size: var(--text-xs); color: var(--text-body); }
+  .suggested { grid-column: 2; font-size: var(--text-xs); line-height: 1.4; color: var(--text-muted); overflow-wrap: anywhere; }
   .chance { text-align: right; color: var(--text-body); font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
   .save-bar { position: sticky; bottom: 0; display: grid; gap: 10px; margin-top: 20px; padding: 12px 0 max(12px, env(safe-area-inset-bottom)); border-top: 1px solid var(--border-default); background: var(--bg-page); z-index: 2; }
   .save-actions, .preview-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
