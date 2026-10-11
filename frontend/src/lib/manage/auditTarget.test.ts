@@ -177,9 +177,16 @@ describe("achievement catalog audit summaries", () => {
       { ...before[2], enabled: false },
     ];
     expect(achievementCatalogAuditChanges(save(["raid:TNA", "war:completed", "badge"], before, after))).toEqual([
-      { label: "TNA", before: "On · Step 1 25 (Gold), Step 2 50 (Gold), Step 3 75 (Gold), Step 4 100 (Gold), +2 more", after: "On · Step 1 25 (Gold), Step 2 50 (Gold)" },
+      { label: "TNA", before: "On · Step 3 75 (Gold), Step 4 100 (Gold), Step 5 125 (Gold), Step 6 150 (Gold), +2 more", after: "On · Step 1 25 (Gold), Step 2 50 (Gold)" },
       { label: "Guild wars", before: 'On · "Wars" · Step 1 25 (Gold)', after: 'Off · "Guild wars" · Step 1 25 (Gold)' },
       { label: "Badges", before: "On", after: "Off" },
+    ]);
+  });
+  it("shows an edit beyond the listed milestones", () => {
+    const before = [{ key: "raid:TNA", kind: "raid", enabled: true, label: "TNA", milestones: ladder(7) }];
+    const edited = ladder(7).map((milestone, index) => index === 5 ? { ...milestone, at: 160 } : milestone);
+    expect(achievementCatalogAuditChanges(save(["raid:TNA"], before, [{ ...before[0], milestones: edited }]))).toEqual([
+      { label: "TNA", before: "On · Step 6 150 (Gold), +6 more", after: "On · Step 6 160 (Gold), +6 more" },
     ]);
   });
   it("shows a style-only change and keeps rows unique when names repeat", () => {

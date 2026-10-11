@@ -97,19 +97,21 @@
     previewError = null;
     previewBusy = true;
     const requestSerial = serial;
+    // The response belongs to the story it was requested for, not to a later selection.
+    const requestedStory = storyId;
     const description = `${name(category)} ${milestone.label} at ${number.format(milestone.at)}`;
     controller = new AbortController();
     try {
       const result = await requestCeremonyPreview(globalThis.fetch.bind(globalThis), {
-        story_id: storyId, format: "png", milestone: { key: category.key, id: milestone.id },
+        story_id: requestedStory, format: "png", milestone: { key: category.key, id: milestone.id },
       }, controller.signal);
-      if (requestSerial !== serial) return;
+      if (requestSerial !== serial || storyId !== requestedStory) return;
       if (!result.ok) { previewError = result.error.message; return; }
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       previewUrl = URL.createObjectURL(result.data);
       previewKey = key;
       previewDescription = description;
-      previewed = { storyId, key: category.key, id: milestone.id };
+      previewed = { storyId: requestedStory, key: category.key, id: milestone.id };
     } catch (cause) {
       if (requestSerial === serial && !(cause instanceof DOMException && cause.name === "AbortError")) {
         previewError = cause instanceof Error ? cause.message : "Could not load the preview.";

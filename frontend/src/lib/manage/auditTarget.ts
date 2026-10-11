@@ -173,15 +173,23 @@ function catalogValue(category: Record<string, unknown> | undefined, other: Reco
   if (!category) return "Not set";
   const parts = [category.enabled === true ? "On" : "Off"];
   if (other && typeof category.label === "string" && category.label !== other.label) parts.push(`"${category.label}"`);
-  const milestones = Array.isArray(category.milestones) ? category.milestones.map(object) : [];
-  if (milestones.length > 0) {
+  const all = Array.isArray(category.milestones) ? category.milestones.map(object) : [];
+  // Beyond the cutoff, show the milestones that differ from the other side so an edit to a
+  // later milestone stays visible; the remainder is counted.
+  const others = Array.isArray(other?.milestones) ? other.milestones.map(object) : [];
+  const same = (milestone: Record<string, unknown> | null) =>
+    others.some((item) => JSON.stringify(item) === JSON.stringify(milestone));
+  const changed = all.filter((milestone) => !same(milestone));
+  const milestones = all.length > CATALOG_LISTED && changed.length > 0 && other ? changed : all;
+  const hidden = all.length - Math.min(milestones.length, CATALOG_LISTED);
+  if (all.length > 0) {
     const number = new Intl.NumberFormat("en");
     const listed = milestones.slice(0, CATALOG_LISTED)
       .map((milestone) => {
         const style = typeof milestone?.tier === "string" ? ` (${milestone.tier.charAt(0).toUpperCase()}${milestone.tier.slice(1)})` : "";
         return `${String(milestone?.label)} ${typeof milestone?.at === "number" ? number.format(milestone.at) : "?"}${style}`;
       });
-    if (milestones.length > CATALOG_LISTED) listed.push(`+${milestones.length - CATALOG_LISTED} more`);
+    if (hidden > 0) listed.push(`+${hidden} more`);
     parts.push(listed.join(", "));
   }
   return parts.join(" · ");
