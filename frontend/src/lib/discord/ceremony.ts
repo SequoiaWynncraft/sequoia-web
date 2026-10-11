@@ -11,13 +11,16 @@ export interface CeremonySettings {
   enabled: boolean;
   channel_id: string;
   stories: { id: string; enabled: boolean; weight: number }[];
+  /** Ping the player's linked Discord account. */
+  mention_member: boolean;
 }
 export interface CeremonyScene {
   season: CeremonySeason;
   ambiance: CeremonyAmbiance;
 }
+/** Wire shape. Older servers omit mention_member. */
 export interface CeremonyResponse {
-  settings: CeremonySettings;
+  settings: Omit<CeremonySettings, "mention_member"> & { mention_member?: boolean };
   catalog: { id: string; label: string; description: string; layout: string; ready: boolean }[];
   ready: boolean;
   effective_chances: { id: string; percent: number }[];
@@ -25,6 +28,29 @@ export interface CeremonyResponse {
   viewer: { display_name: string };
   /** Previewable achievement categories. Absent on older servers, which only preview raids. */
   achievement_catalog?: CeremonyCategory[];
+}
+
+/** Loaded state with every settings field present. */
+export type CeremonyState = Omit<CeremonyResponse, "settings"> & { settings: CeremonySettings };
+
+/** Fills mention_member off for older servers, which never get it sent back. */
+export function ceremonyStateWithMention(response: CeremonyResponse): { state: CeremonyState; mentionSupported: boolean } {
+  return {
+    mentionSupported: typeof response.settings.mention_member === "boolean",
+    state: { ...response, settings: { ...response.settings, mention_member: response.settings.mention_member === true } },
+  };
+}
+
+/** Full settings definition for save. Older servers reject the unknown mention_member field. */
+export function ceremonySaveBody(settings: CeremonySettings, mentionSupported: boolean): Omit<CeremonySettings, "mention_member"> & Partial<Pick<CeremonySettings, "mention_member">> {
+  if (mentionSupported) return settings;
+  const { mention_member: _mention, ...legacy } = settings;
+  return legacy;
+}
+
+/** Unsaved edits, including unsupported fields that are never sent. */
+export function ceremonySettingsDirty(draft: CeremonySettings, saved: CeremonySettings): boolean {
+  return JSON.stringify(draft) !== JSON.stringify(saved);
 }
 
 export type CeremonyCategory =

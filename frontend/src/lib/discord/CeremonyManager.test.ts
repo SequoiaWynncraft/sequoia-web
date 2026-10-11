@@ -9,7 +9,7 @@ vi.mock("$app/navigation", () => ({ beforeNavigate: vi.fn() }));
 const unavailable: CeremonyResponse = {
   settings: {
     version: 0, guild_id: "1111111111111111111", enabled: false, channel_id: "",
-    stories: [{ id: "sample_story", enabled: true, weight: 10 }],
+    stories: [{ id: "sample_story", enabled: true, weight: 10 }], mention_member: false,
   },
   catalog: [{ id: "sample_story", label: "Sample story", description: "A fictional story.", layout: "banner", ready: false }],
   ready: false, effective_chances: [],
@@ -25,6 +25,7 @@ const ready: CeremonyResponse = {
       { id: "other_story", enabled: true, weight: 10 },
       { id: "retired_story", enabled: true, weight: 10 },
     ],
+    mention_member: true,
   },
   catalog: [
     { id: "sample_story", label: "Sample story", description: "", layout: "banner", ready: true },
@@ -121,5 +122,28 @@ describe("achievement ceremony interface", () => {
     expect(body).toMatch(/<option[^>]*value="110"[^>]*selected/);
     expect(body).not.toContain(">Count<");
     expect(body).not.toContain(">Tier<");
+  });
+});
+
+describe("ceremony mention control", () => {
+  const mentionToggle = /<input([^>]*)type="checkbox"[^>]*>\s*<span>Mention member<\/span>/;
+  it("offers the saved mention setting beside the destination on a current server", () => {
+    const { body } = render(CeremonyManager, { props: { initial: ready, channels: [] } });
+    const toggle = body.match(mentionToggle);
+    expect(toggle?.[1]).not.toContain("disabled");
+    expect(toggle?.[0]).toContain("checked");
+    expect(body).not.toContain("Ping the");
+    expect(body).not.toContain("Not available on this server yet.");
+    expect(body.indexOf("Mention member")).toBeGreaterThan(body.indexOf("Destination channel"));
+    expect(body.indexOf("Mention member")).toBeLessThan(body.indexOf("Story odds"));
+  });
+  it("shows the control disabled and off for a server without it", () => {
+    const { settings: { mention_member: _mention, ...settings }, ...rest } = structuredClone(ready);
+    const { body } = render(CeremonyManager, { props: { initial: { ...rest, settings }, channels: [] } });
+    const toggle = body.match(mentionToggle);
+    expect(toggle?.[1]).toContain("disabled");
+    expect(toggle?.[0]).not.toMatch(/\schecked/);
+    expect(body).not.toContain("linked Discord account");
+    expect(body).toContain("Not available on this server yet.");
   });
 });

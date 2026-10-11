@@ -12,7 +12,7 @@
   import Toggle from "$lib/design-system/components/forms/Toggle.svelte";
   import ConfirmDialog from "$lib/design-system/components/forms/ConfirmDialog.svelte";
   import ManageHeader from "$lib/manage/ManageHeader.svelte";
-  import { welcomeChance, welcomeInputIssue, welcomeMessageIssue, welcomeNightIssue, welcomeNightReadinessIssue, welcomeNightSummary, welcomePreviewKey, welcomePreviewMessageChanged, welcomePreviewScene, welcomeReadinessIssue, welcomeSkyChances, welcomeSkyEffectIssue, type WelcomeMessage, type WelcomePreviewEffect, type WelcomeResponse, type WelcomeSeason, type WelcomeState, welcomeSaveBody, welcomeStateWithNight } from "./welcome";
+  import { welcomeChance, welcomeInputIssue, welcomeMessageIssue, welcomeNightIssue, welcomeNightReadinessIssue, welcomeNightSummary, welcomePreviewKey, welcomePreviewMessageChanged, welcomePreviewScene, welcomeReadinessIssue, welcomeSkyChances, welcomeSkyEffectIssue, type WelcomeMessage, type WelcomePreviewEffect, type WelcomeResponse, type WelcomeSeason, type WelcomeState, welcomeSaveBody, welcomeSettingsDirty, welcomeStateWithNight } from "./welcome";
   import type { DiscordContext } from "./types";
 
   let { initial, channels }: { initial: WelcomeResponse; channels: DiscordContext["channels"] } = $props();
@@ -21,6 +21,7 @@
   const seeded = welcomeStateWithNight(structuredClone(initial));
   let saved = $state<WelcomeState>(seeded.state);
   let nightSupported = $state(seeded.nightSupported);
+  let mentionSupported = $state(seeded.mentionSupported);
   let draft = $state(structuredClone(seeded.state.settings));
   // svelte-ignore state_referenced_locally
   let selectedId = $state(initial.catalog[0]?.id ?? "");
@@ -53,7 +54,7 @@
   let playbackTimer: ReturnType<typeof setTimeout> | undefined;
   let serial = 0;
 
-  const dirty = $derived(JSON.stringify(draft) !== JSON.stringify(saved.settings));
+  const dirty = $derived(welcomeSettingsDirty(draft, saved.settings));
   const issue = $derived(welcomeInputIssue(draft, nightSupported ? saved.effective_night.timezones : null) ?? welcomeNightReadinessIssue(draft.night, saved.settings.night, saved.effective_night.ready));
   const nightIssue = $derived(welcomeNightIssue(draft.night, saved.effective_night.timezones));
   const nightSummary = $derived(welcomeNightSummary(draft.night));
@@ -191,6 +192,7 @@
     const next = welcomeStateWithNight(response);
     saved = next.state;
     nightSupported = next.nightSupported;
+    mentionSupported = next.mentionSupported;
     draft = structuredClone(next.state.settings);
     conflict = false;
     error = null;
@@ -201,7 +203,7 @@
     if (busy || !dirty || issue || conflict || (draft.enabled && !draftReady)) return;
     busy = true; error = null; notice = null; navigationBlocked = false;
     // Freeze the sent draft. Controls stay disabled until normalization returns.
-    const result = await requestDiscord<WelcomeResponse>(globalThis.fetch.bind(globalThis), "welcome", "PUT", welcomeSaveBody($state.snapshot(draft), nightSupported));
+    const result = await requestDiscord<WelcomeResponse>(globalThis.fetch.bind(globalThis), "welcome", "PUT", welcomeSaveBody($state.snapshot(draft), nightSupported, mentionSupported));
     busy = false;
     if (!result.ok) {
       conflict = result.error.status === 409;
@@ -266,6 +268,7 @@
           <TextInput bind:value={draft.channel_id} inputmode="numeric" />
         {/if}
       </Field>
+      <Toggle bind:checked={draft.mention_member} label="Mention member" hint={mentionSupported ? undefined : "Not available on this server yet."} disabled={!mentionSupported} />
 
       <div class="section-head season-head"><h2>Season</h2><span class="season-state">{saved.effective_season === "winter" ? "Winter" : "Normal"} active</span></div>
       <Field label="Season mode">

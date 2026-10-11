@@ -15,6 +15,7 @@ const unavailable: WelcomeState = {
     name_font: "minecraft",
     effects: { sky: [{ id: "aurora", percent: 35 }] },
     night: { enabled: false, start: "21:00", end: "07:00", timezone: "UTC", moon: true },
+    mention_member: false,
   },
   catalog: [{ id: "quiet", label: "Quiet forest", description: "", normal_ready: false, winter_ready: false }],
   effective_season: "winter", effective_chances: [], ready: false,
@@ -154,5 +155,31 @@ describe("welcome unavailable interface", () => {
     expect(body).toContain('aria-label="Preview season"');
     expect(body).toContain("No sky effect chance: 100%");
     expect(body).toContain("Quiet forest weight");
+  });
+});
+
+describe("welcome mention control", () => {
+  const mentionToggle = /<input([^>]*)type="checkbox"[^>]*>\s*<span>Mention member<\/span>/;
+  it("offers the saved mention setting beside the destination on a current server", () => {
+    const state = structuredClone(unavailable);
+    state.settings.mention_member = true;
+    const { body } = render(WelcomeManager, { props: { initial: state, channels: [] } });
+    const toggle = body.match(mentionToggle);
+    expect(toggle?.[1]).not.toContain("disabled");
+    expect(toggle?.[0]).toContain("checked");
+    expect(body).not.toContain("Ping the");
+    expect(body).not.toContain("Not available on this server yet.");
+    expect(body.indexOf("Mention member")).toBeGreaterThan(body.indexOf("Destination channel"));
+    expect(body.indexOf("Mention member")).toBeLessThan(body.indexOf("Season mode"));
+  });
+  it("shows the control disabled and off for a server without it", () => {
+    const { settings: { mention_member: _mention, ...settings }, ...rest } = structuredClone(unavailable);
+    const legacy: WelcomeResponse = { ...rest, settings };
+    const { body } = render(WelcomeManager, { props: { initial: legacy, channels: [] } });
+    const toggle = body.match(mentionToggle);
+    expect(toggle?.[1]).toContain("disabled");
+    expect(toggle?.[0]).not.toMatch(/\schecked/);
+    expect(body).not.toContain("Ping the new member in the welcome post.");
+    expect(body).toContain("Not available on this server yet.");
   });
 });

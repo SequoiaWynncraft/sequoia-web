@@ -103,3 +103,17 @@ describe("achievement ceremony settings audit summaries", () => {
     expect(settingsAuditChanges(entry({ changed: ["enabled"] }, "discord.message.publish"))).toBeNull();
   });
 });
+
+describe("mention member audit summaries", () => {
+  const save = (action: string, before: object, after: object) => entry({ outcome: "performed", changed: ["mention_member"], before, after }, action);
+  it("reads mention changes as Off and On for both settings saves", () => {
+    for (const action of ["discord.welcome.settings.save", "discord.ceremony.settings.save"]) {
+      expect(settingsAuditChanges(save(action, { mention_member: false }, { mention_member: true }))).toEqual([{ label: "Mention member", before: "Off", after: "On" }]);
+      expect(settingsAuditChanges(save(action, { mention_member: true }, { mention_member: false }))).toEqual([{ label: "Mention member", before: "On", after: "Off" }]);
+    }
+  });
+  it("keeps a snapshot from before mention existed as Not set, since those senders pinged", () => {
+    expect(welcomeAuditChanges(save("discord.welcome.settings.save", {}, { mention_member: true }))?.[0]).toEqual({ label: "Mention member", before: "Not set", after: "On" });
+    expect(ceremonyAuditChanges(save("discord.ceremony.settings.save", {}, { mention_member: false }))?.[0]).toEqual({ label: "Mention member", before: "Not set", after: "Off" });
+  });
+});

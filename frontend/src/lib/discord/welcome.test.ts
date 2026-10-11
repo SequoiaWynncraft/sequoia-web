@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { welcomeInputIssue, welcomeMessageIssue, welcomeNightIssue, welcomeNightReadinessIssue, welcomeNightSummary, welcomePreviewKey, welcomePreviewMessageChanged, welcomeReadinessIssue, welcomeSaveBody, welcomeSkyChances, welcomeStateWithNight, WELCOME_NIGHT_DEFAULT, welcomeSkyEffectIssue, type WelcomeMessage, type WelcomeSettings, type WelcomeState } from "./welcome";
+import { welcomeInputIssue, welcomeMessageIssue, welcomeNightIssue, welcomeNightReadinessIssue, welcomeNightSummary, welcomePreviewKey, welcomePreviewMessageChanged, welcomeReadinessIssue, welcomeSaveBody, welcomeSettingsDirty, welcomeSkyChances, welcomeStateWithNight, WELCOME_NIGHT_DEFAULT, welcomeSkyEffectIssue, type WelcomeMessage, type WelcomeSettings, type WelcomeState } from "./welcome";
 
 const catalog: WelcomeState["catalog"] = [
   { id: "ready", label: "Ready motif", description: "", normal_ready: true, winter_ready: true },
@@ -13,6 +13,7 @@ const settings: WelcomeSettings = {
   name_font: "minecraft",
   effects: { sky: [{ id: "aurora", percent: 35 }] },
   night: { enabled: false, start: "21:00", end: "07:00", timezone: "UTC", moon: false },
+  mention_member: false,
 };
 const timezones = ["UTC", "Europe/Stockholm", "America/New_York"];
 
@@ -184,7 +185,7 @@ describe("night schedule draft", () => {
 });
 
 describe("servers without night scheduling", () => {
-  const legacySettings = welcomeSaveBody(settings, false);
+  const legacySettings = welcomeSaveBody(settings, false, true);
   const legacy = {
     settings: legacySettings, catalog, effective_season: "normal" as const, effective_chances: [], ready: true,
     viewer: { display_name: "Member" }, fonts: [], effects: { sky: [] }, effective_effect_chances: { sky: [] },
@@ -199,7 +200,7 @@ describe("servers without night scheduling", () => {
   it("never sends night back to an older server, and keeps it for a current one", () => {
     expect(legacySettings).not.toHaveProperty("night");
     expect(legacySettings).toEqual(Object.fromEntries(Object.entries(settings).filter(([key]) => key !== "night")));
-    expect(welcomeSaveBody(settings, true)).toEqual(settings);
+    expect(welcomeSaveBody(settings, true, true)).toEqual(settings);
     const saved = { ...settings, night: { ...settings.night, moon: true } };
     const { state, nightSupported } = welcomeStateWithNight({ ...legacy, settings: saved, effective_night: { active: true, scheduled: true, local_time: "22:00", timezone: "UTC", ready: true, timezones } });
     expect(nightSupported).toBe(true);
@@ -210,5 +211,37 @@ describe("servers without night scheduling", () => {
     const { state } = welcomeStateWithNight(structuredClone(legacy));
     expect(welcomeInputIssue(state.settings, null)).toBeNull();
     expect(welcomeInputIssue(state.settings, [])).toContain("Night:");
+  });
+});
+
+describe("welcome mention setting", () => {
+  const response = {
+    settings, catalog, effective_season: "normal" as const, effective_chances: [], ready: true,
+    viewer: { display_name: "Member" }, fonts: [], effects: { sky: [] }, effective_effect_chances: { sky: [] },
+    effective_night: { active: false, scheduled: false, local_time: null, timezone: "UTC", ready: true, timezones },
+  };
+  it("keeps a saved mention setting and sends it to a current server", () => {
+    const { state, mentionSupported } = welcomeStateWithNight({ ...response, settings: { ...settings, mention_member: true } });
+    expect(mentionSupported).toBe(true);
+    expect(state.settings.mention_member).toBe(true);
+    expect(welcomeSaveBody(state.settings, true, true)).toMatchObject({ mention_member: true, night: settings.night });
+  });
+  it("reads an older server as off and never sends the field back", () => {
+    const { mention_member: _mention, ...older } = settings;
+    const { state, mentionSupported } = welcomeStateWithNight({ ...response, settings: older });
+    expect(mentionSupported).toBe(false);
+    expect(state.settings.mention_member).toBe(false);
+    const body = welcomeSaveBody(state.settings, true, false);
+    expect(body).not.toHaveProperty("mention_member");
+    expect(body).toEqual(Object.fromEntries(Object.entries(settings).filter(([key]) => key !== "mention_member")));
+    expect(welcomeSaveBody(state.settings, false, false)).not.toHaveProperty("night");
+  });
+  it("marks a mention change as unsaved and clears it when toggled back", () => {
+    const draft = structuredClone(settings);
+    expect(welcomeSettingsDirty(draft, settings)).toBe(false);
+    draft.mention_member = true;
+    expect(welcomeSettingsDirty(draft, settings)).toBe(true);
+    draft.mention_member = false;
+    expect(welcomeSettingsDirty(draft, settings)).toBe(false);
   });
 });

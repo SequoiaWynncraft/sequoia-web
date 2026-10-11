@@ -16,17 +16,18 @@
     CEREMONY_ALL_RAIDS, CEREMONY_BADGE_TITLE_MAX, CEREMONY_LOOP_MS, CEREMONY_RAIDS, CEREMONY_SCENES, CEREMONY_TIERS,
     ceremonyAchievementBody, ceremonyAchievementDescription, ceremonyAchievementIssue, ceremonyCategories, ceremonyChance,
     ceremonyInputIssue, ceremonyKeyLabel, ceremonyPreviewKey, ceremonyPreviewScene, ceremonyProposedChances, ceremonyReadinessIssue,
-    ceremonyRoleLabel, ceremonySceneLabel, ceremonyTierLabel,
-    type CeremonyAchievement, type CeremonyCategory, type CeremonyCategoryKind, type CeremonyResponse, type CeremonySceneChoice,
+    ceremonyRoleLabel, ceremonySaveBody, ceremonySceneLabel, ceremonySettingsDirty, ceremonyStateWithMention, ceremonyTierLabel,
+    type CeremonyAchievement, type CeremonyCategory, type CeremonyCategoryKind, type CeremonyResponse, type CeremonySceneChoice, type CeremonyState,
   } from "./ceremony";
   import type { DiscordContext } from "./types";
 
   let { initial, channels }: { initial: CeremonyResponse; channels: DiscordContext["channels"] } = $props();
   // The saved response seeds one local draft; Rust owns persistence and normalization.
   // svelte-ignore state_referenced_locally
-  let saved = $state<CeremonyResponse>(structuredClone(initial));
-  // svelte-ignore state_referenced_locally
-  let draft = $state(structuredClone(initial.settings));
+  const seeded = ceremonyStateWithMention(structuredClone(initial));
+  let saved = $state<CeremonyState>(seeded.state);
+  let mentionSupported = $state(seeded.mentionSupported);
+  let draft = $state(structuredClone(seeded.state.settings));
   // svelte-ignore state_referenced_locally
   let storyId = $state((initial.catalog.find((item) => item.ready) ?? initial.catalog[0])?.id ?? "");
   // Sample values per category. Older servers without a catalog only preview raids with the fixed lists.
@@ -75,7 +76,7 @@
   let playbackTimer: ReturnType<typeof setTimeout> | undefined;
   let serial = 0;
 
-  const dirty = $derived(JSON.stringify(draft) !== JSON.stringify(saved.settings));
+  const dirty = $derived(ceremonySettingsDirty(draft, saved.settings));
   const issue = $derived(ceremonyInputIssue(draft));
   const readinessIssue = $derived(ceremonyReadinessIssue(draft, saved.ready));
   const draftReady = $derived(readinessIssue === null);
@@ -215,8 +216,10 @@
   });
 
   function received(response: CeremonyResponse) {
-    saved = response;
-    draft = structuredClone(response.settings);
+    const next = ceremonyStateWithMention(response);
+    saved = next.state;
+    mentionSupported = next.mentionSupported;
+    draft = structuredClone(next.state.settings);
     conflict = false;
     error = null;
     navigationBlocked = false;
@@ -226,7 +229,7 @@
     if (busy || !dirty || issue || conflict || (draft.enabled && !draftReady)) return;
     busy = true; error = null; notice = null; navigationBlocked = false;
     // Freeze the sent draft. Controls stay disabled until normalization returns.
-    const result = await requestDiscord<CeremonyResponse>(globalThis.fetch.bind(globalThis), "ceremonies", "PUT", $state.snapshot(draft));
+    const result = await requestDiscord<CeremonyResponse>(globalThis.fetch.bind(globalThis), "ceremonies", "PUT", ceremonySaveBody($state.snapshot(draft), mentionSupported));
     busy = false;
     if (!result.ok) {
       conflict = result.error.status === 409;
@@ -280,6 +283,7 @@
           <TextInput bind:value={draft.channel_id} inputmode="numeric" />
         {/if}
       </Field>
+      <Toggle bind:checked={draft.mention_member} label="Mention member" hint={mentionSupported ? undefined : "Not available on this server yet."} disabled={!mentionSupported} />
       <p class="hint">Season and night follow the welcome schedule.</p>
 
       <div class="section-head stories-head"><h2>Story odds</h2><span class="hint">Higher weight, more often. Zero never wins.</span></div>
