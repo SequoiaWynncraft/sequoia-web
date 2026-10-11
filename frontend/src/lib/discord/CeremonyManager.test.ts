@@ -40,6 +40,41 @@ const ready: CeremonyResponse = {
 };
 
 describe("achievement ceremony interface", () => {
+  it("shows per-tier animation choices with filtered server odds", () => {
+    const current = { ...structuredClone(ready), settings: { ...ready.settings, story_tiers: { gold: ["other_story"] } }, current_chances_by_tier: { gold: [{ id: "sample_story", percent: 0 }, { id: "other_story", percent: 100 }] } };
+    const { body } = render(CeremonyManager, { props: { initial: current, channels: [] } });
+    expect(body).toContain("Animations by tier");
+    expect(body).toContain("Allow Sample story");
+    expect(body).toContain("Allow Other story");
+    expect(body).toContain("Gold chances");
+    expect(body).toContain("Other story next chance: 100%");
+    expect(body).toContain("Sample story next chance: 0%");
+  });
+  it("hides unsupported tier policy controls and identifies an empty tier", () => {
+    const old = render(CeremonyManager, { props: { initial: ready, channels: [] } }).body;
+    expect(old).not.toContain("Animations by tier");
+    const current = { ...structuredClone(ready), settings: { ...ready.settings, story_tiers: { gold: [] } } };
+    const { body } = render(CeremonyManager, { props: { initial: current, channels: [] } });
+    expect(body).toContain("Text only");
+  });
+  it("excludes invisible retired rows from tier base and local next chances", () => {
+    const current = { ...structuredClone(ready), settings: { ...ready.settings, story_tiers: {} } };
+    const { body } = render(CeremonyManager, { props: { initial: current, channels: [] } });
+    expect(body).toContain("Sample story saved chance: 75%");
+    expect(body).toContain("Other story saved chance: 25%");
+    expect(body).toContain("Sample story next chance: 75%");
+    expect(body).not.toContain("retired_story");
+  });
+  it("does not require retired artwork when no installed animation is allowed", () => {
+    const current: CeremonyResponse = { ...structuredClone(ready), ready: false, settings: { ...ready.settings, enabled: false,
+      image_tiers: { bronze: false, silver: false, gold: true, platinum: false, diamond: false, obsidian: false, mythril: false, badge: false },
+      story_tiers: { gold: ["retired_story"] },
+    } };
+    const { body } = render(CeremonyManager, { props: { initial: current, channels: [] } });
+    expect(body).toContain("Text only");
+    expect(body).not.toContain("Ceremony artwork is not installed");
+    expect(body).not.toMatch(/<input[^>]*disabled[^>]*type="checkbox"[^>]*>\s*<span>Post achievement ceremonies/);
+  });
   it("shows real readiness without an invented image or an enabled ceremony switch", () => {
     const { body } = render(CeremonyManager, { props: { initial: unavailable, channels: [] } });
     expect(body).toContain("Ceremonies are off. Scene now: Normal dusk.");

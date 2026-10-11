@@ -116,7 +116,7 @@ export function welcomeAuditChanges(entry: Pick<AuditEntry, "source" | "detail" 
 
 const CEREMONY_LABELS: Record<string, string> = {
   enabled: "Achievement ceremonies", channel_id: "Destination channel", stories: "Story odds", mention_member: "Mention member",
-  send_images: "Send images", image_tiers: "Images by tier", repeat: "Repeat penalty",
+  send_images: "Send images", image_tiers: "Images by tier", story_tiers: "Animations by tier", repeat: "Repeat penalty",
 };
 
 /** Enabled tiers in display order, then any unknown enabled keys. */
@@ -140,6 +140,16 @@ function ceremonyValue(key: string, value: unknown, other: unknown): string {
     case "stories": return welcomeValue("variants", value, other);
     case "repeat": return repeatSummary(value);
     case "image_tiers": return imageTiersSummary(value);
+    case "story_tiers": {
+      const record = object(value) ?? {};
+      const previous = object(other) ?? {};
+      const known = new Set<string>(IMAGE_TIERS.map(({ id }) => id));
+      const tiers = [...IMAGE_TIERS, ...Object.keys({ ...previous, ...record }).filter(id => !known.has(id)).sort().map(id => ({ id, label: readableId(id) }))];
+      return tiers.filter(({ id }) => JSON.stringify(record[id]) !== JSON.stringify(previous[id])).map(({ id, label }) => {
+        const allowed = record[id];
+        return `${label}: ${Array.isArray(allowed) ? allowed.length ? allowed.map(item => readableId(String(item))).join(", ") : "Text only" : "All"}`;
+      }).join("; ") || "All";
+    }
     default: return typeof value === "string" ? value : JSON.stringify(value);
   }
 }
