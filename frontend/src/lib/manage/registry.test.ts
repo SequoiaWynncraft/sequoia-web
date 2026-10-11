@@ -78,6 +78,7 @@ describe("registry", () => {
     const discord = MANAGE_AREAS.find((area) => area.id === "discord");
     expect(discord).toMatchObject({ label: "Discord", marker: "✦", branch: null, href: "/manage/discord" });
     expect(discord?.links).toContainEqual({ label: "Welcome messages", href: "/manage/discord/welcome" });
+    expect(discord?.links).toContainEqual({ label: "Achievement ceremonies", href: "/manage/discord/ceremonies" });
     const owners = MANAGE_AREAS.filter((area) =>
       [area.href, ...area.links.map((link) => link.href)].includes("/manage/discord"),
     );
