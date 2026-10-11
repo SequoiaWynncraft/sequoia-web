@@ -10,6 +10,8 @@ export type CeremonySceneChoice = "scheduled" | "normal-dusk" | "normal-night" |
 export type ImageTier = CeremonyTier | "badge";
 /** Per-tier image choice. An award attaches an image only when send_images and its tier are both on. */
 export type ImageTiers = Record<ImageTier, boolean>;
+/** Missing tiers allow all stories; an explicit empty list sends text only. */
+export type StoryTiers = Partial<Record<ImageTier, string[]>>;
 export const IMAGE_TIERS_DEFAULT: Readonly<ImageTiers> = {
   bronze: false, silver: false, gold: true, platinum: true, diamond: true, obsidian: true, mythril: true, badge: true,
 };
@@ -25,6 +27,7 @@ export interface CeremonySettings {
   /** Attach the ceremony image. Off sends a text-only post. */
   send_images: boolean;
   image_tiers: ImageTiers;
+  story_tiers: StoryTiers;
   repeat: RepeatPenalty;
 }
 export interface CeremonyScene {
@@ -33,7 +36,7 @@ export interface CeremonyScene {
 }
 /** Wire shape. Older servers omit mention_member, send_images and image_tiers; servers without repeat penalties omit repeat, recent_events and current_chances. */
 export interface CeremonyResponse {
-  settings: Omit<CeremonySettings, "mention_member" | "send_images" | "image_tiers" | "repeat"> & { mention_member?: boolean; send_images?: boolean; image_tiers?: Partial<ImageTiers>; repeat?: RepeatPenalty };
+  settings: Omit<CeremonySettings, "mention_member" | "send_images" | "image_tiers" | "story_tiers" | "repeat"> & { mention_member?: boolean; send_images?: boolean; image_tiers?: Partial<ImageTiers>; story_tiers?: StoryTiers; repeat?: RepeatPenalty };
   catalog: { id: string; label: string; description: string; layout: string; ready: boolean }[];
   ready: boolean;
   effective_chances: { id: string; percent: number }[];
@@ -45,17 +48,19 @@ export interface CeremonyResponse {
   recent_events?: string[];
   /** Next live pick odds after the repeat penalty. */
   current_chances?: { id: string; percent: number }[];
+  current_chances_by_tier?: Partial<Record<ImageTier, { id: string; percent: number }[]>>;
 }
 /** Loaded state with every settings field present. */
 export type CeremonyState = Omit<CeremonyResponse, "settings"> & { settings: CeremonySettings };
 
 /** Fills the mention, images, image tier and repeat defaults for older servers. Unsupported fields are never sent back to them. */
-export function ceremonyState(response: CeremonyResponse): { state: CeremonyState; mentionSupported: boolean; imagesSupported: boolean; imageTiersSupported: boolean; repeatSupported: boolean } {
+export function ceremonyState(response: CeremonyResponse): { state: CeremonyState; mentionSupported: boolean; imagesSupported: boolean; imageTiersSupported: boolean; storyTiersSupported: boolean; repeatSupported: boolean } {
   const tiers = response.settings.image_tiers;
   return {
     mentionSupported: typeof response.settings.mention_member === "boolean",
     imagesSupported: typeof response.settings.send_images === "boolean",
     imageTiersSupported: typeof tiers === "object" && tiers !== null,
+    storyTiersSupported: typeof response.settings.story_tiers === "object" && response.settings.story_tiers !== null,
     repeatSupported: response.settings.repeat !== undefined,
     state: {
       ...response,
@@ -65,6 +70,7 @@ export function ceremonyState(response: CeremonyResponse): { state: CeremonyStat
         // Servers that omit the field always attach images, so it reads as on.
         send_images: response.settings.send_images !== false,
         image_tiers: { ...IMAGE_TIERS_DEFAULT, ...(typeof tiers === "object" && tiers !== null ? tiers : {}) },
+        story_tiers: structuredClone(response.settings.story_tiers ?? {}),
         repeat: response.settings.repeat ?? { ...REPEAT_DEFAULT },
       },
     },
@@ -78,20 +84,29 @@ export function ceremonySaveBody(
   repeatSupported: boolean,
   imagesSupported: boolean,
   imageTiersSupported: boolean,
-): Omit<CeremonySettings, "mention_member" | "send_images" | "image_tiers" | "repeat"> & Partial<Pick<CeremonySettings, "mention_member" | "send_images" | "image_tiers" | "repeat">> {
-  const { mention_member, send_images, image_tiers, repeat, ...body } = settings;
+  storyTiersSupported = false,
+): Omit<CeremonySettings, "mention_member" | "send_images" | "image_tiers" | "story_tiers" | "repeat"> & Partial<Pick<CeremonySettings, "mention_member" | "send_images" | "image_tiers" | "story_tiers" | "repeat">> {
+  const { mention_member, send_images, image_tiers, story_tiers, repeat, ...body } = settings;
   return {
     ...body,
     ...(mentionSupported ? { mention_member } : {}),
     ...(imagesSupported ? { send_images } : {}),
     ...(imageTiersSupported ? { image_tiers } : {}),
+    ...(storyTiersSupported ? { story_tiers } : {}),
     ...(repeatSupported ? { repeat } : {}),
   };
 }
 
 /** Whether any award would attach an image. Unsupported fields read as on, matching older servers that always attach images. */
-export function ceremonyImagesInUse(settings: Pick<CeremonySettings, "send_images" | "image_tiers">, imagesSupported: boolean, imageTiersSupported: boolean): boolean {
-  return (!imagesSupported || settings.send_images) && (!imageTiersSupported || Object.values(settings.image_tiers).some(Boolean));
+export function ceremonyImagesInUse(settings: Pick<CeremonySettings, "send_images" | "image_tiers"> & Partial<Pick<CeremonySettings, "stories" | "story_tiers">>, imagesSupported: boolean, imageTiersSupported: boolean): boolean {
+  return (!imagesSupported || settings.send_images) && IMAGE_TIERS.some(({ id }) =>
+    (!imageTiersSupported || settings.image_tiers[id]) && (!settings.stories || settings.stories.some(story =>
+      story.enabled && story.weight > 0 && (!settings.story_tiers?.[id] || settings.story_tiers[id]?.includes(story.id)))));
+}
+
+export function ceremonyTierStories(settings: Pick<CeremonySettings, "stories" | "story_tiers">, tier: ImageTier): CeremonySettings["stories"] {
+  const allowed = settings.story_tiers[tier];
+  return settings.stories.map(story => ({ ...story, enabled: story.enabled && (allowed === undefined || allowed.includes(story.id)) }));
 }
 
 /** Unsaved edits, including unsupported fields that are never sent. */
@@ -162,6 +177,9 @@ function validSnowflake(value: string): boolean {
 export function ceremonyInputIssue(settings: CeremonySettings): string | null {
   const weights = ceremonyWeightIssue(settings.stories);
   if (weights) return weights;
+  const ids = new Set(settings.stories.map(story => story.id));
+  if (Object.entries(settings.story_tiers).some(([tier, allowed]) => !IMAGE_TIERS.some(item => item.id === tier)
+    || !Array.isArray(allowed) || new Set(allowed).size !== allowed.length || allowed.some(id => !ids.has(id)))) return "Choose installed animations for each tier.";
   const repeat = repeatIssue(settings.repeat);
   if (repeat) return repeat;
   if (settings.enabled && !settings.channel_id.trim()) return "Choose a destination channel.";

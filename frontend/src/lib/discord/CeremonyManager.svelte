@@ -16,8 +16,8 @@
     CEREMONY_ALL_RAIDS, CEREMONY_BADGE_TITLE_MAX, CEREMONY_LOOP_MS, CEREMONY_RAIDS, CEREMONY_SCENES, CEREMONY_TIERS,
     ceremonyAchievementBody, ceremonyAchievementDescription, ceremonyAchievementIssue, ceremonyCategories, ceremonyChance,
     ceremonyInputIssue, ceremonyKeyLabel, ceremonyPreviewKey, ceremonyPreviewScene, ceremonyImagesInUse, ceremonyProposedChances, ceremonyReadinessIssue, IMAGE_TIERS,
-    ceremonyRoleLabel, ceremonySaveBody, ceremonySceneLabel, ceremonySettingsDirty, ceremonyState, ceremonyTierLabel,
-    type CeremonyAchievement, type CeremonyCategory, type CeremonyCategoryKind, type CeremonyResponse, type CeremonySceneChoice, type CeremonyState,
+    ceremonyRoleLabel, ceremonySaveBody, ceremonySceneLabel, ceremonySettingsDirty, ceremonyState, ceremonyTierLabel, ceremonyTierStories,
+    type CeremonyAchievement, type CeremonyCategory, type CeremonyCategoryKind, type CeremonyResponse, type CeremonySceneChoice, type CeremonyState, type ImageTier,
   } from "./ceremony";
   import { REPEAT_RECENT_MAX, repeatChances, repeatFieldIssue, repeatHistory, repeatRecentIds } from "./repeat";
   import type { DiscordContext } from "./types";
@@ -30,6 +30,8 @@
   let mentionSupported = $state(seeded.mentionSupported);
   let imagesSupported = $state(seeded.imagesSupported);
   let imageTiersSupported = $state(seeded.imageTiersSupported);
+  let storyTiersSupported = $state(seeded.storyTiersSupported);
+  let allowedTier = $state<ImageTier>("gold");
   let repeatSupported = $state(seeded.repeatSupported);
   let draft = $state(structuredClone(seeded.state.settings));
   // svelte-ignore state_referenced_locally
@@ -90,13 +92,17 @@
   // Only stories the server catalog lists are shown; unknown saved rows are kept and sent back untouched.
   const rows = $derived(draft.stories.filter((story) => catalogById.has(story.id)));
   const savedChances = $derived(new Map(saved.effective_chances.map((item) => [item.id, item.percent])));
-  const displayedChances = $derived(dirty ? ceremonyProposedChances(draft.stories) : savedChances);
+  const tierRows = $derived(ceremonyTierStories(draft, allowedTier));
+  const displayedChances = $derived(storyTiersSupported ? ceremonyProposedChances(tierRows) : dirty ? ceremonyProposedChances(draft.stories) : savedChances);
   // Next pick odds: the server's while clean, otherwise the same penalty rule over the draft.
   const history = $derived(repeatHistory(saved));
   const recentIds = $derived(repeatSupported ? repeatRecentIds(history.recent, draft.repeat.recent) : new Set<string>());
   const repeatIssues = $derived(repeatFieldIssue(draft.repeat));
   // Older servers have no penalty, so their next pick uses the base odds.
-  const nextChances = $derived(!dirty ? history.current ?? (repeatSupported ? repeatChances(rows, draft.repeat, history.recent) : savedChances) : repeatChances(rows, draft.repeat, repeatSupported ? history.recent : []));
+  const tierChances = $derived(saved.current_chances_by_tier?.[allowedTier]);
+  const nextChances = $derived(storyTiersSupported
+    ? !dirty && tierChances ? new Map(tierChances.map(item => [item.id, item.percent])) : repeatChances(tierRows, draft.repeat, repeatSupported ? history.recent : [])
+    : !dirty ? history.current ?? (repeatSupported ? repeatChances(rows, draft.repeat, history.recent) : savedChances) : repeatChances(rows, draft.repeat, repeatSupported ? history.recent : []));
   const destinationChannels = $derived(channels.filter((channel) => channel.archived === undefined));
   const knownChannel = $derived(destinationChannels.some((item) => item.id === draft.channel_id));
   const selected = $derived(catalogById.get(storyId));
@@ -233,6 +239,7 @@
     mentionSupported = next.mentionSupported;
     imagesSupported = next.imagesSupported;
     imageTiersSupported = next.imageTiersSupported;
+    storyTiersSupported = next.storyTiersSupported;
     repeatSupported = next.repeatSupported;
     draft = structuredClone(next.state.settings);
     conflict = false;
@@ -244,7 +251,7 @@
     if (busy || !dirty || issue || conflict || (draft.enabled && !draftReady)) return;
     busy = true; error = null; notice = null; navigationBlocked = false;
     // Freeze the sent draft. Controls stay disabled until normalization returns.
-    const result = await requestDiscord<CeremonyResponse>(globalThis.fetch.bind(globalThis), "ceremonies", "PUT", ceremonySaveBody($state.snapshot(draft), mentionSupported, repeatSupported, imagesSupported, imageTiersSupported));
+    const result = await requestDiscord<CeremonyResponse>(globalThis.fetch.bind(globalThis), "ceremonies", "PUT", ceremonySaveBody($state.snapshot(draft), mentionSupported, repeatSupported, imagesSupported, imageTiersSupported, storyTiersSupported));
     busy = false;
     if (!result.ok) {
       conflict = result.error.status === 409;
@@ -269,6 +276,11 @@
     error = conflict ? "Reload saved settings to resolve the conflict." : null;
     notice = null;
     navigationBlocked = false;
+  }
+
+  function setAllowed(id: string, checked: boolean) {
+    const allowed = draft.story_tiers[allowedTier] ?? draft.stories.map(story => story.id);
+    draft.story_tiers[allowedTier] = draft.stories.map(story => story.id).filter(story => story === id ? checked : allowed.includes(story));
   }
 </script>
 
@@ -308,7 +320,20 @@
       </fieldset>
       <p class="hint">Season and night follow the welcome schedule.</p>
 
-      <div class="section-head stories-head"><h2>Story odds</h2><span class="hint">Higher weight, more often. Zero never wins.</span></div>
+      {#if storyTiersSupported}
+        <div class="section-head stories-head"><h2>Animations by tier</h2></div>
+        <Field label="Tier">
+          <Select bind:value={allowedTier} aria-label="Animation tier">{#each IMAGE_TIERS as option (option.id)}<option value={option.id}>{option.label}</option>{/each}</Select>
+        </Field>
+        <div class="image-tiers">
+          {#each rows as story (story.id)}
+            <Toggle checked={draft.story_tiers[allowedTier]?.includes(story.id) ?? true} label={`Allow ${catalogById.get(story.id)?.label ?? story.id}`} onchange={event => setAllowed(story.id, event.currentTarget.checked)} />
+          {/each}
+        </div>
+        {#if !tierRows.some(story => story.enabled && story.weight > 0)}<p class="hint">Text only</p>{/if}
+      {/if}
+
+      <div class="section-head stories-head"><h2>Story odds</h2><span class="hint">{storyTiersSupported ? `${ceremonyTierLabel(allowedTier)} chances` : "Higher weight, more often. Zero never wins."}</span></div>
       <div class="repeat-controls">
         <Field label="Repeat penalty" hint="0 to 100%" error={repeatIssues?.percent}><NumberInput bind:value={draft.repeat.percent} min={0} max={100} step={1} required disabled={!repeatSupported} invalid={!!repeatIssues?.percent} /></Field>
         <Field label="Recent events" hint={`1 to ${REPEAT_RECENT_MAX}`} error={repeatIssues?.recent}><NumberInput bind:value={draft.repeat.recent} min={1} max={REPEAT_RECENT_MAX} step={1} required disabled={!repeatSupported} invalid={!!repeatIssues?.recent} /></Field>

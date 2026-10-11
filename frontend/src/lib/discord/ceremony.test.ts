@@ -3,7 +3,7 @@ import {
   CEREMONY_BADGE_TITLE_MAX, ceremonyAchievementBody, ceremonyAchievementDescription, ceremonyAchievementIssue, ceremonyBadgeTitleIssue,
   ceremonyCategories, ceremonyKeyLabel, ceremonyRoleLabel, type CeremonyAchievement, type CeremonyCategory,
   CEREMONY_RAIDS, CEREMONY_SCENES, CEREMONY_TIERS, ceremonyChance, ceremonyCountIssue, ceremonyInputIssue, ceremonyPreviewKey,
-  ceremonyPreviewScene, ceremonyProposedChances, ceremonyReadinessIssue, ceremonySaveBody, ceremonySceneLabel, ceremonySettingsDirty, ceremonyState, ceremonyTierLabel,
+  ceremonyPreviewScene, ceremonyProposedChances, ceremonyReadinessIssue, ceremonySaveBody, ceremonySceneLabel, ceremonySettingsDirty, ceremonyState, ceremonyTierLabel, ceremonyTierStories,
   type CeremonyResponse, type CeremonySettings, ceremonyImagesInUse, IMAGE_TIERS_DEFAULT,
 } from "./ceremony";
 
@@ -11,6 +11,7 @@ import {
 const settings: CeremonySettings = {
   version: 2, guild_id: "1111111111111111111", enabled: false, channel_id: "2222222222222222222",
   stories: [{ id: "sample_story", enabled: true, weight: 30 }, { id: "other_story", enabled: true, weight: 10 }, { id: "quiet_story", enabled: false, weight: 50 }],
+  story_tiers: {},
   mention_member: false,
   send_images: true,
   image_tiers: { bronze: false, silver: false, gold: true, platinum: true, diamond: true, obsidian: true, mythril: true, badge: true },
@@ -24,12 +25,12 @@ describe("ceremony repeat penalty", () => {
     const { state, repeatSupported } = ceremonyState(structuredClone(response));
     expect(repeatSupported).toBe(false);
     expect(state.settings.repeat).toEqual({ percent: 50, recent: 1 });
-    expect(ceremonySaveBody(state.settings, true, false, true, true)).toEqual(legacySettings);
+    expect(ceremonySaveBody(state.settings, true, false, true, true, true)).toEqual(legacySettings);
   });
   it("keeps and sends the server's repeat setting", () => {
     const { state, repeatSupported } = ceremonyState({ ...response, settings: { ...legacySettings, repeat: { percent: 0, recent: 5 } }, recent_events: ["sample_story"] });
     expect(repeatSupported).toBe(true);
-    expect(ceremonySaveBody(state.settings, true, true, true, true)).toEqual({ ...legacySettings, repeat: { percent: 0, recent: 5 } });
+    expect(ceremonySaveBody(state.settings, true, true, true, true, true)).toEqual({ ...legacySettings, repeat: { percent: 0, recent: 5 } });
   });
   it("rejects an invalid repeat penalty before save", () => {
     expect(ceremonyInputIssue({ ...settings, repeat: { percent: -1, recent: 1 } })).toContain("Repeat penalty");
@@ -158,14 +159,14 @@ describe("ceremony mention setting", () => {
     const { state, mentionSupported } = ceremonyState(response({ ...settings, mention_member: true }));
     expect(mentionSupported).toBe(true);
     expect(state.settings.mention_member).toBe(true);
-    expect(ceremonySaveBody(state.settings, true, true, true, true)).toEqual({ ...settings, mention_member: true });
+    expect(ceremonySaveBody(state.settings, true, true, true, true, true)).toEqual({ ...settings, mention_member: true });
   });
   it("reads an older server as off and never sends the field back", () => {
     const { mention_member: _mention, ...older } = settings;
     const { state, mentionSupported } = ceremonyState(response(older));
     expect(mentionSupported).toBe(false);
     expect(state.settings.mention_member).toBe(false);
-    const body = ceremonySaveBody(state.settings, false, true, true, true);
+    const body = ceremonySaveBody(state.settings, false, true, true, true, true);
     expect(body).not.toHaveProperty("mention_member");
     expect(body).toEqual(older);
   });
@@ -188,14 +189,14 @@ describe("ceremony images setting", () => {
     const { state, imagesSupported } = ceremonyState(response({ ...settings, send_images: false }));
     expect(imagesSupported).toBe(true);
     expect(state.settings.send_images).toBe(false);
-    expect(ceremonySaveBody(state.settings, true, true, true, true)).toEqual({ ...settings, send_images: false });
+    expect(ceremonySaveBody(state.settings, true, true, true, true, true)).toEqual({ ...settings, send_images: false });
   });
   it("reads an older server as on and never sends the field back", () => {
     const { send_images: _images, ...older } = settings;
     const { state, imagesSupported } = ceremonyState(response(older));
     expect(imagesSupported).toBe(false);
     expect(state.settings.send_images).toBe(true);
-    const body = ceremonySaveBody(state.settings, true, true, false, true);
+    const body = ceremonySaveBody(state.settings, true, true, false, true, true);
     expect(body).not.toHaveProperty("send_images");
     expect(body).toEqual(older);
   });
@@ -220,7 +221,7 @@ describe("ceremony image tiers setting", () => {
     expect(imageTiersSupported).toBe(false);
     expect(state.settings.image_tiers).toEqual({ bronze: false, silver: false, gold: true, platinum: true, diamond: true, obsidian: true, mythril: true, badge: true });
     expect(state.settings.image_tiers).toEqual(IMAGE_TIERS_DEFAULT);
-    const body = ceremonySaveBody(state.settings, true, true, true, false);
+    const body = ceremonySaveBody(state.settings, true, true, true, false, true);
     expect(body).not.toHaveProperty("image_tiers");
     expect(body).toEqual(older);
   });
@@ -229,7 +230,7 @@ describe("ceremony image tiers setting", () => {
     expect(imageTiersSupported).toBe(true);
     const full = { ...IMAGE_TIERS_DEFAULT, bronze: true, badge: false };
     expect(state.settings.image_tiers).toEqual(full);
-    expect(ceremonySaveBody(state.settings, true, true, true, true)).toEqual({ ...older, image_tiers: full });
+    expect(ceremonySaveBody(state.settings, true, true, true, true, true)).toEqual({ ...older, image_tiers: full });
   });
   it("marks a tier change as unsaved and clears it when toggled back", () => {
     const draft = structuredClone(settings);
@@ -248,5 +249,40 @@ describe("ceremony image tiers setting", () => {
     expect(ceremonyImagesInUse({ ...settings, send_images: false }, false, true)).toBe(true);
     expect(ceremonyReadinessIssue({ ...settings, image_tiers: none }, false)).toBeNull();
     expect(ceremonyReadinessIssue({ ...settings, image_tiers: none, channel_id: "" }, false)).toContain("valid channel");
+  });
+});
+
+
+describe("tier animation policy", () => {
+  const response = (settings: CeremonyResponse["settings"]): CeremonyResponse => ({ settings, catalog: [], ready: true, effective_chances: [], effective_scene: { season: "normal", ambiance: "dusk" }, viewer: { display_name: "FictionalMember" } });
+  it("preserves sparse defaults and explicit text-only tiers independently", () => {
+    const base = response({ ...settings, story_tiers: { silver: [], gold: ["sample_story"] } });
+    const loaded = ceremonyState(base);
+    expect(loaded.storyTiersSupported).toBe(true);
+    expect(ceremonyTierStories(loaded.state.settings, "diamond")).toEqual(settings.stories);
+    expect(ceremonyTierStories(loaded.state.settings, "gold").filter(story => story.enabled).map(story => story.id)).toEqual(["sample_story"]);
+    expect(ceremonyTierStories(loaded.state.settings, "silver").every(story => !story.enabled)).toBe(true);
+    loaded.state.settings.story_tiers.gold?.push("other_story");
+    expect(base.settings.story_tiers?.gold).toEqual(["sample_story"]);
+  });
+  it("only sends the policy to a supporting server", () => {
+    const { story_tiers: _policy, ...older } = settings;
+    const loaded = ceremonyState(response(older));
+    expect(loaded.storyTiersSupported).toBe(false);
+    expect(ceremonySaveBody(loaded.state.settings, true, true, true, true, false)).not.toHaveProperty("story_tiers");
+    expect(ceremonySaveBody(settings, true, true, true, true, true).story_tiers).toEqual({});
+  });
+  it("computes odds inside the allowed set and respects image switches", () => {
+    const draft = { ...settings, story_tiers: { gold: ["other_story"], diamond: [] } };
+    expect(ceremonyProposedChances(ceremonyTierStories(draft, "gold"))).toEqual(new Map([["sample_story", 0], ["other_story", 100], ["quiet_story", 0]]));
+    const textOnly = { ...draft, story_tiers: Object.fromEntries(Object.keys(IMAGE_TIERS_DEFAULT).map(tier => [tier, []])) };
+    expect(ceremonyImagesInUse(textOnly, true, true)).toBe(false);
+    expect(ceremonyReadinessIssue(textOnly, false)).toBeNull();
+    expect(ceremonyImagesInUse({ ...draft, send_images: false }, true, true)).toBe(false);
+  });
+  it("rejects unknown and duplicate animations without rejecting empty lists", () => {
+    expect(ceremonyInputIssue({ ...settings, story_tiers: { gold: [] } })).toBeNull();
+    expect(ceremonyInputIssue({ ...settings, story_tiers: { gold: ["missing"] } })).toContain("installed animations");
+    expect(ceremonyInputIssue({ ...settings, story_tiers: { gold: ["sample_story", "sample_story"] } })).toContain("installed animations");
   });
 });
