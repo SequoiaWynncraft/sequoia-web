@@ -29,7 +29,7 @@ export const SCREEN_DEFAULT: Readonly<ScreenSettings> = {
   film: { mode: "fixed", film: DEFAULT_FILM },
   error: { title: "Your film ran into a problem", body: "The projector needs a moment. Someone press reset!", code: "STOP CODE: ACORN_OVERFLOW" },
 };
-export const CRASH_TEXT_LIMITS_DEFAULT: Readonly<CrashTextLimits> = { title: 40, body: 120, code: 40 };
+export const CRASH_TEXT_LIMITS_DEFAULT: Readonly<CrashTextLimits> = { title: 32, body: 110, code: 32 };
 export const FILM_WEIGHT_MAX = 1000;
 
 export interface CeremonySettings {

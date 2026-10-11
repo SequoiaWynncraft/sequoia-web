@@ -382,7 +382,7 @@ describe("ceremony screen films", () => {
       { id: "other_story", label: "Other story", description: "", layout: "crest", ready: true, films: [], crash_text: false },
     ],
     films: [{ id: "storm", label: "Stormy sea" }, { id: "comedy", label: "Silent comedy" }, { id: "meadow", label: "Meadow" }],
-    crash_text_limits: { title: 40, body: 120, code: 40 },
+    crash_text_limits: { title: 32, body: 110, code: 32 },
   };
 
   it("offers the saved film, every installed film and the saved crash words", () => {

@@ -438,8 +438,8 @@ describe("ceremony screen films and crash words", () => {
     expect(ceremonyCrashTextIssues(words("", "Popcorn", ""))).toHaveProperty("title");
     expect(ceremonyCrashTextIssues(words(" Oops", "Popcorn", ""))).toHaveProperty("title");
     expect(ceremonyCrashTextIssues(words("Oops", "a\nb", ""))).toHaveProperty("body");
-    expect(ceremonyCrashTextIssues(words("Oops", "b".repeat(121), ""))).toHaveProperty("body");
-    expect(ceremonyCrashTextIssues(words("Oops", "Popcorn", "C".repeat(41)))).toHaveProperty("code");
+    expect(ceremonyCrashTextIssues(words("Oops", "b".repeat(111), ""))).toHaveProperty("body");
+    expect(ceremonyCrashTextIssues(words("Oops", "Popcorn", "C".repeat(33)))).toHaveProperty("code");
     expect(ceremonyCrashTextIssues(words("O".repeat(12), "Popcorn", ""), { title: 10, body: 120, code: 40 })).toHaveProperty("title");
     expect(ceremonyScreenIssue({ ...SCREEN_DEFAULT, error: words("", "b", "") }, films)).toBe("Check the crash screen words.");
   });
