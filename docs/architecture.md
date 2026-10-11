@@ -166,7 +166,7 @@ delivery remains disabled until the deployment owner verifies the separate Java 
 `/manage/discord/achievements` edits achievement milestones, names, styles and enabled
 categories. It uses the same Discord category and a fresh Rust load, and the private adapter
 permits only GET/PUT `achievements/catalog`. Rust owns validation, milestone ids, defaults and
-award claims; the page only mirrors limits as hints and sends new milestones without an id.
+award claims; the page only mirrors limits as hints and sends new milestones with an empty id.
 Saves send the version and keep edits on a 409 until staff reload. Saved milestones preview
 through POST `ceremonies/preview` with `{milestone: {key, id}}`. Saves are audited as
 `achievements.catalog.save`, summarized per changed category.
