@@ -17,7 +17,8 @@
     ceremonyAchievementBody, ceremonyAchievementDescription, ceremonyAchievementIssue, ceremonyCatalogRows, ceremonyCategories, ceremonyChance,
     ceremonyInputIssue, ceremonyKeyLabel, ceremonyPreviewKey, ceremonyPreviewScene, ceremonyImagesInUse, ceremonyProposedChances, ceremonyReadinessIssue, IMAGE_TIERS,
     ceremonyRoleLabel, ceremonySaveBody, ceremonySceneLabel, ceremonySettingsDirty, ceremonyState, ceremonySuggestedTiers, ceremonyTierLabel, ceremonyTierStories, ceremonyToggleTierStory,
-    type CeremonyAchievement, type CeremonyCategory, type CeremonyCategoryKind, type CeremonyResponse, type CeremonySceneChoice, type CeremonyState, type ImageTier,
+    ceremonyCrashTextIssues, ceremonyFilmChances, ceremonyFilmMode, ceremonyFilms, ceremonyPreviewFilm, ceremonyScreenIssue, ceremonyScreeningBody, CRASH_TEXT_LIMITS_DEFAULT, FILM_WEIGHT_MAX,
+    type CeremonyAchievement, type CeremonyCategory, type CeremonyCategoryKind, type CeremonyResponse, type CeremonySceneChoice, type CeremonyScreening, type CeremonyState, type FilmPolicy, type ImageTier,
   } from "./ceremony";
   import { REPEAT_RECENT_MAX, repeatChances, repeatFieldIssue, repeatHistory, repeatRecentIds } from "./repeat";
   import type { DiscordContext } from "./types";
@@ -33,6 +34,7 @@
   let storyTiersSupported = $state(seeded.storyTiersSupported);
   let allowedTier = $state<ImageTier>("gold");
   let repeatSupported = $state(seeded.repeatSupported);
+  let screenSupported = $state(seeded.screenSupported);
   let draft = $state(structuredClone(seeded.state.settings));
   // svelte-ignore state_referenced_locally
   let storyId = $state((initial.catalog.find((item) => item.ready) ?? initial.catalog[0])?.id ?? "");
@@ -63,6 +65,9 @@
   let roleTier = $state(pick("gold", initialRole?.tiers ?? []));
   let badgeTitle = $state("Founder");
   let sceneChoice = $state<CeremonySceneChoice>("scheduled");
+  // "draft" plays the film the draft policy would pick most; any other value is one film, for this preview only.
+  let previewFilm = $state("draft");
+  let previewPayload = $state<"award" | "welcome">("award");
   let busy = $state(false);
   let error = $state<string | null>(null);
   let notice = $state<string | null>(null);
@@ -83,7 +88,13 @@
   let serial = 0;
 
   const dirty = $derived(ceremonySettingsDirty(draft, saved.settings));
-  const issue = $derived(ceremonyInputIssue(draft));
+  const films = $derived(ceremonyFilms(saved));
+  const filmLabels = $derived(new Map(films.map(({ id, label }) => [id, label])));
+  const crashLimits = $derived(saved.crash_text_limits ?? CRASH_TEXT_LIMITS_DEFAULT);
+  const screenShown = $derived(screenSupported && films.length > 0);
+  const crashIssues = $derived(screenShown ? ceremonyCrashTextIssues(draft.screen.error, crashLimits) : null);
+  const filmChances = $derived(ceremonyFilmChances(draft.screen.film, films));
+  const issue = $derived(ceremonyInputIssue(draft) ?? (screenShown ? ceremonyScreenIssue(draft.screen, films, crashLimits) : null));
   const catalogById = $derived(new Map(saved.catalog.map((item) => [item.id, item])));
   // Only stories the server catalog lists are shown, in catalog order; unknown saved rows are kept and sent back untouched.
   const rows = $derived(ceremonyCatalogRows(draft.stories, saved.catalog));
@@ -138,12 +149,20 @@
   const achievementIssue = $derived(ceremonyAchievementIssue(achievement));
   const previewReady = $derived(selected?.ready === true && achievementIssue === null);
   const scheduledLabel = $derived(ceremonySceneLabel(saved.effective_scene));
+  // Screen stories always preview one explicit film, so the still and its animation match.
+  const offeredFilms = $derived(screenShown ? selected?.films?.filter(id => filmLabels.has(id)) ?? [] : []);
+  const screening = $derived.by((): CeremonyScreening => {
+    if (offeredFilms.length === 0) return { film: null, error: null, payload: "award" };
+    const film = previewFilm !== "draft" && offeredFilms.includes(previewFilm) ? previewFilm : ceremonyPreviewFilm(draft.screen.film, offeredFilms);
+    return { film, error: selected?.crash_text && !crashIssues ? $state.snapshot(draft.screen.error) : null, payload: previewPayload };
+  });
   const previewRequest = $derived.by(() => {
     const scene = ceremonyPreviewScene(sceneChoice, saved.effective_scene);
+    const shown = screening.payload === "welcome" ? `the welcome for ${saved.viewer.display_name}` : `${ceremonyAchievementDescription(achievement)} for ${saved.viewer.display_name}`;
     return {
-      key: ceremonyPreviewKey(storyId, achievement, scene),
-      story_id: storyId, achievement, legacy, scene,
-      description: `${selected?.label ?? "Ceremony"}, ${ceremonySceneLabel(scene)}${sceneChoice === "scheduled" ? " as scheduled" : ""}, ${ceremonyAchievementDescription(achievement)} for ${saved.viewer.display_name}`,
+      key: ceremonyPreviewKey(storyId, achievement, scene, screening),
+      story_id: storyId, achievement, legacy, scene, screening,
+      description: `${selected?.label ?? "Ceremony"}, ${ceremonySceneLabel(scene)}${sceneChoice === "scheduled" ? " as scheduled" : ""}${screening.film ? `, playing ${filmLabels.get(screening.film) ?? screening.film}` : ""}, ${shown}`,
     };
   });
 
@@ -190,7 +209,7 @@
     controller = new AbortController();
     try {
       const result = await requestCeremonyPreview(globalThis.fetch.bind(globalThis), {
-        story_id: input.story_id, ...input.scene, ...ceremonyAchievementBody(input.achievement, input.legacy), format,
+        story_id: input.story_id, ...input.scene, ...ceremonyAchievementBody(input.achievement, input.legacy), ...ceremonyScreeningBody(input.screening), format,
       }, controller.signal);
       if (requestSerial !== serial) return;
       if (!result.ok) { previewError = result.error.message; return; }
@@ -243,6 +262,7 @@
     imageTiersSupported = next.imageTiersSupported;
     storyTiersSupported = next.storyTiersSupported;
     repeatSupported = next.repeatSupported;
+    screenSupported = next.screenSupported;
     draft = structuredClone(next.state.settings);
     conflict = false;
     error = null;
@@ -253,7 +273,7 @@
     if (busy || !dirty || issue || conflict || (draft.enabled && !draftReady)) return;
     busy = true; error = null; notice = null; navigationBlocked = false;
     // Freeze the sent draft. Controls stay disabled until normalization returns.
-    const result = await requestDiscord<CeremonyResponse>(globalThis.fetch.bind(globalThis), "ceremonies", "PUT", ceremonySaveBody($state.snapshot(draft), mentionSupported, repeatSupported, imagesSupported, imageTiersSupported, storyTiersSupported));
+    const result = await requestDiscord<CeremonyResponse>(globalThis.fetch.bind(globalThis), "ceremonies", "PUT", ceremonySaveBody($state.snapshot(draft), mentionSupported, repeatSupported, imagesSupported, imageTiersSupported, storyTiersSupported, screenSupported));
     busy = false;
     if (!result.ok) {
       conflict = result.error.status === 409;
@@ -282,6 +302,14 @@
 
   function setAllowed(id: string, checked: boolean) {
     draft.story_tiers = ceremonyToggleTierStory(draft, saved.settings, allowedTier, id, checked);
+  }
+
+  function setFilmMode(mode: FilmPolicy["mode"]) {
+    draft.screen.film = ceremonyFilmMode($state.snapshot(draft.screen.film), mode, films);
+  }
+
+  function setFilmWeight(id: string, value: number | null | undefined) {
+    if (draft.screen.film.mode === "random") draft.screen.film.weights[id] = typeof value === "number" ? value : -1;
   }
 </script>
 
@@ -332,6 +360,42 @@
           {/each}
         </div>
         {#if !tierRows.some(story => story.enabled && story.weight > 0)}<p class="hint">Text only</p>{/if}
+      {/if}
+
+      {#if screenShown}
+        <div class="section-head stories-head"><h2>Screen films</h2><span class="hint">Movie stories play this before the award.</span></div>
+        <Field label="Film choice">
+          <Select value={draft.screen.film.mode} onchange={event => setFilmMode(event.currentTarget.value as FilmPolicy["mode"])} aria-label="Film choice">
+            <option value="fixed">One film</option>
+            <option value="random">Weighted random</option>
+          </Select>
+        </Field>
+        {#if draft.screen.film.mode === "fixed"}
+          <Field label="Film">
+            <Select bind:value={draft.screen.film.film} aria-label="Film">
+              {#if !filmLabels.has(draft.screen.film.film)}<option value={draft.screen.film.film}>{draft.screen.film.film} (not installed)</option>{/if}
+              {#each films as film (film.id)}<option value={film.id}>{film.label}</option>{/each}
+            </Select>
+          </Field>
+        {:else}
+          {@const weights = draft.screen.film.weights}
+          <div class="films">
+            {#each films as film (film.id)}
+              <div class="film">
+                <span>{film.label}</span>
+                <NumberInput value={weights[film.id] ?? 0} min={0} max={FILM_WEIGHT_MAX} step={1} required aria-label={`${film.label} film weight`} oninput={event => setFilmWeight(film.id, event.currentTarget.valueAsNumber)} />
+                <span class="chance" aria-label={`${film.label} film chance: ${ceremonyChance(filmChances?.get(film.id))}`}>{ceremonyChance(filmChances?.get(film.id))}</span>
+              </div>
+            {/each}
+          </div>
+        {/if}
+        <fieldset class="crash-text">
+          <legend>Crash screen words</legend>
+          <p class="hint">Shown on the blue screen in Cinema mishap.</p>
+          <Field label="Title" hint={`Up to ${crashLimits.title} characters`} error={crashIssues?.title}><TextInput bind:value={draft.screen.error.title} maxlength={crashLimits.title} required invalid={!!crashIssues?.title} /></Field>
+          <Field label="Message" hint={`Up to ${crashLimits.body} characters`} error={crashIssues?.body}><TextInput bind:value={draft.screen.error.body} maxlength={crashLimits.body} required invalid={!!crashIssues?.body} /></Field>
+          <Field label="Stop code" hint={`Optional, up to ${crashLimits.code} characters`} error={crashIssues?.code}><TextInput bind:value={draft.screen.error.code} maxlength={crashLimits.code} invalid={!!crashIssues?.code} /></Field>
+        </fieldset>
       {/if}
 
       <div class="section-head stories-head"><h2>Story odds</h2><span class="hint">{storyTiersSupported ? `${ceremonyTierLabel(allowedTier)} chances` : "Higher weight, more often. Zero never wins."}</span></div>
@@ -427,6 +491,20 @@
           <NumberInput bind:value={count} min={1} max={1000000} step={1} required invalid={!!achievementIssue} />
         </Field>
       {/if}
+      {#if offeredFilms.length > 0}
+        <Field label="Film" hint="Preview only">
+          <Select bind:value={previewFilm} aria-label="Preview film">
+            <option value="draft">{draft.screen.film.mode === "fixed" ? "Chosen film" : "Most likely film"}</option>
+            {#each offeredFilms as id (id)}<option value={id}>{filmLabels.get(id) ?? id}</option>{/each}
+          </Select>
+        </Field>
+        <Field label="Shows">
+          <Select bind:value={previewPayload} aria-label="Preview shows">
+            <option value="award">Sample award</option>
+            <option value="welcome">My welcome</option>
+          </Select>
+        </Field>
+      {/if}
       <Field label="Scene" hint={sceneChoice === "scheduled" ? `Now: ${scheduledLabel}` : "Preview only"}>
         <Select bind:value={sceneChoice}>{#each CEREMONY_SCENES as option (option.id)}<option value={option.id}>{option.label}</option>{/each}</Select>
       </Field>
@@ -481,6 +559,9 @@
   .story.off .story-select, .story.off .chance { color: var(--text-muted); }
   .asset-state { grid-column: 2; font-size: var(--text-xs); color: var(--text-body); }
   .suggested { grid-column: 2; font-size: var(--text-xs); line-height: 1.4; color: var(--text-muted); overflow-wrap: anywhere; }
+  .films { display: grid; }
+  .film { display: grid; grid-template-columns: minmax(0, 1fr) 72px 60px; align-items: center; gap: 12px; padding: 6px 10px; border-top: 1px solid var(--border-default); color: var(--text-heading); font-size: var(--text-sm); }
+  .crash-text legend { padding: 0; margin-bottom: 6px; color: var(--text-body); font-size: var(--text-xs); }
   .chance { text-align: right; color: var(--text-body); font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
   .save-bar { position: sticky; bottom: 0; display: grid; gap: 10px; margin-top: 20px; padding: 12px 0 max(12px, env(safe-area-inset-bottom)); border-top: 1px solid var(--border-default); background: var(--bg-page); z-index: 2; }
   .save-actions, .preview-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }

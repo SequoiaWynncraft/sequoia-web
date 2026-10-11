@@ -370,3 +370,48 @@ describe("ceremony image tier controls", () => {
     expect(body).not.toContain("Ceremony artwork is not installed");
   });
 });
+
+describe("ceremony screen films", () => {
+  // Fictional films and words. The first ready story is a screen story, so the preview offers films.
+  const screen = { film: { mode: "fixed" as const, film: "comedy" }, error: { title: "Popcorn jam", body: "Something sticky is in the projector.", code: "STOP CODE: BUTTER" } };
+  const screened: CeremonyResponse = {
+    ...ready,
+    settings: { ...ready.settings, story_tiers: {}, screen },
+    catalog: [
+      { id: "sample_story", label: "Sample story", description: "", layout: "screen", ready: true, films: ["storm", "comedy"], crash_text: true },
+      { id: "other_story", label: "Other story", description: "", layout: "crest", ready: true, films: [], crash_text: false },
+    ],
+    films: [{ id: "storm", label: "Stormy sea" }, { id: "comedy", label: "Silent comedy" }, { id: "meadow", label: "Meadow" }],
+    crash_text_limits: { title: 40, body: 120, code: 40 },
+  };
+
+  it("offers the saved film, every installed film and the saved crash words", () => {
+    const { body } = render(CeremonyManager, { props: { initial: screened, channels: [] } });
+    expect(body).toMatch(/<h2[^>]*>Screen films<\/h2>/);
+    expect(body).toMatch(/aria-label="Film choice"[^>]*>[\s\S]*?<option value="fixed" selected[^>]*>One film<\/option>/);
+    expect(body).toMatch(/aria-label="Film"[^>]*>[\s\S]*?<option value="comedy" selected[^>]*>Silent comedy<\/option>/);
+    for (const label of ["Stormy sea", "Silent comedy", "Meadow"]) expect(body).toContain(`>${label}</option>`);
+    expect(body).toContain('value="Popcorn jam"');
+    expect(body).toContain('value="Something sticky is in the projector."');
+    expect(body).toContain('value="STOP CODE: BUTTER"');
+    expect(body).toContain("Crash screen words");
+  });
+
+  it("shows film weights and shares for a random policy", () => {
+    const random = { ...screened, settings: { ...screened.settings, screen: { ...screen, film: { mode: "random" as const, weights: { storm: 1, comedy: 3, meadow: 0 } } } } };
+    const { body } = render(CeremonyManager, { props: { initial: random, channels: [] } });
+    expect(body).toMatch(/aria-label="Film choice"[^>]*>[\s\S]*?<option value="random" selected/);
+    expect(body).toContain('aria-label="Silent comedy film weight"');
+    expect(body).toContain('aria-label="Silent comedy film chance: 75%"');
+    expect(body).toContain('aria-label="Meadow film chance: 0%"');
+  });
+
+  it("previews films only for screen stories, and hides the controls from older servers", () => {
+    const { body } = render(CeremonyManager, { props: { initial: screened, channels: [] } });
+    expect(body).toMatch(/aria-label="Preview film"[^>]*>[\s\S]*?<option value="draft"[^>]*>Chosen film<\/option>[\s\S]*?Stormy sea[\s\S]*?Silent comedy/);
+    expect(body).toContain('aria-label="Preview shows"');
+    const older = render(CeremonyManager, { props: { initial: ready, channels: [] } }).body;
+    expect(older).not.toContain("Screen films");
+    expect(older).not.toContain('aria-label="Preview film"');
+  });
+});
