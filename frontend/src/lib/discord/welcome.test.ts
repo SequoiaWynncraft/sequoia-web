@@ -29,7 +29,7 @@ describe("proposed welcome enable guard", () => {
   it("distinguishes missing destination from pending artwork", () => {
     const draft = structuredClone(settings);
     draft.channel_id = "";
-    expect(welcomeReadinessIssue(draft, catalog)).toContain("destination channel");
+    expect(welcomeReadinessIssue(draft, catalog)).toContain("valid channel");
     draft.channel_id = "2";
     expect(welcomeReadinessIssue(draft, catalog)).toContain("normal and winter artwork");
   });
@@ -153,12 +153,12 @@ describe("night schedule draft", () => {
   });
   it("blocks only turning on or changing an enabled schedule while night artwork is not ready", () => {
     const saved = settings.night;
-    expect(welcomeNightReadinessIssue({ ...saved, enabled: true }, saved, false)).toContain("cannot be enabled");
+    expect(welcomeNightReadinessIssue({ ...saved, enabled: true }, saved, false)).toContain("Turn off night");
     expect(welcomeNightReadinessIssue({ ...saved, enabled: true }, saved, true)).toBeNull();
     expect(welcomeNightReadinessIssue({ ...saved, moon: true }, saved, false)).toBeNull();
     const enabled = { ...saved, enabled: true };
     expect(welcomeNightReadinessIssue(enabled, enabled, false)).toBeNull();
-    expect(welcomeNightReadinessIssue({ ...enabled, start: "22:00" }, enabled, false)).toContain("cannot be enabled");
+    expect(welcomeNightReadinessIssue({ ...enabled, start: "22:00" }, enabled, false)).toContain("Turn off night");
     expect(welcomeNightReadinessIssue({ ...enabled, enabled: false }, enabled, false)).toBeNull();
   });
   it("keys previews by explicit day, night and moon choices and by the saved schedule they follow", () => {

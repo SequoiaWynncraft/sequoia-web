@@ -35,13 +35,13 @@ describe("welcome unavailable interface", () => {
   it("shows real readiness state without an invented image or enabled welcome switch", () => {
     const { body } = render(WelcomeManager, { props: { initial: unavailable, channels: [] } });
     expect(body).toContain("Enabled welcomes need normal and winter artwork");
-    expect(body).toContain("Its artwork is still being prepared");
+    expect(body).toContain("Winter artwork for this welcome is still being prepared.");
     expect(body).not.toContain("<img");
     expect(body).toMatch(/<input[^>]*disabled[^>]*type="checkbox"/);
     expect(body).toContain("Not available");
-    expect(body).toContain("including both dates");
+    expect(body).toContain("Yearly in UTC, both dates included.");
     expect(body).toContain("UTC");
-    expect(body).toContain("Automatic welcomes are off. Winter season is active.");
+    expect(body).toContain("Welcomes are off. Winter season is active.");
     expect(body).toContain("October");
     expect(body).toContain("March");
     expect(body).toContain("Previous welcome");
@@ -69,6 +69,7 @@ describe("welcome unavailable interface", () => {
     expect(body).toContain("Name font");
     expect(body).toContain("Member name on the sign.");
     expect(body).toContain("Sample name");
+    expect(body).toContain("Uses your avatar and a sample name. Season, time, moon, sky effect and name here are preview only, never saved.");
     expect(body).not.toContain('type="file"');
     expect(body).not.toContain("\u2014");
   });
@@ -83,7 +84,7 @@ describe("welcome unavailable interface", () => {
     expect(body).toContain("No sky effect chance: 65%");
     expect(body).toMatch(/<option[^>]*value="none"[^>]*selected/);
     expect(body).toMatch(/<option[^>]*value="aurora"(?![^>]*disabled)[^>]*>/);
-    expect(body).toContain("Preview choice only. Saved odds apply to member welcomes.");
+    expect(body).toContain("sky effect and name here are preview only, never saved.");
     expect(body).toContain("Quiet forest weight");
     expect(body).not.toContain("\u2014");
   });
@@ -91,7 +92,7 @@ describe("welcome unavailable interface", () => {
     const { body } = render(WelcomeManager, { props: { initial: unavailable, channels: [] } });
     expect(body).toContain(">Night</h2>");
     expect(body).toContain("Day at last update, 14:05 UTC");
-    expect(body).toContain("Night from 21:00 to 07:00 (UTC), crossing midnight.");
+    expect(body).toContain("Night from 21:00 to 07:00 (UTC), crossing midnight. Off: welcomes use day scenes.");
     expect(body).toContain("Night starts");
     expect(body).toContain("Night ends");
     expect(body).toContain("24-hour time");
@@ -99,7 +100,7 @@ describe("welcome unavailable interface", () => {
     expect(body).toMatch(/<datalist id="welcome-timezones">.*value="Europe\/Stockholm"/s);
     expect(body).toContain("Show the moon");
     // Not ready: night cannot be switched on, and night previews are unavailable.
-    expect(body).toContain("Night artwork is not installed yet, so night cannot be enabled.");
+    expect(body).toContain("Night artwork is not installed yet, so night stays off.");
     expect(body).toMatch(/<input[^>]*disabled[^>]*type="checkbox"[^>]*>\s*<span>Use night scenes on a schedule/);
     expect(body).toMatch(/<button[^>]*aria-pressed="false"[^>]*disabled[^>]*>Night<\/button>/);
     // No device suggestion is rendered on the server, so the browser zone is never a default.
@@ -116,10 +117,11 @@ describe("welcome unavailable interface", () => {
     expect(body).toMatch(/<button[^>]*aria-pressed="true"[^>]*>As scheduled<\/button>/);
     expect(body).toMatch(/<button[^>]*aria-pressed="false"[^>]*>Day<\/button>/);
     expect(body).toMatch(/<button[^>]*aria-pressed="false"(?![^>]*disabled)[^>]*>Night<\/button>/);
-    expect(body).toContain("As scheduled uses the last loaded or saved server scene: night.");
+    expect(body).toContain("As scheduled: night at last update.");
     expect(body).toMatch(/<option[^>]*value="saved"[^>]*selected[^>]*>Saved setting \(no moon\)/);
-    expect(body).toContain("Night previews only. Not saved.");
-    expect(body).not.toContain("cannot be enabled");
+    expect(body).toContain("Night only");
+    expect(body).not.toContain("stays off");
+    expect(body).not.toMatch(/renderer|bundle|Sierra/i);
   });
   it("renders every server catalog entry, including the five new events, in odds and preview", () => {
     const state = structuredClone(unavailable);
@@ -142,8 +144,9 @@ describe("welcome unavailable interface", () => {
     expect(legacy).not.toHaveProperty("effective_night");
     expect(legacy.settings).not.toHaveProperty("night");
     const { body } = render(WelcomeManager, { props: { initial: legacy, channels: [] } });
-    expect(body).toContain("Night is not available on this server yet. Welcomes use day scenes.");
-    for (const absent of ["Night starts", "welcome-timezones", "Show the moon", "Preview time of day", "As scheduled", "Night previews only", "cannot be enabled", "Night:"]) {
+    expect(body).toContain("Not available on this server yet. Welcomes use day scenes.");
+    expect(body).toContain("Uses your avatar and a sample name. Season, sky effect and name here are preview only, never saved.");
+    for (const absent of ["Night starts", "welcome-timezones", "Show the moon", "Preview time of day", "As scheduled", "Night only", "stays off", "Night:"]) {
       expect(body).not.toContain(absent);
     }
     // Everything else is unchanged.

@@ -17,11 +17,11 @@ describe("ceremony settings logic", () => {
     expect(ceremonyProposedChances([{ id: "sample_story", enabled: true, weight: 1001 }])).toBeNull();
     expect(ceremonyProposedChances([{ id: "sample_story", enabled: true, weight: 2.5 }])).toBeNull();
   });
-  it("guards enabling on the installed bundle, destination and an eligible story", () => {
+  it("guards enabling on installed artwork, destination and an eligible story", () => {
     expect(ceremonyReadinessIssue(settings, true)).toBeNull();
     expect(ceremonyReadinessIssue(settings, false)).toContain("not installed yet");
-    expect(ceremonyReadinessIssue({ ...settings, channel_id: "" }, true)).toContain("destination channel");
-    expect(ceremonyReadinessIssue({ ...settings, channel_id: "18446744073709551616" }, true)).toContain("destination channel");
+    expect(ceremonyReadinessIssue({ ...settings, channel_id: "" }, true)).toContain("valid channel");
+    expect(ceremonyReadinessIssue({ ...settings, channel_id: "18446744073709551616" }, true)).toContain("valid channel");
     expect(ceremonyReadinessIssue({ ...settings, stories: settings.stories.map((story) => ({ ...story, enabled: false })) }, true)).toBe("Enable at least one story with a positive weight.");
   });
   it("reports local input issues without blocking a disabled draft without a channel", () => {

@@ -15,7 +15,7 @@ export const load: PageServerLoad = async ({ fetch, cookies }) => {
       channels: [] as DiscordContext["channels"],
     };
   }
-  // Older Sierra builds omit night; the manager fills defaults and never sends night back to them.
+  // Older servers omit night; the manager fills defaults and never sends night back to them.
   const welcome: WelcomeResponse = await response.json();
   const contextResponse = await discordManagement(fetch, token, `context?guild_id=${encodeURIComponent(welcome.settings.guild_id)}`);
   const context: DiscordContext | null = contextResponse.ok ? await contextResponse.json() : null;
