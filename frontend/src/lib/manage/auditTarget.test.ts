@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ceremonyAuditChanges, messageLink, settingsAuditChanges, welcomeAuditChanges } from "./auditTarget";
+import { achievementCatalogAuditChanges, ceremonyAuditChanges, messageLink, settingsAuditChanges, welcomeAuditChanges } from "./auditTarget";
 
 const target = { guild_id: "1030187086722109570", channel_id: "904", message_id: "692" };
 const url = "https://discord.com/channels/1030187086722109570/904/692";
@@ -156,5 +156,43 @@ describe("image tier audit summaries", () => {
     expect(ceremonyAuditChanges(save({}, { image_tiers: { ...none, bronze: true } }))).toEqual([
       { label: "Images by tier", before: "Not set", after: "Bronze" },
     ]);
+  });
+});
+
+describe("achievement catalog audit summaries", () => {
+  const ladder = (count: number) => Array.from({ length: count }, (_, index) => ({ id: `m${index}`, at: (index + 1) * 25, label: `Step ${index + 1}`, tier: "gold" }));
+  const save = (changed: unknown[], before: object[], after: object[]) => entry({
+    outcome: "performed", changed, before: { version: 2, categories: before }, after: { version: 3, categories: after },
+  }, "discord.achievements.catalog.save");
+
+  it("summarizes each changed category with state, name and a short milestone list", () => {
+    const before = [
+      { key: "raid:TNA", kind: "raid", enabled: true, label: "TNA", milestones: ladder(6) },
+      { key: "war:completed", kind: "war", enabled: true, label: "Wars", milestones: ladder(1) },
+      { key: "badge", kind: "badge", enabled: true, label: "Badges", milestones: [] },
+    ];
+    const after = [
+      { ...before[0], milestones: ladder(2) },
+      { ...before[1], enabled: false, label: "Guild wars" },
+      { ...before[2], enabled: false },
+    ];
+    expect(achievementCatalogAuditChanges(save(["raid:TNA", "war:completed", "badge"], before, after))).toEqual([
+      { label: "TNA", before: "On · Step 1 25, Step 2 50, Step 3 75, Step 4 100, +2 more", after: "On · Step 1 25, Step 2 50" },
+      { label: "Guild wars", before: 'On · "Wars" · Step 1 25', after: 'Off · "Guild wars" · Step 1 25' },
+      { label: "Badges", before: "On", after: "Off" },
+    ]);
+  });
+  it("names unknown or one-sided categories readably", () => {
+    const added = { key: "raid:new", kind: "raid", enabled: true, label: "", milestones: ladder(1) };
+    expect(achievementCatalogAuditChanges(save(["raid:new", 7], [], [added]))).toEqual([
+      { label: "raid:new", before: "Not set", after: "On · Step 1 25" },
+    ]);
+  });
+  it("is routed from the settings summary and ignores other entries", () => {
+    const catalog = save(["badge"], [], []);
+    expect(settingsAuditChanges(catalog)).toEqual([{ label: "badge", before: "Not set", after: "Not set" }]);
+    expect(achievementCatalogAuditChanges({ ...catalog, source: "website" })).toBeNull();
+    expect(achievementCatalogAuditChanges({ ...catalog, detail: "not json" })).toBeNull();
+    expect(achievementCatalogAuditChanges(entry({ changed: ["badge"] }, "discord.ceremony.settings.save"))).toBeNull();
   });
 });

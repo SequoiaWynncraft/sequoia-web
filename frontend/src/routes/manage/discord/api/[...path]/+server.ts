@@ -4,7 +4,7 @@ import { discordManagement } from "$lib/server/discordManagement";
 
 const proxy: RequestHandler = async ({ fetch, request, cookies, params, url }) => {
   const path = params.path;
-  if (!/^(access|context|emojis|self-service-roles|welcome(?:\/preview)?|ceremonies(?:\/preview)?|assets(?:\/[0-9a-f-]{36})?|messages(?:\/adopt|\/[0-9a-f-]{36}(?:\/publish|\/recover|\/retire-source|\/restore-thread)?)?)$/.test(path)) {
+  if (!/^(access|context|emojis|self-service-roles|welcome(?:\/preview)?|ceremonies(?:\/preview)?|achievements\/catalog|assets(?:\/[0-9a-f-]{36})?|messages(?:\/adopt|\/[0-9a-f-]{36}(?:\/publish|\/recover|\/retire-source|\/restore-thread)?)?)$/.test(path)) {
     error(404, "Not found");
   }
   const write = request.method !== "GET";
@@ -12,6 +12,7 @@ const proxy: RequestHandler = async ({ fetch, request, cookies, params, url }) =
   if (path === "welcome/preview" && request.method !== "POST") error(405, "Method not allowed");
   if (path === "ceremonies" && !["GET", "PUT"].includes(request.method)) error(405, "Method not allowed");
   if (path === "ceremonies/preview" && request.method !== "POST") error(405, "Method not allowed");
+  if (path === "achievements/catalog" && !["GET", "PUT"].includes(request.method)) error(405, "Method not allowed");
   if (write && request.headers.get("origin") !== url.origin) error(403, "Invalid request origin");
   const response = await discordManagement(fetch, cookies.get("seq_session"), `${path}${url.search}`, {
     method: request.method,

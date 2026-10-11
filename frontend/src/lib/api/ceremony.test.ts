@@ -58,6 +58,12 @@ describe("ceremony preview transport", () => {
       expect(JSON.parse(fetchImpl.mock.lastCall![1].body)).toEqual({ story_id: "sample_story", season: "winter", ambiance: "dusk", format: "png", achievement });
     }
   });
+  it("sends a saved catalog milestone by key and id", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(new Response(new Uint8Array([9]), { headers: { "content-type": "image/png" } }));
+    const body = { story_id: "sample_story", format: "png", milestone: { key: "raid:TNA", id: "gold" } } as const;
+    expect((await requestCeremonyPreview(fetchImpl, body, new AbortController().signal)).ok).toBe(true);
+    expect(JSON.parse(fetchImpl.mock.lastCall![1].body)).toEqual(body);
+  });
   it("saves the full settings with its version and surfaces a conflict unchanged", async () => {
     const draft = { version: 3, guild_id: "1111111111111111111", enabled: true, channel_id: "2222222222222222222", stories: [{ id: "sample_story", enabled: true, weight: 10 }] };
     const fetchImpl = vi.fn().mockResolvedValueOnce(Response.json({ error: "Settings changed" }, { status: 409 }));

@@ -159,7 +159,48 @@ export function ceremonyAuditChanges(entry: Pick<AuditEntry, "source" | "detail"
   } catch { return null; }
 }
 
+const CATALOG_LISTED = 4;
+
+function catalogCategories(snapshot: unknown): Map<string, Record<string, unknown>> {
+  const rows = new Map<string, Record<string, unknown>>();
+  const categories = object(snapshot)?.categories;
+  if (!Array.isArray(categories)) return rows;
+  for (const row of categories.map(object)) if (row && typeof row.key === "string") rows.set(row.key, row);
+  return rows;
+}
+
+function catalogValue(category: Record<string, unknown> | undefined, other: Record<string, unknown> | undefined): string {
+  if (!category) return "Not set";
+  const parts = [category.enabled === true ? "On" : "Off"];
+  if (other && typeof category.label === "string" && category.label !== other.label) parts.push(`"${category.label}"`);
+  const milestones = Array.isArray(category.milestones) ? category.milestones.map(object) : [];
+  if (milestones.length > 0) {
+    const number = new Intl.NumberFormat("en");
+    const listed = milestones.slice(0, CATALOG_LISTED)
+      .map((milestone) => `${String(milestone?.label)} ${typeof milestone?.at === "number" ? number.format(milestone.at) : "?"}`);
+    if (milestones.length > CATALOG_LISTED) listed.push(`+${milestones.length - CATALOG_LISTED} more`);
+    parts.push(listed.join(", "));
+  }
+  return parts.join(" · ");
+}
+
+/** Readable achievement catalog changes, one per changed category. The raw detail stays available. */
+export function achievementCatalogAuditChanges(entry: Pick<AuditEntry, "source" | "detail" | "action">): AuditChange[] | null {
+  if (entry.source !== "discord" || !entry.detail || !entry.action.endsWith("achievements.catalog.save")) return null;
+  try {
+    const change = object(JSON.parse(entry.detail));
+    if (!change || !Array.isArray(change.changed)) return null;
+    const before = catalogCategories(change.before);
+    const after = catalogCategories(change.after);
+    return change.changed.filter((key): key is string => typeof key === "string").map((key) => {
+      const [old, next] = [before.get(key), after.get(key)];
+      const label = [next?.label, old?.label].find((value): value is string => typeof value === "string" && value.length > 0) ?? key;
+      return { label, before: catalogValue(old, next), after: catalogValue(next, old) };
+    });
+  } catch { return null; }
+}
+
 /** The readable settings summary for any audited Discord settings save, or null. */
 export function settingsAuditChanges(entry: Pick<AuditEntry, "source" | "detail" | "action">): AuditChange[] | null {
-  return welcomeAuditChanges(entry) ?? ceremonyAuditChanges(entry);
+  return welcomeAuditChanges(entry) ?? ceremonyAuditChanges(entry) ?? achievementCatalogAuditChanges(entry);
 }
