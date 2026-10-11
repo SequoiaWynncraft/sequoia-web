@@ -99,14 +99,25 @@ export function ceremonySaveBody(
 
 /** Whether any award would attach an image. Unsupported fields read as on, matching older servers that always attach images. */
 export function ceremonyImagesInUse(settings: Pick<CeremonySettings, "send_images" | "image_tiers"> & Partial<Pick<CeremonySettings, "stories" | "story_tiers">>, imagesSupported: boolean, imageTiersSupported: boolean): boolean {
-  return (!imagesSupported || settings.send_images) && IMAGE_TIERS.some(({ id }) =>
-    (!imageTiersSupported || settings.image_tiers[id]) && (!settings.stories || settings.stories.some(story =>
-      story.enabled && story.weight > 0 && (!settings.story_tiers?.[id] || settings.story_tiers[id]?.includes(story.id)))));
+  const tiers = imageTiersSupported ? Object.entries(settings.image_tiers).filter(([, enabled]) => enabled === true).map(([id]) => id) : IMAGE_TIERS.map(({ id }) => id);
+  return (!imagesSupported || settings.send_images) && tiers.some(id =>
+    !settings.stories || settings.stories.some(story =>
+      story.enabled && story.weight > 0 && (!settings.story_tiers?.[id] || settings.story_tiers[id]?.includes(story.id))));
 }
 
 export function ceremonyTierStories(settings: Pick<CeremonySettings, "stories" | "story_tiers">, tier: ImageTier): CeremonySettings["stories"] {
   const allowed = settings.story_tiers[tier];
   return settings.stories.map(story => ({ ...story, enabled: story.enabled && (allowed === undefined || allowed.includes(story.id)) }));
+}
+
+/** Undoing a default-all edit must not pin the tier to today's catalog. Saved explicit sets stay explicit. */
+export function ceremonyToggleTierStory(draft: Pick<CeremonySettings, "stories" | "story_tiers">, saved: Pick<CeremonySettings, "story_tiers">, tier: ImageTier, id: string, checked: boolean): StoryTiers {
+  const ids = draft.stories.map(story => story.id);
+  const allowed = draft.story_tiers[tier] ?? ids;
+  const selected = ids.filter(story => story === id ? checked : allowed.includes(story));
+  const policy = { ...draft.story_tiers, [tier]: selected };
+  if (saved.story_tiers[tier] === undefined && selected.length === ids.length) delete policy[tier];
+  return policy;
 }
 
 /** Unsaved edits, including unsupported fields that are never sent. */

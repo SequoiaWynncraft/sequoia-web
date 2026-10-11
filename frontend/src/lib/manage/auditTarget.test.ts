@@ -6,6 +6,11 @@ it("summarizes only changed animation tiers, including text-only and default all
   expect(ceremonyAuditChanges(entry)).toEqual([{ label: "Animations by tier", before: "Silver: Stump podium; Gold: Royal recognition; Diamond: All", after: "Silver: Text only; Gold: All; Diamond: Lantern procession" }]);
 });
 
+it("shows animation policy changes for a server-defined tier", () => {
+  const entry = { source: "discord" as const, action: "discord.ceremony.settings.save", detail: JSON.stringify({ changed: ["story_tiers"], before: { story_tiers: { future_tier: ["stump_podium"], gold: [] } }, after: { story_tiers: { future_tier: [], gold: [] } } }) };
+  expect(ceremonyAuditChanges(entry)).toEqual([{ label: "Animations by tier", before: "Future tier: Stump podium", after: "Future tier: Text only" }]);
+});
+
 const target = { guild_id: "1030187086722109570", channel_id: "904", message_id: "692" };
 const url = "https://discord.com/channels/1030187086722109570/904/692";
 const entry = (detail: unknown, action = "discord.message.publish") => ({ source: "discord" as const, action, detail: JSON.stringify(detail) });

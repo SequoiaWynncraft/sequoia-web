@@ -16,7 +16,7 @@
     CEREMONY_ALL_RAIDS, CEREMONY_BADGE_TITLE_MAX, CEREMONY_LOOP_MS, CEREMONY_RAIDS, CEREMONY_SCENES, CEREMONY_TIERS,
     ceremonyAchievementBody, ceremonyAchievementDescription, ceremonyAchievementIssue, ceremonyCategories, ceremonyChance,
     ceremonyInputIssue, ceremonyKeyLabel, ceremonyPreviewKey, ceremonyPreviewScene, ceremonyImagesInUse, ceremonyProposedChances, ceremonyReadinessIssue, IMAGE_TIERS,
-    ceremonyRoleLabel, ceremonySaveBody, ceremonySceneLabel, ceremonySettingsDirty, ceremonyState, ceremonyTierLabel, ceremonyTierStories,
+    ceremonyRoleLabel, ceremonySaveBody, ceremonySceneLabel, ceremonySettingsDirty, ceremonyState, ceremonyTierLabel, ceremonyTierStories, ceremonyToggleTierStory,
     type CeremonyAchievement, type CeremonyCategory, type CeremonyCategoryKind, type CeremonyResponse, type CeremonySceneChoice, type CeremonyState, type ImageTier,
   } from "./ceremony";
   import { REPEAT_RECENT_MAX, repeatChances, repeatFieldIssue, repeatHistory, repeatRecentIds } from "./repeat";
@@ -279,8 +279,7 @@
   }
 
   function setAllowed(id: string, checked: boolean) {
-    const allowed = draft.story_tiers[allowedTier] ?? draft.stories.map(story => story.id);
-    draft.story_tiers[allowedTier] = draft.stories.map(story => story.id).filter(story => story === id ? checked : allowed.includes(story));
+    draft.story_tiers = ceremonyToggleTierStory(draft, saved.settings, allowedTier, id, checked);
   }
 </script>
 

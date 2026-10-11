@@ -143,7 +143,9 @@ function ceremonyValue(key: string, value: unknown, other: unknown): string {
     case "story_tiers": {
       const record = object(value) ?? {};
       const previous = object(other) ?? {};
-      return IMAGE_TIERS.filter(({ id }) => JSON.stringify(record[id]) !== JSON.stringify(previous[id])).map(({ id, label }) => {
+      const known = new Set<string>(IMAGE_TIERS.map(({ id }) => id));
+      const tiers = [...IMAGE_TIERS, ...Object.keys({ ...previous, ...record }).filter(id => !known.has(id)).sort().map(id => ({ id, label: readableId(id) }))];
+      return tiers.filter(({ id }) => JSON.stringify(record[id]) !== JSON.stringify(previous[id])).map(({ id, label }) => {
         const allowed = record[id];
         return `${label}: ${Array.isArray(allowed) ? allowed.length ? allowed.map(item => readableId(String(item))).join(", ") : "Text only" : "All"}`;
       }).join("; ") || "All";

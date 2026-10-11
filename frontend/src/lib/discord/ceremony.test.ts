@@ -3,7 +3,7 @@ import {
   CEREMONY_BADGE_TITLE_MAX, ceremonyAchievementBody, ceremonyAchievementDescription, ceremonyAchievementIssue, ceremonyBadgeTitleIssue,
   ceremonyCategories, ceremonyKeyLabel, ceremonyRoleLabel, type CeremonyAchievement, type CeremonyCategory,
   CEREMONY_RAIDS, CEREMONY_SCENES, CEREMONY_TIERS, ceremonyChance, ceremonyCountIssue, ceremonyInputIssue, ceremonyPreviewKey,
-  ceremonyPreviewScene, ceremonyProposedChances, ceremonyReadinessIssue, ceremonySaveBody, ceremonySceneLabel, ceremonySettingsDirty, ceremonyState, ceremonyTierLabel, ceremonyTierStories,
+  ceremonyPreviewScene, ceremonyProposedChances, ceremonyReadinessIssue, ceremonySaveBody, ceremonySceneLabel, ceremonySettingsDirty, ceremonyState, ceremonyTierLabel, ceremonyTierStories, ceremonyToggleTierStory,
   type CeremonyResponse, type CeremonySettings, ceremonyImagesInUse, IMAGE_TIERS_DEFAULT,
 } from "./ceremony";
 
@@ -291,5 +291,30 @@ describe("tier animation policy", () => {
     loaded.state.settings.mention_member = true;
     expect(ceremonyInputIssue(loaded.state.settings)).toBeNull();
     expect(ceremonySaveBody(loaded.state.settings, true, true, true, true, true).story_tiers).toEqual(policy);
+  });
+  it("restores the default after undo and automatically allows a later installed story", () => {
+    const draft = structuredClone(settings);
+    draft.story_tiers = ceremonyToggleTierStory(draft, settings, "gold", "sample_story", false);
+    expect(ceremonySettingsDirty(draft, settings)).toBe(true);
+    draft.story_tiers = ceremonyToggleTierStory(draft, settings, "gold", "sample_story", true);
+    expect(ceremonySettingsDirty(draft, settings)).toBe(false);
+    draft.stories.push({ id: "later_story", enabled: true, weight: 10 });
+    expect(ceremonyTierStories(draft, "gold").find(story => story.id === "later_story")?.enabled).toBe(true);
+  });
+  it("keeps a saved explicit set pinned when an edit is undone", () => {
+    const saved = { ...settings, story_tiers: { gold: settings.stories.map(story => story.id), silver: [] } };
+    const draft = structuredClone(saved);
+    draft.story_tiers = ceremonyToggleTierStory(draft, saved, "gold", "sample_story", false) as typeof draft.story_tiers;
+    draft.story_tiers = ceremonyToggleTierStory(draft, saved, "gold", "sample_story", true) as typeof draft.story_tiers;
+    expect(ceremonySettingsDirty(draft, saved)).toBe(false);
+    expect(ceremonyTierStories(draft, "silver").every(story => !story.enabled)).toBe(true);
+  });
+  it("requires artwork for a server-defined image tier even when every known tier is off", () => {
+    const none = Object.fromEntries(Object.keys(IMAGE_TIERS_DEFAULT).map(tier => [tier, false])) as CeremonySettings["image_tiers"];
+    const draft = { ...settings, image_tiers: { ...none, future_tier: true }, story_tiers: { future_tier: ["sample_story"] } };
+    expect(ceremonyImagesInUse(draft, true, true)).toBe(true);
+    expect(ceremonyReadinessIssue(draft, false)).toContain("artwork");
+    expect(ceremonyImagesInUse({ ...draft, story_tiers: { future_tier: [] } }, true, true)).toBe(false);
+    expect(ceremonyImagesInUse({ ...draft, send_images: false }, true, true)).toBe(false);
   });
 });
