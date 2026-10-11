@@ -179,6 +179,9 @@ describe("night schedule draft", () => {
     expect(welcomeNightReadinessIssue(enabled, saved, false, false)).toBeNull();
     expect(welcomeNightReadinessIssue({ ...enabled, start: "22:00" }, enabled, false, false)).toBeNull();
     expect(welcomeNightReadinessIssue(enabled, saved, false, true)).toContain("Turn off night");
+    // Turning images back on with an unchanged night schedule rechecks night artwork.
+    expect(welcomeNightReadinessIssue(enabled, enabled, false, true, false)).toContain("Turn off night");
+    expect(welcomeNightReadinessIssue(enabled, enabled, true, true, false)).toBeNull();
   });
   it("keys previews by explicit day, night and moon choices and by the saved schedule they follow", () => {
     const message = settings.message;

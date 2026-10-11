@@ -60,7 +60,7 @@
   const dirty = $derived(welcomeSettingsDirty(draft, saved.settings));
   // Older servers always send images, so their artwork rules still apply.
   const sendImages = $derived(!imagesSupported || draft.send_images);
-  const issue = $derived(welcomeInputIssue(draft, nightSupported ? saved.effective_night.timezones : null) ?? welcomeNightReadinessIssue(draft.night, saved.settings.night, saved.effective_night.ready, sendImages));
+  const issue = $derived(welcomeInputIssue(draft, nightSupported ? saved.effective_night.timezones : null) ?? welcomeNightReadinessIssue(draft.night, saved.settings.night, saved.effective_night.ready, sendImages, !imagesSupported || saved.settings.send_images));
   const nightIssue = $derived(welcomeNightIssue(draft.night, saved.effective_night.timezones));
   const nightSummary = $derived(welcomeNightSummary(draft.night));
   const readinessIssue = $derived(welcomeReadinessIssue(draft, saved.catalog, sendImages));
@@ -309,8 +309,8 @@
       <p class="hint">Not available on this server yet. Welcomes use day scenes.</p>
       {:else}
       <div class="section-head night-head"><h2>Night</h2><span class="season-state">{saved.effective_night.active ? "Night at last update" : "Day at last update"}{saved.effective_night.local_time ? `, ${saved.effective_night.local_time} ${saved.effective_night.timezone}` : ""}</span></div>
-      <Toggle bind:checked={draft.night.enabled} label="Use night scenes on a schedule" disabled={!saved.effective_night.ready && !draft.night.enabled} />
-      {#if !saved.effective_night.ready}
+      <Toggle bind:checked={draft.night.enabled} label="Use night scenes on a schedule" disabled={sendImages && !saved.effective_night.ready && !draft.night.enabled} />
+      {#if sendImages && !saved.effective_night.ready}
         <p class="readiness" role="status">Night artwork is not installed yet, so night stays off.</p>
       {/if}
       <div class="night-window" class:overridden={!draft.night.enabled}>

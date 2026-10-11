@@ -110,6 +110,13 @@ describe("welcome unavailable interface", () => {
     expect(body).not.toContain("this device");
     expect(body).not.toContain("\u2014");
   });
+  it("lets a text-only welcome schedule night without night artwork", () => {
+    const state = structuredClone(unavailable);
+    state.settings.send_images = false;
+    const { body } = render(WelcomeManager, { props: { initial: state, channels: [] } });
+    expect(body).not.toContain("Night artwork is not installed yet, so night stays off.");
+    expect(body).not.toMatch(/<input[^>]*disabled[^>]*type="checkbox"[^>]*>\s*<span>Use night scenes on a schedule/);
+  });
   it("defaults the preview to the saved schedule and saved moon, with explicit day and night choices", () => {
     const state = structuredClone(unavailable);
     state.effective_night = { ...state.effective_night, ready: true, active: true, scheduled: true, local_time: "23:10", timezone: "Europe/Stockholm" };

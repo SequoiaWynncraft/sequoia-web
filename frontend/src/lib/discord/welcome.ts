@@ -159,8 +159,10 @@ export function welcomeNightSummary(night: Pick<WelcomeNight, "start" | "end" | 
 }
 
 /** Turning night on, or changing an enabled schedule, needs verified night artwork. Turning it off, or sending text only, never does. */
-export function welcomeNightReadinessIssue(draft: WelcomeNight, saved: WelcomeNight, ready: boolean, sendImages = true): string | null {
-  if (!sendImages || ready || !draft.enabled || JSON.stringify(draft) === JSON.stringify(saved)) return null;
+/** Night artwork matters only for image welcomes: a changed schedule, or images turned back on. */
+export function welcomeNightReadinessIssue(draft: WelcomeNight, saved: WelcomeNight, ready: boolean, sendImages = true, savedSendImages = true): string | null {
+  if (!sendImages || ready || !draft.enabled) return null;
+  if (savedSendImages && JSON.stringify(draft) === JSON.stringify(saved)) return null;
   return "Night artwork is not installed yet. Turn off night to save other changes.";
 }
 
