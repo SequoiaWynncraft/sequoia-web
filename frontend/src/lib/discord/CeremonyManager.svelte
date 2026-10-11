@@ -92,7 +92,7 @@
   // Only stories the server catalog lists are shown; unknown saved rows are kept and sent back untouched.
   const rows = $derived(draft.stories.filter((story) => catalogById.has(story.id)));
   const savedChances = $derived(new Map(saved.effective_chances.map((item) => [item.id, item.percent])));
-  const tierRows = $derived(ceremonyTierStories(draft, allowedTier));
+  const tierRows = $derived(ceremonyTierStories({ stories: rows, story_tiers: draft.story_tiers }, allowedTier));
   const displayedChances = $derived(storyTiersSupported ? ceremonyProposedChances(tierRows) : dirty ? ceremonyProposedChances(draft.stories) : savedChances);
   // Next pick odds: the server's while clean, otherwise the same penalty rule over the draft.
   const history = $derived(repeatHistory(saved));

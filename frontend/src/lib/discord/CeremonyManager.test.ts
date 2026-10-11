@@ -57,6 +57,14 @@ describe("achievement ceremony interface", () => {
     const { body } = render(CeremonyManager, { props: { initial: current, channels: [] } });
     expect(body).toContain("Text only");
   });
+  it("excludes invisible retired rows from tier base and local next chances", () => {
+    const current = { ...structuredClone(ready), settings: { ...ready.settings, story_tiers: {} } };
+    const { body } = render(CeremonyManager, { props: { initial: current, channels: [] } });
+    expect(body).toContain("Sample story saved chance: 75%");
+    expect(body).toContain("Other story saved chance: 25%");
+    expect(body).toContain("Sample story next chance: 75%");
+    expect(body).not.toContain("retired_story");
+  });
   it("shows real readiness without an invented image or an enabled ceremony switch", () => {
     const { body } = render(CeremonyManager, { props: { initial: unavailable, channels: [] } });
     expect(body).toContain("Ceremonies are off. Scene now: Normal dusk.");

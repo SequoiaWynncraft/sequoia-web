@@ -285,4 +285,11 @@ describe("tier animation policy", () => {
     expect(ceremonyInputIssue({ ...settings, story_tiers: { gold: ["missing"] } })).toContain("installed animations");
     expect(ceremonyInputIssue({ ...settings, story_tiers: { gold: ["sample_story", "sample_story"] } })).toContain("installed animations");
   });
+  it("preserves a newer server's unknown tier while permitting unrelated edits", () => {
+    const policy = { future_tier: ["future_story"], gold: ["sample_story"] };
+    const loaded = ceremonyState(response({ ...settings, story_tiers: policy }));
+    loaded.state.settings.mention_member = true;
+    expect(ceremonyInputIssue(loaded.state.settings)).toBeNull();
+    expect(ceremonySaveBody(loaded.state.settings, true, true, true, true, true).story_tiers).toEqual(policy);
+  });
 });

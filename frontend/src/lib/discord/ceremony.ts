@@ -11,7 +11,7 @@ export type ImageTier = CeremonyTier | "badge";
 /** Per-tier image choice. An award attaches an image only when send_images and its tier are both on. */
 export type ImageTiers = Record<ImageTier, boolean>;
 /** Missing tiers allow all stories; an explicit empty list sends text only. */
-export type StoryTiers = Partial<Record<ImageTier, string[]>>;
+export type StoryTiers = Partial<Record<string, string[]>>;
 export const IMAGE_TIERS_DEFAULT: Readonly<ImageTiers> = {
   bronze: false, silver: false, gold: true, platinum: true, diamond: true, obsidian: true, mythril: true, badge: true,
 };
@@ -178,8 +178,11 @@ export function ceremonyInputIssue(settings: CeremonySettings): string | null {
   const weights = ceremonyWeightIssue(settings.stories);
   if (weights) return weights;
   const ids = new Set(settings.stories.map(story => story.id));
-  if (Object.entries(settings.story_tiers).some(([tier, allowed]) => !IMAGE_TIERS.some(item => item.id === tier)
-    || !Array.isArray(allowed) || new Set(allowed).size !== allowed.length || allowed.some(id => !ids.has(id)))) return "Choose installed animations for each tier.";
+  // Newer servers may return tiers this editor cannot edit. Preserve those entries untouched.
+  if (IMAGE_TIERS.some(({ id }) => {
+    const allowed = settings.story_tiers[id];
+    return allowed !== undefined && (!Array.isArray(allowed) || new Set(allowed).size !== allowed.length || allowed.some(story => !ids.has(story)));
+  })) return "Choose installed animations for each tier.";
   const repeat = repeatIssue(settings.repeat);
   if (repeat) return repeat;
   if (settings.enabled && !settings.channel_id.trim()) return "Choose a destination channel.";
