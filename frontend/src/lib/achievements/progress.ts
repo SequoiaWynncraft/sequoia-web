@@ -143,6 +143,8 @@ export function achievementCurrent(category: AchievementCategory): string {
 }
 
 export function achievementNext(category: AchievementCategory): string {
+  // Without an observation nothing is known about the next step, so it is never "Complete".
+  if (category.unknown) return "";
   if (!category.next) return category.ladder.length > 0 ? "Complete" : "";
   if (category.kind === "profession") return `Next: level ${category.next.at}`;
   return `Next: ${category.next.label} at ${number.format(category.next.at)}`;
