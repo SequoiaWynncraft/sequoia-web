@@ -3,13 +3,15 @@ import {
   CEREMONY_BADGE_TITLE_MAX, ceremonyAchievementBody, ceremonyAchievementDescription, ceremonyAchievementIssue, ceremonyBadgeTitleIssue,
   ceremonyCategories, ceremonyKeyLabel, ceremonyRoleLabel, type CeremonyAchievement, type CeremonyCategory,
   CEREMONY_RAIDS, CEREMONY_SCENES, CEREMONY_TIERS, ceremonyChance, ceremonyCountIssue, ceremonyInputIssue, ceremonyPreviewKey,
-  ceremonyPreviewScene, ceremonyProposedChances, ceremonyReadinessIssue, ceremonySceneLabel, ceremonyTierLabel, type CeremonySettings,
+  ceremonyPreviewScene, ceremonyProposedChances, ceremonyReadinessIssue, ceremonySaveBody, ceremonySceneLabel, ceremonySettingsDirty, ceremonyStateWithMention, ceremonyTierLabel,
+  type CeremonyResponse, type CeremonySettings,
 } from "./ceremony";
 
 // Fictional guild, channel and story ids.
 const settings: CeremonySettings = {
   version: 2, guild_id: "1111111111111111111", enabled: false, channel_id: "2222222222222222222",
   stories: [{ id: "sample_story", enabled: true, weight: 30 }, { id: "other_story", enabled: true, weight: 10 }, { id: "quiet_story", enabled: false, weight: 50 }],
+  mention_member: false,
 };
 
 describe("ceremony settings logic", () => {
@@ -113,5 +115,35 @@ describe("ceremony settings logic", () => {
     expect(ceremonyChance(0)).toBe("0%");
     expect(ceremonyChance(0.05)).toBe("<0.1%");
     expect(ceremonyChance(33.333)).toBe("33.3%");
+  });
+});
+
+describe("ceremony mention setting", () => {
+  const response = (wire: CeremonyResponse["settings"]): CeremonyResponse => ({
+    settings: wire, catalog: [], ready: true, effective_chances: [],
+    effective_scene: { season: "normal", ambiance: "dusk" }, viewer: { display_name: "Member" },
+  });
+  it("keeps a saved mention setting and sends it to a current server", () => {
+    const { state, mentionSupported } = ceremonyStateWithMention(response({ ...settings, mention_member: true }));
+    expect(mentionSupported).toBe(true);
+    expect(state.settings.mention_member).toBe(true);
+    expect(ceremonySaveBody(state.settings, true)).toEqual({ ...settings, mention_member: true });
+  });
+  it("reads an older server as off and never sends the field back", () => {
+    const { mention_member: _mention, ...older } = settings;
+    const { state, mentionSupported } = ceremonyStateWithMention(response(older));
+    expect(mentionSupported).toBe(false);
+    expect(state.settings.mention_member).toBe(false);
+    const body = ceremonySaveBody(state.settings, false);
+    expect(body).not.toHaveProperty("mention_member");
+    expect(body).toEqual(older);
+  });
+  it("marks a mention change as unsaved and clears it when toggled back", () => {
+    const draft = structuredClone(settings);
+    expect(ceremonySettingsDirty(draft, settings)).toBe(false);
+    draft.mention_member = true;
+    expect(ceremonySettingsDirty(draft, settings)).toBe(true);
+    draft.mention_member = false;
+    expect(ceremonySettingsDirty(draft, settings)).toBe(false);
   });
 });

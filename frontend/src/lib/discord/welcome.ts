@@ -29,6 +29,8 @@ export interface WelcomeSettings {
   name_font: WelcomeFont;
   effects: { sky: { id: WelcomeSkyEffect; percent: number }[] };
   night: WelcomeNight;
+  /** Ping the new member in the welcome post. */
+  mention_member: boolean;
 }
 export interface WelcomeState {
   settings: WelcomeSettings;
@@ -42,31 +44,37 @@ export interface WelcomeState {
   effective_effect_chances: { sky: { id: WelcomePreviewEffect; percent: number }[] };
   effective_night: { active: boolean; scheduled: boolean; local_time: string | null; timezone: string; ready: boolean; timezones: string[] };
 }
-/** Wire shape. Servers from before night scheduling omit both night fields. */
+/** Wire shape. Servers from before night scheduling omit both night fields; older servers omit mention_member. */
 export type WelcomeResponse = Omit<WelcomeState, "settings" | "effective_night"> & {
-  settings: Omit<WelcomeSettings, "night"> & { night?: WelcomeNight };
+  settings: Omit<WelcomeSettings, "night" | "mention_member"> & { night?: WelcomeNight; mention_member?: boolean };
   effective_night?: WelcomeState["effective_night"];
 };
 export const WELCOME_NIGHT_DEFAULT: WelcomeNight = { enabled: false, start: "21:00", end: "07:00", timezone: "UTC", moon: false };
 
-/** Fills the night defaults for older servers. Unsupported night is never sent back to them. */
-export function welcomeStateWithNight(response: WelcomeResponse): { state: WelcomeState; nightSupported: boolean } {
+/** Fills the night and mention defaults for older servers. Unsupported fields are never sent back to them. */
+export function welcomeStateWithNight(response: WelcomeResponse): { state: WelcomeState; nightSupported: boolean; mentionSupported: boolean } {
   const nightSupported = response.settings.night !== undefined && response.effective_night !== undefined;
+  const mentionSupported = typeof response.settings.mention_member === "boolean";
   return {
     nightSupported,
+    mentionSupported,
     state: {
       ...response,
-      settings: { ...response.settings, night: response.settings.night ?? { ...WELCOME_NIGHT_DEFAULT } },
+      settings: { ...response.settings, night: response.settings.night ?? { ...WELCOME_NIGHT_DEFAULT }, mention_member: response.settings.mention_member === true },
       effective_night: response.effective_night ?? { active: false, scheduled: false, local_time: null, timezone: "UTC", ready: false, timezones: [] },
     },
   };
 }
 
-/** Full settings definition for save. Older servers reject the unknown night field. */
-export function welcomeSaveBody(settings: WelcomeSettings, nightSupported: boolean): WelcomeSettings | Omit<WelcomeSettings, "night"> {
-  if (nightSupported) return settings;
-  const { night: _night, ...legacy } = settings;
-  return legacy;
+/** Full settings definition for save. Older servers reject the unknown night and mention_member fields. */
+export function welcomeSaveBody(settings: WelcomeSettings, nightSupported: boolean, mentionSupported: boolean): Omit<WelcomeSettings, "night" | "mention_member"> & Partial<Pick<WelcomeSettings, "night" | "mention_member">> {
+  const { night, mention_member, ...body } = settings;
+  return { ...body, ...(nightSupported ? { night } : {}), ...(mentionSupported ? { mention_member } : {}) };
+}
+
+/** Unsaved edits, including unsupported fields that are never sent. */
+export function welcomeSettingsDirty(draft: WelcomeSettings, saved: WelcomeSettings): boolean {
+  return JSON.stringify(draft) !== JSON.stringify(saved);
 }
 
 /** Explicit preview scene overrides. Absent fields follow the saved schedule and moon setting. */
