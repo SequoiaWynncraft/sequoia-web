@@ -143,6 +143,7 @@ export const MANAGE_AREAS: readonly ManageArea[] = [
     links: [
       { label: "Messages", href: "/manage/discord" },
       { label: "Welcome messages", href: "/manage/discord/welcome" },
+      { label: "Achievement ceremonies", href: "/manage/discord/ceremonies" },
     ],
     gate: {
       title: "Discord staff only",

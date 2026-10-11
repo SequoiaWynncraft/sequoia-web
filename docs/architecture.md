@@ -138,6 +138,25 @@ Headline, subtitle or font edits clear the old image immediately so outdated cop
 Play animation explicitly requests a GIF and returns
 to its one cached exact-identity PNG after the authored 16-second loop, without another
 render. Reduced-motion changes stop ongoing or pending animation playback.
+
+### Achievement ceremonies
+
+`/manage/discord/ceremonies` follows the welcome page: same Discord category and admission
+rule, a fresh Rust load before channel choices, and a private adapter that permits only
+GET/PUT `ceremonies` and POST `ceremonies/preview` (private, uncached PNG/GIF bytes).
+The workspace edits one settings draft: the enable switch, destination channel and
+relative integer story weights for the stories in Sierra's catalog. Clean drafts show Rust's
+saved chances; dirty drafts show display-only shares labeled "after save". Saves send the
+version, keep edits on a 409 until staff reload, and navigation protects unsaved changes.
+Enabling stays unavailable until the bundle is installed. Season and night follow the welcome
+schedule, so the page only shows the scene in effect.
+
+Previews render the viewer's own head and in-game name with sample tier, raid and count
+values through `src/lib/api/ceremony.ts`. They carry a DEMO stamp and are never posted.
+As scheduled pins the scene from the last loaded response, so stills, playback and retries
+match. One exact-identity PNG is cached; Play animation requests a GIF and returns to it after
+the 32-second loop. Saves are audited as `ceremony.settings.save` and the audit log summarizes
+enabled, destination and changed story rows.
 Missing artwork remains a visible pending state, not a substitute image or fake success.
 Saving configuration changes future joins, not previously delivered messages. Automatic
 delivery remains disabled until the deployment owner verifies the separate Java cutover.

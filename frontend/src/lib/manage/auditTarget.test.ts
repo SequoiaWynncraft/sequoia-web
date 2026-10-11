@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { messageLink, welcomeAuditChanges } from "./auditTarget";
+import { ceremonyAuditChanges, messageLink, settingsAuditChanges, welcomeAuditChanges } from "./auditTarget";
 
 const target = { guild_id: "1030187086722109570", channel_id: "904", message_id: "692" };
 const url = "https://discord.com/channels/1030187086722109570/904/692";
@@ -69,5 +69,37 @@ describe("welcome settings audit summaries", () => {
     expect(welcomeAuditChanges(entry({ changed: ["night"] }, "discord.message.publish"))).toBeNull();
     expect(welcomeAuditChanges({ ...save(["night"], {}, {}), source: "website" })).toBeNull();
     expect(welcomeAuditChanges({ ...save(["night"], {}, {}), detail: "not json" })).toBeNull();
+  });
+});
+
+describe("achievement ceremony settings audit summaries", () => {
+  const save = (changed: string[], before: object, after: object, action = "discord.ceremony.settings.save") => entry({ outcome: "performed", changed, before, after }, action);
+
+  it("labels enabled, destination and changed story rows readably", () => {
+    // Fictional channel and story ids.
+    const before = { enabled: false, channel_id: "3333333333333333333", stories: [{ id: "sample_story", enabled: true, weight: 10 }, { id: "other_story", enabled: true, weight: 5 }] };
+    const after = { enabled: true, channel_id: "4444444444444444444", stories: [{ id: "sample_story", enabled: true, weight: 10 }, { id: "other_story", enabled: false, weight: 0 }] };
+    expect(ceremonyAuditChanges(save(["enabled", "channel_id", "stories"], before, after))).toEqual([
+      { label: "Achievement ceremonies", before: "Off", after: "On" },
+      { label: "Destination channel", before: "3333333333333333333", after: "4444444444444444444" },
+      { label: "Story odds", before: "Other story on, weight 5", after: "Other story off, weight 0" },
+    ]);
+  });
+  it("keeps unknown keys visible and reads missing values as not set", () => {
+    expect(ceremonyAuditChanges(save(["channel_id", "future_key"], {}, { channel_id: "4444444444444444444", future_key: 2 }))).toEqual([
+      { label: "Destination channel", before: "Not set", after: "4444444444444444444" },
+      { label: "Future key", before: "Not set", after: "2" },
+    ]);
+  });
+  it("routes each settings save to its own summary and ignores everything else", () => {
+    const ceremony = save(["enabled"], { enabled: false }, { enabled: true });
+    expect(settingsAuditChanges(ceremony)?.[0].label).toBe("Achievement ceremonies");
+    expect(welcomeAuditChanges(ceremony)).toBeNull();
+    const welcome = save(["enabled"], { enabled: false }, { enabled: true }, "discord.welcome.settings.save");
+    expect(settingsAuditChanges(welcome)?.[0].label).toBe("Automatic welcomes");
+    expect(ceremonyAuditChanges(welcome)).toBeNull();
+    expect(ceremonyAuditChanges({ ...ceremony, source: "website" })).toBeNull();
+    expect(ceremonyAuditChanges({ ...ceremony, detail: "not json" })).toBeNull();
+    expect(settingsAuditChanges(entry({ changed: ["enabled"] }, "discord.message.publish"))).toBeNull();
   });
 });

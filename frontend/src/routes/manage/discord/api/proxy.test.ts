@@ -60,6 +60,47 @@ describe("Discord management server boundary", () => {
       expect(await response.json()).toEqual({ error: "Not ready" });
     }
   });
+  it("forwards ceremony settings and previews only with the expected methods", async () => {
+    for (const [method, handler] of [["GET", GET], ["PUT", PUT]] as const) {
+      const request = event(method, "https://seqwawa.com", "cookie-session", "ceremonies");
+      expect((await handler(request as never)).status).toBe(200);
+      expect(request.fetch).toHaveBeenCalledWith("http://sierra:8082/v1/ceremonies", expect.objectContaining({
+        method, headers: { authorization: "Bearer cookie-session", "content-type": "application/json" },
+      }));
+    }
+    for (const [method, handler, path] of [["POST", POST, "ceremonies"], ["DELETE", DELETE, "ceremonies"], ["GET", GET, "ceremonies/preview"], ["PUT", PUT, "ceremonies/preview"]] as const) {
+      const invalid = event(method, "https://seqwawa.com", "cookie-session", path);
+      await expect(handler(invalid as never)).rejects.toMatchObject({ status: 405 });
+      expect(invalid.fetch).not.toHaveBeenCalled();
+    }
+    for (const path of ["ceremonies/send", "ceremonies/preview/extra", "ceremony"]) {
+      const arbitrary = event("POST", "https://seqwawa.com", "cookie-session", path);
+      await expect(POST(arbitrary as never)).rejects.toMatchObject({ status: 404 });
+      expect(arbitrary.fetch).not.toHaveBeenCalled();
+    }
+    const foreign = event("POST", "https://other.example", "cookie-session", "ceremonies/preview");
+    await expect(POST(foreign as never)).rejects.toMatchObject({ status: 403 });
+    expect(foreign.fetch).not.toHaveBeenCalled();
+    const conflict = event("PUT", "https://seqwawa.com", "cookie-session", "ceremonies");
+    vi.mocked(conflict.fetch).mockResolvedValueOnce(Response.json({ error: "Stale version" }, { status: 409 }));
+    const response = await PUT(conflict as never);
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({ error: "Stale version" });
+  });
+  it("preserves ceremony renderer bytes privately without treating them as JSON", async () => {
+    // Transport sentinels only, not a rendered ceremony.
+    for (const type of ["image/png", "image/gif"]) {
+      const request = event("POST", "https://seqwawa.com", "cookie-session", "ceremonies/preview");
+      const bytes = new Uint8Array([7, 0, 255, 19]);
+      vi.mocked(request.fetch).mockResolvedValueOnce(new Response(bytes, { headers: { "content-type": type } }));
+      const response = await POST(request as never);
+      expect(request.fetch).toHaveBeenCalledWith("http://sierra:8082/v1/ceremonies/preview", expect.objectContaining({ method: "POST" }));
+      expect(response.headers.get("content-type")).toBe(type);
+      expect(response.headers.get("cache-control")).toBe("private, no-store");
+      expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+      expect(new Uint8Array(await response.arrayBuffer())).toEqual(bytes);
+    }
+  });
   it("forwards durable WebP bytes privately rather than parsing them as JSON", async () => {
     const request = event("GET", null, "cookie-session", "assets/11111111-1111-1111-1111-111111111111");
     const bytes = new Uint8Array([82, 73, 70, 70, 4, 0, 0, 0, 87, 69, 66, 80]);

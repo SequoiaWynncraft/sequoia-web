@@ -104,3 +104,38 @@ export function welcomeAuditChanges(entry: Pick<AuditEntry, "source" | "detail" 
     });
   } catch { return null; }
 }
+
+const CEREMONY_LABELS: Record<string, string> = {
+  enabled: "Achievement ceremonies", channel_id: "Destination channel", stories: "Story odds",
+};
+
+function ceremonyValue(key: string, value: unknown, other: unknown): string {
+  if (value === undefined || value === null) return "Not set";
+  switch (key) {
+    case "enabled": return value === true ? "On" : "Off";
+    // Story rows share the welcome odds shape, so only differing rows are listed.
+    case "stories": return welcomeValue("variants", value, other);
+    default: return typeof value === "string" ? value : JSON.stringify(value);
+  }
+}
+
+/** Readable achievement ceremony settings changes from the Rust audit snapshot. The raw detail stays available. */
+export function ceremonyAuditChanges(entry: Pick<AuditEntry, "source" | "detail" | "action">): AuditChange[] | null {
+  if (entry.source !== "discord" || !entry.detail || !entry.action.endsWith("ceremony.settings.save")) return null;
+  try {
+    const change = object(JSON.parse(entry.detail));
+    if (!change || !Array.isArray(change.changed)) return null;
+    const before = object(change.before) ?? {};
+    const after = object(change.after) ?? {};
+    return change.changed.filter((key): key is string => typeof key === "string").map((key) => ({
+      label: CEREMONY_LABELS[key] ?? readableId(key),
+      before: ceremonyValue(key, before[key], after[key]),
+      after: ceremonyValue(key, after[key], before[key]),
+    }));
+  } catch { return null; }
+}
+
+/** The readable settings summary for any audited Discord settings save, or null. */
+export function settingsAuditChanges(entry: Pick<AuditEntry, "source" | "detail" | "action">): AuditChange[] | null {
+  return welcomeAuditChanges(entry) ?? ceremonyAuditChanges(entry);
+}

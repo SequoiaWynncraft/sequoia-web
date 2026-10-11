@@ -1,7 +1,7 @@
 <script lang="ts">
   import ManageHeader from "$lib/manage/ManageHeader.svelte";
   import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
-  import { messageLink, welcomeAuditChanges } from "$lib/manage/auditTarget";
+  import { messageLink, settingsAuditChanges } from "$lib/manage/auditTarget";
   import type { AuditEntry } from "$lib/server/auditLog";
   import AreaGate from "$lib/manage/AreaGate.svelte";
 
@@ -69,7 +69,7 @@
     {:else}
       <ol class="audit-entries">
         {#each visible as entry (entry.id)}
-          {@const changes = welcomeAuditChanges(entry)}
+          {@const changes = settingsAuditChanges(entry)}
           <li>
             <div class="audit-heading">
               <strong>{entry.action}</strong>
