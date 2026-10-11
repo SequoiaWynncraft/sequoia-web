@@ -65,6 +65,16 @@ describe("achievement ceremony interface", () => {
     expect(body).toContain("Sample story next chance: 75%");
     expect(body).not.toContain("retired_story");
   });
+  it("does not require retired artwork when no installed animation is allowed", () => {
+    const current: CeremonyResponse = { ...structuredClone(ready), ready: false, settings: { ...ready.settings, enabled: false,
+      image_tiers: { bronze: false, silver: false, gold: true, platinum: false, diamond: false, obsidian: false, mythril: false, badge: false },
+      story_tiers: { gold: ["retired_story"] },
+    } };
+    const { body } = render(CeremonyManager, { props: { initial: current, channels: [] } });
+    expect(body).toContain("Text only");
+    expect(body).not.toContain("Ceremony artwork is not installed");
+    expect(body).not.toMatch(/<input[^>]*disabled[^>]*type="checkbox"[^>]*>\s*<span>Post achievement ceremonies/);
+  });
   it("shows real readiness without an invented image or an enabled ceremony switch", () => {
     const { body } = render(CeremonyManager, { props: { initial: unavailable, channels: [] } });
     expect(body).toContain("Ceremonies are off. Scene now: Normal dusk.");

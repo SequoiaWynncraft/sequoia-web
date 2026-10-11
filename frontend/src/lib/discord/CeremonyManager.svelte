@@ -84,13 +84,13 @@
 
   const dirty = $derived(ceremonySettingsDirty(draft, saved.settings));
   const issue = $derived(ceremonyInputIssue(draft));
-  // Older servers always send images, so their artwork rule still applies.
-  const imagesInUse = $derived(ceremonyImagesInUse(draft, imagesSupported, imageTiersSupported));
-  const readinessIssue = $derived(ceremonyReadinessIssue(draft, saved.ready, imagesInUse));
-  const draftReady = $derived(readinessIssue === null);
   const catalogById = $derived(new Map(saved.catalog.map((item) => [item.id, item])));
   // Only stories the server catalog lists are shown; unknown saved rows are kept and sent back untouched.
   const rows = $derived(draft.stories.filter((story) => catalogById.has(story.id)));
+  // Older servers always send images, so their artwork rule still applies.
+  const imagesInUse = $derived(ceremonyImagesInUse({ ...draft, stories: rows }, imagesSupported, imageTiersSupported));
+  const readinessIssue = $derived(ceremonyReadinessIssue(draft, saved.ready, imagesInUse));
+  const draftReady = $derived(readinessIssue === null);
   const savedChances = $derived(new Map(saved.effective_chances.map((item) => [item.id, item.percent])));
   const tierRows = $derived(ceremonyTierStories({ stories: rows, story_tiers: draft.story_tiers }, allowedTier));
   const displayedChances = $derived(storyTiersSupported ? ceremonyProposedChances(tierRows) : dirty ? ceremonyProposedChances(draft.stories) : savedChances);
