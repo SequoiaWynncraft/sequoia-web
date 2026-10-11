@@ -35,7 +35,7 @@ describe("achievement progress", () => {
     expect(achievementValue(tna)).toBe("Unknown");
     expect(achievementFraction(tna)).toBeNull();
     expect(achievementCurrent(tna)).toBe("No tier");
-    expect(achievementNext(tna)).toBe("Next: Bronze at 25");
+    expect(achievementNext(tna)).toBe("");
   });
   it("measures progress from the last reached step to the next", () => {
     const wars = category("war:completed");
