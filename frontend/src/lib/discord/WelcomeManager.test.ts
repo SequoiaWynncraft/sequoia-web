@@ -110,6 +110,13 @@ describe("welcome unavailable interface", () => {
     expect(body).not.toContain("this device");
     expect(body).not.toContain("\u2014");
   });
+  it("lets a text-only welcome schedule night without night artwork", () => {
+    const state = structuredClone(unavailable);
+    state.settings.send_images = false;
+    const { body } = render(WelcomeManager, { props: { initial: state, channels: [] } });
+    expect(body).not.toContain("Night artwork is not installed yet, so night stays off.");
+    expect(body).not.toMatch(/<input[^>]*disabled[^>]*type="checkbox"[^>]*>\s*<span>Use night scenes on a schedule/);
+  });
   it("defaults the preview to the saved schedule and saved moon, with explicit day and night choices", () => {
     const state = structuredClone(unavailable);
     state.effective_night = { ...state.effective_night, ready: true, active: true, scheduled: true, local_time: "23:10", timezone: "Europe/Stockholm" };
@@ -236,5 +243,12 @@ describe("welcome images control", () => {
     expect(toggle?.[0]).toMatch(/\schecked/);
     expect(body).toMatch(/<span>Send images<\/span><\/label>(?:\s|<!--[^>]*-->)*<small[^>]*>Not available on this server yet\.<\/small>/);
     expect(body).not.toContain("\u2014");
+  });
+  it("allows enabling text-only welcomes without ready artwork", () => {
+    const textOnly = structuredClone(unavailable);
+    textOnly.settings.send_images = false;
+    const { body } = render(WelcomeManager, { props: { initial: textOnly, channels: [] } });
+    expect(body.match(/<input([^>]*)type="checkbox"[^>]*>\s*<span>Welcome new members/)?.[1]).not.toContain("disabled");
+    expect(body).not.toContain("Enabled welcomes need normal and winter artwork");
   });
 });

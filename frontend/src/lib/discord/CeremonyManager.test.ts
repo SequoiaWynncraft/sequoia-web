@@ -197,4 +197,49 @@ describe("ceremony images control", () => {
     expect(body).toMatch(/<span>Send images<\/span><\/label>(?:\s|<!--[^>]*-->)*<small[^>]*>Not available on this server yet\.<\/small>/);
     expect(body).not.toContain("\u2014");
   });
+  it("allows enabling text-only ceremonies without installed artwork", () => {
+    const textOnly = structuredClone(unavailable);
+    textOnly.settings.channel_id = "2222222222222222222";
+    textOnly.settings.send_images = false;
+    const { body } = render(CeremonyManager, { props: { initial: textOnly, channels: [] } });
+    expect(body.match(/<input([^>]*)type="checkbox"[^>]*>\s*<span>Post achievement ceremonies/)?.[1]).not.toContain("disabled");
+    expect(body).not.toContain("Ceremony artwork is not installed");
+  });
+});
+
+describe("ceremony image tier controls", () => {
+  const tierToggle = (label: string) => new RegExp(`<input([^>]*)type="checkbox"[^>]*>\\s*<span>${label}</span>`);
+  const labels = ["Bronze", "Silver", "Gold", "Platinum", "Diamond", "Obsidian", "Mythril", "Badge"];
+  const current = (change: Partial<CeremonyResponse["settings"]>): CeremonyResponse => {
+    const next = structuredClone(ready);
+    next.settings = { ...next.settings, image_tiers: { bronze: false, silver: false, gold: true, platinum: true, diamond: true, obsidian: true, mythril: true, badge: true }, ...change };
+    return next;
+  };
+  it("renders the eight tier switches under Send images with the saved values", () => {
+    const { body } = render(CeremonyManager, { props: { initial: current({}), channels: [] } });
+    expect(body).toMatch(/<legend[^>]*>Images by tier<\/legend>/);
+    for (const label of labels) {
+      const toggle = body.match(tierToggle(label));
+      expect(toggle?.[1]).not.toContain("disabled");
+      expect(/\schecked/.test(toggle?.[0] ?? "")).toBe(label !== "Bronze" && label !== "Silver");
+    }
+    expect(body.indexOf("Images by tier")).toBeGreaterThan(body.indexOf("Send images"));
+    expect(body.indexOf("Images by tier")).toBeLessThan(body.indexOf("Story odds"));
+    expect(body).not.toContain("\u2014");
+  });
+  it("disables the tier switches when Send images is off or the server lacks them", () => {
+    const off = render(CeremonyManager, { props: { initial: current({ send_images: false }), channels: [] } }).body;
+    const { image_tiers: _tiers, ...legacySettings } = current({}).settings;
+    const legacy = render(CeremonyManager, { props: { initial: { ...ready, settings: legacySettings }, channels: [] } }).body;
+    for (const body of [off, legacy]) {
+      for (const label of labels) expect(body.match(tierToggle(label))?.[1]).toContain("disabled");
+    }
+  });
+  it("allows enabling without artwork when every tier is off", () => {
+    const none = { bronze: false, silver: false, gold: false, platinum: false, diamond: false, obsidian: false, mythril: false, badge: false };
+    const initial: CeremonyResponse = { ...structuredClone(unavailable), settings: { ...unavailable.settings, channel_id: "2222222222222222222", image_tiers: none } };
+    const { body } = render(CeremonyManager, { props: { initial, channels: [] } });
+    expect(body.match(/<input([^>]*)type="checkbox"[^>]*>\s*<span>Post achievement ceremonies/)?.[1]).not.toContain("disabled");
+    expect(body).not.toContain("Ceremony artwork is not installed");
+  });
 });

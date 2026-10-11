@@ -1,6 +1,7 @@
 import type { AuditEntry } from "$lib/server/auditLog";
 import { welcomeNightSummary } from "$lib/discord/welcome";
 import { repeatSummary } from "$lib/discord/repeat";
+import { IMAGE_TIERS } from "$lib/discord/ceremony";
 
 function object(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === "object" && !Array.isArray(value)
@@ -114,8 +115,20 @@ export function welcomeAuditChanges(entry: Pick<AuditEntry, "source" | "detail" 
 
 const CEREMONY_LABELS: Record<string, string> = {
   enabled: "Achievement ceremonies", channel_id: "Destination channel", stories: "Story odds", mention_member: "Mention member",
-  send_images: "Send images", repeat: "Repeat penalty",
+  send_images: "Send images", image_tiers: "Images by tier", repeat: "Repeat penalty",
 };
+
+/** Enabled tiers in display order, then any unknown enabled keys. */
+function imageTiersSummary(value: unknown): string {
+  const record = object(value);
+  if (!record) return "Not set";
+  const known = new Set<string>(IMAGE_TIERS.map(({ id }) => id));
+  const on = [
+    ...IMAGE_TIERS.filter(({ id }) => record[id] === true).map(({ label }) => label),
+    ...Object.keys(record).filter((key) => !known.has(key) && record[key] === true).map(readableId),
+  ];
+  return on.length ? on.join(", ") : "None";
+}
 
 function ceremonyValue(key: string, value: unknown, other: unknown): string {
   if (key === "mention_member" || key === "send_images") return welcomeValue(key, value, other);
@@ -125,6 +138,7 @@ function ceremonyValue(key: string, value: unknown, other: unknown): string {
     // Story rows share the welcome odds shape, so only differing rows are listed.
     case "stories": return welcomeValue("variants", value, other);
     case "repeat": return repeatSummary(value);
+    case "image_tiers": return imageTiersSummary(value);
     default: return typeof value === "string" ? value : JSON.stringify(value);
   }
 }
