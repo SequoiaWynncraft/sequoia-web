@@ -23,6 +23,7 @@
   let saved = $state<WelcomeState>(seeded.state);
   let nightSupported = $state(seeded.nightSupported);
   let mentionSupported = $state(seeded.mentionSupported);
+  let imagesSupported = $state(seeded.imagesSupported);
   let repeatSupported = $state(seeded.repeatSupported);
   let draft = $state(structuredClone(seeded.state.settings));
   // svelte-ignore state_referenced_locally
@@ -201,6 +202,7 @@
     saved = next.state;
     nightSupported = next.nightSupported;
     mentionSupported = next.mentionSupported;
+    imagesSupported = next.imagesSupported;
     repeatSupported = next.repeatSupported;
     draft = structuredClone(next.state.settings);
     conflict = false;
@@ -212,7 +214,7 @@
     if (busy || !dirty || issue || conflict || (draft.enabled && !draftReady)) return;
     busy = true; error = null; notice = null; navigationBlocked = false;
     // Freeze the sent draft. Controls stay disabled until normalization returns.
-    const result = await requestDiscord<WelcomeResponse>(globalThis.fetch.bind(globalThis), "welcome", "PUT", welcomeSaveBody($state.snapshot(draft), nightSupported, mentionSupported, repeatSupported));
+    const result = await requestDiscord<WelcomeResponse>(globalThis.fetch.bind(globalThis), "welcome", "PUT", welcomeSaveBody($state.snapshot(draft), nightSupported, mentionSupported, repeatSupported, imagesSupported));
     busy = false;
     if (!result.ok) {
       conflict = result.error.status === 409;
@@ -278,6 +280,7 @@
         {/if}
       </Field>
       <Toggle bind:checked={draft.mention_member} label="Mention member" hint={mentionSupported ? undefined : "Not available on this server yet."} disabled={!mentionSupported} />
+      <Toggle bind:checked={draft.send_images} label="Send images" hint={imagesSupported ? undefined : "Not available on this server yet."} disabled={!imagesSupported} />
 
       <div class="section-head season-head"><h2>Season</h2><span class="season-state">{saved.effective_season === "winter" ? "Winter" : "Normal"} active</span></div>
       <Field label="Season mode">

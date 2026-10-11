@@ -9,7 +9,7 @@ vi.mock("$app/navigation", () => ({ beforeNavigate: vi.fn() }));
 const unavailable: CeremonyResponse = {
   settings: {
     version: 0, guild_id: "1111111111111111111", enabled: false, channel_id: "",
-    stories: [{ id: "sample_story", enabled: true, weight: 10 }], mention_member: false, repeat: { percent: 50, recent: 1 },
+    stories: [{ id: "sample_story", enabled: true, weight: 10 }], mention_member: false, send_images: true, repeat: { percent: 50, recent: 1 },
   },
   catalog: [{ id: "sample_story", label: "Sample story", description: "A fictional story.", layout: "banner", ready: false }],
   ready: false, effective_chances: [],
@@ -26,6 +26,7 @@ const ready: CeremonyResponse = {
       { id: "retired_story", enabled: true, weight: 10 },
     ],
     mention_member: true,
+    send_images: true,
     repeat: { percent: 50, recent: 1 },
   },
   catalog: [
@@ -173,5 +174,27 @@ describe("ceremony mention control", () => {
     expect(toggle?.[0]).not.toMatch(/\schecked/);
     expect(body).not.toContain("linked Discord account");
     expect(body).toContain("Not available on this server yet.");
+  });
+});
+
+describe("ceremony images control", () => {
+  const imagesToggle = /<input([^>]*)type="checkbox"[^>]*>\s*<span>Send images<\/span>/;
+  it("offers the saved images setting beside the mention control on a current server", () => {
+    const { body } = render(CeremonyManager, { props: { initial: ready, channels: [] } });
+    const toggle = body.match(imagesToggle);
+    expect(toggle?.[1]).not.toContain("disabled");
+    expect(toggle?.[0]).toMatch(/\schecked/);
+    expect(body).not.toContain("Not available on this server yet.");
+    expect(body.indexOf("Send images")).toBeGreaterThan(body.indexOf("Mention member"));
+    expect(body.indexOf("Send images")).toBeLessThan(body.indexOf("Story odds"));
+  });
+  it("shows the control disabled and on for a server without it", () => {
+    const { settings: { send_images: _images, ...settings }, ...rest } = structuredClone(ready);
+    const { body } = render(CeremonyManager, { props: { initial: { ...rest, settings }, channels: [] } });
+    const toggle = body.match(imagesToggle);
+    expect(toggle?.[1]).toContain("disabled");
+    expect(toggle?.[0]).toMatch(/\schecked/);
+    expect(body).toMatch(/<span>Send images<\/span><\/label>(?:\s|<!--[^>]*-->)*<small[^>]*>Not available on this server yet\.<\/small>/);
+    expect(body).not.toContain("\u2014");
   });
 });

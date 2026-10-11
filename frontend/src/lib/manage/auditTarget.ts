@@ -37,7 +37,7 @@ const WELCOME_LABELS: Record<string, string> = {
   enabled: "Automatic welcomes", channel_id: "Destination channel", season_mode: "Season mode",
   winter_start: "Winter start", winter_end: "Winter end", variants: "Welcome odds", links: "Welcome links",
   message: "Message text", name_font: "Name font", effects: "Sky effects", night: "Night schedule",
-  mention_member: "Mention member", repeat: "Repeat penalty",
+  mention_member: "Mention member", send_images: "Send images", repeat: "Repeat penalty",
 };
 const SEASON_MODES: Record<string, string> = { automatic: "Automatic", normal: "Always normal", winter: "Always winter" };
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -62,7 +62,8 @@ function welcomeValue(key: string, value: unknown, other: unknown): string {
   if (value === undefined || value === null) return "Not set";
   // Snapshots from before mention_member existed recorded no choice (those senders did ping),
   // so an absent value stays "Not set" above rather than reading as Off.
-  if (key === "mention_member") return value === true ? "On" : "Off";
+  // send_images follows the same rule: older snapshots predate the choice (those senders attached images).
+  if (key === "mention_member" || key === "send_images") return value === true ? "On" : "Off";
   const record = object(value);
   switch (key) {
     case "enabled": return value === true ? "On" : "Off";
@@ -113,11 +114,11 @@ export function welcomeAuditChanges(entry: Pick<AuditEntry, "source" | "detail" 
 
 const CEREMONY_LABELS: Record<string, string> = {
   enabled: "Achievement ceremonies", channel_id: "Destination channel", stories: "Story odds", mention_member: "Mention member",
-  repeat: "Repeat penalty",
+  send_images: "Send images", repeat: "Repeat penalty",
 };
 
 function ceremonyValue(key: string, value: unknown, other: unknown): string {
-  if (key === "mention_member") return welcomeValue(key, value, other);
+  if (key === "mention_member" || key === "send_images") return welcomeValue(key, value, other);
   if (value === undefined || value === null) return "Not set";
   switch (key) {
     case "enabled": return value === true ? "On" : "Off";

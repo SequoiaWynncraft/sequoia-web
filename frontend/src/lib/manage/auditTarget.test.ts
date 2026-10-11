@@ -128,3 +128,17 @@ describe("mention member audit summaries", () => {
     expect(ceremonyAuditChanges(save("discord.ceremony.settings.save", {}, { mention_member: false }))?.[0]).toEqual({ label: "Mention member", before: "Not set", after: "Off" });
   });
 });
+
+describe("send images audit summaries", () => {
+  const save = (action: string, before: object, after: object) => entry({ outcome: "performed", changed: ["send_images"], before, after }, action);
+  it("reads images changes as Off and On for both settings saves", () => {
+    for (const action of ["discord.welcome.settings.save", "discord.ceremony.settings.save"]) {
+      expect(settingsAuditChanges(save(action, { send_images: true }, { send_images: false }))).toEqual([{ label: "Send images", before: "On", after: "Off" }]);
+      expect(settingsAuditChanges(save(action, { send_images: false }, { send_images: true }))).toEqual([{ label: "Send images", before: "Off", after: "On" }]);
+    }
+  });
+  it("keeps a snapshot from before the field existed as Not set for both settings saves", () => {
+    expect(welcomeAuditChanges(save("discord.welcome.settings.save", {}, { send_images: false }))?.[0]).toEqual({ label: "Send images", before: "Not set", after: "Off" });
+    expect(ceremonyAuditChanges(save("discord.ceremony.settings.save", {}, { send_images: true }))?.[0]).toEqual({ label: "Send images", before: "Not set", after: "On" });
+  });
+});

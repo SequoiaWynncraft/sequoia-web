@@ -16,6 +16,7 @@ const unavailable: WelcomeState = {
     effects: { sky: [{ id: "aurora", percent: 35 }] },
     night: { enabled: false, start: "21:00", end: "07:00", timezone: "UTC", moon: true },
     mention_member: false,
+    send_images: true,
     repeat: { percent: 50, recent: 1 },
   },
   catalog: [{ id: "quiet", label: "Quiet forest", description: "", normal_ready: false, winter_ready: false }],
@@ -210,5 +211,30 @@ describe("welcome mention control", () => {
     expect(toggle?.[0]).not.toMatch(/\schecked/);
     expect(body).not.toContain("Ping the new member in the welcome post.");
     expect(body).toContain("Not available on this server yet.");
+  });
+});
+
+describe("welcome images control", () => {
+  const imagesToggle = /<input([^>]*)type="checkbox"[^>]*>\s*<span>Send images<\/span>/;
+  it("offers the saved images setting beside the mention control on a current server", () => {
+    const state = structuredClone(unavailable);
+    state.settings.send_images = false;
+    const { body } = render(WelcomeManager, { props: { initial: state, channels: [] } });
+    const toggle = body.match(imagesToggle);
+    expect(toggle?.[1]).not.toContain("disabled");
+    expect(toggle?.[0]).not.toMatch(/\schecked/);
+    expect(body).not.toContain("Not available on this server yet.");
+    expect(body.indexOf("Send images")).toBeGreaterThan(body.indexOf("Mention member"));
+    expect(body.indexOf("Send images")).toBeLessThan(body.indexOf("Season mode"));
+  });
+  it("shows the control disabled and on for a server without it", () => {
+    const { settings: { send_images: _images, ...settings }, ...rest } = structuredClone(unavailable);
+    const legacy: WelcomeResponse = { ...rest, settings };
+    const { body } = render(WelcomeManager, { props: { initial: legacy, channels: [] } });
+    const toggle = body.match(imagesToggle);
+    expect(toggle?.[1]).toContain("disabled");
+    expect(toggle?.[0]).toMatch(/\schecked/);
+    expect(body).toMatch(/<span>Send images<\/span><\/label>(?:\s|<!--[^>]*-->)*<small[^>]*>Not available on this server yet\.<\/small>/);
+    expect(body).not.toContain("\u2014");
   });
 });

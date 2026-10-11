@@ -15,15 +15,17 @@ export interface CeremonySettings {
   stories: { id: string; enabled: boolean; weight: number }[];
   /** Ping the player's linked Discord account. */
   mention_member: boolean;
+  /** Attach the ceremony image. Off sends a text-only post. */
+  send_images: boolean;
   repeat: RepeatPenalty;
 }
 export interface CeremonyScene {
   season: CeremonySeason;
   ambiance: CeremonyAmbiance;
 }
-/** Wire shape. Older servers omit mention_member; servers without repeat penalties omit repeat, recent_events and current_chances. */
+/** Wire shape. Older servers omit mention_member and send_images; servers without repeat penalties omit repeat, recent_events and current_chances. */
 export interface CeremonyResponse {
-  settings: Omit<CeremonySettings, "mention_member" | "repeat"> & { mention_member?: boolean; repeat?: RepeatPenalty };
+  settings: Omit<CeremonySettings, "mention_member" | "send_images" | "repeat"> & { mention_member?: boolean; send_images?: boolean; repeat?: RepeatPenalty };
   catalog: { id: string; label: string; description: string; layout: string; ready: boolean }[];
   ready: boolean;
   effective_chances: { id: string; percent: number }[];
@@ -39,26 +41,34 @@ export interface CeremonyResponse {
 /** Loaded state with every settings field present. */
 export type CeremonyState = Omit<CeremonyResponse, "settings"> & { settings: CeremonySettings };
 
-/** Fills the mention and repeat defaults for older servers. Unsupported fields are never sent back to them. */
-export function ceremonyState(response: CeremonyResponse): { state: CeremonyState; mentionSupported: boolean; repeatSupported: boolean } {
+/** Fills the mention, images and repeat defaults for older servers. Unsupported fields are never sent back to them. */
+export function ceremonyState(response: CeremonyResponse): { state: CeremonyState; mentionSupported: boolean; imagesSupported: boolean; repeatSupported: boolean } {
   return {
     mentionSupported: typeof response.settings.mention_member === "boolean",
+    imagesSupported: typeof response.settings.send_images === "boolean",
     repeatSupported: response.settings.repeat !== undefined,
     state: {
       ...response,
-      settings: { ...response.settings, mention_member: response.settings.mention_member === true, repeat: response.settings.repeat ?? { ...REPEAT_DEFAULT } },
+      settings: {
+        ...response.settings,
+        mention_member: response.settings.mention_member === true,
+        // Servers that omit the field always attach images, so it reads as on.
+        send_images: response.settings.send_images !== false,
+        repeat: response.settings.repeat ?? { ...REPEAT_DEFAULT },
+      },
     },
   };
 }
 
-/** Full settings definition for save. Older servers reject the unknown mention_member and repeat fields. */
+/** Full settings definition for save. Older servers reject the unknown mention_member, send_images and repeat fields. */
 export function ceremonySaveBody(
   settings: CeremonySettings,
   mentionSupported: boolean,
   repeatSupported: boolean,
-): Omit<CeremonySettings, "mention_member" | "repeat"> & Partial<Pick<CeremonySettings, "mention_member" | "repeat">> {
-  const { mention_member, repeat, ...body } = settings;
-  return { ...body, ...(mentionSupported ? { mention_member } : {}), ...(repeatSupported ? { repeat } : {}) };
+  imagesSupported: boolean,
+): Omit<CeremonySettings, "mention_member" | "send_images" | "repeat"> & Partial<Pick<CeremonySettings, "mention_member" | "send_images" | "repeat">> {
+  const { mention_member, send_images, repeat, ...body } = settings;
+  return { ...body, ...(mentionSupported ? { mention_member } : {}), ...(imagesSupported ? { send_images } : {}), ...(repeatSupported ? { repeat } : {}) };
 }
 
 /** Unsaved edits, including unsupported fields that are never sent. */
