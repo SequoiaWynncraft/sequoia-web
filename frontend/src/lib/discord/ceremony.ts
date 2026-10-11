@@ -1,3 +1,5 @@
+import { REPEAT_DEFAULT, repeatIssue, type RepeatPenalty } from "./repeat";
+
 export type CeremonySeason = "normal" | "winter";
 export type CeremonyAmbiance = "dusk" | "night";
 export type CeremonyTier = "bronze" | "silver" | "gold" | "platinum" | "diamond" | "obsidian" | "mythril";
@@ -13,14 +15,15 @@ export interface CeremonySettings {
   stories: { id: string; enabled: boolean; weight: number }[];
   /** Ping the player's linked Discord account. */
   mention_member: boolean;
+  repeat: RepeatPenalty;
 }
 export interface CeremonyScene {
   season: CeremonySeason;
   ambiance: CeremonyAmbiance;
 }
-/** Wire shape. Older servers omit mention_member. */
+/** Wire shape. Older servers omit mention_member; servers without repeat penalties omit repeat, recent_events and current_chances. */
 export interface CeremonyResponse {
-  settings: Omit<CeremonySettings, "mention_member"> & { mention_member?: boolean };
+  settings: Omit<CeremonySettings, "mention_member" | "repeat"> & { mention_member?: boolean; repeat?: RepeatPenalty };
   catalog: { id: string; label: string; description: string; layout: string; ready: boolean }[];
   ready: boolean;
   effective_chances: { id: string; percent: number }[];
@@ -28,24 +31,34 @@ export interface CeremonyResponse {
   viewer: { display_name: string };
   /** Previewable achievement categories. Absent on older servers, which only preview raids. */
   achievement_catalog?: CeremonyCategory[];
+  /** Last live picks, most recent first. */
+  recent_events?: string[];
+  /** Next live pick odds after the repeat penalty. */
+  current_chances?: { id: string; percent: number }[];
 }
-
 /** Loaded state with every settings field present. */
 export type CeremonyState = Omit<CeremonyResponse, "settings"> & { settings: CeremonySettings };
 
-/** Fills mention_member off for older servers, which never get it sent back. */
-export function ceremonyStateWithMention(response: CeremonyResponse): { state: CeremonyState; mentionSupported: boolean } {
+/** Fills the mention and repeat defaults for older servers. Unsupported fields are never sent back to them. */
+export function ceremonyState(response: CeremonyResponse): { state: CeremonyState; mentionSupported: boolean; repeatSupported: boolean } {
   return {
     mentionSupported: typeof response.settings.mention_member === "boolean",
-    state: { ...response, settings: { ...response.settings, mention_member: response.settings.mention_member === true } },
+    repeatSupported: response.settings.repeat !== undefined,
+    state: {
+      ...response,
+      settings: { ...response.settings, mention_member: response.settings.mention_member === true, repeat: response.settings.repeat ?? { ...REPEAT_DEFAULT } },
+    },
   };
 }
 
-/** Full settings definition for save. Older servers reject the unknown mention_member field. */
-export function ceremonySaveBody(settings: CeremonySettings, mentionSupported: boolean): Omit<CeremonySettings, "mention_member"> & Partial<Pick<CeremonySettings, "mention_member">> {
-  if (mentionSupported) return settings;
-  const { mention_member: _mention, ...legacy } = settings;
-  return legacy;
+/** Full settings definition for save. Older servers reject the unknown mention_member and repeat fields. */
+export function ceremonySaveBody(
+  settings: CeremonySettings,
+  mentionSupported: boolean,
+  repeatSupported: boolean,
+): Omit<CeremonySettings, "mention_member" | "repeat"> & Partial<Pick<CeremonySettings, "mention_member" | "repeat">> {
+  const { mention_member, repeat, ...body } = settings;
+  return { ...body, ...(mentionSupported ? { mention_member } : {}), ...(repeatSupported ? { repeat } : {}) };
 }
 
 /** Unsaved edits, including unsupported fields that are never sent. */
@@ -115,6 +128,8 @@ function validSnowflake(value: string): boolean {
 export function ceremonyInputIssue(settings: CeremonySettings): string | null {
   const weights = ceremonyWeightIssue(settings.stories);
   if (weights) return weights;
+  const repeat = repeatIssue(settings.repeat);
+  if (repeat) return repeat;
   if (settings.enabled && !settings.channel_id.trim()) return "Choose a destination channel.";
   if (settings.channel_id.trim() && !validSnowflake(settings.channel_id.trim())) return "Choose a valid destination channel.";
   return null;

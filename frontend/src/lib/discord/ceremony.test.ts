@@ -3,7 +3,7 @@ import {
   CEREMONY_BADGE_TITLE_MAX, ceremonyAchievementBody, ceremonyAchievementDescription, ceremonyAchievementIssue, ceremonyBadgeTitleIssue,
   ceremonyCategories, ceremonyKeyLabel, ceremonyRoleLabel, type CeremonyAchievement, type CeremonyCategory,
   CEREMONY_RAIDS, CEREMONY_SCENES, CEREMONY_TIERS, ceremonyChance, ceremonyCountIssue, ceremonyInputIssue, ceremonyPreviewKey,
-  ceremonyPreviewScene, ceremonyProposedChances, ceremonyReadinessIssue, ceremonySaveBody, ceremonySceneLabel, ceremonySettingsDirty, ceremonyStateWithMention, ceremonyTierLabel,
+  ceremonyPreviewScene, ceremonyProposedChances, ceremonyReadinessIssue, ceremonySaveBody, ceremonySceneLabel, ceremonySettingsDirty, ceremonyState, ceremonyTierLabel,
   type CeremonyResponse, type CeremonySettings,
 } from "./ceremony";
 
@@ -12,7 +12,28 @@ const settings: CeremonySettings = {
   version: 2, guild_id: "1111111111111111111", enabled: false, channel_id: "2222222222222222222",
   stories: [{ id: "sample_story", enabled: true, weight: 30 }, { id: "other_story", enabled: true, weight: 10 }, { id: "quiet_story", enabled: false, weight: 50 }],
   mention_member: false,
+  repeat: { percent: 50, recent: 1 },
 };
+
+describe("ceremony repeat penalty", () => {
+  const { repeat: _repeat, ...legacySettings } = settings;
+  const response = { settings: legacySettings, catalog: [], ready: true, effective_chances: [], effective_scene: { season: "normal" as const, ambiance: "dusk" as const }, viewer: { display_name: "FictionalMember" } };
+  it("fills the default for an older server and never sends repeat back to it", () => {
+    const { state, repeatSupported } = ceremonyState(structuredClone(response));
+    expect(repeatSupported).toBe(false);
+    expect(state.settings.repeat).toEqual({ percent: 50, recent: 1 });
+    expect(ceremonySaveBody(state.settings, true, false)).toEqual(legacySettings);
+  });
+  it("keeps and sends the server's repeat setting", () => {
+    const { state, repeatSupported } = ceremonyState({ ...response, settings: { ...legacySettings, repeat: { percent: 0, recent: 5 } }, recent_events: ["sample_story"] });
+    expect(repeatSupported).toBe(true);
+    expect(ceremonySaveBody(state.settings, true, true)).toEqual({ ...legacySettings, repeat: { percent: 0, recent: 5 } });
+  });
+  it("rejects an invalid repeat penalty before save", () => {
+    expect(ceremonyInputIssue({ ...settings, repeat: { percent: -1, recent: 1 } })).toContain("Repeat penalty");
+    expect(ceremonyInputIssue({ ...settings, repeat: { percent: 50, recent: 21 } })).toContain("Recent events");
+  });
+});
 
 describe("ceremony settings logic", () => {
   it("computes display-only shares over enabled weights", () => {
@@ -124,17 +145,17 @@ describe("ceremony mention setting", () => {
     effective_scene: { season: "normal", ambiance: "dusk" }, viewer: { display_name: "Member" },
   });
   it("keeps a saved mention setting and sends it to a current server", () => {
-    const { state, mentionSupported } = ceremonyStateWithMention(response({ ...settings, mention_member: true }));
+    const { state, mentionSupported } = ceremonyState(response({ ...settings, mention_member: true }));
     expect(mentionSupported).toBe(true);
     expect(state.settings.mention_member).toBe(true);
-    expect(ceremonySaveBody(state.settings, true)).toEqual({ ...settings, mention_member: true });
+    expect(ceremonySaveBody(state.settings, true, true)).toEqual({ ...settings, mention_member: true });
   });
   it("reads an older server as off and never sends the field back", () => {
     const { mention_member: _mention, ...older } = settings;
-    const { state, mentionSupported } = ceremonyStateWithMention(response(older));
+    const { state, mentionSupported } = ceremonyState(response(older));
     expect(mentionSupported).toBe(false);
     expect(state.settings.mention_member).toBe(false);
-    const body = ceremonySaveBody(state.settings, false);
+    const body = ceremonySaveBody(state.settings, false, true);
     expect(body).not.toHaveProperty("mention_member");
     expect(body).toEqual(older);
   });

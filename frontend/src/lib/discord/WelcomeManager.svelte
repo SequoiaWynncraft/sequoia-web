@@ -13,6 +13,7 @@
   import ConfirmDialog from "$lib/design-system/components/forms/ConfirmDialog.svelte";
   import ManageHeader from "$lib/manage/ManageHeader.svelte";
   import { welcomeChance, welcomeInputIssue, welcomeMessageIssue, welcomeNightIssue, welcomeNightReadinessIssue, welcomeNightSummary, welcomePreviewKey, welcomePreviewMessageChanged, welcomePreviewScene, welcomeReadinessIssue, welcomeSkyChances, welcomeSkyEffectIssue, type WelcomeMessage, type WelcomePreviewEffect, type WelcomeResponse, type WelcomeSeason, type WelcomeState, welcomeSaveBody, welcomeSettingsDirty, welcomeStateWithNight } from "./welcome";
+  import { REPEAT_RECENT_MAX, repeatChances, repeatFieldIssue, repeatHistory, repeatRecentIds } from "./repeat";
   import type { DiscordContext } from "./types";
 
   let { initial, channels }: { initial: WelcomeResponse; channels: DiscordContext["channels"] } = $props();
@@ -22,6 +23,7 @@
   let saved = $state<WelcomeState>(seeded.state);
   let nightSupported = $state(seeded.nightSupported);
   let mentionSupported = $state(seeded.mentionSupported);
+  let repeatSupported = $state(seeded.repeatSupported);
   let draft = $state(structuredClone(seeded.state.settings));
   // svelte-ignore state_referenced_locally
   let selectedId = $state(initial.catalog[0]?.id ?? "");
@@ -81,6 +83,12 @@
     return new Map(draft.variants.map((item) => [item.id, item.enabled ? item.weight * 100 / total : 0]));
   });
   const displayedChances = $derived(dirty ? proposedChances : chanceById);
+  // Next pick odds: the server's while clean, otherwise the same penalty rule over the draft.
+  const history = $derived(repeatHistory(saved));
+  const recentIds = $derived(repeatSupported ? repeatRecentIds(history.recent, draft.repeat.recent) : new Set<string>());
+  const repeatIssues = $derived(repeatFieldIssue(draft.repeat));
+  // Older servers have no penalty, so their next pick uses the base odds.
+  const nextChances = $derived(!dirty ? history.current ?? (repeatSupported ? repeatChances(draft.variants, draft.repeat, history.recent) : chanceById) : repeatChances(draft.variants, draft.repeat, repeatSupported ? history.recent : []));
   const catalogById = $derived(new Map(saved.catalog.map((item) => [item.id, item])));
   const destinationChannels = $derived(channels.filter((channel) => channel.archived === undefined));
   const knownChannel = $derived(destinationChannels.some((item) => item.id === draft.channel_id));
@@ -193,6 +201,7 @@
     saved = next.state;
     nightSupported = next.nightSupported;
     mentionSupported = next.mentionSupported;
+    repeatSupported = next.repeatSupported;
     draft = structuredClone(next.state.settings);
     conflict = false;
     error = null;
@@ -203,7 +212,7 @@
     if (busy || !dirty || issue || conflict || (draft.enabled && !draftReady)) return;
     busy = true; error = null; notice = null; navigationBlocked = false;
     // Freeze the sent draft. Controls stay disabled until normalization returns.
-    const result = await requestDiscord<WelcomeResponse>(globalThis.fetch.bind(globalThis), "welcome", "PUT", welcomeSaveBody($state.snapshot(draft), nightSupported, mentionSupported));
+    const result = await requestDiscord<WelcomeResponse>(globalThis.fetch.bind(globalThis), "welcome", "PUT", welcomeSaveBody($state.snapshot(draft), nightSupported, mentionSupported, repeatSupported));
     busy = false;
     if (!result.ok) {
       conflict = result.error.status === 409;
@@ -317,7 +326,12 @@
       {/if}
 
       <div class="section-head variants-head"><h2>Welcome odds</h2><span class="hint">Higher weight, more often. Zero never wins.</span></div>
-      <div class="variant-columns" aria-hidden="true"><span>Welcome</span><span>Weight</span><span>{dirty ? "After save" : "Chance"}</span></div>
+      <div class="repeat-controls">
+        <Field label="Repeat penalty" hint="0 to 100%" error={repeatIssues?.percent}><NumberInput bind:value={draft.repeat.percent} min={0} max={100} step={1} required disabled={!repeatSupported} invalid={!!repeatIssues?.percent} /></Field>
+        <Field label="Recent events" hint={`1 to ${REPEAT_RECENT_MAX}`} error={repeatIssues?.recent}><NumberInput bind:value={draft.repeat.recent} min={1} max={REPEAT_RECENT_MAX} step={1} required disabled={!repeatSupported} invalid={!!repeatIssues?.recent} /></Field>
+      </div>
+      <p class="hint">{repeatSupported ? "Recent picks lose this share of weight, once. 0 is off. If none remain, base odds apply." : "Repeat penalty is not available on this server yet."}</p>
+      <div class="variant-columns" aria-hidden="true"><span>Welcome</span><span>Weight</span><span>Base</span><span>Next</span></div>
       <div class="variants">
         {#each draft.variants as variant (variant.id)}
           {@const item = catalogById.get(variant.id)}
@@ -326,9 +340,11 @@
               <Toggle bind:checked={variant.enabled} label={`Enable ${item?.label ?? variant.id}`} />
               <button type="button" class="variant-select" aria-pressed={selectedId === variant.id} onclick={() => selectVariant(variant.id)}>{item?.label ?? variant.id}</button>
               {#if item && (!item.normal_ready || !item.winter_ready)}<span class="asset-state">{!item.normal_ready && !item.winter_ready ? "Assets pending" : !item.winter_ready ? "Winter pending" : "Normal pending"}</span>{/if}
+              {#if recentIds.has(variant.id)}<span class="recent-tag">recent</span>{/if}
             </div>
             <NumberInput bind:value={variant.weight} min={0} max={1000} step={1} required aria-label={`${item?.label ?? variant.id} weight`} />
             <span class="chance" aria-label={`${item?.label ?? variant.id} ${dirty ? "chance after save" : "saved chance"}: ${displayedChances?.has(variant.id) ? welcomeChance(displayedChances.get(variant.id)) : "Not available"}`}>{welcomeChance(displayedChances?.get(variant.id))}</span>
+            <span class="chance" aria-label={`${item?.label ?? variant.id} ${dirty ? "next chance after save" : "next chance"}: ${nextChances?.has(variant.id) ? welcomeChance(nextChances.get(variant.id)) : "Not available"}`}>{welcomeChance(nextChances?.get(variant.id))}</span>
           </div>
         {/each}
       </div>
@@ -487,9 +503,11 @@
   .night-times { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
   .date-boundary { display: grid; grid-template-columns: 44px minmax(0, 1fr) 80px; gap: 10px; align-items: center; }
   .date-boundary > span { font-size: var(--text-sm); color: var(--text-body); }
-  .variant-columns, .variant { display: grid; grid-template-columns: minmax(0, 1fr) 80px 88px; align-items: center; gap: 12px; }
+  .repeat-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 160px)); gap: 12px; }
+  .variant-columns, .variant { display: grid; grid-template-columns: minmax(0, 1fr) 72px 60px 60px; align-items: center; gap: 12px; }
   .variant-columns { padding: 0 10px; font-size: var(--text-xs); color: var(--text-body); }
-  .variant-columns span:last-child { text-align: right; }
+  .variant-columns span:nth-child(n + 3) { text-align: right; }
+  .recent-tag { grid-column: 2; justify-self: start; padding: 0 6px; border: 1px solid var(--border-default); color: var(--color-gold); font-size: var(--text-2xs); line-height: 1.6; }
   .variants { display: grid; }
   .variant { padding: 10px; border-top: 1px solid var(--border-default); border-left: 2px solid transparent; }
   .variant.selected { border-left-color: var(--color-gold); background: color-mix(in srgb, var(--color-gold) 5%, transparent); }
@@ -547,7 +565,8 @@
   @media (max-width: 520px) {
     .message-lines, .preview-modes.split { grid-template-columns: 1fr; }
     .winter-window { gap: 12px; }
-    .variant-columns, .variant, .effect-columns, .sky-effect { grid-template-columns: minmax(0, 1fr) 64px 70px; gap: 8px; padding-inline: 4px; }
+    .effect-columns, .sky-effect { grid-template-columns: minmax(0, 1fr) 64px 70px; gap: 8px; padding-inline: 4px; }
+    .variant-columns, .variant { grid-template-columns: minmax(0, 1fr) 60px 48px 48px; gap: 6px; padding-inline: 4px; }
     .variant-columns, .effect-columns { font-size: var(--text-2xs); }
     .variant-identity { gap: 2px 0; }
     .save-actions :global(.seq-button) { flex: 1; min-height: 44px; padding-inline: 8px; }
