@@ -33,6 +33,8 @@ export interface WelcomeSettings {
   night: WelcomeNight;
   /** Ping the new member in the welcome post. */
   mention_member: boolean;
+  /** Attach the welcome image. Off sends a text-only post. */
+  send_images: boolean;
   repeat: RepeatPenalty;
 }
 export interface WelcomeState {
@@ -51,20 +53,21 @@ export interface WelcomeState {
   /** Next live pick odds after the repeat penalty. Absent on servers without repeat penalties. */
   current_chances?: { id: string; percent: number }[];
 }
-/** Wire shape. Servers from before night scheduling omit both night fields; older servers omit mention_member and repeat. */
+/** Wire shape. Servers from before night scheduling omit both night fields; older servers omit mention_member, send_images and repeat. */
 export type WelcomeResponse = Omit<WelcomeState, "settings" | "effective_night"> & {
-  settings: Omit<WelcomeSettings, "night" | "mention_member" | "repeat"> & { night?: WelcomeNight; mention_member?: boolean; repeat?: RepeatPenalty };
+  settings: Omit<WelcomeSettings, "night" | "mention_member" | "send_images" | "repeat"> & { night?: WelcomeNight; mention_member?: boolean; send_images?: boolean; repeat?: RepeatPenalty };
   effective_night?: WelcomeState["effective_night"];
 };
 export const WELCOME_NIGHT_DEFAULT: WelcomeNight = { enabled: false, start: "21:00", end: "07:00", timezone: "UTC", moon: false };
 
-/** Fills the night, mention and repeat defaults for older servers. Unsupported fields are never sent back to them. */
-export function welcomeStateWithNight(response: WelcomeResponse): { state: WelcomeState; nightSupported: boolean; mentionSupported: boolean; repeatSupported: boolean } {
+/** Fills the night, mention, images and repeat defaults for older servers. Unsupported fields are never sent back to them. */
+export function welcomeStateWithNight(response: WelcomeResponse): { state: WelcomeState; nightSupported: boolean; mentionSupported: boolean; imagesSupported: boolean; repeatSupported: boolean } {
   const nightSupported = response.settings.night !== undefined && response.effective_night !== undefined;
   const mentionSupported = typeof response.settings.mention_member === "boolean";
   return {
     nightSupported,
     mentionSupported,
+    imagesSupported: typeof response.settings.send_images === "boolean",
     repeatSupported: response.settings.repeat !== undefined,
     state: {
       ...response,
@@ -72,6 +75,8 @@ export function welcomeStateWithNight(response: WelcomeResponse): { state: Welco
         ...response.settings,
         night: response.settings.night ?? { ...WELCOME_NIGHT_DEFAULT },
         mention_member: response.settings.mention_member === true,
+        // Servers that omit the field always attach images, so it reads as on.
+        send_images: response.settings.send_images !== false,
         repeat: response.settings.repeat ?? { ...REPEAT_DEFAULT },
       },
       effective_night: response.effective_night ?? { active: false, scheduled: false, local_time: null, timezone: "UTC", ready: false, timezones: [] },
@@ -79,15 +84,22 @@ export function welcomeStateWithNight(response: WelcomeResponse): { state: Welco
   };
 }
 
-/** Full settings definition for save. Older servers reject the unknown night, mention_member and repeat fields. */
+/** Full settings definition for save. Older servers reject the unknown night, mention_member, send_images and repeat fields. */
 export function welcomeSaveBody(
   settings: WelcomeSettings,
   nightSupported: boolean,
   mentionSupported: boolean,
   repeatSupported: boolean,
-): Omit<WelcomeSettings, "night" | "mention_member" | "repeat"> & Partial<Pick<WelcomeSettings, "night" | "mention_member" | "repeat">> {
-  const { night, mention_member, repeat, ...body } = settings;
-  return { ...body, ...(nightSupported ? { night } : {}), ...(mentionSupported ? { mention_member } : {}), ...(repeatSupported ? { repeat } : {}) };
+  imagesSupported: boolean,
+): Omit<WelcomeSettings, "night" | "mention_member" | "send_images" | "repeat"> & Partial<Pick<WelcomeSettings, "night" | "mention_member" | "send_images" | "repeat">> {
+  const { night, mention_member, send_images, repeat, ...body } = settings;
+  return {
+    ...body,
+    ...(nightSupported ? { night } : {}),
+    ...(mentionSupported ? { mention_member } : {}),
+    ...(imagesSupported ? { send_images } : {}),
+    ...(repeatSupported ? { repeat } : {}),
+  };
 }
 
 /** Unsaved edits, including unsupported fields that are never sent. */

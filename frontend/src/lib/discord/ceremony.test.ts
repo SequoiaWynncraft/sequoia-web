@@ -12,6 +12,7 @@ const settings: CeremonySettings = {
   version: 2, guild_id: "1111111111111111111", enabled: false, channel_id: "2222222222222222222",
   stories: [{ id: "sample_story", enabled: true, weight: 30 }, { id: "other_story", enabled: true, weight: 10 }, { id: "quiet_story", enabled: false, weight: 50 }],
   mention_member: false,
+  send_images: true,
   repeat: { percent: 50, recent: 1 },
 };
 
@@ -22,12 +23,12 @@ describe("ceremony repeat penalty", () => {
     const { state, repeatSupported } = ceremonyState(structuredClone(response));
     expect(repeatSupported).toBe(false);
     expect(state.settings.repeat).toEqual({ percent: 50, recent: 1 });
-    expect(ceremonySaveBody(state.settings, true, false)).toEqual(legacySettings);
+    expect(ceremonySaveBody(state.settings, true, false, true)).toEqual(legacySettings);
   });
   it("keeps and sends the server's repeat setting", () => {
     const { state, repeatSupported } = ceremonyState({ ...response, settings: { ...legacySettings, repeat: { percent: 0, recent: 5 } }, recent_events: ["sample_story"] });
     expect(repeatSupported).toBe(true);
-    expect(ceremonySaveBody(state.settings, true, true)).toEqual({ ...legacySettings, repeat: { percent: 0, recent: 5 } });
+    expect(ceremonySaveBody(state.settings, true, true, true)).toEqual({ ...legacySettings, repeat: { percent: 0, recent: 5 } });
   });
   it("rejects an invalid repeat penalty before save", () => {
     expect(ceremonyInputIssue({ ...settings, repeat: { percent: -1, recent: 1 } })).toContain("Repeat penalty");
@@ -148,14 +149,14 @@ describe("ceremony mention setting", () => {
     const { state, mentionSupported } = ceremonyState(response({ ...settings, mention_member: true }));
     expect(mentionSupported).toBe(true);
     expect(state.settings.mention_member).toBe(true);
-    expect(ceremonySaveBody(state.settings, true, true)).toEqual({ ...settings, mention_member: true });
+    expect(ceremonySaveBody(state.settings, true, true, true)).toEqual({ ...settings, mention_member: true });
   });
   it("reads an older server as off and never sends the field back", () => {
     const { mention_member: _mention, ...older } = settings;
     const { state, mentionSupported } = ceremonyState(response(older));
     expect(mentionSupported).toBe(false);
     expect(state.settings.mention_member).toBe(false);
-    const body = ceremonySaveBody(state.settings, false, true);
+    const body = ceremonySaveBody(state.settings, false, true, true);
     expect(body).not.toHaveProperty("mention_member");
     expect(body).toEqual(older);
   });
@@ -165,6 +166,36 @@ describe("ceremony mention setting", () => {
     draft.mention_member = true;
     expect(ceremonySettingsDirty(draft, settings)).toBe(true);
     draft.mention_member = false;
+    expect(ceremonySettingsDirty(draft, settings)).toBe(false);
+  });
+});
+
+describe("ceremony images setting", () => {
+  const response = (wire: CeremonyResponse["settings"]): CeremonyResponse => ({
+    settings: wire, catalog: [], ready: true, effective_chances: [],
+    effective_scene: { season: "normal", ambiance: "dusk" }, viewer: { display_name: "Member" },
+  });
+  it("keeps an explicit off and sends it to a current server", () => {
+    const { state, imagesSupported } = ceremonyState(response({ ...settings, send_images: false }));
+    expect(imagesSupported).toBe(true);
+    expect(state.settings.send_images).toBe(false);
+    expect(ceremonySaveBody(state.settings, true, true, true)).toEqual({ ...settings, send_images: false });
+  });
+  it("reads an older server as on and never sends the field back", () => {
+    const { send_images: _images, ...older } = settings;
+    const { state, imagesSupported } = ceremonyState(response(older));
+    expect(imagesSupported).toBe(false);
+    expect(state.settings.send_images).toBe(true);
+    const body = ceremonySaveBody(state.settings, true, true, false);
+    expect(body).not.toHaveProperty("send_images");
+    expect(body).toEqual(older);
+  });
+  it("marks an images change as unsaved and clears it when toggled back", () => {
+    const draft = structuredClone(settings);
+    expect(ceremonySettingsDirty(draft, settings)).toBe(false);
+    draft.send_images = false;
+    expect(ceremonySettingsDirty(draft, settings)).toBe(true);
+    draft.send_images = true;
     expect(ceremonySettingsDirty(draft, settings)).toBe(false);
   });
 });

@@ -14,6 +14,7 @@ const settings: WelcomeSettings = {
   effects: { sky: [{ id: "aurora", percent: 35 }] },
   night: { enabled: false, start: "21:00", end: "07:00", timezone: "UTC", moon: false },
   mention_member: false,
+  send_images: true,
   repeat: { percent: 50, recent: 1 },
 };
 const timezones = ["UTC", "Europe/Stockholm", "America/New_York"];
@@ -186,7 +187,7 @@ describe("night schedule draft", () => {
 });
 
 describe("servers without night scheduling", () => {
-  const legacySettings = welcomeSaveBody(settings, false, true, false);
+  const legacySettings = welcomeSaveBody(settings, false, true, false, true);
   const legacy = {
     settings: legacySettings, catalog, effective_season: "normal" as const, effective_chances: [], ready: true,
     viewer: { display_name: "Member" }, fonts: [], effects: { sky: [] }, effective_effect_chances: { sky: [] },
@@ -201,7 +202,7 @@ describe("servers without night scheduling", () => {
   it("never sends night back to an older server, and keeps it for a current one", () => {
     expect(legacySettings).not.toHaveProperty("night");
     expect(legacySettings).toEqual(Object.fromEntries(Object.entries(settings).filter(([key]) => key !== "night" && key !== "repeat")));
-    expect(welcomeSaveBody(settings, true, true, true)).toEqual(settings);
+    expect(welcomeSaveBody(settings, true, true, true, true)).toEqual(settings);
     const saved = { ...settings, night: { ...settings.night, moon: true } };
     const { state, nightSupported } = welcomeStateWithNight({ ...legacy, settings: saved, effective_night: { active: true, scheduled: true, local_time: "22:00", timezone: "UTC", ready: true, timezones } });
     expect(nightSupported).toBe(true);
@@ -212,12 +213,12 @@ describe("servers without night scheduling", () => {
     const { state, repeatSupported } = welcomeStateWithNight(structuredClone(legacy));
     expect(repeatSupported).toBe(false);
     expect(state.settings.repeat).toEqual({ percent: 50, recent: 1 });
-    expect(welcomeSaveBody(state.settings, false, true, false)).not.toHaveProperty("repeat");
+    expect(welcomeSaveBody(state.settings, false, true, false, true)).not.toHaveProperty("repeat");
     const current = welcomeStateWithNight({ ...legacy, settings: { ...legacySettings, repeat: { percent: 20, recent: 4 } }, recent_events: ["ready"], current_chances: [] });
     expect(current.repeatSupported).toBe(true);
     expect(current.state.settings.repeat).toEqual({ percent: 20, recent: 4 });
-    expect(welcomeSaveBody(current.state.settings, false, true, true)).toMatchObject({ repeat: { percent: 20, recent: 4 } });
-    expect(welcomeSaveBody(current.state.settings, false, true, true)).not.toHaveProperty("night");
+    expect(welcomeSaveBody(current.state.settings, false, true, true, true)).toMatchObject({ repeat: { percent: 20, recent: 4 } });
+    expect(welcomeSaveBody(current.state.settings, false, true, true, true)).not.toHaveProperty("night");
   });
   it("rejects an invalid repeat penalty before save", () => {
     expect(welcomeInputIssue({ ...settings, repeat: { percent: 101, recent: 1 } }, timezones)).toContain("Repeat penalty");
@@ -240,17 +241,17 @@ describe("welcome mention setting", () => {
     const { state, mentionSupported } = welcomeStateWithNight({ ...response, settings: { ...settings, mention_member: true } });
     expect(mentionSupported).toBe(true);
     expect(state.settings.mention_member).toBe(true);
-    expect(welcomeSaveBody(state.settings, true, true, true)).toMatchObject({ mention_member: true, night: settings.night });
+    expect(welcomeSaveBody(state.settings, true, true, true, true)).toMatchObject({ mention_member: true, night: settings.night });
   });
   it("reads an older server as off and never sends the field back", () => {
     const { mention_member: _mention, ...older } = settings;
     const { state, mentionSupported } = welcomeStateWithNight({ ...response, settings: older });
     expect(mentionSupported).toBe(false);
     expect(state.settings.mention_member).toBe(false);
-    const body = welcomeSaveBody(state.settings, true, false, true);
+    const body = welcomeSaveBody(state.settings, true, false, true, true);
     expect(body).not.toHaveProperty("mention_member");
     expect(body).toEqual(Object.fromEntries(Object.entries(settings).filter(([key]) => key !== "mention_member")));
-    expect(welcomeSaveBody(state.settings, false, false, true)).not.toHaveProperty("night");
+    expect(welcomeSaveBody(state.settings, false, false, true, true)).not.toHaveProperty("night");
   });
   it("marks a mention change as unsaved and clears it when toggled back", () => {
     const draft = structuredClone(settings);
@@ -258,6 +259,37 @@ describe("welcome mention setting", () => {
     draft.mention_member = true;
     expect(welcomeSettingsDirty(draft, settings)).toBe(true);
     draft.mention_member = false;
+    expect(welcomeSettingsDirty(draft, settings)).toBe(false);
+  });
+});
+
+describe("welcome images setting", () => {
+  const response = {
+    settings, catalog, effective_season: "normal" as const, effective_chances: [], ready: true,
+    viewer: { display_name: "Member" }, fonts: [], effects: { sky: [] }, effective_effect_chances: { sky: [] },
+    effective_night: { active: false, scheduled: false, local_time: null, timezone: "UTC", ready: true, timezones },
+  };
+  it("keeps an explicit off and sends it to a current server", () => {
+    const { state, imagesSupported } = welcomeStateWithNight({ ...response, settings: { ...settings, send_images: false } });
+    expect(imagesSupported).toBe(true);
+    expect(state.settings.send_images).toBe(false);
+    expect(welcomeSaveBody(state.settings, true, true, true, true)).toEqual({ ...settings, send_images: false });
+  });
+  it("reads an older server as on and never sends the field back", () => {
+    const { send_images: _images, ...older } = settings;
+    const { state, imagesSupported } = welcomeStateWithNight({ ...response, settings: older });
+    expect(imagesSupported).toBe(false);
+    expect(state.settings.send_images).toBe(true);
+    const body = welcomeSaveBody(state.settings, true, true, true, false);
+    expect(body).not.toHaveProperty("send_images");
+    expect(body).toEqual(older);
+  });
+  it("marks an images change as unsaved and clears it when toggled back", () => {
+    const draft = structuredClone(settings);
+    expect(welcomeSettingsDirty(draft, settings)).toBe(false);
+    draft.send_images = false;
+    expect(welcomeSettingsDirty(draft, settings)).toBe(true);
+    draft.send_images = true;
     expect(welcomeSettingsDirty(draft, settings)).toBe(false);
   });
 });

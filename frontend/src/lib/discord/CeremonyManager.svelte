@@ -28,6 +28,7 @@
   const seeded = ceremonyState(structuredClone(initial));
   let saved = $state<CeremonyState>(seeded.state);
   let mentionSupported = $state(seeded.mentionSupported);
+  let imagesSupported = $state(seeded.imagesSupported);
   let repeatSupported = $state(seeded.repeatSupported);
   let draft = $state(structuredClone(seeded.state.settings));
   // svelte-ignore state_referenced_locally
@@ -227,6 +228,7 @@
     const next = ceremonyState(response);
     saved = next.state;
     mentionSupported = next.mentionSupported;
+    imagesSupported = next.imagesSupported;
     repeatSupported = next.repeatSupported;
     draft = structuredClone(next.state.settings);
     conflict = false;
@@ -238,7 +240,7 @@
     if (busy || !dirty || issue || conflict || (draft.enabled && !draftReady)) return;
     busy = true; error = null; notice = null; navigationBlocked = false;
     // Freeze the sent draft. Controls stay disabled until normalization returns.
-    const result = await requestDiscord<CeremonyResponse>(globalThis.fetch.bind(globalThis), "ceremonies", "PUT", ceremonySaveBody($state.snapshot(draft), mentionSupported, repeatSupported));
+    const result = await requestDiscord<CeremonyResponse>(globalThis.fetch.bind(globalThis), "ceremonies", "PUT", ceremonySaveBody($state.snapshot(draft), mentionSupported, repeatSupported, imagesSupported));
     busy = false;
     if (!result.ok) {
       conflict = result.error.status === 409;
@@ -293,6 +295,7 @@
         {/if}
       </Field>
       <Toggle bind:checked={draft.mention_member} label="Mention member" hint={mentionSupported ? undefined : "Not available on this server yet."} disabled={!mentionSupported} />
+      <Toggle bind:checked={draft.send_images} label="Send images" hint={imagesSupported ? undefined : "Not available on this server yet."} disabled={!imagesSupported} />
       <p class="hint">Season and night follow the welcome schedule.</p>
 
       <div class="section-head stories-head"><h2>Story odds</h2><span class="hint">Higher weight, more often. Zero never wins.</span></div>
