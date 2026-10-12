@@ -17,8 +17,8 @@
     ceremonyAchievementBody, ceremonyAchievementDescription, ceremonyAchievementIssue, ceremonyCatalogRows, ceremonyCategories, ceremonyChance,
     ceremonyInputIssue, ceremonyKeyLabel, ceremonyPreviewKey, ceremonyPreviewScene, ceremonyImagesInUse, ceremonyProposedChances, ceremonyReadinessIssue, IMAGE_TIERS,
     ceremonyRoleLabel, ceremonySaveBody, ceremonySceneLabel, ceremonySettingsDirty, ceremonyState, ceremonySuggestedTiers, ceremonyTierLabel, ceremonyTierStories, ceremonyToggleTierStory,
-    ceremonyCrashTextIssues, ceremonyFilmChances, ceremonyFilmMode, ceremonyFilms, ceremonyPreviewFilm, ceremonyScreenIssue, ceremonyScreeningBody, CRASH_TEXT_LIMITS_DEFAULT, FILM_WEIGHT_MAX,
-    type CeremonyAchievement, type CeremonyCategory, type CeremonyCategoryKind, type CeremonyResponse, type CeremonySceneChoice, type CeremonyScreening, type CeremonyState, type FilmPolicy, type ImageTier,
+    ceremonyCrashTextIssues, ceremonyFilmChances, ceremonyFilmMode, ceremonyFilms, ceremonyPreviewAwardIssue, ceremonyPreviewScreening, ceremonyScreenIssue, ceremonyScreeningBody, CRASH_TEXT_LIMITS_DEFAULT, FILM_WEIGHT_MAX,
+    type CeremonyAchievement, type CeremonyCategory, type CeremonyCategoryKind, type CeremonyResponse, type CeremonySceneChoice, type CeremonyState, type FilmPolicy, type ImageTier,
   } from "./ceremony";
   import { REPEAT_RECENT_MAX, repeatChances, repeatFieldIssue, repeatHistory, repeatRecentIds } from "./repeat";
   import type { DiscordContext } from "./types";
@@ -147,15 +147,14 @@
     }
   });
   const achievementIssue = $derived(ceremonyAchievementIssue(achievement));
-  const previewReady = $derived(selected?.ready === true && achievementIssue === null);
   const scheduledLabel = $derived(ceremonySceneLabel(saved.effective_scene));
   // Screen stories always preview one explicit film, so the still and its animation match.
   const offeredFilms = $derived(screenShown ? selected?.films?.filter(id => filmLabels.has(id)) ?? [] : []);
-  const screening = $derived.by((): CeremonyScreening => {
-    if (offeredFilms.length === 0) return { film: null, error: null, payload: "award" };
-    const film = previewFilm !== "draft" && offeredFilms.includes(previewFilm) ? previewFilm : ceremonyPreviewFilm(draft.screen.film, offeredFilms);
-    return { film, error: selected?.crash_text && !crashIssues ? $state.snapshot(draft.screen.error) : null, payload: previewPayload };
-  });
+  const screening = $derived(ceremonyPreviewScreening(offeredFilms, draft.screen.film, previewFilm, previewPayload,
+    selected?.crash_text && !crashIssues ? $state.snapshot(draft.screen.error) : null));
+  // Only a preview that shows the sample award needs valid award inputs.
+  const previewAwardIssue = $derived(ceremonyPreviewAwardIssue(achievement, screening));
+  const previewReady = $derived(selected?.ready === true && previewAwardIssue === null);
   const previewRequest = $derived.by(() => {
     const scene = ceremonyPreviewScene(sceneChoice, saved.effective_scene);
     const shown = screening.payload === "welcome" ? `the welcome for ${saved.viewer.display_name}` : `${ceremonyAchievementDescription(achievement)} for ${saved.viewer.display_name}`;
@@ -516,7 +515,7 @@
       {:else if previewBusy}<p role="status">Rendering preview…</p>
       {:else if !selected}<p>No story to preview.</p>
       {:else if !selected.ready}<p>Artwork for this story is still being prepared.</p>
-      {:else if achievementIssue}<p>{achievementIssue}</p>
+      {:else if previewAwardIssue}<p>{previewAwardIssue}</p>
       {:else if !previewError}<p>Preparing preview…</p>{/if}
     </div>
     {#if previewBusy && previewUrl}<p class="hint" role="status">Updating preview…</p>{/if}

@@ -426,6 +426,18 @@ export function ceremonyAchievementBody(achievement: CeremonyAchievement, legacy
 export interface CeremonyScreening { film: string | null; error: CrashText | null; payload: "award" | "welcome" }
 export const NO_SCREENING: Readonly<CeremonyScreening> = { film: null, error: null, payload: "award" };
 
+/** What a preview shows. A story without films always previews the sample award; a screen story plays the chosen film (else the draft policy's) and shows the chosen payload. */
+export function ceremonyPreviewScreening(offered: readonly string[], policy: FilmPolicy, previewFilm: string, payload: CeremonyScreening["payload"], error: CrashText | null): CeremonyScreening {
+  if (offered.length === 0) return { ...NO_SCREENING };
+  const film = previewFilm !== "draft" && offered.includes(previewFilm) ? previewFilm : ceremonyPreviewFilm(policy, offered);
+  return { film, error, payload };
+}
+
+/** The sample award's issue when the preview actually shows the award, else null: a screen story's welcome preview ignores the unused award inputs. */
+export function ceremonyPreviewAwardIssue(achievement: CeremonyAchievement, screening: Pick<CeremonyScreening, "payload">): string | null {
+  return screening.payload === "award" ? ceremonyAchievementIssue(achievement) : null;
+}
+
 /** PNG stills and GIF playback must refer to exactly the same request. */
 export function ceremonyPreviewKey(storyId: string, achievement: CeremonyAchievement, scene: CeremonyScene, screening: CeremonyScreening = NO_SCREENING): string {
   return JSON.stringify([storyId, ceremonyAchievementBody(achievement, false), scene.season, scene.ambiance, screening.film, screening.error, screening.payload]);

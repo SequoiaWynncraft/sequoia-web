@@ -6,6 +6,7 @@ import {
   ceremonyPreviewScene, ceremonyProposedChances, ceremonyReadinessIssue, ceremonySaveBody, ceremonySceneLabel, ceremonySettingsDirty, ceremonyState, ceremonyTierLabel, ceremonyTierStories, ceremonyToggleTierStory,
   type CeremonyResponse, type CeremonySettings, ceremonyImagesInUse, IMAGE_TIERS_DEFAULT, ceremonyCatalogRows, ceremonySuggestedTiers,
   ceremonyCrashTextIssues, ceremonyFilmChances, ceremonyFilmMode, ceremonyFilms, ceremonyPreviewFilm, ceremonyScreenIssue, ceremonyScreeningBody,
+  ceremonyPreviewAwardIssue, ceremonyPreviewScreening,
   SCREEN_DEFAULT, type CeremonyFilm,
 } from "./ceremony";
 import { repeatChances } from "./repeat";
@@ -467,5 +468,33 @@ describe("ceremony screen films and crash words", () => {
   it("ignores malformed film entries", () => {
     expect(ceremonyFilms({ films: [{ id: "storm", label: "Stormy sea" }, { id: "", label: "Blank" }, { label: "No id" } as unknown as CeremonyFilm] })).toEqual([{ id: "storm", label: "Stormy sea" }]);
     expect(ceremonyFilms({})).toEqual([]);
+  });
+});
+
+describe("ceremony preview readiness", () => {
+  // Fictional films. Invalid sample award inputs: a cleared raid count and a blank badge title.
+  const policy = { mode: "fixed" as const, film: "comedy" };
+  const invalid: CeremonyAchievement[] = [{ kind: "raid", raid: "TNA", tier: "gold", count: 0 }, { kind: "badge", title: "   " }];
+
+  it("lets a screen story preview the viewer's welcome while the unused award inputs are invalid", () => {
+    const welcome = ceremonyPreviewScreening(["storm", "comedy"], policy, "draft", "welcome", null);
+    expect(welcome).toEqual({ film: "comedy", error: null, payload: "welcome" });
+    for (const achievement of invalid) {
+      expect(ceremonyAchievementIssue(achievement)).not.toBeNull();
+      expect(ceremonyPreviewAwardIssue(achievement, welcome)).toBeNull();
+    }
+  });
+
+  it("still blocks an award preview on invalid award inputs, also for a story without films", () => {
+    const award = ceremonyPreviewScreening(["storm", "comedy"], policy, "storm", "award", null);
+    // A story without a screen always previews the award, whatever payload was chosen.
+    const fallback = ceremonyPreviewScreening([], policy, "draft", "welcome", null);
+    expect(fallback).toEqual({ film: null, error: null, payload: "award" });
+    for (const screening of [award, fallback]) {
+      for (const achievement of invalid) {
+        expect(ceremonyPreviewAwardIssue(achievement, screening)).toBe(ceremonyAchievementIssue(achievement));
+      }
+      expect(ceremonyPreviewAwardIssue({ kind: "raid", raid: "TNA", tier: "gold", count: 100 }, screening)).toBeNull();
+    }
   });
 });
