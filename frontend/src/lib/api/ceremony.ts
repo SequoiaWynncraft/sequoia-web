@@ -1,6 +1,6 @@
 import type { ApiResult } from "./client";
 import { isRecord } from "./guards";
-import type { CeremonyAchievement, CeremonyAmbiance, CeremonyRaid, CeremonySeason, CeremonyTier } from "$lib/discord/ceremony";
+import type { CeremonyAchievement, CeremonyAmbiance, CeremonyRaid, CeremonySeason, CeremonyTier, CrashText } from "$lib/discord/ceremony";
 
 interface CeremonyPreviewBase {
   story_id: string;
@@ -9,6 +9,12 @@ interface CeremonyPreviewBase {
   /** Absent follows the saved schedule on the server right now. */
   ambiance?: CeremonyAmbiance;
   format: "png" | "gif";
+  /** A screen story's film for this preview only. Absent uses the saved choice. */
+  film?: string;
+  /** Unsaved crash words for this preview only. Absent uses the saved words. */
+  error?: CrashText;
+  /** "welcome" shows the viewer's welcome on the story's carrier instead of the sample award. */
+  payload?: "welcome";
 }
 
 /** Servers with an achievement catalog: any category. */

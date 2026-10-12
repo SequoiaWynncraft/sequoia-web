@@ -39,6 +39,98 @@ const ready: CeremonyResponse = {
   viewer: { display_name: "FictionalMember" },
 };
 
+// Five original stories, then the seven a newer server appends in catalog order: disabled at weight 0, each with sample suggested tiers.
+const original = [["sample_story", "Sample story", 30], ["other_story", "Other story", 10], ["meadow_story", "Meadow story", 20], ["harbor_story", "Harbor story", 20], ["summit_story", "Summit story", 20]] as const;
+const added = [
+  ["still_pool", "Still pool", ["platinum", "diamond"]], ["parliament_of_owls", "Parliament of owls", ["diamond", "obsidian"]],
+  ["lantern_constellation", "Lantern constellation", ["diamond", "obsidian"]], ["golden_acorn", "Golden acorn", ["gold", "platinum"]],
+  ["forest_procession", "Forest procession", ["obsidian", "mythril"]], ["forge_beneath_roots", "Forge beneath roots", ["obsidian", "mythril"]],
+  ["great_sequoia_wakes", "Great sequoia wakes", ["mythril"]],
+] as const;
+const twelve: CeremonyResponse = {
+  settings: {
+    version: 7, guild_id: "1111111111111111111", enabled: true, channel_id: "2222222222222222222",
+    stories: [...original.map(([id, , weight]) => ({ id, enabled: true, weight })), ...added.map(([id]) => ({ id, enabled: false, weight: 0 }))],
+    mention_member: false, send_images: true, story_tiers: {}, repeat: { percent: 50, recent: 1 },
+  },
+  catalog: [
+    ...original.map(([id, label]) => ({ id, label, description: "", layout: "banner", ready: true, recommended_tiers: [] })),
+    ...added.map(([id, label, tiers]) => ({ id, label, description: "A fictional grand story.", layout: "crest", ready: true, recommended_tiers: [...tiers] })),
+  ],
+  ready: true,
+  effective_chances: [...original.map(([id, , percent]) => ({ id, percent })), ...added.map(([id]) => ({ id, percent: 0 }))],
+  effective_scene: { season: "normal", ambiance: "dusk" },
+  viewer: { display_name: "FictionalMember" },
+};
+/** One odds row, from its opening tag to the next row. */
+function storyRow(body: string, label: string): string {
+  const rows = body.split(/<div class="story /).slice(1);
+  return rows.find(row => row.includes(`aria-label="${label} weight"`)) ?? "";
+}
+const tierHint = (label: string) => new RegExp(`<span>Allow ${label}</span></label>(?:\\s|<!--[^>]*-->)*<small[^>]*>([^<]*)</small>`);
+
+describe("twelve-story ceremony catalog", () => {
+  it("lists every story in catalog order with the suggestion only where the catalog gives one", () => {
+    const { body } = render(CeremonyManager, { props: { initial: twelve, channels: [] } });
+    const labels = [...original.map(([, label]) => label), ...added.map(([, label]) => label)];
+    expect(body.match(/ weight"/g)).toHaveLength(12);
+    const positions = labels.map(label => body.indexOf(`aria-label="${label} weight"`));
+    expect(positions.every(position => position > 0)).toBe(true);
+    expect(positions).toEqual([...positions].sort((a, b) => a - b));
+    expect(storyRow(body, "Parliament of owls")).toMatch(/<span class="suggested[^"]*">Suggested for Diamond, Obsidian<\/span>/);
+    expect(storyRow(body, "Great sequoia wakes")).toContain(">Suggested for Mythril<");
+    expect(storyRow(body, "Sample story")).not.toContain("Suggested");
+    expect(body.match(/class="suggested/g)).toHaveLength(7);
+    expect(body).not.toContain("\u2014");
+  });
+  it("offers new stories in the per-tier list with the same hint, allowed by default", () => {
+    const { body } = render(CeremonyManager, { props: { initial: twelve, channels: [] } });
+    for (const [, label] of [...original, ...added]) expect(body).toMatch(new RegExp(`<input[^>]*type="checkbox"[^>]*checked[^>]*>\\s*<span>Allow ${label}</span>`));
+    expect(body.match(tierHint("Still pool"))?.[1]).toBe("Suggested for Platinum, Diamond");
+    expect(body.match(tierHint("Forge beneath roots"))?.[1]).toBe("Suggested for Obsidian, Mythril");
+    expect(body).not.toMatch(tierHint("Sample story"));
+  });
+  it("shows exact base and next odds with seven disabled zero-weight stories", () => {
+    const { body } = render(CeremonyManager, { props: { initial: twelve, channels: [] } });
+    for (const [, label, percent] of original) {
+      expect(body).toContain(`${label} saved chance: ${percent}%`);
+      expect(body).toContain(`${label} next chance: ${percent}%`);
+    }
+    for (const [, label] of added) {
+      expect(body).toContain(`${label} saved chance: 0%`);
+      expect(body).toContain(`${label} next chance: 0%`);
+      expect(body).toMatch(new RegExp(`<div class="story [^"]*\\boff\\b[^"]*">(?:(?!<div class="story ).)*aria-label="${label} weight"`, "s"));
+    }
+    expect(body).not.toContain("Enable at least one story");
+  });
+  it("narrows a tier to new stories, with filtered odds and text only when none can win", () => {
+    const narrowed = structuredClone(twelve);
+    narrowed.settings.story_tiers = { gold: ["other_story", "still_pool"] };
+    const { body } = render(CeremonyManager, { props: { initial: narrowed, channels: [] } });
+    expect(body).toMatch(/<input[^>]*type="checkbox"[^>]*checked[^>]*>\s*<span>Allow Still pool<\/span>/);
+    expect(body).not.toMatch(/<input[^>]*type="checkbox"[^>]*checked[^>]*>\s*<span>Allow Sample story<\/span>/);
+    expect(body).toContain("Other story saved chance: 100%");
+    expect(body).toContain("Still pool saved chance: 0%");
+    expect(body).toContain("Sample story next chance: 0%");
+    expect(body).not.toContain(">Text only<");
+    const onlyNew = structuredClone(twelve);
+    onlyNew.settings.story_tiers = { gold: ["still_pool", "golden_acorn"] };
+    expect(render(CeremonyManager, { props: { initial: onlyNew, channels: [] } }).body).toContain(">Text only<");
+  });
+  it("offers every story in the preview picker", () => {
+    const { body } = render(CeremonyManager, { props: { initial: twelve, channels: [] } });
+    for (const [id, label] of [...original, ...added]) expect(body).toMatch(new RegExp(`<option value="${id}"(?![^>]*disabled)[^>]*>${label}</option>`));
+    expect(body).toMatch(/<option value="sample_story"[^>]*selected/);
+  });
+  it("still renders an older catalog without suggested tiers", () => {
+    const { body } = render(CeremonyManager, { props: { initial: ready, channels: [] } });
+    expect(ready.catalog.every(item => !("recommended_tiers" in item))).toBe(true);
+    expect(body.match(/ weight"/g)).toHaveLength(2);
+    expect(body).toContain("Sample story saved chance: 75%");
+    expect(body).not.toContain("Suggested for");
+  });
+});
+
 describe("achievement ceremony interface", () => {
   it("shows per-tier animation choices with filtered server odds", () => {
     const current = { ...structuredClone(ready), settings: { ...ready.settings, story_tiers: { gold: ["other_story"] } }, current_chances_by_tier: { gold: [{ id: "sample_story", percent: 0 }, { id: "other_story", percent: 100 }] } };
@@ -276,5 +368,61 @@ describe("ceremony image tier controls", () => {
     const { body } = render(CeremonyManager, { props: { initial, channels: [] } });
     expect(body.match(/<input([^>]*)type="checkbox"[^>]*>\s*<span>Post achievement ceremonies/)?.[1]).not.toContain("disabled");
     expect(body).not.toContain("Ceremony artwork is not installed");
+  });
+});
+
+describe("ceremony screen films", () => {
+  // Fictional films and words. The first ready story is a screen story, so the preview offers films.
+  const screen = { film: { mode: "fixed" as const, film: "comedy" }, error: { title: "Popcorn jam", body: "Something sticky is in the projector.", code: "STOP CODE: BUTTER" } };
+  const screened: CeremonyResponse = {
+    ...ready,
+    settings: { ...ready.settings, story_tiers: {}, screen },
+    catalog: [
+      { id: "sample_story", label: "Sample story", description: "", layout: "screen", ready: true, films: ["storm", "comedy"], crash_text: true },
+      { id: "other_story", label: "Other story", description: "", layout: "crest", ready: true, films: [], crash_text: false },
+    ],
+    films: [{ id: "storm", label: "Stormy sea" }, { id: "comedy", label: "Silent comedy" }, { id: "meadow", label: "Meadow" }],
+    crash_text_limits: { title: 22, body: 48, code: 22 },
+  };
+
+  it("offers the saved film, every installed film and the saved crash words", () => {
+    const { body } = render(CeremonyManager, { props: { initial: screened, channels: [] } });
+    expect(body).toMatch(/<h2[^>]*>Screen films<\/h2>/);
+    expect(body).toMatch(/aria-label="Film choice"[^>]*>[\s\S]*?<option value="fixed" selected[^>]*>One film<\/option>/);
+    expect(body).toMatch(/aria-label="Film"[^>]*>[\s\S]*?<option value="comedy" selected[^>]*>Silent comedy<\/option>/);
+    for (const label of ["Stormy sea", "Silent comedy", "Meadow"]) expect(body).toContain(`>${label}</option>`);
+    expect(body).toContain('value="Popcorn jam"');
+    expect(body).toContain('value="Something sticky is in the projector."');
+    expect(body).toContain('value="STOP CODE: BUTTER"');
+    expect(body).toContain("Crash screen words");
+  });
+
+  it("offers the crash words as optional fields, empty by default", () => {
+    const clean = { ...screened, settings: { ...screened.settings, screen: { ...screen, error: { title: "", body: "", code: "" } } } };
+    const { body } = render(CeremonyManager, { props: { initial: clean, channels: [] } });
+    const fields = body.slice(body.indexOf("Crash screen words"), body.indexOf("Story odds"));
+    expect(fields).toContain("Empty fields keep its clean lines.");
+    expect(fields.indexOf("Stop code")).toBeLessThan(fields.indexOf("Title"));
+    expect(fields.match(/<input[^>]*type="text"[^>]*>/g)?.length).toBe(3);
+    expect(fields).not.toMatch(/<input[^>]*required/);
+    expect(fields).not.toMatch(/value="[^"]+"/);
+  });
+
+  it("shows film weights and shares for a random policy", () => {
+    const random = { ...screened, settings: { ...screened.settings, screen: { ...screen, film: { mode: "random" as const, weights: { storm: 1, comedy: 3, meadow: 0 } } } } };
+    const { body } = render(CeremonyManager, { props: { initial: random, channels: [] } });
+    expect(body).toMatch(/aria-label="Film choice"[^>]*>[\s\S]*?<option value="random" selected/);
+    expect(body).toContain('aria-label="Silent comedy film weight"');
+    expect(body).toContain('aria-label="Silent comedy film chance: 75%"');
+    expect(body).toContain('aria-label="Meadow film chance: 0%"');
+  });
+
+  it("previews films only for screen stories, and hides the controls from older servers", () => {
+    const { body } = render(CeremonyManager, { props: { initial: screened, channels: [] } });
+    expect(body).toMatch(/aria-label="Preview film"[^>]*>[\s\S]*?<option value="draft"[^>]*>Chosen film<\/option>[\s\S]*?Stormy sea[\s\S]*?Silent comedy/);
+    expect(body).toContain('aria-label="Preview shows"');
+    const older = render(CeremonyManager, { props: { initial: ready, channels: [] } }).body;
+    expect(older).not.toContain("Screen films");
+    expect(older).not.toContain('aria-label="Preview film"');
   });
 });

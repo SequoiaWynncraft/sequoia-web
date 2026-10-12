@@ -16,6 +16,22 @@ export const IMAGE_TIERS_DEFAULT: Readonly<ImageTiers> = {
   bronze: false, silver: false, gold: true, platinum: true, diamond: true, obsidian: true, mythril: true, badge: true,
 };
 
+/** One saved film for every screen story, or a weighted random pick among films with weight. */
+export type FilmPolicy = { mode: "fixed"; film: string } | { mode: "random"; weights: Record<string, number> };
+/** Optional words on the cinema's crash screen, drawn by the renderer at its actual size. Empty fields keep the clean default lines. */
+export interface CrashText { title: string; body: string; code: string }
+export interface ScreenSettings { film: FilmPolicy; error: CrashText }
+export interface CeremonyFilm { id: string; label: string }
+export interface CrashTextLimits { title: number; body: number; code: number }
+/** The server's defaults: the original storm film and a crash screen with no words. Never sent to servers without screen settings. */
+export const DEFAULT_FILM = "storm";
+export const SCREEN_DEFAULT: Readonly<ScreenSettings> = {
+  film: { mode: "fixed", film: DEFAULT_FILM },
+  error: { title: "", body: "", code: "" },
+};
+export const CRASH_TEXT_LIMITS_DEFAULT: Readonly<CrashTextLimits> = { title: 22, body: 48, code: 22 };
+export const FILM_WEIGHT_MAX = 1000;
+
 export interface CeremonySettings {
   version: number;
   guild_id: string;
@@ -29,15 +45,33 @@ export interface CeremonySettings {
   image_tiers: ImageTiers;
   story_tiers: StoryTiers;
   repeat: RepeatPenalty;
+  /** The film screen stories play and the cinema's crash words. */
+  screen: ScreenSettings;
 }
 export interface CeremonyScene {
   season: CeremonySeason;
   ambiance: CeremonyAmbiance;
 }
+/** A catalog story. Older servers omit recommended_tiers; it is advice only and never limits a tier. */
+export interface CeremonyStory {
+  id: string;
+  label: string;
+  description: string;
+  layout: string;
+  ready: boolean;
+  recommended_tiers?: string[];
+  /** Films a screen story plays. Absent or empty for other stories and older servers. */
+  films?: string[];
+  /** Whether the story shows the saved crash words. */
+  crash_text?: boolean;
+}
 /** Wire shape. Older servers omit mention_member, send_images and image_tiers; servers without repeat penalties omit repeat, recent_events and current_chances. */
 export interface CeremonyResponse {
-  settings: Omit<CeremonySettings, "mention_member" | "send_images" | "image_tiers" | "story_tiers" | "repeat"> & { mention_member?: boolean; send_images?: boolean; image_tiers?: Partial<ImageTiers>; story_tiers?: StoryTiers; repeat?: RepeatPenalty };
-  catalog: { id: string; label: string; description: string; layout: string; ready: boolean }[];
+  settings: Omit<CeremonySettings, "mention_member" | "send_images" | "image_tiers" | "story_tiers" | "repeat" | "screen"> & { mention_member?: boolean; send_images?: boolean; image_tiers?: Partial<ImageTiers>; story_tiers?: StoryTiers; repeat?: RepeatPenalty; screen?: ScreenSettings };
+  catalog: CeremonyStory[];
+  /** Installed films in the bundle's order. Absent on older servers. */
+  films?: CeremonyFilm[];
+  crash_text_limits?: CrashTextLimits;
   ready: boolean;
   effective_chances: { id: string; percent: number }[];
   effective_scene: CeremonyScene;
@@ -54,9 +88,11 @@ export interface CeremonyResponse {
 export type CeremonyState = Omit<CeremonyResponse, "settings"> & { settings: CeremonySettings };
 
 /** Fills the mention, images, image tier and repeat defaults for older servers. Unsupported fields are never sent back to them. */
-export function ceremonyState(response: CeremonyResponse): { state: CeremonyState; mentionSupported: boolean; imagesSupported: boolean; imageTiersSupported: boolean; storyTiersSupported: boolean; repeatSupported: boolean } {
+export function ceremonyState(response: CeremonyResponse): { state: CeremonyState; mentionSupported: boolean; imagesSupported: boolean; imageTiersSupported: boolean; storyTiersSupported: boolean; repeatSupported: boolean; screenSupported: boolean } {
   const tiers = response.settings.image_tiers;
+  const screen = response.settings.screen;
   return {
+    screenSupported: typeof screen === "object" && screen !== null,
     mentionSupported: typeof response.settings.mention_member === "boolean",
     imagesSupported: typeof response.settings.send_images === "boolean",
     imageTiersSupported: typeof tiers === "object" && tiers !== null,
@@ -72,6 +108,7 @@ export function ceremonyState(response: CeremonyResponse): { state: CeremonyStat
         image_tiers: { ...IMAGE_TIERS_DEFAULT, ...(typeof tiers === "object" && tiers !== null ? tiers : {}) },
         story_tiers: structuredClone(response.settings.story_tiers ?? {}),
         repeat: response.settings.repeat ?? { ...REPEAT_DEFAULT },
+        screen: structuredClone({ ...SCREEN_DEFAULT, ...screen, error: { ...SCREEN_DEFAULT.error, ...screen?.error } }),
       },
     },
   };
@@ -85,8 +122,9 @@ export function ceremonySaveBody(
   imagesSupported: boolean,
   imageTiersSupported: boolean,
   storyTiersSupported = false,
-): Omit<CeremonySettings, "mention_member" | "send_images" | "image_tiers" | "story_tiers" | "repeat"> & Partial<Pick<CeremonySettings, "mention_member" | "send_images" | "image_tiers" | "story_tiers" | "repeat">> {
-  const { mention_member, send_images, image_tiers, story_tiers, repeat, ...body } = settings;
+  screenSupported = false,
+): Omit<CeremonySettings, "mention_member" | "send_images" | "image_tiers" | "story_tiers" | "repeat" | "screen"> & Partial<Pick<CeremonySettings, "mention_member" | "send_images" | "image_tiers" | "story_tiers" | "repeat" | "screen">> {
+  const { mention_member, send_images, image_tiers, story_tiers, repeat, screen, ...body } = settings;
   return {
     ...body,
     ...(mentionSupported ? { mention_member } : {}),
@@ -94,7 +132,76 @@ export function ceremonySaveBody(
     ...(imageTiersSupported ? { image_tiers } : {}),
     ...(storyTiersSupported ? { story_tiers } : {}),
     ...(repeatSupported ? { repeat } : {}),
+    ...(screenSupported ? { screen } : {}),
   };
+}
+
+/** Installed films with usable ids and labels, in server order. Empty on older servers. */
+export function ceremonyFilms(response: Pick<CeremonyResponse, "films">): CeremonyFilm[] {
+  const films: unknown = response.films;
+  if (!Array.isArray(films)) return [];
+  return films.filter((film): film is CeremonyFilm => typeof film === "object" && film !== null
+    && typeof film.id === "string" && film.id.length > 0 && typeof film.label === "string");
+}
+
+/** Switching modes keeps the choice: random starts with only the fixed film weighted; fixed takes the heaviest film. */
+export function ceremonyFilmMode(policy: FilmPolicy, mode: FilmPolicy["mode"], films: readonly CeremonyFilm[]): FilmPolicy {
+  if (policy.mode === mode) return policy;
+  if (mode === "random") {
+    const fixed = policy.mode === "fixed" ? policy.film : DEFAULT_FILM;
+    return { mode, weights: Object.fromEntries(films.map(({ id }) => [id, id === fixed ? 1 : 0])) };
+  }
+  const weights = policy.mode === "random" ? policy.weights : {};
+  const heaviest = films.reduce<string | null>((best, { id }) => (weights[id] ?? 0) > (best === null ? 0 : weights[best] ?? 0) ? id : best, null);
+  return { mode, film: heaviest ?? films.find(({ id }) => id === DEFAULT_FILM)?.id ?? films[0]?.id ?? DEFAULT_FILM };
+}
+
+/** Display-only shares of a random film policy, or null while it cannot pick. */
+export function ceremonyFilmChances(policy: FilmPolicy, films: readonly CeremonyFilm[]): Map<string, number> | null {
+  if (policy.mode !== "random") return new Map(films.map(({ id }) => [id, id === policy.film ? 100 : 0]));
+  const weights = films.map(({ id }) => policy.weights[id] ?? 0);
+  if (weights.some(weight => !Number.isInteger(weight) || weight < 0 || weight > FILM_WEIGHT_MAX)) return null;
+  const total = weights.reduce((sum, weight) => sum + weight, 0);
+  if (total === 0) return null;
+  return new Map(films.map(({ id }, index) => [id, weights[index] * 100 / total]));
+}
+
+/** The film a preview plays for the draft: the fixed film, else the heaviest random film. */
+export function ceremonyPreviewFilm(policy: FilmPolicy, offered: readonly string[]): string | null {
+  if (offered.length === 0) return null;
+  const wanted = ceremonyFilmMode(policy, "fixed", offered.map(id => ({ id, label: id })));
+  return wanted.mode === "fixed" && offered.includes(wanted.film) ? wanted.film : offered.includes(DEFAULT_FILM) ? DEFAULT_FILM : offered[0];
+}
+
+function crashLine(text: string, max: number): boolean {
+  if (text === "") return true;
+  // Control characters and the section sign, as the server rejects them.
+  return text.trim() === text && [...text].length <= max && !/[\u0000-\u001f\u007f-\u009f§]/.test(text);
+}
+
+/** Local field checks only; the renderer also checks that the words fit the screen. */
+export function ceremonyCrashTextIssues(error: CrashText, limits: CrashTextLimits = CRASH_TEXT_LIMITS_DEFAULT): Partial<Record<keyof CrashText, string>> | null {
+  const issues: Partial<Record<keyof CrashText, string>> = {};
+  const problem = (max: number) => `Use up to ${max} characters, with no leading or trailing spaces.`;
+  if (!crashLine(error.title, limits.title)) issues.title = problem(limits.title);
+  if (!crashLine(error.body, limits.body)) issues.body = problem(limits.body);
+  if (!crashLine(error.code, limits.code)) issues.code = problem(limits.code);
+  return Object.keys(issues).length > 0 ? issues : null;
+}
+
+/** Local completeness of the screen settings against the installed films. Rust remains the authority. */
+export function ceremonyScreenIssue(screen: ScreenSettings, films: readonly CeremonyFilm[], limits: CrashTextLimits = CRASH_TEXT_LIMITS_DEFAULT): string | null {
+  const ids = new Set(films.map(({ id }) => id));
+  if (screen.film.mode === "fixed") {
+    if (ids.size > 0 && !ids.has(screen.film.film)) return "Choose an installed film.";
+  } else {
+    const entries = Object.entries(screen.film.weights);
+    if (entries.some(([id]) => !ids.has(id))) return "A weighted film is no longer installed. Choose one film, then switch back to random.";
+    if (entries.some(([, weight]) => !Number.isInteger(weight) || weight < 0 || weight > FILM_WEIGHT_MAX)) return `Use whole-number film weights from 0 to ${FILM_WEIGHT_MAX}.`;
+    if (!entries.some(([, weight]) => weight > 0)) return "Give at least one film a weight above zero.";
+  }
+  if (ceremonyCrashTextIssues(screen.error, limits)) return "Check the crash screen words.";
+  return null;
 }
 
 /** Whether any award would attach an image. Unsupported fields read as on, matching older servers that always attach images. */
@@ -103,6 +210,19 @@ export function ceremonyImagesInUse(settings: Pick<CeremonySettings, "send_image
   return (!imagesSupported || settings.send_images) && tiers.some(id =>
     !settings.stories || settings.stories.some(story =>
       story.enabled && story.weight > 0 && (!settings.story_tiers?.[id] || settings.story_tiers[id]?.includes(story.id))));
+}
+
+/** Saved rows for the stories the catalog lists, in catalog order. Unlisted saved rows stay in the draft untouched. */
+export function ceremonyCatalogRows<T extends { id: string }>(stories: readonly T[], catalog: readonly Pick<CeremonyStory, "id">[]): T[] {
+  const byId = new Map(stories.map(story => [story.id, story]));
+  return catalog.flatMap(({ id }) => byId.get(id) ?? []);
+}
+
+/** Muted hint such as "Suggested for Diamond, Obsidian", or null when the catalog suggests no tiers. */
+export function ceremonySuggestedTiers(story: Pick<CeremonyStory, "recommended_tiers">): string | null {
+  const listed: unknown = story.recommended_tiers;
+  const tiers = Array.isArray(listed) ? [...new Set(listed.filter((tier): tier is string => typeof tier === "string" && tier.length > 0))] : [];
+  return tiers.length > 0 ? `Suggested for ${tiers.map(ceremonyTierLabel).join(", ")}` : null;
 }
 
 export function ceremonyTierStories(settings: Pick<CeremonySettings, "stories" | "story_tiers">, tier: ImageTier): CeremonySettings["stories"] {
@@ -302,9 +422,34 @@ export function ceremonyAchievementBody(achievement: CeremonyAchievement, legacy
   return { achievement };
 }
 
+/** What a screen story's preview plays and shows: a film, unsaved crash words and the payload. */
+export interface CeremonyScreening { film: string | null; error: CrashText | null; payload: "award" | "welcome" }
+export const NO_SCREENING: Readonly<CeremonyScreening> = { film: null, error: null, payload: "award" };
+
+/** What a preview shows. A story without films always previews the sample award; a screen story plays the chosen film (else the draft policy's) and shows the chosen payload. */
+export function ceremonyPreviewScreening(offered: readonly string[], policy: FilmPolicy, previewFilm: string, payload: CeremonyScreening["payload"], error: CrashText | null): CeremonyScreening {
+  if (offered.length === 0) return { ...NO_SCREENING };
+  const film = previewFilm !== "draft" && offered.includes(previewFilm) ? previewFilm : ceremonyPreviewFilm(policy, offered);
+  return { film, error, payload };
+}
+
+/** The sample award's issue when the preview actually shows the award, else null: a screen story's welcome preview ignores the unused award inputs. */
+export function ceremonyPreviewAwardIssue(achievement: CeremonyAchievement, screening: Pick<CeremonyScreening, "payload">): string | null {
+  return screening.payload === "award" ? ceremonyAchievementIssue(achievement) : null;
+}
+
 /** PNG stills and GIF playback must refer to exactly the same request. */
-export function ceremonyPreviewKey(storyId: string, achievement: CeremonyAchievement, scene: CeremonyScene): string {
-  return JSON.stringify([storyId, ceremonyAchievementBody(achievement, false), scene.season, scene.ambiance]);
+export function ceremonyPreviewKey(storyId: string, achievement: CeremonyAchievement, scene: CeremonyScene, screening: CeremonyScreening = NO_SCREENING): string {
+  return JSON.stringify([storyId, ceremonyAchievementBody(achievement, false), scene.season, scene.ambiance, screening.film, screening.error, screening.payload]);
+}
+
+/** Preview body fields for a screening. Absent fields keep the server's saved choice, so older servers see nothing new. */
+export function ceremonyScreeningBody(screening: CeremonyScreening): { film?: string; error?: CrashText; payload?: "welcome" } {
+  return {
+    ...(screening.film ? { film: screening.film } : {}),
+    ...(screening.error ? { error: screening.error } : {}),
+    ...(screening.payload === "welcome" ? { payload: "welcome" as const } : {}),
+  };
 }
 
 export function ceremonyChance(percent: number | undefined): string {
