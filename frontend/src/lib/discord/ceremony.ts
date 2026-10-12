@@ -18,18 +18,18 @@ export const IMAGE_TIERS_DEFAULT: Readonly<ImageTiers> = {
 
 /** One saved film for every screen story, or a weighted random pick among films with weight. */
 export type FilmPolicy = { mode: "fixed"; film: string } | { mode: "random"; weights: Record<string, number> };
-/** The words on the cinema's crash screen, drawn by the renderer at its actual size. */
+/** Optional words on the cinema's crash screen, drawn by the renderer at its actual size. Empty fields keep the clean default lines. */
 export interface CrashText { title: string; body: string; code: string }
 export interface ScreenSettings { film: FilmPolicy; error: CrashText }
 export interface CeremonyFilm { id: string; label: string }
 export interface CrashTextLimits { title: number; body: number; code: number }
-/** The server's defaults: the original storm film and its crash words. Never sent to servers without screen settings. */
+/** The server's defaults: the original storm film and a crash screen with no words. Never sent to servers without screen settings. */
 export const DEFAULT_FILM = "storm";
 export const SCREEN_DEFAULT: Readonly<ScreenSettings> = {
   film: { mode: "fixed", film: DEFAULT_FILM },
-  error: { title: "Your film ran into a problem", body: "The projector needs a moment. Someone press reset!", code: "STOP CODE: ACORN_OVERFLOW" },
+  error: { title: "", body: "", code: "" },
 };
-export const CRASH_TEXT_LIMITS_DEFAULT: Readonly<CrashTextLimits> = { title: 32, body: 110, code: 32 };
+export const CRASH_TEXT_LIMITS_DEFAULT: Readonly<CrashTextLimits> = { title: 22, body: 48, code: 22 };
 export const FILM_WEIGHT_MAX = 1000;
 
 export interface CeremonySettings {
@@ -108,7 +108,7 @@ export function ceremonyState(response: CeremonyResponse): { state: CeremonyStat
         image_tiers: { ...IMAGE_TIERS_DEFAULT, ...(typeof tiers === "object" && tiers !== null ? tiers : {}) },
         story_tiers: structuredClone(response.settings.story_tiers ?? {}),
         repeat: response.settings.repeat ?? { ...REPEAT_DEFAULT },
-        screen: structuredClone(screen ?? SCREEN_DEFAULT),
+        screen: structuredClone({ ...SCREEN_DEFAULT, ...screen, error: { ...SCREEN_DEFAULT.error, ...screen?.error } }),
       },
     },
   };
@@ -173,18 +173,19 @@ export function ceremonyPreviewFilm(policy: FilmPolicy, offered: readonly string
   return wanted.mode === "fixed" && offered.includes(wanted.film) ? wanted.film : offered.includes(DEFAULT_FILM) ? DEFAULT_FILM : offered[0];
 }
 
-function crashLine(text: string, max: number, required: boolean): boolean {
-  if (!required && text === "") return true;
+function crashLine(text: string, max: number): boolean {
+  if (text === "") return true;
   // Control characters and the section sign, as the server rejects them.
-  return text.length > 0 && text.trim() === text && [...text].length <= max && !/[\u0000-\u001f\u007f-\u009f§]/.test(text);
+  return text.trim() === text && [...text].length <= max && !/[\u0000-\u001f\u007f-\u009f§]/.test(text);
 }
 
 /** Local field checks only; the renderer also checks that the words fit the screen. */
 export function ceremonyCrashTextIssues(error: CrashText, limits: CrashTextLimits = CRASH_TEXT_LIMITS_DEFAULT): Partial<Record<keyof CrashText, string>> | null {
   const issues: Partial<Record<keyof CrashText, string>> = {};
-  if (!crashLine(error.title, limits.title, true)) issues.title = `Use 1 to ${limits.title} characters, with no leading or trailing spaces.`;
-  if (!crashLine(error.body, limits.body, true)) issues.body = `Use 1 to ${limits.body} characters, with no leading or trailing spaces.`;
-  if (!crashLine(error.code, limits.code, false)) issues.code = `Use up to ${limits.code} characters, with no leading or trailing spaces.`;
+  const problem = (max: number) => `Use up to ${max} characters, with no leading or trailing spaces.`;
+  if (!crashLine(error.title, limits.title)) issues.title = problem(limits.title);
+  if (!crashLine(error.body, limits.body)) issues.body = problem(limits.body);
+  if (!crashLine(error.code, limits.code)) issues.code = problem(limits.code);
   return Object.keys(issues).length > 0 ? issues : null;
 }
 

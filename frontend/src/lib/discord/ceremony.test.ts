@@ -419,6 +419,11 @@ describe("ceremony screen films and crash words", () => {
     expect(ceremonyPreviewFilm(screen.film, [])).toBeNull();
   });
 
+  it("fills words a server omits with empty, the clean default", () => {
+    const { state } = ceremonyState(response({ film: { mode: "fixed", film: "storm" }, error: { code: "E42" } as CeremonySettings["screen"]["error"] }));
+    expect(state.settings.screen.error).toEqual({ title: "", body: "", code: "E42" });
+  });
+
   it("keeps the choice when switching between one film and weighted random", () => {
     const random = ceremonyFilmMode({ mode: "fixed", film: "meadow" }, "random", films);
     expect(random).toEqual({ mode: "random", weights: { storm: 0, comedy: 0, meadow: 1 } });
@@ -435,13 +440,16 @@ describe("ceremony screen films and crash words", () => {
     expect(ceremonyScreenIssue({ ...SCREEN_DEFAULT, film: { mode: "random", weights: { cartoon: 2 } } }, films)).toContain("no longer installed");
     const words = (title: string, body: string, code: string) => ({ title, body, code });
     expect(ceremonyCrashTextIssues(words("Oops", "Popcorn in the projector", ""))).toBeNull();
-    expect(ceremonyCrashTextIssues(words("", "Popcorn", ""))).toHaveProperty("title");
+    // Every field is optional: no words is the clean default, and a stop code may stand alone.
+    expect(ceremonyCrashTextIssues(words("", "", ""))).toBeNull();
+    expect(ceremonyCrashTextIssues(words("", "", "STOP CODE: BUTTER"))).toBeNull();
     expect(ceremonyCrashTextIssues(words(" Oops", "Popcorn", ""))).toHaveProperty("title");
     expect(ceremonyCrashTextIssues(words("Oops", "a\nb", ""))).toHaveProperty("body");
-    expect(ceremonyCrashTextIssues(words("Oops", "b".repeat(111), ""))).toHaveProperty("body");
-    expect(ceremonyCrashTextIssues(words("Oops", "Popcorn", "C".repeat(33)))).toHaveProperty("code");
+    expect(ceremonyCrashTextIssues(words("Oops", "b".repeat(49), ""))).toHaveProperty("body");
+    expect(ceremonyCrashTextIssues(words("Oops", "Popcorn", "C".repeat(23)))).toHaveProperty("code");
     expect(ceremonyCrashTextIssues(words("O".repeat(12), "Popcorn", ""), { title: 10, body: 120, code: 40 })).toHaveProperty("title");
-    expect(ceremonyScreenIssue({ ...SCREEN_DEFAULT, error: words("", "b", "") }, films)).toBe("Check the crash screen words.");
+    expect(ceremonyScreenIssue({ ...SCREEN_DEFAULT, error: words("", "b ", "") }, films)).toBe("Check the crash screen words.");
+    expect(SCREEN_DEFAULT.error).toEqual(words("", "", ""));
   });
 
   it("previews a film and unsaved words without changing the key of a plain story", () => {

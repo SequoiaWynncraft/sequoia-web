@@ -382,7 +382,7 @@ describe("ceremony screen films", () => {
       { id: "other_story", label: "Other story", description: "", layout: "crest", ready: true, films: [], crash_text: false },
     ],
     films: [{ id: "storm", label: "Stormy sea" }, { id: "comedy", label: "Silent comedy" }, { id: "meadow", label: "Meadow" }],
-    crash_text_limits: { title: 32, body: 110, code: 32 },
+    crash_text_limits: { title: 22, body: 48, code: 22 },
   };
 
   it("offers the saved film, every installed film and the saved crash words", () => {
@@ -395,6 +395,17 @@ describe("ceremony screen films", () => {
     expect(body).toContain('value="Something sticky is in the projector."');
     expect(body).toContain('value="STOP CODE: BUTTER"');
     expect(body).toContain("Crash screen words");
+  });
+
+  it("offers the crash words as optional fields, empty by default", () => {
+    const clean = { ...screened, settings: { ...screened.settings, screen: { ...screen, error: { title: "", body: "", code: "" } } } };
+    const { body } = render(CeremonyManager, { props: { initial: clean, channels: [] } });
+    const fields = body.slice(body.indexOf("Crash screen words"), body.indexOf("Story odds"));
+    expect(fields).toContain("Empty fields keep its clean lines.");
+    expect(fields.indexOf("Stop code")).toBeLessThan(fields.indexOf("Title"));
+    expect(fields.match(/<input[^>]*type="text"[^>]*>/g)?.length).toBe(3);
+    expect(fields).not.toMatch(/<input[^>]*required/);
+    expect(fields).not.toMatch(/value="[^"]+"/);
   });
 
   it("shows film weights and shares for a random policy", () => {

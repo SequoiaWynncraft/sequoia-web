@@ -391,10 +391,10 @@
         {/if}
         <fieldset class="crash-text">
           <legend>Crash screen words</legend>
-          <p class="hint">Shown on the blue screen in Cinema mishap.</p>
-          <Field label="Title" hint={`Up to ${crashLimits.title} characters`} error={crashIssues?.title}><TextInput bind:value={draft.screen.error.title} maxlength={crashLimits.title} required invalid={!!crashIssues?.title} /></Field>
-          <Field label="Message" hint={`Up to ${crashLimits.body} characters`} error={crashIssues?.body}><TextInput bind:value={draft.screen.error.body} maxlength={crashLimits.body} required invalid={!!crashIssues?.body} /></Field>
-          <Field label="Stop code" hint={`Optional, up to ${crashLimits.code} characters`} error={crashIssues?.code}><TextInput bind:value={draft.screen.error.code} maxlength={crashLimits.code} invalid={!!crashIssues?.code} /></Field>
+          <p class="hint">Optional, on Cinema mishap's blue screen. Empty fields keep its clean lines.</p>
+          <Field label="Stop code" hint={`Up to ${crashLimits.code} characters`} error={crashIssues?.code}><TextInput bind:value={draft.screen.error.code} maxlength={crashLimits.code} invalid={!!crashIssues?.code} /></Field>
+          <Field label="Title" hint={`Up to ${crashLimits.title} characters`} error={crashIssues?.title}><TextInput bind:value={draft.screen.error.title} maxlength={crashLimits.title} invalid={!!crashIssues?.title} /></Field>
+          <Field label="Message" hint={`Up to ${crashLimits.body} characters`} error={crashIssues?.body}><TextInput bind:value={draft.screen.error.body} maxlength={crashLimits.body} invalid={!!crashIssues?.body} /></Field>
         </fieldset>
       {/if}
 
