@@ -107,6 +107,13 @@ describe("parseGuildEvent", () => {
       expect(runs.event.goals?.[0].feed).toBe("raidRuns");
       expect(runs.event.activity?.source).toBe("raidRuns");
     }
+
+    const points = parseGuildEvent({
+      ...VALID,
+      goals: [{ metricLabel: "war points", milestones: [{ at: 5000, unlock: "War chest" }], feed: "warPoints" }],
+    });
+    expect(points.ok).toBe(true);
+    if (points.ok) expect(points.event.goals?.[0].feed).toBe("warPoints");
   });
 
   it("accepts a catalog icon and normalizes its placements", () => {

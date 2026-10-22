@@ -21,7 +21,7 @@ import type { RaffleRoll as RaffleRollRecord } from "$lib/server/raffleRolls";
 /** Context key the editor shell shares its EventDraft under. */
 export const EDITOR_KEY = Symbol("event-draft");
 
-export type GoalSource = "manual" | "raids" | "raidRuns" | "wars" | "playtime";
+export type GoalSource = "manual" | "raids" | "raidRuns" | "warPoints" | "wars" | "playtime";
 export type MilestoneStyle = "list" | "markers" | "both" | "none";
 
 export interface MilestoneRow {
@@ -1131,6 +1131,7 @@ export class EventDraft {
         metric: text(record.metricLabel),
         source: (record.feed === "raids" ||
         record.feed === "raidRuns" ||
+        record.feed === "warPoints" ||
         record.feed === "wars" ||
         record.feed === "playtime"
           ? record.feed

@@ -74,10 +74,11 @@ export interface EventGoal {
    * Live data source for the meter. "raids" reads the public guild-raid
    * activity feed (member participation credits - party size inflates them),
    * "raidRuns" counts unique completions from the guild mod's log (one per
-   * run, but only runs a mod user was in), "wars" and "playtime" sum the
-   * daily stat rollups; absent means manual (finalTotal or a dash).
+   * run, but only runs a mod user was in), "warPoints" sums the mod-fed war
+   * points inside the exact window, "wars" and "playtime" sum the daily stat
+   * rollups; absent means manual (finalTotal or a dash).
    */
-  feed?: "raids" | "raidRuns" | "wars" | "playtime";
+  feed?: "raids" | "raidRuns" | "warPoints" | "wars" | "playtime";
   /**
    * Count only this raid (raid-based feeds only); absent counts all guild
    * raids. Must match a Wynncraft raid name.
