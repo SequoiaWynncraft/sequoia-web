@@ -1,4 +1,4 @@
-FROM oven/bun:1.3.14-alpine AS deps
+FROM oven/bun:1.4.4-alpine@sha256:4cf82f5686b196504fe119db3fcd9185b191f82ece82c40680e597228ec6070a AS deps
 WORKDIR /app
 
 COPY package.json bun.lock bunfig.toml ./
@@ -10,7 +10,7 @@ FROM deps AS build
 COPY frontend frontend
 RUN bun run --cwd frontend build
 
-FROM oven/bun:1.3.14-alpine AS runtime
+FROM oven/bun:1.4.4-alpine@sha256:4cf82f5686b196504fe119db3fcd9185b191f82ece82c40680e597228ec6070a AS runtime
 WORKDIR /app/frontend
 ENV NODE_ENV=production
 ENV PORT=3000
