@@ -51,14 +51,20 @@ jobs:
           RUSTUP_USE_CURL: "1"
         run: |
           set -euo pipefail
-          if command -v rustup >/dev/null 2>&1; then
-            rustup self update
-          else
-            curl --proto '=https' --tlsv1.2 --fail --silent --show-error https://sh.rustup.rs \
-              | sh -s -- -y --no-modify-path --default-toolchain none
-            export PATH="$HOME/.cargo/bin:$PATH"
-            printf '%s\n' "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-          fi
+          case "$(uname -m)" in
+            x86_64) rustup_sha=5be191e8c70a5007074254cb74d78dbfdd25cd5a61c27de7b8e5410122ec24f4 ;;
+            aarch64) rustup_sha=a9c168dbea81a84671c6b7a5c1795cb0eb699020110d107ddfca427bd797e697 ;;
+            *) exit 1 ;;
+          esac
+          installer="$RUNNER_TEMP/rustup-init"
+          curl --proto '=https' --tlsv1.2 --fail --silent --show-error \
+            -o "$installer" "https://static.rust-lang.org/rustup/archive/1.29.2/$(uname -m)-unknown-linux-gnu/rustup-init"
+          printf '%s  %s\n' "$rustup_sha" "$installer" | sha256sum -c -
+          chmod +x "$installer"
+          "$installer" -y --no-modify-path --default-toolchain none
+          rm "$installer"
+          export PATH="$HOME/.cargo/bin:$PATH"
+          printf '%s\n' "$HOME/.cargo/bin" >> "$GITHUB_PATH"
           rustup --version | grep -E '^rustup 1\.29\.2 '
       - uses: dtolnay/rust-toolchain@e2a55d2ffb04f378e9626c28d38b36d230d1e12f # master
         with:
