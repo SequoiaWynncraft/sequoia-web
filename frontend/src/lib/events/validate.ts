@@ -302,8 +302,14 @@ function parseGoal(value: unknown, label: string): EventGoal {
     milestones: parseMilestones(raw, label),
   };
   if (present(raw.feed)) {
-    if (raw.feed !== "raids" && raw.feed !== "raidRuns" && raw.feed !== "wars" && raw.feed !== "playtime") {
-      fail(`${label} feed must be raids, raidRuns, wars, playtime, or empty`);
+    if (
+      raw.feed !== "raids" &&
+      raw.feed !== "raidRuns" &&
+      raw.feed !== "warPoints" &&
+      raw.feed !== "wars" &&
+      raw.feed !== "playtime"
+    ) {
+      fail(`${label} feed must be raids, raidRuns, warPoints, wars, playtime, or empty`);
     }
     goal.feed = raw.feed;
   }
