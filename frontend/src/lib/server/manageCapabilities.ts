@@ -1,103 +1,116 @@
 import { createBagshopClient } from "$lib/api/bagshop";
+import { requestDiscord } from "$lib/api/discordManagement";
 import { MANAGE_AREAS, accessibleAreas } from "$lib/manage/registry";
 import type { AreaAccess, ManageAreaId, ManageBranchKey, ManageCapabilities } from "$lib/manage/types";
 import type { Viewer } from "$lib/site/viewer";
 
 import { branchAccessFrom, checkBranchArea, loadBranchSnapshot } from "./branchAccess";
 
-type StaffCheck = "staff" | "not-staff" | "unavailable";
-
-const STAFF_TTL_MS = 5 * 60_000;
-const STAFF_TIMEOUT_MS = 2_500;
-
-/**
- * Per-viewer staff flag, memoized because the navbar asks on every page.
- * Failures are never cached: a bot restart must not lock staff out of the
- * console for a TTL, so "unavailable" evicts and the next request retries.
- */
-const staffCache = new Map<
-  string,
-  { at: number; check: Promise<StaffCheck>; settled?: StaffCheck }
->();
-
-/** Drops entries past their TTL so the map tracks active viewers, not the
- * lifetime population of everyone who ever signed in. */
-function sweepStaffCache(now: number) {
-  for (const [key, entry] of staffCache) {
-    if (now - entry.at >= STAFF_TTL_MS) staffCache.delete(key);
-  }
-}
-
-function checkBagshopStaff(
-  fetchImpl: typeof fetch,
-  viewer: Viewer,
-  options: { fresh?: boolean } = {},
-): Promise<StaffCheck> {
-  const now = Date.now();
-  sweepStaffCache(now);
-  const cached = staffCache.get(viewer.discordId);
-  // Display callers (navbar, sidebar) ride the memo; a protected page gate
-  // asks fresh, so an allowlist change applies on the next navigation rather
-  // than after the TTL. The fresh answer still lands in the cache.
-  if (cached && now - cached.at < STAFF_TTL_MS) {
-    // A strict page gate must revalidate a settled display answer, but it can
-    // share a request already in flight. This prevents the /manage layout's
-    // bounded peek and its bagshop child from starting duplicate bot calls.
-    if (!cached.settled || !options.fresh) return cached.check;
-  }
-
-  const timeout = new Promise<StaffCheck>((resolve) =>
-    setTimeout(() => resolve("unavailable"), STAFF_TIMEOUT_MS),
-  );
-  const entry: { at: number; check: Promise<StaffCheck>; settled?: StaffCheck } = {
-    at: Date.now(),
-    check: Promise.race([
-      createBagshopClient({ fetch: fetchImpl })
-        .getMe()
-        .then((me): StaffCheck => (me.ok ? (me.data.staff ? "staff" : "not-staff") : "unavailable"))
-        .catch((): StaffCheck => "unavailable"),
-      timeout,
-    ]).then((result) => {
-      // Evict only our own entry: a fresh page-gate check can replace it
-      // while an older peek is still in flight, and that older failure must
-      // not blow away the newer settled answer.
-      if (result === "unavailable") {
-        if (staffCache.get(viewer.discordId) === entry) staffCache.delete(viewer.discordId);
-      } else entry.settled = result;
-      return result;
-    }),
-  };
-  staffCache.set(viewer.discordId, entry);
-  return entry.check;
-}
+const SERVICE_TTL_MS = 5 * 60_000;
+const SERVICE_TIMEOUT_MS = 2_500;
 
 /** How long display callers wait for a cold authority before rendering
  * without it; the settled answer shows on the next load. */
 const PEEK_WAIT_MS = 150;
 
-/**
- * Bounded read for display-only callers: a settled cached answer returns
- * instantly; a cold cache waits at most PEEK_WAIT_MS for the check it just
- * started - enough for the memoized common case, never the full bot timeout.
- * During an outage every signed-in page pays these milliseconds, not 2.5s.
- */
-async function peekBagshopStaff(
-  fetchImpl: typeof fetch,
-  viewer: Viewer,
-): Promise<StaffCheck | null> {
-  const cached = staffCache.get(viewer.discordId);
-  if (cached && Date.now() - cached.at < STAFF_TTL_MS && cached.settled) return cached.settled;
-  const check = checkBagshopStaff(fetchImpl, viewer).catch((): StaffCheck => "unavailable");
-  return Promise.race([
-    check,
-    new Promise<null>((resolve) => setTimeout(() => resolve(null), PEEK_WAIT_MS)),
-  ]);
+interface ServiceEntry {
+  at: number;
+  check: Promise<AreaAccess>;
+  settled?: AreaAccess;
 }
 
-function bagshopAccess(check: StaffCheck): AreaAccess {
-  if (check === "staff") return "granted";
-  return check === "not-staff" ? "denied" : "unverified";
+/**
+ * Per-viewer memo over a service that answers access for itself (the bag-shop
+ * bot's staff flag, Sierra's Discord admission), because the navbar asks on
+ * every page. Only "granted" and "denied" settle: a restart or outage must not
+ * lock staff out for a TTL, so any other answer evicts and the next request
+ * retries.
+ */
+function serviceAuthority(ask: (fetchImpl: typeof fetch) => Promise<AreaAccess>) {
+  const cache = new Map<string, ServiceEntry>();
+
+  /** Drops entries past their TTL so the map tracks active viewers, not the
+   * lifetime population of everyone who ever signed in. */
+  function sweep(now: number) {
+    for (const [key, entry] of cache) {
+      if (now - entry.at >= SERVICE_TTL_MS) cache.delete(key);
+    }
+  }
+
+  function check(
+    fetchImpl: typeof fetch,
+    viewer: Viewer,
+    options: { fresh?: boolean } = {},
+  ): Promise<AreaAccess> {
+    const now = Date.now();
+    sweep(now);
+    const cached = cache.get(viewer.discordId);
+    // Display callers (navbar, sidebar) ride the memo; a protected page gate
+    // asks fresh, so an allowlist change applies on the next navigation rather
+    // than after the TTL. The fresh answer still lands in the cache.
+    if (cached && now - cached.at < SERVICE_TTL_MS) {
+      // A strict page gate must revalidate a settled display answer, but it can
+      // share a request already in flight. This prevents the /manage layout's
+      // bounded peek and a protected child from starting duplicate calls.
+      if (!cached.settled || !options.fresh) return cached.check;
+    }
+
+    const timeout = new Promise<AreaAccess>((resolve) =>
+      setTimeout(() => resolve("unverified"), SERVICE_TIMEOUT_MS),
+    );
+    const entry: ServiceEntry = {
+      at: Date.now(),
+      check: Promise.race([ask(fetchImpl).catch((): AreaAccess => "unverified"), timeout]).then(
+        (result) => {
+          // Evict only our own entry: a fresh page-gate check can replace it
+          // while an older peek is still in flight, and that older failure must
+          // not blow away the newer settled answer.
+          if (result === "granted" || result === "denied") entry.settled = result;
+          else if (cache.get(viewer.discordId) === entry) cache.delete(viewer.discordId);
+          return result;
+        },
+      ),
+    };
+    cache.set(viewer.discordId, entry);
+    return entry.check;
+  }
+
+  /**
+   * Bounded read for display-only callers: a settled cached answer returns
+   * instantly; otherwise wait for the shared check only until PEEK_WAIT_MS
+   * after it started. A hung service therefore costs one short wait per
+   * check, not one per page, and never the full timeout.
+   */
+  async function peek(fetchImpl: typeof fetch, viewer: Viewer): Promise<AreaAccess | null> {
+    const cached = cache.get(viewer.discordId);
+    if (cached && Date.now() - cached.at < SERVICE_TTL_MS && cached.settled) return cached.settled;
+    const pending = check(fetchImpl, viewer);
+    const startedAt = cache.get(viewer.discordId)?.at ?? Date.now();
+    const budget = Math.max(0, PEEK_WAIT_MS - (Date.now() - startedAt));
+    return Promise.race([
+      pending,
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), budget)),
+    ]);
+  }
+
+  return { check, peek };
 }
+
+const bagshopStaff = serviceAuthority(async (fetchImpl) => {
+  const me = await createBagshopClient({ fetch: fetchImpl }).getMe();
+  if (!me.ok) return "unverified";
+  return me.data.staff ? "granted" : "denied";
+});
+
+/** Sierra decides Discord admission (staff roles, leadership, branches) fresh
+ * from Discord; the website only asks it, through the same-origin adapter. */
+const discordStaff = serviceAuthority(async (fetchImpl) => {
+  const result = await requestDiscord<unknown>(fetchImpl, "access");
+  if (result.ok) return "granted";
+  if (result.error.code === "http_error" && result.error.status === 403) return "denied";
+  if (result.error.code === "http_error" && result.error.status === 401) return "signin";
+  return "unverified";
+});
 
 /**
  * The better of two authorities' answers, for areas that accept either: a
@@ -113,7 +126,7 @@ export function combineAccess(a: AreaAccess, b: AreaAccess): AreaAccess {
 
 function areaBranch(area: ManageAreaId): ManageBranchKey {
   const entry = MANAGE_AREAS.find((candidate) => candidate.id === area);
-  if (!entry) throw new Error(`Unknown manage area: ${area}`);
+  if (!entry?.branch) throw new Error(`Manage area without a branch: ${area}`);
   return entry.branch;
 }
 
@@ -121,8 +134,9 @@ function areaBranch(area: ManageAreaId): ManageBranchKey {
  * Resolves the sidebar's area list with bounded display-only peeks. Every
  * branch area computes from ONE stale-tolerant roster + profiles snapshot,
  * so the peek budget does not scale with the number of areas; the bag-shop
- * staff flag rides its own memo in parallel. Protected pages still resolve
- * only their own authority strictly before consuming data.
+ * staff flag and Sierra's Discord admission ride their own memos in parallel.
+ * Protected pages still resolve only their own authority strictly before
+ * consuming data.
  */
 export async function peekManageCapabilities(
   fetchImpl: typeof fetch,
@@ -133,18 +147,19 @@ export async function peekManageCapabilities(
     for (const area of MANAGE_AREAS) capabilities[area.id] = "signin";
     return capabilities;
   }
-  const [snapshot, staff] = await Promise.all([
+  const [snapshot, staff, discord] = await Promise.all([
     loadBranchSnapshot(fetchImpl, { allowStale: true, waitMs: PEEK_WAIT_MS }),
-    peekBagshopStaff(fetchImpl, viewer),
+    bagshopStaff.peek(fetchImpl, viewer),
+    // Website admins are Sierra's first admission rule, read from the same session.
+    viewer.websiteAdmin ? ("granted" as const) : discordStaff.peek(fetchImpl, viewer),
   ]);
   const capabilities = {} as ManageCapabilities;
   for (const area of MANAGE_AREAS) {
-    capabilities[area.id] = branchAccessFrom(snapshot, viewer, area.branch);
+    capabilities[area.id] =
+      area.branch === null ? "unverified" : branchAccessFrom(snapshot, viewer, area.branch);
   }
-  capabilities.treasury = combineAccess(
-    capabilities.treasury,
-    bagshopAccess(staff ?? "unavailable"),
-  );
+  capabilities.treasury = combineAccess(capabilities.treasury, staff ?? "unverified");
+  capabilities.discord = discord ?? "unverified";
   return capabilities;
 }
 
@@ -164,6 +179,9 @@ export async function pageAreaAccess(
   area: ManageAreaId,
 ): Promise<AreaAccess> {
   if (!viewer) return "signin";
+  if (area === "discord") {
+    return viewer.websiteAdmin ? "granted" : discordStaff.check(fetchImpl, viewer, { fresh: true });
+  }
   if (area !== "treasury") return checkBranchArea(fetchImpl, viewer, areaBranch(area));
   // Treasury accepts either authority: the branch role or the bot's staff
   // allowlist. A grant from one is conclusive and must not wait out the
@@ -171,7 +189,7 @@ export async function pageAreaAccess(
   // The bot still re-rejects non-staff mutations itself.
   const checks = [
     checkBranchArea(fetchImpl, viewer, "treasury"),
-    checkBagshopStaff(fetchImpl, viewer, { fresh: true }).then(bagshopAccess),
+    bagshopStaff.check(fetchImpl, viewer, { fresh: true }),
   ];
   return new Promise((resolve) => {
     let remaining = checks.length;
