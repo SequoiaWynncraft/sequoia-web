@@ -33,6 +33,8 @@ concurrency:
 jobs:
   backend:
     runs-on: sequoia-pat
+    # Provides the C compiler and linker that Rust needs, whatever the runner has.
+    container: buildpack-deps:trixie
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
