@@ -51,7 +51,7 @@
   <Toggle
     bind:checked={draft.trackerEnabled}
     label="Show a standings board"
-    hint="Per-member contributions from a raid tracker event."
+    hint="Per-member contributions from a raid or war-point tracker event."
   />
   {#if draft.trackerEnabled}
     {#if !draft.trackerManual}
@@ -70,7 +70,9 @@
       </Field>
       <p class="seq-hint">
         {draft.trackerEventId
-          ? `Counts ${draft.selectedTracker?.raid ?? "all guild raids"} via ${draft.trackerTracking === "mod" ? "the guild mod" : "the Wynncraft API"}.`
+          ? draft.trackerTracking === "wars"
+            ? "Counts war points via the guild mod."
+            : `Counts ${draft.selectedTracker?.raid ?? "all guild raids"} via ${draft.trackerTracking === "mod" ? "the guild mod" : "the Wynncraft API"}.`
           : "Standings show each member's contribution inside the tracker window."}
         {#if draft.selectedTracker}
           <button type="button" class="seq-inline-link focus-ring" onclick={() => draft.openTrackerEdit()}>
@@ -101,6 +103,7 @@
           <Select bind:value={draft.trackerTracking}>
             <option value="api">Wynncraft API</option>
             <option value="mod">Guild mod</option>
+            <option value="wars">Guild mod - war points</option>
           </Select>
         </Field>
       </div>
@@ -125,8 +128,15 @@
           </Field>
           <Field label="Tracking source">
             <Select bind:value={draft.newTrackerTracking}>
-              <option value="mod">Guild mod</option>
-              <option value="api">Wynncraft API</option>
+              <!-- Linked events read the board in the tracker's unit, so an
+                   edit stays on its side of raids vs war points. -->
+              {#if draft.trackerEditor !== "edit" || draft.trackerEditTracking !== "wars"}
+                <option value="mod">Guild mod</option>
+                <option value="api">Wynncraft API</option>
+              {/if}
+              {#if draft.trackerEditor !== "edit" || draft.trackerEditTracking === "wars"}
+                <option value="wars">Guild mod - war points</option>
+              {/if}
             </Select>
           </Field>
           <Field label="Starts (UTC)">
@@ -149,7 +159,9 @@
         <p class="seq-hint">
           {draft.newTrackerTracking === "mod"
             ? "The guild mod attributes completions per raid, so mod trackers can scope to one raid."
-            : "API counter diffs count all guild raids together - no per-raid scoping."}
+            : draft.newTrackerTracking === "wars"
+              ? "Sums each member's war points from mod-reported wars inside the window."
+              : "API counter diffs count all guild raids together - no per-raid scoping."}
         </p>
         <div class="evf-tracker-new-actions">
           <button

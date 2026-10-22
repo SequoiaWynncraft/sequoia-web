@@ -87,7 +87,9 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
       .filter((stored) => stored.event.tracker !== undefined)
       .map((stored) => [stored.event.tracker!.eventId, stored]),
   );
+  // War-point trackers share the tracker table but count no raids.
   const visibleEvents = events.filter((event) => {
+    if (event.tracking === "wars") return false;
     const stored = eventsByTracker.get(event.id);
     if (!stored) return audience === "manager";
     return canSeeEvent(stored.event, stored.published, audience, now);

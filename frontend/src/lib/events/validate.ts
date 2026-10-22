@@ -455,7 +455,9 @@ function parseRole(value: unknown): CompRole {
 
 function parseTracker(value: unknown): NonNullable<GuildEvent["tracker"]> {
   const raw = asRecord(value, "tracker");
-  if (raw.tracking !== "api" && raw.tracking !== "mod") fail("tracker tracking must be api or mod");
+  if (raw.tracking !== "api" && raw.tracking !== "mod" && raw.tracking !== "wars") {
+    fail("tracker tracking must be api, mod or wars");
+  }
   return {
     eventId: requiredText(raw.eventId, "tracker event id", 64),
     tracking: raw.tracking,

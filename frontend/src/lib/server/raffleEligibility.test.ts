@@ -106,6 +106,7 @@ describe("resolveEligibility", () => {
       perTicket: 5,
       window: undefined,
       requiredRaids: undefined,
+      failOnPending: false,
     });
   });
 
@@ -443,6 +444,61 @@ describe("strict resolution for rolls", () => {
     );
     expect(ranks.error).not.toBeNull();
     expect(mockProfiles).toHaveBeenCalledWith(fetch, { allowStale: false });
+  });
+});
+
+describe("war-point boards with pending wars", () => {
+  const WARS = event({ tracker: { eventId: "evt-1", tracking: "wars" } });
+  const partialBoard = () =>
+    mockBoard.mockResolvedValue({
+      leaderboard: [
+        { player_uuid: "uuid-a", username: "Alice", raids: 12.5, pendingWars: 3, rank: "chief" },
+        { player_uuid: "uuid-b", username: "Bob", raids: 30, rank: "strategist" },
+      ],
+      error: null,
+    });
+  const pendingError = "3 wars are still waiting for point values - roll once they're calculated.";
+
+  it("refuses a strict perRaid weight on partial totals, previews it otherwise", async () => {
+    partialBoard();
+    const perPoint = raffle({ eligibility: { weight: { mode: "perRaid", perTicket: 5 } } });
+
+    const strict = await resolveEligibility(fetch, WARS, perPoint, ROSTER, { strict: true });
+    expect(strict.error).toBe(pendingError);
+    expect(strict.entrants).toEqual([]);
+
+    const preview = await resolveEligibility(fetch, WARS, perPoint, ROSTER);
+    expect(preview.error).toBeNull();
+    expect(preview.entrants.map((entrant) => [entrant.username, entrant.tickets])).toEqual([
+      ["Alice", 2],
+      ["Bob", 6],
+    ]);
+  });
+
+  it("refuses a strict milestone gate on partial totals", async () => {
+    partialBoard();
+    const result = await resolveEligibility(
+      fetch,
+      event({
+        tracker: { eventId: "evt-1", tracking: "wars" },
+        personalMilestones: [{ id: "m1", at: 15, unlock: "Entry" }],
+      }),
+      raffle({ eligibility: { rules: [{ type: "milestone", milestoneId: "m1" }] } }),
+      ROSTER,
+      { strict: true },
+    );
+    expect(result.error).toBe(pendingError);
+  });
+
+  it("asks the legacy path to fail on pending wars only for strict rolls", async () => {
+    mockLegacy.mockResolvedValue({ entrants: [], error: null });
+    await resolveEligibility(fetch, WARS, raffle(), ROSTER, { strict: true });
+    expect(mockLegacy).toHaveBeenLastCalledWith(fetch, WARS.tracker, ROSTER, {
+      perTicket: 5,
+      window: undefined,
+      requiredRaids: undefined,
+      failOnPending: true,
+    });
   });
 });
 

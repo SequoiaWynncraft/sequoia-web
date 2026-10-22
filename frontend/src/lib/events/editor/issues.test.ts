@@ -82,7 +82,51 @@ describe("sectionIssues", () => {
     draft.trackerTracking = "api";
     expect(sectionIssues(draft).raffles).toContain(needsTracker);
 
+    // A war tracker is mod-fed, but its board counts war points, not raids.
+    draft.trackerTracking = "wars";
+    expect(sectionIssues(draft).raffles).toContain(
+      "A tracker-counted raid rule needs a raid tracker - this one counts war points",
+    );
+
     draft.trackerTracking = "mod";
     expect(sectionIssues(draft).raffles ?? []).not.toContain(needsTracker);
+  });
+
+  it("names the board's unit in the per-ticket divisor error", () => {
+    const draft = new EventDraft({ mode: "create" });
+    draft.trackerEnabled = true;
+    draft.trackerTracking = "mod";
+    const raffle = draft.newRaffleRow();
+    raffle.prize = "Mythic";
+    raffle.weightMode = "perRaid";
+    raffle.weightPer = 0;
+    draft.raffles = [raffle];
+
+    expect(sectionIssues(draft).raffles).toContain("Raids per ticket must be at least 1");
+    draft.trackerTracking = "wars";
+    expect(sectionIssues(draft).raffles).toContain("War points per ticket must be at least 1");
+  });
+
+  it("trusts the tracker record over the event's stale tracking copy", () => {
+    const draft = new EventDraft({ mode: "create" });
+    draft.trackerChoices = [
+      {
+        id: "trk",
+        name: "Wars",
+        window: "Oct 3",
+        startsAt: "2026-10-03T12:00:00Z",
+        endsAt: "2026-10-03T14:00:00Z",
+        tracking: "wars",
+        raid: null,
+      },
+    ];
+    draft.trackerEnabled = true;
+    draft.trackerEventId = "trk";
+    draft.trackerTracking = "mod";
+    expect(draft.trackerKind).toBe("wars");
+    expect(draft.trackerUnit).toBe("war points");
+
+    draft.trackerEnabled = false;
+    expect(draft.trackerKind).toBeUndefined();
   });
 });

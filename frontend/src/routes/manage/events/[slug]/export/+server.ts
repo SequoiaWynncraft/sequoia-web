@@ -17,7 +17,7 @@ export const prerender = false;
 
 /**
  * Exports a tracker's full standings as CSV: every board row with identity,
- * ranks, and raid count, ordered as the standings show them. Manager-gated
+ * ranks, and raid count (or war points), ordered as the standings show them. Manager-gated
  * like every manage surface - endpoints don't inherit the layout's guard.
  */
 export const GET: RequestHandler = async ({ params, url, cookies, fetch, locals }) => {
@@ -31,29 +31,43 @@ export const GET: RequestHandler = async ({ params, url, cookies, fetch, locals 
   // Mirrors the standings board: the tracker record decides how it is
   // tracked; mod-tracked boards count inside the tracker's own window and
   // include the whole verified roster (zero-raid members included).
+  const tracking = tracked.tracking ?? "api";
   let result: { leaderboard: RaidLeaderboardEntry[]; error: string | null };
-  if ((tracked.tracking ?? "api") === "mod") {
+  if (tracking !== "api") {
     const stats = await getGuildStats(fetch, { allowStale: true }).catch(() => null);
     if (!stats) requestError(locals, 503, "Member data is temporarily unavailable");
     result = await loadModLeaderboard(
       fetch,
       { starts_at: tracked.starts_at, ends_at: tracked.ends_at, raid: tracked.raid },
       stats.members,
+      tracking,
     );
   } else {
     result = await loadTrackerLeaderboard(fetch, trackerId);
   }
   if (result.error) requestError(locals, 503, result.error);
+  // Places follow the count, as on the standings board - no feed promises an
+  // order. The sort is stable, so ties keep the order the backend sent.
+  const leaderboard = [...result.leaderboard].sort((a, b) => b.raids - a.raids);
 
+  const wars = tracking === "wars";
   const rows: CsvValue[][] = [
-    ["place", "username", "player_uuid", "guild_rank", "progression_rank", "raids"],
-    ...result.leaderboard.map((entry, index) => [
+    [
+      "place",
+      "username",
+      "player_uuid",
+      "guild_rank",
+      "progression_rank",
+      ...(wars ? ["war_points", "pending_wars"] : ["raids"]),
+    ],
+    ...leaderboard.map((entry, index) => [
       index + 1,
       entry.username,
       entry.player_uuid,
       guildRankLabel(entry.rank),
       entry.progressionRank ?? "",
       entry.raids,
+      ...(wars ? [entry.pendingWars ?? 0] : []),
     ]),
   ];
 
