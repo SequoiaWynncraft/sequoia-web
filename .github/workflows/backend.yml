@@ -49,7 +49,17 @@ jobs:
       - name: Update the Rustup TLS verifier before toolchain downloads
         env:
           RUSTUP_USE_CURL: "1"
-        run: rustup self update && rustup --version | grep -E '^rustup 1\.29\.2 '
+        run: |
+          set -euo pipefail
+          if command -v rustup >/dev/null 2>&1; then
+            rustup self update
+          else
+            curl --proto '=https' --tlsv1.2 --fail --silent --show-error https://sh.rustup.rs \
+              | sh -s -- -y --no-modify-path --default-toolchain none
+            export PATH="$HOME/.cargo/bin:$PATH"
+            printf '%s\n' "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          fi
+          rustup --version | grep -E '^rustup 1\.29\.2 '
       - uses: dtolnay/rust-toolchain@e2a55d2ffb04f378e9626c28d38b36d230d1e12f # master
         with:
           toolchain: "1.96.1"
