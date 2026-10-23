@@ -27,3 +27,8 @@ export function webAuthStartUrl(returnTo?: string): string {
 export function webAuthLogoutUrl(returnTo = "/"): string {
   return `${AUTH_BASE}/logout?return_to=${encodeURIComponent(absoluteReturnTo(returnTo))}`;
 }
+
+/** Links another Wynncraft account to the signed-in member, then returns to the given page. */
+export function webAccountLinkUrl(returnTo?: string): string {
+  return `${AUTH_BASE}/accounts/link?return_to=${encodeURIComponent(absoluteReturnTo(returnTo))}`;
+}

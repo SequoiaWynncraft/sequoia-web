@@ -1,6 +1,14 @@
-import { fail, type Actions } from "@sveltejs/kit";
+import { fail, redirect, type Actions } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
 
+import {
+  getLinkedAccounts,
+  parseAccountUuid,
+  removeAccount,
+  sessionRefreshUrl,
+  setPrimaryAccount,
+  type AccountChange,
+} from "$lib/server/linkedAccounts";
 import {
   getPartyFinderDmLevel,
   parsePartyFinderDmLevel,
@@ -19,17 +27,41 @@ export const prerender = false;
 export const load: PageServerLoad = async ({ parent, cookies, fetch }) => {
   const { viewer } = await parent();
   const token = cookies.get("seq_session");
-  if (!viewer || !token) return { access: "signin" as const, preference: null };
+  if (!viewer || !token) return { access: "signin" as const, preference: null, accounts: null };
 
-  const result = await getPartyFinderDmLevel(token, fetch);
-  if (result.status === "ok") return { access: "ready" as const, preference: result.level };
+  const [result, accounts] = await Promise.all([getPartyFinderDmLevel(token, fetch), getLinkedAccounts(token, fetch)]);
+  const linked = accounts.status === "ok" ? accounts.accounts : null;
+  if (result.status === "ok") return { access: "ready" as const, preference: result.level, accounts: linked };
   return {
     access: result.status === "unauthorized" ? ("signin" as const) : ("unavailable" as const),
     preference: null,
+    accounts: linked,
   };
 };
 
+async function changeAccount(
+  request: Request,
+  token: string | undefined,
+  url: URL,
+  change: (token: string, uuid: string) => Promise<AccountChange>,
+) {
+  if (!token) return fail(401, { section: "accounts", error: "signin" as const });
+  const uuid = parseAccountUuid((await request.formData()).get("uuid"));
+  if (!uuid) return fail(400, { section: "accounts", error: "not_owned" as const });
+
+  const result = await change(token, uuid);
+  if (result === "saved") redirect(303, sessionRefreshUrl(`${url.origin}${url.pathname}`));
+  if (result === "unauthorized") return fail(401, { section: "accounts", error: "signin" as const });
+  return fail(result === "unavailable" ? 503 : 409, { section: "accounts", error: result });
+}
+
 export const actions: Actions = {
+  primary: ({ request, cookies, url, fetch }) =>
+    changeAccount(request, cookies.get("seq_session"), url, (token, uuid) => setPrimaryAccount(token, uuid, fetch)),
+
+  remove: ({ request, cookies, url, fetch }) =>
+    changeAccount(request, cookies.get("seq_session"), url, (token, uuid) => removeAccount(token, uuid, fetch)),
+
   notifications: async ({ request, cookies, fetch }) => {
     const token = cookies.get("seq_session");
     if (!token) return fail(401, { section: "notifications", error: "signin", dmLevel: null });
