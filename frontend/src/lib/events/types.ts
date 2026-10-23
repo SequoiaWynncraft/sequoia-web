@@ -4,6 +4,19 @@ export type EventAccess = "public" | "members";
 
 export type EventStatus = "tba" | "upcoming" | "live" | "ended";
 
+/**
+ * How a standings tracker counts: Wynncraft API raid-counter diffs ("api"),
+ * mod-scraped raid completions ("mod"), or mod-fed war points ("wars").
+ */
+export type TrackerKind = "api" | "mod" | "wars";
+
+/** What one unit on a tracker's board is, for labels. */
+export type StandingsUnit = "raids" | "war points";
+
+export function standingsUnit(tracking: TrackerKind | undefined): StandingsUnit {
+  return tracking === "wars" ? "war points" : "raids";
+}
+
 /** Per-event visual identity, applied as CSS custom properties on the event's sky. */
 export interface EventTheme {
   /** Backdrop gradient, top to bottom. */
@@ -61,10 +74,11 @@ export interface EventGoal {
    * Live data source for the meter. "raids" reads the public guild-raid
    * activity feed (member participation credits - party size inflates them),
    * "raidRuns" counts unique completions from the guild mod's log (one per
-   * run, but only runs a mod user was in), "wars" and "playtime" sum the
-   * daily stat rollups; absent means manual (finalTotal or a dash).
+   * run, but only runs a mod user was in), "warPoints" sums the mod-fed war
+   * points inside the exact window, "wars" and "playtime" sum the daily stat
+   * rollups; absent means manual (finalTotal or a dash).
    */
-  feed?: "raids" | "raidRuns" | "wars" | "playtime";
+  feed?: "raids" | "raidRuns" | "warPoints" | "wars" | "playtime";
   /**
    * Count only this raid (raid-based feeds only); absent counts all guild
    * raids. Must match a Wynncraft raid name.
@@ -241,8 +255,8 @@ export interface GuildEvent {
   prizesNote?: string;
   comp?: { roles: CompRole[]; note?: string };
   rules?: string[];
-  /** Raid-tracker window powering the member standings board. */
-  tracker?: { eventId: string; tracking: "api" | "mod" };
+  /** Tracker window (raids or war points) powering the member standings board. */
+  tracker?: { eventId: string; tracking: TrackerKind };
   /** Prize draws earning tickets from the tracker's raid board. */
   raffles?: EventRaffle[];
   /** When set, a winner of any raffle is excluded from the rest of this event. */

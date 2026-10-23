@@ -295,6 +295,14 @@ async fn update_raid_event(
         &request.tracking,
         request.raid.as_deref(),
     )?;
+    let Some(existing) = state.db.raid_event(event_id).await? else {
+        return Err(ApiError::new(StatusCode::NOT_FOUND, "raid event not found"));
+    };
+    if !tracking_change_allowed(&existing.tracking, &request.tracking) {
+        return Err(ApiError::bad_request(
+            "a tracker can't switch between raids and war points - create a new tracker instead",
+        ));
+    }
 
     let event = state
         .db
@@ -313,6 +321,13 @@ async fn update_raid_event(
     }
 }
 
+/// Events linked to a tracker read its board in the tracker's unit, so a
+/// switch between raids and war points would silently reinterpret their
+/// milestones and ticket divisors. Moving between the raid sources is fine.
+fn tracking_change_allowed(old: &str, new: &str) -> bool {
+    (old == "wars") == (new == "wars")
+}
+
 /// Shared create/update validation; returns the normalized raid scope.
 fn validate_event_fields<'a>(
     name: &str,
@@ -327,8 +342,10 @@ fn validate_event_fields<'a>(
     if ends_at <= starts_at {
         return Err(ApiError::bad_request("ends_at must be after starts_at"));
     }
-    if tracking != "api" && tracking != "mod" {
-        return Err(ApiError::bad_request("tracking must be 'api' or 'mod'"));
+    if !matches!(tracking, "api" | "mod" | "wars") {
+        return Err(ApiError::bad_request(
+            "tracking must be 'api', 'mod' or 'wars'",
+        ));
     }
     let raid = raid.map(str::trim).filter(|raid| !raid.is_empty());
     if raid.is_some() && tracking != "mod" {
@@ -414,7 +431,9 @@ mod tests {
 
     use crate::poller::PollerHealthSnapshot;
 
-    use super::readiness_problems;
+    use time::macros::datetime;
+
+    use super::{readiness_problems, tracking_change_allowed, validate_event_fields};
 
     const INTERVAL: Duration = Duration::from_secs(130);
 
@@ -475,5 +494,36 @@ mod tests {
         let problems = readiness_problems(true, true, INTERVAL, &poller(None, 391, 0));
         assert_eq!(problems.len(), 1);
         assert!(problems[0].contains("no successful poll"));
+    }
+
+    #[test]
+    fn war_point_events_validate_without_raid_scope() {
+        let starts = datetime!(2026-10-03 12:30 UTC);
+        let ends = datetime!(2026-10-03 14:45 UTC);
+        assert_eq!(
+            validate_event_fields("Wars", starts, ends, "wars", None).ok(),
+            Some(None)
+        );
+        assert!(
+            validate_event_fields(
+                "Wars",
+                starts,
+                ends,
+                "wars",
+                Some("Nest of the Grootslangs")
+            )
+            .is_err()
+        );
+        assert!(validate_event_fields("Wars", starts, ends, "webhook", None).is_err());
+    }
+
+    #[test]
+    fn tracking_changes_stay_within_one_unit() {
+        assert!(tracking_change_allowed("mod", "api"));
+        assert!(tracking_change_allowed("api", "mod"));
+        assert!(tracking_change_allowed("wars", "wars"));
+        assert!(!tracking_change_allowed("mod", "wars"));
+        assert!(!tracking_change_allowed("api", "wars"));
+        assert!(!tracking_change_allowed("wars", "mod"));
     }
 }

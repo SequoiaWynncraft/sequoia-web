@@ -1,16 +1,18 @@
 import type { SubmitFunction } from "@sveltejs/kit";
 
 import type { GuildRankName } from "$lib/api/guildStats";
-import type {
-  CompRole,
-  EligibilityRule,
-  EventIconPlacement,
-  EventTheme,
-  GuildEvent,
-  ManualEntrant,
-  PrizeEntry,
-  RaffleEligibility,
-  RaffleWinner,
+import {
+  standingsUnit,
+  type CompRole,
+  type EligibilityRule,
+  type EventIconPlacement,
+  type EventTheme,
+  type GuildEvent,
+  type ManualEntrant,
+  type PrizeEntry,
+  type RaffleEligibility,
+  type RaffleWinner,
+  type TrackerKind,
 } from "$lib/events/types";
 import { parseGuildEvent } from "$lib/events/validate";
 import type { EventFormContext, MemberOption, TrackerOption } from "$lib/server/eventFormContext";
@@ -19,7 +21,7 @@ import type { RaffleRoll as RaffleRollRecord } from "$lib/server/raffleRolls";
 /** Context key the editor shell shares its EventDraft under. */
 export const EDITOR_KEY = Symbol("event-draft");
 
-export type GoalSource = "manual" | "raids" | "raidRuns" | "wars" | "playtime";
+export type GoalSource = "manual" | "raids" | "raidRuns" | "warPoints" | "wars" | "playtime";
 export type MilestoneStyle = "list" | "markers" | "both" | "none";
 
 export interface MilestoneRow {
@@ -285,7 +287,7 @@ export class EventDraft {
   rules = $state("");
   trackerEnabled = $state(false);
   trackerEventId = $state("");
-  trackerTracking = $state<"api" | "mod">("api");
+  trackerTracking = $state<TrackerKind>("api");
   // Manual id entry is the fallback when the backend list is unavailable or
   // the stored id is not in it.
   trackerManual = $state(false);
@@ -307,6 +309,8 @@ export class EventDraft {
   trackerEditId = $state("");
   trackerEditStartsAt = $state("");
   trackerEditEndsAt = $state("");
+  /** The edited tracker's kind on open: an edit can't cross raids and war points. */
+  trackerEditTracking = $state<TrackerKind>("mod");
   trackerBusy = $state(false);
   trackerAttempted = $state(false);
   /** The last ?/createTracker or ?/updateTracker rejection, synced from props. */
@@ -321,7 +325,7 @@ export class EventDraft {
   newTrackerName = $state("");
   newTrackerStarts = $state("");
   newTrackerEnds = $state("");
-  newTrackerTracking = $state<"api" | "mod">("mod");
+  newTrackerTracking = $state<TrackerKind>("mod");
   newTrackerRaid = $state("");
 
   // ── Presets ─────────────────────────────────────────────────────────
@@ -920,6 +924,18 @@ export class EventDraft {
     this.trackerChoices.find((option) => option.id === this.trackerEventId) ?? null,
   );
 
+  /**
+   * How the linked tracker counts. The tracker record is authoritative - the
+   * event's stored copy goes stale when the tracker is edited without
+   * re-saving the event - so a known tracker's own kind wins.
+   */
+  readonly trackerKind = $derived<TrackerKind | undefined>(
+    this.trackerEnabled ? (this.selectedTracker?.tracking ?? this.trackerTracking) : undefined,
+  );
+
+  /** What the standings board counts, for milestone and ticket labels. */
+  readonly trackerUnit = $derived(standingsUnit(this.trackerKind));
+
   readonly trackerDraftError = $derived.by(() => {
     if (!this.newTrackerName.trim()) return "the tracker needs a name";
     if (!this.newTrackerStarts || !this.newTrackerEnds) return "the tracker needs a start and an end";
@@ -971,6 +987,7 @@ export class EventDraft {
     this.newTrackerStarts = option.startsAt.slice(0, 16);
     this.newTrackerEnds = option.endsAt.slice(0, 16);
     this.newTrackerTracking = option.tracking;
+    this.trackerEditTracking = option.tracking;
     this.newTrackerRaid = option.raid ?? "";
     this.trackerAttempted = false;
     this.trackerEditor = "edit";
@@ -1114,6 +1131,7 @@ export class EventDraft {
         metric: text(record.metricLabel),
         source: (record.feed === "raids" ||
         record.feed === "raidRuns" ||
+        record.feed === "warPoints" ||
         record.feed === "wars" ||
         record.feed === "playtime"
           ? record.feed
@@ -1186,7 +1204,10 @@ export class EventDraft {
     const trackerDraft = (draft.tracker ?? null) as Record<string, unknown> | null;
     this.trackerEnabled = trackerDraft !== null;
     this.trackerEventId = trackerDraft ? text(trackerDraft.eventId) : "";
-    this.trackerTracking = trackerDraft && trackerDraft.tracking === "mod" ? "mod" : "api";
+    this.trackerTracking =
+      trackerDraft && (trackerDraft.tracking === "mod" || trackerDraft.tracking === "wars")
+        ? trackerDraft.tracking
+        : "api";
     this.trackerManual =
       this.trackerChoices.length === 0 ||
       (this.trackerEnabled && !this.trackerChoices.some((option) => option.id === this.trackerEventId));

@@ -107,6 +107,13 @@ describe("parseGuildEvent", () => {
       expect(runs.event.goals?.[0].feed).toBe("raidRuns");
       expect(runs.event.activity?.source).toBe("raidRuns");
     }
+
+    const points = parseGuildEvent({
+      ...VALID,
+      goals: [{ metricLabel: "war points", milestones: [{ at: 5000, unlock: "War chest" }], feed: "warPoints" }],
+    });
+    expect(points.ok).toBe(true);
+    if (points.ok) expect(points.event.goals?.[0].feed).toBe("warPoints");
   });
 
   it("accepts a catalog icon and normalizes its placements", () => {
@@ -849,6 +856,12 @@ describe("parseGuildEvent", () => {
     expectError({ ...VALID, prizes: [{ donor: "kd" }] }, "prize");
     expectError({ ...VALID, comp: { roles: [] } }, "role");
     expectError({ ...VALID, tracker: { eventId: "abc", tracking: "webhook" } }, "tracking");
+  });
+
+  it("accepts war-point trackers", () => {
+    const result = parseGuildEvent({ ...VALID, tracker: { eventId: "abc", tracking: "wars" } });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.event.tracker).toEqual({ eventId: "abc", tracking: "wars" });
   });
 
   it("stores the wheel toggle only when hidden", () => {
