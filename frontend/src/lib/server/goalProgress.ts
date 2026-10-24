@@ -4,6 +4,7 @@ import type { EventGoal } from "$lib/events/types";
 import { loadEventRaidCounts, sumCounts } from "./eventActivity";
 import { getMemberProgress } from "./memberProgress";
 import { loadModRunCounts } from "./modActivity";
+import { loadWarPointEntries } from "./raidEventBoards";
 
 /**
  * Live total for a goal's feed over the event window so far. Null when the
@@ -29,6 +30,14 @@ export async function loadGoalProgress(
       raid: goal.countRaid,
     });
     return days === null ? null : sumCounts(days);
+  }
+  if (goal.feed === "warPoints") {
+    const { entries, error } = await loadWarPointEntries(fetchImpl, {
+      starts_at: window.from,
+      ends_at: window.to,
+    });
+    // Board rows carry their war points in `raids` (see loadWarPointEntries).
+    return error ? null : entries.reduce((sum, entry) => sum + entry.raids, 0);
   }
   if (goal.feed === "wars" || goal.feed === "playtime") {
     // The rollups are day-granular and cannot split a partial first day, so

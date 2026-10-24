@@ -2,9 +2,14 @@
   import { page } from "$app/state";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import Button from "$lib/design-system/components/Button.svelte";
-  import { webAuthStartUrl } from "$lib/site/webAuth";
+  import PlayerName from "$lib/design-system/components/PlayerName.svelte";
+  import ConfirmDialog from "$lib/design-system/components/forms/ConfirmDialog.svelte";
+  import { webAccountLinkUrl, webAuthStartUrl } from "$lib/site/webAuth";
   import { FLAT_MENU_MAX_ITEMS, navToggles } from "$lib/site/navPreferences";
   import { SELECTABLE_THEMES } from "$lib/site/themePreferences";
+  import type { PageData } from "./$types";
+
+  type Account = NonNullable<PageData["accounts"]>[number];
 
   let { data, form } = $props();
 
@@ -16,6 +21,28 @@
   const notifications = $derived(form?.section === "notifications" ? form : null);
   const navigation = $derived(form?.section === "navigation" ? form : null);
   const themePanel = $derived(form?.section === "theme" ? form : null);
+  const accountsPanel = $derived(form?.section === "accounts" ? form : null);
+
+  // Removal is a plain form post; with scripts it waits for the confirm dialog first.
+  let removalDialog = $state<ConfirmDialog>();
+  let pendingRemoval = $state<{ account: Account; form: HTMLFormElement } | null>(null);
+  let confirmedRemoval: HTMLFormElement | null = null;
+
+  function confirmBeforeRemoving(event: SubmitEvent & { currentTarget: HTMLFormElement }, account: Account) {
+    if (confirmedRemoval === event.currentTarget) {
+      confirmedRemoval = null;
+      return;
+    }
+    event.preventDefault();
+    pendingRemoval = { account, form: event.currentTarget };
+    removalDialog?.open();
+  }
+
+  function removeConfirmed() {
+    if (!pendingRemoval) return;
+    confirmedRemoval = pendingRemoval.form;
+    pendingRemoval.form.requestSubmit();
+  }
 
   // The saved theme lives in root layout data, so it survives this page's own
   // access gate and is right on the first render.
@@ -58,6 +85,70 @@
     lead="Choose which Party Finder moments deserve a Discord interruption, how the site looks, and which pages your nav bar carries. Your in-game alerts continue independently."
   />
 
+  {#if data.access !== "signin"}
+    <section class="signal-panel accounts-panel" aria-labelledby="accounts-title">
+      <h2 id="accounts-title" class="panel-title">Minecraft accounts</h2>
+      {#if data.accounts}
+        <ul class="account-list">
+          {#each data.accounts as account (account.uuid)}
+            <li class="account-row" class:account-primary={account.primary}>
+              <PlayerName username={account.username} uuid={account.uuid} size={28} />
+              {#if account.primary}
+                <span class="account-badge">Primary</span>
+              {:else}
+                <div class="account-actions">
+                  <form method="POST" action="?/primary">
+                    <input type="hidden" name="uuid" value={account.uuid} />
+                    <Button type="submit" variant="secondary" size="sm" aria-label={`Make ${account.username} primary`}>
+                      Make primary
+                    </Button>
+                  </form>
+                  <form method="POST" action="?/remove" onsubmit={(event) => confirmBeforeRemoving(event, account)}>
+                    <input type="hidden" name="uuid" value={account.uuid} />
+                    <Button type="submit" variant="ghost" size="sm" aria-label={`Remove ${account.username}`}>
+                      Remove
+                    </Button>
+                  </form>
+                </div>
+              {/if}
+            </li>
+          {/each}
+        </ul>
+        <footer class="signal-footer">
+          <div aria-live="polite" class="save-status">
+            {#if accountsPanel?.error === "signin"}
+              <span class="save-error">
+                Your session expired. <a href={webAuthStartUrl(page.url.href)}>Sign in again</a>.
+              </span>
+            {:else if accountsPanel?.error === "not_owned"}
+              <span class="save-error">That account is no longer linked to you.</span>
+            {:else if accountsPanel?.error === "primary_account"}
+              <span class="save-error">Choose another primary first.</span>
+            {:else if accountsPanel?.error}
+              <span class="save-error">The change could not be confirmed. This list is current.</span>
+            {/if}
+          </div>
+          <Button href={webAccountLinkUrl()} variant="secondary">Link account</Button>
+        </footer>
+      {:else}
+        <p class="field-note">
+          Minecraft accounts are unavailable right now{accountsPanel?.error && accountsPanel.error !== "signin"
+            ? ", so your last change could not be confirmed"
+            : ""}.
+        </p>
+      {/if}
+    </section>
+
+    <ConfirmDialog
+      bind:this={removalDialog}
+      title={`Remove ${pendingRemoval?.account.username ?? "account"}?`}
+      body="It will no longer sign in to the Sequoia mod."
+      confirmLabel="Remove"
+      danger
+      onconfirm={removeConfirmed}
+    />
+  {/if}
+
   {#if data.access === "signin"}
     <section class="settings-gate">
       <span class="settings-gate-mark" aria-hidden="true">◆</span>
@@ -69,7 +160,7 @@
     <section class="settings-gate settings-gate-error">
       <span class="settings-gate-mark" aria-hidden="true">!</span>
       <h2>Settings are temporarily unavailable</h2>
-      <p>Nothing was changed. Refresh in a moment to try the connection again.</p>
+      <p>Refresh in a moment to try the connection again.</p>
       <Button variant="secondary" href="/account/settings">Retry</Button>
     </section>
   {:else}
@@ -511,6 +602,58 @@
   .nav-actions {
     display: flex;
     gap: 10px;
+  }
+
+  .accounts-panel {
+    margin-bottom: 24px;
+  }
+
+  .panel-title {
+    margin: 0 0 18px;
+    color: var(--color-text-primary);
+    font-family: var(--font-display);
+    font-size: var(--text-base);
+    font-weight: var(--weight-regular);
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+  }
+
+  .account-list {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .account-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    min-height: 64px;
+    padding: 12px 18px;
+    border: 1px solid var(--color-border-subtle);
+    background: rgba(0, 0, 0, 0.14);
+  }
+
+  .account-primary {
+    border-color: color-mix(in srgb, var(--color-gold) 70%, transparent);
+    background: linear-gradient(90deg, color-mix(in srgb, var(--color-gold) 10%, transparent), color-mix(in srgb, var(--color-gold) 1.5%, transparent));
+  }
+
+  .account-badge {
+    color: var(--color-gold);
+    font-family: var(--font-display);
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+  }
+
+  .account-actions {
+    display: flex;
+    gap: 8px;
   }
 
   .settings-gate {

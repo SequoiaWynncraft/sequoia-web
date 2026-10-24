@@ -125,6 +125,11 @@
               <span class="seq-choice-title">Mod completions</span>
               <span class="seq-choice-desc">Counts unique runs from the guild mod - one per party, misses runs without a mod user.</span>
             </label>
+            <label class="seq-choice" class:seq-choice-selected={goal.source === "warPoints"}>
+              <input class="seq-choice-input" type="radio" name="goal-source-{goal.id}" value="warPoints" bind:group={goal.source} />
+              <span class="seq-choice-title">War points</span>
+              <span class="seq-choice-desc">Sums war points from mod-reported wars inside the event window - wars still being scored add once calculated.</span>
+            </label>
             <label class="seq-choice" class:seq-choice-selected={goal.source === "wars"}>
               <input class="seq-choice-input" type="radio" name="goal-source-{goal.id}" value="wars" bind:group={goal.source} />
               <span class="seq-choice-title">War feed</span>

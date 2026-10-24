@@ -182,7 +182,9 @@
       <Field label="Tickets" element="div">
         <div class="evf-weight-row">
           <Select class="evf-weight-mode" bind:value={raffle.weightMode}>
-            <option value="perRaid">Per raid on the standings board</option>
+            <option value="perRaid">
+              Per {draft.trackerUnit === "raids" ? "raid" : "war point"} on the standings board
+            </option>
             <option value="perStat">Per stat over a window</option>
             <option value="flat">One ticket each</option>
           </Select>
@@ -200,7 +202,7 @@
               </span>
               <input class="seq-input" type="number" min="1" bind:value={raffle.weightPer} />
               <span class="evf-weight-per-label">
-                {raffle.weightMode === "perRaid" ? "raids" : STAT_LABELS[raffle.weightStat]}
+                {raffle.weightMode === "perRaid" ? draft.trackerUnit : STAT_LABELS[raffle.weightStat]}
               </span>
             </label>
           {/if}
@@ -296,7 +298,9 @@
                 {#if rule.stat === "raids"}
                   <Select bind:value={rule.statSource} aria-label="Where the raid count comes from">
                     <option value="rollups">from daily rollups</option>
-                    <option value="tracker">from the mod tracker</option>
+                    {#if draft.trackerKind !== "wars" || rule.statSource === "tracker"}
+                      <option value="tracker">from the mod tracker</option>
+                    {/if}
                   </Select>
                 {/if}
               </div>
