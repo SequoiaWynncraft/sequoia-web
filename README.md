@@ -11,7 +11,7 @@ mise exec -- bun install --frozen-lockfile
 mise exec -- bun run test:web
 ```
 
-The developer toolchain pins Bun 1.3.14 and Node 22.23.1. Frontend tests require Node 22.12.0 or newer and use the existing Vitest runner. Bun remains the dependency manager and app runtime.
+The developer toolchain pins Bun 1.4.4 and Node 22.23.4. Frontend tests require Node 22.23.4 or newer and use the existing Vitest runner. Bun remains the dependency manager and app runtime.
 
 To run one test file with the same command:
 
