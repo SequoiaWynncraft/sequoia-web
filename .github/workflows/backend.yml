@@ -34,6 +34,8 @@ jobs:
   backend:
     runs-on: sequoia-pat
     timeout-minutes: 15
+    env:
+      RUSTUP_USE_CURL: "1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -46,9 +48,7 @@ jobs:
         with:
           bun-version: "1.4.4"
           no-cache: true
-      - name: Update the Rustup TLS verifier before toolchain downloads
-        env:
-          RUSTUP_USE_CURL: "1"
+      - name: Install pinned rustup 1.29.2
         run: |
           set -euo pipefail
           case "$(uname -m)" in
