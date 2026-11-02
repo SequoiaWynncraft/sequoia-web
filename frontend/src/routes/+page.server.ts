@@ -1,11 +1,11 @@
 import type { PageServerLoad } from "./$types";
 
-import { homepageEvents, type HubEvent } from "$lib/events/helpers";
-import type { Viewer } from "$lib/site/viewer";
-import { eventStore } from "$lib/server/eventStore";
-import { canSeeEvent, resolveEventAudience } from "$lib/server/eventVisibility";
-import { getGuildOverview } from "$lib/server/guildOverview";
-import { loadLatestPosts } from "$lib/server/postPages";
+import { homepageEvents, type HubEvent } from "#lib/events/helpers.js";
+import type { Viewer } from "#lib/site/viewer.js";
+import { eventStore } from "#lib/server/eventStore.js";
+import { canSeeEvent, resolveEventAudience } from "#lib/server/eventVisibility.js";
+import { getGuildOverview } from "#lib/server/guildOverview.js";
+import { loadLatestPosts } from "#lib/server/postPages.js";
 
 export const prerender = false;
 

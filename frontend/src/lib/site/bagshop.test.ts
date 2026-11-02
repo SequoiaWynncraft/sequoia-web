@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { InventoryItem, Order } from "$lib/api/bagshop";
+import type { InventoryItem, Order } from "#lib/api/bagshop.js";
 import {
   currencyParts,
   formatEb,
@@ -8,7 +8,7 @@ import {
   isCancellable,
   orderRemainingTotal,
   roundToLe,
-} from "$lib/site/bagshop";
+} from "#lib/site/bagshop.js";
 
 function inv(key: string, over: Partial<InventoryItem> = {}): InventoryItem {
   return { key, stock: 0, sellPrice: 0, buyPrice: 0, cap: 0, ...over };

@@ -1,6 +1,6 @@
-import { GUILD_RANKS, type GuildRankName } from "$lib/api/guildStats";
-import { parseEventTheme } from "$lib/events/validate";
-import type { ManageBranchKey } from "$lib/manage/types";
+import { GUILD_RANKS, type GuildRankName } from "#lib/api/guildStats.js";
+import { parseEventTheme } from "#lib/events/validate.js";
+import type { ManageBranchKey } from "#lib/manage/types.js";
 
 import { POST_BRANCHES } from "./audience";
 import type { GuildPost, PostAudience, PostFeed, PostTier } from "./types";

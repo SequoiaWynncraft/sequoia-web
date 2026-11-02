@@ -1,12 +1,12 @@
 <script lang="ts">
-  import PageHeader from "$lib/components/PageHeader.svelte";
-  import SubpageGrid from "$lib/components/SubpageGrid.svelte";
-  import Icon from "$lib/components/Icon.svelte";
-  import StatBlock from "$lib/design-system/components/StatBlock.svelte";
-  import { pageView } from "$lib/site/nav";
-  import { visibleCards } from "$lib/site/navPreferences";
-  import { compact } from "$lib/site/format";
-  import type { GuildMemberStats } from "$lib/api/guildStats";
+  import PageHeader from "#lib/components/PageHeader.svelte";
+  import SubpageGrid from "#lib/components/SubpageGrid.svelte";
+  import Icon from "#lib/components/Icon.svelte";
+  import StatBlock from "#lib/design-system/components/StatBlock.svelte";
+  import { pageView } from "#lib/site/nav.js";
+  import { visibleCards } from "#lib/site/navPreferences.js";
+  import { compact } from "#lib/site/format.js";
+  import type { GuildMemberStats } from "#lib/api/guildStats.js";
 
   import GuildLevelTracker from "./GuildLevelTracker.svelte";
 

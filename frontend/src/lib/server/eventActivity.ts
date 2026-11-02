@@ -1,4 +1,4 @@
-import { createSequoiaApiClient } from "$lib/api/client";
+import { createSequoiaApiClient } from "#lib/api/client.js";
 
 export interface EventDayCount {
   /** UTC calendar day, e.g. "2026-07-05". */

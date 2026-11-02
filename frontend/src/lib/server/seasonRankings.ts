@@ -1,7 +1,7 @@
-import { type SeasonRankingEntry, type SeasonRankingsResponse } from "$lib/api/seasonRankings";
-import { isRecord } from "$lib/server/guards";
-import { createCachedResource, type CachedResource } from "$lib/server/serverCache";
-import { fetchWynncraftJson } from "$lib/server/wynncraft";
+import { type SeasonRankingEntry, type SeasonRankingsResponse } from "#lib/api/seasonRankings.js";
+import { isRecord } from "#lib/server/guards.js";
+import { createCachedResource, type CachedResource } from "#lib/server/serverCache.js";
+import { fetchWynncraftJson } from "#lib/server/wynncraft.js";
 
 const RESULT_LIMIT = 100;
 const FRESH_MS = 10 * 60 * 1000;

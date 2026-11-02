@@ -1,8 +1,8 @@
-import { createSequoiaApiClient } from "$lib/api/client";
-import type { GuildStatsResponse } from "$lib/api/guildStats";
-import { parseGuildStats } from "$lib/server/guildStats";
-import { createCachedResource, type CachedResource } from "$lib/server/serverCache";
-import { WYNNCRAFT_API_BASE } from "$lib/server/wynncraft";
+import { createSequoiaApiClient } from "#lib/api/client.js";
+import type { GuildStatsResponse } from "#lib/api/guildStats.js";
+import { parseGuildStats } from "#lib/server/guildStats.js";
+import { createCachedResource, type CachedResource } from "#lib/server/serverCache.js";
+import { WYNNCRAFT_API_BASE } from "#lib/server/wynncraft.js";
 
 const FRESH_MS = 2 * 60 * 1000;
 const STALE_MS = 60 * 60 * 1000;

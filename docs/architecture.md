@@ -35,6 +35,27 @@ Player skin renders use `PUBLIC_NMSR_BASE_URL`, defaulting to the public NMSR ro
 
 Local development defaults to `http://localhost:8081` when no value is configured.
 
+### Container runtime user
+
+Both images run as the fixed unprivileged user `10001:10001`. Application files are owned by root and read-only to that user.
+
+- **Frontend:** the only writable path is `/app/frontend/.data`, where the default `SEQUOIA_WEB_DB_URL` keeps its SQLite file. Deployments that use Turso/libSQL (`TURSO_DATABASE_URL`) need no writable path. The health check calls `/healthz`, which turns unhealthy once the SIGUSR2 drain starts.
+- **Backend:** nothing in the image is writable. The health check calls `/ready`, so the container reports unhealthy, and stops receiving traffic, while Postgres is unreachable, polling is unconfigured or the last successful poll is stale. The probe uses the default port 8080; a custom `BIND_ADDR` port needs a matching health check.
+
+Docker gives a new, empty named volume the image's ownership of `.data`. An existing volume keeps its current owner, and the image never changes it. Before switching an existing frontend deployment to this image, check the volume's owner without changing anything:
+
+```sh
+docker run --rm -v <volume>:/data:ro alpine:3 stat -c '%u:%g %n' /data /data/sequoia-web.db
+```
+
+If the owner is not `10001:10001`, pick one before rollout:
+
+- grant the existing volume to `10001:10001` once, as an explicit operator step
+- start on a new volume; the API cache rebuilds on its own, but events, presets and audit history do not move over, so copy the old file first if that data must survive
+- use Turso and no local volume
+
+Do not roll out until that is resolved: the new image cannot write a root-owned database file. In a local test with one, pages still rendered, but the database-backed `/api/guild-overview` waited out its 5-second database timeout and returned 503.
+
 ## Adding Pages
 
 Add page metadata to `src/lib/site/nav.ts`, then keep route files small by consuming `pageView(...)`, `PageHeader`, `SectionTabs`, `SubpageGrid`, and `Placeholder`. If a page should be addressable but not displayed as a normal card, add it to `EXTRA_PAGES`.

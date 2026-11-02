@@ -1,4 +1,4 @@
-import { isRecord } from "$lib/api/guards";
+import { isRecord } from "#lib/api/guards.js";
 
 /** Sort orders the guild directory offers; keys match the backend grammar. */
 export const DIRECTORY_SORTS = [

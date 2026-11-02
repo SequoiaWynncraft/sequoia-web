@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { requestDiscord } from "./discordManagement";
 import { requestCeremonyPreview, type CeremonyPreviewRequest } from "./ceremony";
-import { ceremonyPreviewScene } from "$lib/discord/ceremony";
+import { ceremonyPreviewScene } from "#lib/discord/ceremony.js";
 
 // Fictional story id and sample values.
 const input: CeremonyPreviewRequest = { story_id: "sample_story", tier: "diamond", raid: "TNA", count: 1000, format: "png" };

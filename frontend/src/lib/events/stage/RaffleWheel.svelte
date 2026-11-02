@@ -1,8 +1,8 @@
 <script lang="ts">
-  import PlayerName from "$lib/design-system/components/PlayerName.svelte";
-  import { canonicalUuid } from "$lib/events/raffle";
-  import type { StageRoll } from "$lib/events/stageProtocol";
-  import { nmsrFace } from "$lib/site/nmsr";
+  import PlayerName from "#lib/design-system/components/PlayerName.svelte";
+  import { canonicalUuid } from "#lib/events/raffle.js";
+  import type { StageRoll } from "#lib/events/stageProtocol.js";
+  import { nmsrFace } from "#lib/site/nmsr.js";
 
   import { finalRotationDeg, point, wedgeAtPointer, wedgePath, wheelWedges } from "./wheelMath";
 

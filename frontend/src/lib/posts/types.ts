@@ -1,6 +1,6 @@
-import type { GuildRankName } from "$lib/api/guildStats";
-import type { EventTheme } from "$lib/events/types";
-import type { ManageBranchKey } from "$lib/manage/types";
+import type { GuildRankName } from "#lib/api/guildStats.js";
+import type { EventTheme } from "#lib/events/types.js";
+import type { ManageBranchKey } from "#lib/manage/types.js";
 
 /** Which public feed a post belongs to; both share one store and one editor. */
 export type PostFeed = "news" | "announcements";

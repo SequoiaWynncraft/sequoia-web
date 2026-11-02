@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  import { rankColor as sharedRankColor } from "$lib/site/rankColors";
+  import { rankColor as sharedRankColor } from "#lib/site/rankColors.js";
 
   // Backgrounds are badge-local; foregrounds come from the shared rank
   // vocabulary so a rank never renders two colors on two pages.

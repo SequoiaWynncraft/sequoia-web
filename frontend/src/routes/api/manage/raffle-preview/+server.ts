@@ -1,13 +1,13 @@
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 
-import type { RafflePreviewResponse } from "$lib/events/rafflePreview";
-import { parseGuildEvent } from "$lib/events/validate";
-import { requireEventManager } from "$lib/server/eventManagers";
-import { eventStore } from "$lib/server/eventStore";
-import { getGuildStats } from "$lib/server/guildStats";
-import { resolveEligibility } from "$lib/server/raffleEligibility";
-import { normalizeUuid } from "$lib/server/raidEventBoards";
+import type { RafflePreviewResponse } from "#lib/events/rafflePreview.js";
+import { parseGuildEvent } from "#lib/events/validate.js";
+import { requireEventManager } from "#lib/server/eventManagers.js";
+import { eventStore } from "#lib/server/eventStore.js";
+import { getGuildStats } from "#lib/server/guildStats.js";
+import { resolveEligibility } from "#lib/server/raffleEligibility.js";
+import { normalizeUuid } from "#lib/server/raidEventBoards.js";
 
 export const prerender = false;
 

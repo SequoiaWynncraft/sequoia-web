@@ -4,28 +4,28 @@
 
   import { invalidateAll } from "$app/navigation";
 
-  import PageScaffold from "$lib/components/PageScaffold.svelte";
-  import PageHeader from "$lib/components/PageHeader.svelte";
-  import CurrencyAmount from "$lib/components/CurrencyAmount.svelte";
-  import Button from "$lib/design-system/components/Button.svelte";
-  import Card from "$lib/design-system/components/Card.svelte";
-  import SectionHeading from "$lib/design-system/components/SectionHeading.svelte";
+  import PageScaffold from "#lib/components/PageScaffold.svelte";
+  import PageHeader from "#lib/components/PageHeader.svelte";
+  import CurrencyAmount from "#lib/components/CurrencyAmount.svelte";
+  import Button from "#lib/design-system/components/Button.svelte";
+  import Card from "#lib/design-system/components/Card.svelte";
+  import SectionHeading from "#lib/design-system/components/SectionHeading.svelte";
   import {
     createBagshopClient,
     RARITIES,
     splitInventoryKey,
     type OrderType,
     type PlacedOrder,
-  } from "$lib/api/bagshop";
+  } from "#lib/api/bagshop.js";
   import {
     groupInventoryByRaid,
     isCancellable,
     orderRemainingTotal,
     roundToLe,
-  } from "$lib/site/bagshop";
-  import { CURRENCY_ASSETS } from "$lib/site/currency";
-  import { pageView } from "$lib/site/nav";
-  import { webAuthStartUrl } from "$lib/site/webAuth";
+  } from "#lib/site/bagshop.js";
+  import { CURRENCY_ASSETS } from "#lib/site/currency.js";
+  import { pageView } from "#lib/site/nav.js";
+  import { webAuthStartUrl } from "#lib/site/webAuth.js";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();

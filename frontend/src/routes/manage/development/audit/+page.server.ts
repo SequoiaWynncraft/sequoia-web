@@ -1,7 +1,7 @@
 import type { PageServerLoad } from "./$types";
 
-import { pageAreaAccess } from "$lib/server/manageCapabilities";
-import { listManagementAudit, type AuditEntry } from "$lib/server/auditLog";
+import { pageAreaAccess } from "#lib/server/manageCapabilities.js";
+import { listManagementAudit, type AuditEntry } from "#lib/server/auditLog.js";
 
 export const prerender = false;
 

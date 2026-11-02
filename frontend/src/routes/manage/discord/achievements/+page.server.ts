@@ -1,6 +1,6 @@
 import type { PageServerLoad } from "./$types";
-import { parseCatalogResponse } from "$lib/achievements/catalog";
-import { discordManagement } from "$lib/server/discordManagement";
+import { parseCatalogResponse } from "#lib/achievements/catalog.js";
+import { discordManagement } from "#lib/server/discordManagement.js";
 
 export const prerender = false;
 export const load: PageServerLoad = async ({ fetch, cookies }) => {

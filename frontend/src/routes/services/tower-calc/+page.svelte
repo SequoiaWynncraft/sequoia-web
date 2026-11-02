@@ -1,9 +1,9 @@
 <script lang="ts">
-  import PageScaffold from "$lib/components/PageScaffold.svelte";
-  import PageHeader from "$lib/components/PageHeader.svelte";
-  import Card from "$lib/design-system/components/Card.svelte";
-  import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
-  import { pageView } from "$lib/site/nav";
+  import PageScaffold from "#lib/components/PageScaffold.svelte";
+  import PageHeader from "#lib/components/PageHeader.svelte";
+  import Card from "#lib/design-system/components/Card.svelte";
+  import SectionLabel from "#lib/design-system/components/SectionLabel.svelte";
+  import { pageView } from "#lib/site/nav.js";
   import {
     ATTACK_RATES,
     AURA_LABELS,
@@ -22,7 +22,7 @@
     calcStat,
     defenseRating,
     formatStat,
-  } from "$lib/site/tower";
+  } from "#lib/site/tower.js";
   import StatRow from "./StatRow.svelte";
 
   const view = pageView("/services/tower-calc");

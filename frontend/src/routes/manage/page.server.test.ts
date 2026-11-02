@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { pageAreaAccess } from "$lib/server/manageCapabilities";
+import { pageAreaAccess } from "#lib/server/manageCapabilities.js";
 import { load } from "./+page.server";
 
-vi.mock("$lib/server/manageCapabilities", () => ({ pageAreaAccess: vi.fn() }));
+vi.mock("#lib/server/manageCapabilities.js", () => ({ pageAreaAccess: vi.fn() }));
 
 const mockPageAreaAccess = vi.mocked(pageAreaAccess);
 

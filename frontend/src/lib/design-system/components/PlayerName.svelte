@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { playercardUrl } from "$lib/site/identity";
-  import { nmsrFace } from "$lib/site/nmsr";
+  import { playercardUrl } from "#lib/site/identity.js";
+  import { nmsrFace } from "#lib/site/nmsr.js";
 
   let {
     username,

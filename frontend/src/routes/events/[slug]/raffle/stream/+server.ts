@@ -1,12 +1,12 @@
 import type { RequestHandler } from "./$types";
 
-import type { StageMessage } from "$lib/events/stageProtocol";
-import { canSeeEvent, resolveEventAudience } from "$lib/server/eventVisibility";
-import { eventStore } from "$lib/server/eventStore";
-import { roomEpoch, subscribe } from "$lib/server/liveRolls";
-import { raffleRollStore, toStageRoll } from "$lib/server/raffleRolls";
-import { requestError } from "$lib/server/requestError";
-import { loadViewer } from "$lib/server/viewerSession";
+import type { StageMessage } from "#lib/events/stageProtocol.js";
+import { canSeeEvent, resolveEventAudience } from "#lib/server/eventVisibility.js";
+import { eventStore } from "#lib/server/eventStore.js";
+import { roomEpoch, subscribe } from "#lib/server/liveRolls.js";
+import { raffleRollStore, toStageRoll } from "#lib/server/raffleRolls.js";
+import { requestError } from "#lib/server/requestError.js";
+import { loadViewer } from "#lib/server/viewerSession.js";
 
 export const prerender = false;
 

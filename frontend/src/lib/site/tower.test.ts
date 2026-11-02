@@ -9,7 +9,7 @@ import {
   calcStat,
   defenseRating,
   formatStat,
-} from "$lib/site/tower";
+} from "#lib/site/tower.js";
 
 describe("tower calculator", () => {
   it("applies only the connection multiplier off HQ", () => {

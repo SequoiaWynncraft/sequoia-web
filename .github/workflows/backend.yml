@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "backend/**"
+      - ".dockerignore"
       - "rust-toolchain.toml"
       - "rustfmt.toml"
       - ".cargo/**"
@@ -15,6 +16,7 @@ on:
     branches: [main]
     paths:
       - "backend/**"
+      - ".dockerignore"
       - "rust-toolchain.toml"
       - "rustfmt.toml"
       - ".cargo/**"
@@ -92,3 +94,55 @@ jobs:
         env:
           TEST_DATABASE_URL: postgres://postgres:ci-only@127.0.0.1:5432/postgres
         run: cargo test --locked --manifest-path backend/Cargo.toml --workspace --all-features -- --include-ignored
+
+  image:
+    name: Backend image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build production image
+        run: docker build --file backend/Dockerfile --tag sequoia-web-backend:ci .
+      - name: Smoke-test production image
+        run: |
+          set -euo pipefail
+          docker run --detach --name ci-postgres --network host \
+            --env POSTGRES_PASSWORD=ci-only --env POSTGRES_DB=tracker \
+            postgres:17-alpine@sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b
+          for _ in $(seq 1 60); do
+            docker exec ci-postgres pg_isready --quiet --username postgres --dbname tracker && break
+            sleep 1
+          done
+          # A local stand-in for the Wynncraft guild endpoint, so readiness can
+          # pass on a real successful poll without network access or secrets.
+          mkdir -p "$RUNNER_TEMP/wynn/guild/prefix"
+          cat > "$RUNNER_TEMP/wynn/guild/prefix/SEQ" <<'JSON'
+          {"uuid":"0f2f6f50-4a56-4ebd-aef7-a22a4cf8fd53","name":"Sequoia","prefix":"SEQ","members":{"total":1,"chief":{"070af99c-cd21-4923-92e4-8809b3d99f0d":{"username":"StubMember","online":false,"joined":"2025-08-08T22:29:03.502000Z","globalData":{"guildRaids":{"total":7000,"list":{}},"currentGuildRaids":{"total":6760,"list":{}}}}}}}
+          JSON
+          python3 -m http.server 8099 --bind 127.0.0.1 --directory "$RUNNER_TEMP/wynn" > "$RUNNER_TEMP/wynn.log" 2>&1 &
+          docker run --detach --name sequoia-web-backend --network host \
+            --env DATABASE_URL=postgres://postgres:ci-only@127.0.0.1:5432/tracker \
+            --env BIND_ADDR=127.0.0.1:8080 \
+            --env WYNN_API_BASE_URL=http://127.0.0.1:8099 \
+            --env WYNNCRAFT_ACCESS_TOKEN=ci-stub \
+            sequoia-web-backend:ci
+          test "$(docker inspect --format '{{.Config.User}}' sequoia-web-backend)" = 10001:10001
+          test "$(docker exec sequoia-web-backend id -u)" = 10001
+          for _ in $(seq 1 90); do
+            test "$(docker inspect --format '{{.State.Health.Status}}' sequoia-web-backend)" = healthy && break
+            sleep 1
+          done
+          docker logs sequoia-web-backend 2>&1 | tail -n 20
+          test "$(docker inspect --format '{{.State.Health.Status}}' sequoia-web-backend)" = healthy
+          curl --fail --silent --show-error --max-time 5 http://127.0.0.1:8080/health
+          # /ready passes during its startup grace too, so require a real
+          # successful poll of the stub rather than trusting the status alone.
+          curl --fail --silent --show-error --max-time 5 http://127.0.0.1:8080/ready \
+            | jq --exit-status '.status == "ready" and .poller.last_success_age_secs != null'
+          # SIGTERM drains and exits 0 well inside the grace period, not by SIGKILL.
+          started=$(date +%s)
+          docker stop --time 20 sequoia-web-backend
+          test "$(docker inspect --format '{{.State.ExitCode}}' sequoia-web-backend)" = 0
+          test $(( $(date +%s) - started )) -lt 10

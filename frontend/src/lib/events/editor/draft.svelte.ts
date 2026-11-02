@@ -1,6 +1,6 @@
-import type { SubmitFunction } from "@sveltejs/kit";
+import type { SubmitFunction } from "$app/forms";
 
-import type { GuildRankName } from "$lib/api/guildStats";
+import type { GuildRankName } from "#lib/api/guildStats.js";
 import {
   standingsUnit,
   type CompRole,
@@ -13,10 +13,10 @@ import {
   type RaffleEligibility,
   type RaffleWinner,
   type TrackerKind,
-} from "$lib/events/types";
-import { parseGuildEvent } from "$lib/events/validate";
-import type { EventFormContext, MemberOption, TrackerOption } from "$lib/server/eventFormContext";
-import type { RaffleRoll as RaffleRollRecord } from "$lib/server/raffleRolls";
+} from "#lib/events/types.js";
+import { parseGuildEvent } from "#lib/events/validate.js";
+import type { EventFormContext, MemberOption, TrackerOption } from "#lib/server/eventFormContext.js";
+import type { RaffleRoll as RaffleRollRecord } from "#lib/server/raffleRolls.js";
 
 /** Context key the editor shell shares its EventDraft under. */
 export const EDITOR_KEY = Symbol("event-draft");

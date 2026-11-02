@@ -1,7 +1,7 @@
 import { redirect } from "@sveltejs/kit";
 import type { Actions, PageServerLoad } from "./$types";
 
-import { legacyManageRedirect } from "$lib/manage/redirects";
+import { legacyManageRedirect } from "#lib/manage/redirects.js";
 
 export const prerender = false;
 

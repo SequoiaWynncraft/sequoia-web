@@ -1,8 +1,8 @@
 <script lang="ts">
-  import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
-  import EventSky from "$lib/events/components/EventSky.svelte";
-  import type { PostCard, PostHub } from "$lib/server/postPages";
-  import { webAuthStartUrl } from "$lib/site/webAuth";
+  import SectionLabel from "#lib/design-system/components/SectionLabel.svelte";
+  import EventSky from "#lib/events/components/EventSky.svelte";
+  import type { PostCard, PostHub } from "#lib/server/postPages.js";
+  import { webAuthStartUrl } from "#lib/site/webAuth.js";
 
   import { formatPostDate } from "../format";
   import { POST_FEEDS, postHref, type PostFeed, type PostStatus } from "../types";

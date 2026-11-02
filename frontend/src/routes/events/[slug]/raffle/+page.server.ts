@@ -1,10 +1,10 @@
 import type { PageServerLoad } from "./$types";
 
-import { eventStatus } from "$lib/events/helpers";
-import { canSeeEvent, resolveEventAudience } from "$lib/server/eventVisibility";
-import { eventStore, type StoredEvent } from "$lib/server/eventStore";
-import { raffleRollStore, toStageRoll } from "$lib/server/raffleRolls";
-import { requestError } from "$lib/server/requestError";
+import { eventStatus } from "#lib/events/helpers.js";
+import { canSeeEvent, resolveEventAudience } from "#lib/server/eventVisibility.js";
+import { eventStore, type StoredEvent } from "#lib/server/eventStore.js";
+import { raffleRollStore, toStageRoll } from "#lib/server/raffleRolls.js";
+import { requestError } from "#lib/server/requestError.js";
 
 export const prerender = false;
 

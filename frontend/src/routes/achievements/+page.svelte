@@ -1,9 +1,9 @@
 <script lang="ts">
   import { page } from "$app/state";
-  import PageHeader from "$lib/components/PageHeader.svelte";
-  import Button from "$lib/design-system/components/Button.svelte";
-  import AchievementProgress from "$lib/achievements/AchievementProgress.svelte";
-  import { webAuthStartUrl } from "$lib/site/webAuth";
+  import PageHeader from "#lib/components/PageHeader.svelte";
+  import Button from "#lib/design-system/components/Button.svelte";
+  import AchievementProgress from "#lib/achievements/AchievementProgress.svelte";
+  import { webAuthStartUrl } from "#lib/site/webAuth.js";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();

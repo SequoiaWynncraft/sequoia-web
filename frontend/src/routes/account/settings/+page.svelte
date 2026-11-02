@@ -1,12 +1,12 @@
 <script lang="ts">
   import { page } from "$app/state";
-  import PageHeader from "$lib/components/PageHeader.svelte";
-  import Button from "$lib/design-system/components/Button.svelte";
-  import PlayerName from "$lib/design-system/components/PlayerName.svelte";
-  import ConfirmDialog from "$lib/design-system/components/forms/ConfirmDialog.svelte";
-  import { webAccountLinkUrl, webAuthStartUrl } from "$lib/site/webAuth";
-  import { FLAT_MENU_MAX_ITEMS, navToggles } from "$lib/site/navPreferences";
-  import { SELECTABLE_THEMES } from "$lib/site/themePreferences";
+  import PageHeader from "#lib/components/PageHeader.svelte";
+  import Button from "#lib/design-system/components/Button.svelte";
+  import PlayerName from "#lib/design-system/components/PlayerName.svelte";
+  import ConfirmDialog from "#lib/design-system/components/forms/ConfirmDialog.svelte";
+  import { webAccountLinkUrl, webAuthStartUrl } from "#lib/site/webAuth.js";
+  import { FLAT_MENU_MAX_ITEMS, navToggles } from "#lib/site/navPreferences.js";
+  import { SELECTABLE_THEMES } from "#lib/site/themePreferences.js";
   import type { PageData } from "./$types";
 
   type Account = NonNullable<PageData["accounts"]>[number];

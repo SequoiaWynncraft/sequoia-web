@@ -1,16 +1,16 @@
 <script lang="ts">
-  import StatsHeader from "$lib/components/StatsHeader.svelte";
-  import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
-  import LedgerTable from "$lib/design-system/components/LedgerTable.svelte";
-  import type { LedgerColumn } from "$lib/design-system/components/ledgerTable";
-  import DeferredPanel from "$lib/design-system/components/DeferredPanel.svelte";
-  import ScopeChips from "$lib/design-system/components/ScopeChips.svelte";
-  import { nmsrFace } from "$lib/site/nmsr";
-  import Podium from "$lib/design-system/components/Podium.svelte";
+  import StatsHeader from "#lib/components/StatsHeader.svelte";
+  import SectionLabel from "#lib/design-system/components/SectionLabel.svelte";
+  import LedgerTable from "#lib/design-system/components/LedgerTable.svelte";
+  import type { LedgerColumn } from "#lib/design-system/components/ledgerTable.js";
+  import DeferredPanel from "#lib/design-system/components/DeferredPanel.svelte";
+  import ScopeChips from "#lib/design-system/components/ScopeChips.svelte";
+  import { nmsrFace } from "#lib/site/nmsr.js";
+  import Podium from "#lib/design-system/components/Podium.svelte";
   import WeeklyRaidAnnouncement from "./WeeklyRaidAnnouncement.svelte";
-  import type { GuildMemberStats } from "$lib/api/guildStats";
-  import type { MemberProgressEntry } from "$lib/api/memberProgress";
-  import { insigniaLabel } from "$lib/site/honours";
+  import type { GuildMemberStats } from "#lib/api/guildStats.js";
+  import type { MemberProgressEntry } from "#lib/api/memberProgress.js";
+  import { insigniaLabel } from "#lib/site/honours.js";
 
   let { data } = $props();
 

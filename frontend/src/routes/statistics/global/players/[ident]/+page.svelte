@@ -1,13 +1,13 @@
 <script lang="ts">
-  import StatsHeader from "$lib/components/StatsHeader.svelte";
-  import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
-  import BarList from "$lib/design-system/components/BarList.svelte";
-  import ScopeChips from "$lib/design-system/components/ScopeChips.svelte";
-  import DailyBars from "$lib/design-system/components/charts/DailyBars.svelte";
-  import { raidSeriesFor } from "$lib/site/raids";
-  import { nmsrFullBodyIso } from "$lib/site/nmsr";
-  import type { PlayerCardResponse } from "$lib/api/playerCard";
-  import type { PlayerSeriesResponse } from "$lib/api/playerSeries";
+  import StatsHeader from "#lib/components/StatsHeader.svelte";
+  import SectionLabel from "#lib/design-system/components/SectionLabel.svelte";
+  import BarList from "#lib/design-system/components/BarList.svelte";
+  import ScopeChips from "#lib/design-system/components/ScopeChips.svelte";
+  import DailyBars from "#lib/design-system/components/charts/DailyBars.svelte";
+  import { raidSeriesFor } from "#lib/site/raids.js";
+  import { nmsrFullBodyIso } from "#lib/site/nmsr.js";
+  import type { PlayerCardResponse } from "#lib/api/playerCard.js";
+  import type { PlayerSeriesResponse } from "#lib/api/playerSeries.js";
 
   let { data } = $props();
 

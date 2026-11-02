@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { StageMessage } from "$lib/events/stageProtocol";
+import type { StageMessage } from "#lib/events/stageProtocol.js";
 
 import { endRoom, publish, retireAllRooms, roomEpoch, subscribe, subscriberCount } from "./liveRolls";
 

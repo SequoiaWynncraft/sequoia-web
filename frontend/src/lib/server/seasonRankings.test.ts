@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseSeasonLeaderboard } from "$lib/server/seasonRankings";
+import { parseSeasonLeaderboard } from "#lib/server/seasonRankings.js";
 
 describe("parseSeasonLeaderboard", () => {
   it("parses rank-keyed leaderboard entries into an ordered list", () => {

@@ -1,7 +1,7 @@
 <script lang="ts">
-  import PlayerName from "$lib/design-system/components/PlayerName.svelte";
-  import RankBadge from "$lib/design-system/components/RankBadge.svelte";
-  import { entriesAhead, queueStanding, requestedAgoLabel, type RewardQueueEntry } from "$lib/rewardQueue";
+  import PlayerName from "#lib/design-system/components/PlayerName.svelte";
+  import RankBadge from "#lib/design-system/components/RankBadge.svelte";
+  import { entriesAhead, queueStanding, requestedAgoLabel, type RewardQueueEntry } from "#lib/rewardQueue.js";
 
   let {
     title,

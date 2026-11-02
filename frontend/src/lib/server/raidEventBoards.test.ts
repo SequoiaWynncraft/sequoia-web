@@ -1,18 +1,18 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { GuildMemberStats } from "$lib/api/guildStats";
+import type { GuildMemberStats } from "#lib/api/guildStats.js";
 
-vi.mock("$lib/server/sequoiaBackend", () => ({
+vi.mock("#lib/server/sequoiaBackend.js", () => ({
   sequoiaBackendInternalHeaders: () => ({ authorization: "Bearer mod" }),
   sequoiaBackendOrigin: () => "https://backend.test",
 }));
-vi.mock("$lib/server/sequoiaWebBackend", () => ({
+vi.mock("#lib/server/sequoiaWebBackend.js", () => ({
   sequoiaWebBackendUrl: (path: string) => `https://web.test${path}`,
   sequoiaWebBackendInternalHeaders: () => ({ authorization: "Bearer web" }),
 }));
 
 // Imported after the mocks so the module binds the stubbed backends.
-const { loadModLeaderboard, loadRaffleEligible } = await import("$lib/server/raidEventBoards");
+const { loadModLeaderboard, loadRaffleEligible } = await import("#lib/server/raidEventBoards.js");
 
 afterEach(() => {
   vi.unstubAllGlobals();

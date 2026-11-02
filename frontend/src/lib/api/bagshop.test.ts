@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createBagshopClient, splitInventoryKey, type BagshopMe, type InventoryItem, type Order } from "$lib/api/bagshop";
+import { createBagshopClient, splitInventoryKey, type BagshopMe, type InventoryItem, type Order } from "#lib/api/bagshop.js";
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });

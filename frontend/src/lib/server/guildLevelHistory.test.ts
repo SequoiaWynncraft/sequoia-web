@@ -1,14 +1,14 @@
 import type { Client } from "@libsql/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { SEQUOIA_API_BASE_URL, SEQUOIA_GUILD_UUID } from "$lib/config/public";
+import { SEQUOIA_API_BASE_URL, SEQUOIA_GUILD_UUID } from "#lib/config/public.js";
 
 const H = vi.hoisted(() => ({ db: null as Client | null }));
 
 // The cached resource persists through the shared libsql client; a fresh
 // in-memory one per test keeps these off the developer's .data database file and
 // stops one test's cached copy from answering the next test's request.
-vi.mock("$lib/server/db", () => ({
+vi.mock("#lib/server/db.js", () => ({
   database: async () => {
     const { createClient } = await import("@libsql/client");
     H.db ??= createClient({ url: ":memory:" });
@@ -32,7 +32,7 @@ const RESPONSE = {
  */
 async function freshFetcher() {
   vi.resetModules();
-  return (await import("$lib/server/guildLevelHistory")).getGuildLevelHistory;
+  return (await import("#lib/server/guildLevelHistory.js")).getGuildLevelHistory;
 }
 
 /** A stub fetch answering with one canned response, recording its calls. */

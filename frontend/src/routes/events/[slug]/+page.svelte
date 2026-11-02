@@ -1,23 +1,23 @@
 <script lang="ts">
-  import { guildRankLabel } from "$lib/api/guildStats";
-  import PlayerName from "$lib/design-system/components/PlayerName.svelte";
-  import { playercardUrl } from "$lib/site/identity";
-  import { rankColor } from "$lib/site/rankColors";
-  import { webAuthStartUrl } from "$lib/site/webAuth";
-  import Button from "$lib/design-system/components/Button.svelte";
-  import DailyBars from "$lib/design-system/components/charts/DailyBars.svelte";
-  import LedgerTable from "$lib/design-system/components/LedgerTable.svelte";
-  import type { LedgerColumn } from "$lib/design-system/components/ledgerTable";
-  import EmojiText from "$lib/emoji/EmojiText.svelte";
-  import EventMeta from "$lib/events/components/EventMeta.svelte";
-  import GoalMeter from "$lib/events/components/GoalMeter.svelte";
-  import PrizeBoard from "$lib/events/components/PrizeBoard.svelte";
-  import { themeVars } from "$lib/events/theme";
-  import { isoDay } from "$lib/events/format";
-  import { nmsrFace } from "$lib/site/nmsr";
-  import { insigniaLabel } from "$lib/site/honours";
-  import { raidIconUrl } from "$lib/events/raidIcons";
-  import type { RaidLeaderboardEntry } from "$lib/server/raidEventBoards";
+  import { guildRankLabel } from "#lib/api/guildStats.js";
+  import PlayerName from "#lib/design-system/components/PlayerName.svelte";
+  import { playercardUrl } from "#lib/site/identity.js";
+  import { rankColor } from "#lib/site/rankColors.js";
+  import { webAuthStartUrl } from "#lib/site/webAuth.js";
+  import Button from "#lib/design-system/components/Button.svelte";
+  import DailyBars from "#lib/design-system/components/charts/DailyBars.svelte";
+  import LedgerTable from "#lib/design-system/components/LedgerTable.svelte";
+  import type { LedgerColumn } from "#lib/design-system/components/ledgerTable.js";
+  import EmojiText from "#lib/emoji/EmojiText.svelte";
+  import EventMeta from "#lib/events/components/EventMeta.svelte";
+  import GoalMeter from "#lib/events/components/GoalMeter.svelte";
+  import PrizeBoard from "#lib/events/components/PrizeBoard.svelte";
+  import { themeVars } from "#lib/events/theme.js";
+  import { isoDay } from "#lib/events/format.js";
+  import { nmsrFace } from "#lib/site/nmsr.js";
+  import { insigniaLabel } from "#lib/site/honours.js";
+  import { raidIconUrl } from "#lib/events/raidIcons.js";
+  import type { RaidLeaderboardEntry } from "#lib/server/raidEventBoards.js";
 
   let { data } = $props();
 
