@@ -4,6 +4,8 @@ import path from "node:path";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { RAID_ICONS, raidIconUrl } from "#lib/events/raidIcons.js";
+
 import { securityPolicy } from "../../../vite.config";
 
 let envDir: string;
@@ -43,13 +45,29 @@ describe("securityPolicy", () => {
     expect(policy["form-action"]).toEqual(["self", "https://staging-api.example.test"]);
   });
 
-  it("needs no extra origins when the API and skin renders are same-origin", () => {
+  it("adds only the fixed image hosts when the API and skin renders are same-origin", () => {
     const policy = securityPolicy({ mode: "sameorigin", command: "build" }, envDir);
 
     expect({ form: policy["form-action"], images: policy["img-src"] }).toEqual({
       form: ["self"],
-      images: ["self", "data:", "blob:", "https://assets.seqwawa.com", "https://cdn.discordapp.com"],
+      images: [
+        "self",
+        "data:",
+        "blob:",
+        "https://api.seqwawa.com",
+        "https://assets.seqwawa.com",
+        "https://cdn.discordapp.com",
+      ],
     });
+  });
+
+  it.each(["production", "sameorigin"])("allows the raid icons the app renders (%s skin renders)", (mode) => {
+    const policy = securityPolicy({ mode, command: "build" }, envDir);
+    const icons = RAID_ICONS.map((icon) => new URL(raidIconUrl(icon.file)).origin);
+
+    expect(policy["img-src"]).toEqual(expect.arrayContaining([...new Set(icons)]));
+    expect(policy["img-src"]).not.toContain("https:");
+    expect(policy["connect-src"]).toEqual(["self"]);
   });
 
   it("never allows inline or eval script, framing or plugins", () => {

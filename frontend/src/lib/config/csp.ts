@@ -1,12 +1,13 @@
 import type { sveltekit } from "@sveltejs/kit/vite";
 
+import { RAID_ICON_BASE } from "../events/raidIcons";
 import { resolveApiBaseUrl, resolveNmsrBaseUrl } from "./endpoints";
 
 type KitConfig = NonNullable<Parameters<typeof sveltekit>[0]>;
 type CspDirectives = NonNullable<NonNullable<KitConfig["csp"]>["directives"]>;
 type Source = NonNullable<CspDirectives["img-src"]>[number];
 
-/** Image hosts outside the site's own origin and skin renders. */
+/** Image hosts outside the site's own origin, skin renders and raid icons. */
 const IMAGE_HOSTS = ["https://assets.seqwawa.com", "https://cdn.discordapp.com"] satisfies Source[];
 
 /**
@@ -24,12 +25,14 @@ export function contentSecurityPolicy(
 ): CspDirectives {
   const api = originsOf(resolveApiBaseUrl(env.apiBaseUrl, dev));
   const nmsr = originsOf(resolveNmsrBaseUrl(env.nmsrBaseUrl));
+  // Event icons always come from this fixed host, whatever the API base is.
+  const raidIcons = originsOf(RAID_ICON_BASE);
   return {
     "default-src": ["self"],
     "script-src": ["self"],
     "style-src": ["self"],
     "style-src-attr": ["unsafe-inline"],
-    "img-src": ["self", "data:", "blob:", ...nmsr, ...IMAGE_HOSTS],
+    "img-src": ["self", "data:", "blob:", ...nmsr, ...raidIcons, ...IMAGE_HOSTS],
     "font-src": ["self"],
     // Browser code only calls same-origin endpoints; the API is reached by links.
     "connect-src": ["self"],

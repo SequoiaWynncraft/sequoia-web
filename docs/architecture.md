@@ -41,7 +41,7 @@ The app sets its own browser security policy. Nothing depends on the reverse pro
 
 - **Content Security Policy** is enforced on every page: SvelteKit's `csp` option in `vite.config.ts`, built by `src/lib/config/csp.ts`. Kit adds a nonce to each script it renders, so no inline or eval script is allowed.
   - Markup `style` attributes are allowed through `style-src-attr`; they cannot run script.
-  - Images may come from the site itself, NMSR skin renders, `assets.seqwawa.com` and Discord emoji.
+  - Images may come from the site itself, NMSR skin renders, `assets.seqwawa.com`, Discord emoji and the event raid icons on `api.seqwawa.com` (`RAID_ICON_BASE` in `src/lib/events/raidIcons.ts`).
   - Forms may submit to the site and to the API origin, because saving linked accounts redirects through the API's session refresh.
   - Browser code connects only to the site's own origin.
   - Frames, plugins and embedding are all denied.
