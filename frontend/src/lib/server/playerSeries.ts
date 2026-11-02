@@ -15,7 +15,8 @@ export async function getPlayerSeries(
   from: string,
   to: string,
 ): Promise<PlayerSeriesResponse> {
-  const key = `${playerUuid.toLowerCase()}:${from}..${to}`;
+  const uuid = playerUuid.toLowerCase();
+  const key = `${uuid}:${from}..${to}`;
   let resource = resources.get(key);
   if (!resource) {
     if (resources.size >= MAX_PLAYERS) {
@@ -23,11 +24,15 @@ export async function getPlayerSeries(
       if (oldest !== undefined) resources.delete(oldest);
     }
     resource = createCachedResource<PlayerSeriesResponse>({
-      key: `player-series:${key}`,
+      // One durable row per player: the window ends today, so keying on it
+      // minted a new row for every player every day. A stored series for
+      // another window fails validation and is replaced.
+      key: `player-series:${uuid}:v2`,
       freshMs: FRESH_MS,
       staleMs: STALE_MS,
       load: (impl) => loadSeries(impl, playerUuid, from, to),
-      validate: isPlayerSeriesResponse,
+      validate: (value): value is PlayerSeriesResponse =>
+        isPlayerSeriesResponse(value) && value.from === from && value.to === to,
     });
     resources.set(key, resource);
   }
