@@ -1,4 +1,4 @@
-import { isNonNegativeInteger, isRecord } from "$lib/api/guards";
+import { isNonNegativeInteger, isRecord } from "#lib/api/guards.js";
 import { GROUP_LABELS } from "./progress";
 
 /** One saved step. A new milestone carries an empty id until Rust assigns one. */

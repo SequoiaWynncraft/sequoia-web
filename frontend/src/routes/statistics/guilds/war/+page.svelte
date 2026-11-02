@@ -1,12 +1,12 @@
 <script lang="ts">
-  import StatsHeader from "$lib/components/StatsHeader.svelte";
-  import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
-  import LedgerTable from "$lib/design-system/components/LedgerTable.svelte";
-  import type { LedgerColumn } from "$lib/design-system/components/ledgerTable";
-  import StackedColumns from "$lib/design-system/components/charts/StackedColumns.svelte";
-  import DeferredPanel from "$lib/design-system/components/DeferredPanel.svelte";
-  import { guildRankLabel, type GuildMemberStats } from "$lib/api/guildStats";
-  import { rankColor } from "$lib/site/rankColors";
+  import StatsHeader from "#lib/components/StatsHeader.svelte";
+  import SectionLabel from "#lib/design-system/components/SectionLabel.svelte";
+  import LedgerTable from "#lib/design-system/components/LedgerTable.svelte";
+  import type { LedgerColumn } from "#lib/design-system/components/ledgerTable.js";
+  import StackedColumns from "#lib/design-system/components/charts/StackedColumns.svelte";
+  import DeferredPanel from "#lib/design-system/components/DeferredPanel.svelte";
+  import { guildRankLabel, type GuildMemberStats } from "#lib/api/guildStats.js";
+  import { rankColor } from "#lib/site/rankColors.js";
 
   let { data } = $props();
 

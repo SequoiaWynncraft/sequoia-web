@@ -1,6 +1,6 @@
 <script lang="ts">
   import ChartTip from "./ChartTip.svelte";
-  import type { GuildSeasonRank } from "$lib/api/guildStats";
+  import type { GuildSeasonRank } from "#lib/api/guildStats.js";
 
   interface LedgerColumn {
     season: number;

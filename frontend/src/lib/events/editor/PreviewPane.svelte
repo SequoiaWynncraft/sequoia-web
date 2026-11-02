@@ -1,10 +1,10 @@
 <script lang="ts">
   import { getContext } from "svelte";
 
-  import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
-  import EventSky from "$lib/events/components/EventSky.svelte";
-  import GoalMeter from "$lib/events/components/GoalMeter.svelte";
-  import { raidIconUrl } from "$lib/events/raidIcons";
+  import SectionLabel from "#lib/design-system/components/SectionLabel.svelte";
+  import EventSky from "#lib/events/components/EventSky.svelte";
+  import GoalMeter from "#lib/events/components/GoalMeter.svelte";
+  import { raidIconUrl } from "#lib/events/raidIcons.js";
 
   import { EDITOR_KEY, EventDraft } from "./draft.svelte";
 

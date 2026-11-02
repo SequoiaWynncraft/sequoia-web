@@ -1,11 +1,11 @@
 <script lang="ts">
-  import Button from "$lib/design-system/components/Button.svelte";
-  import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
-  import { formatWindow } from "$lib/events/format";
-  import { raidIconUrl } from "$lib/events/raidIcons";
-  import type { EventStatus } from "$lib/events/types";
-  import ManageHeader from "$lib/manage/ManageHeader.svelte";
-  import AreaGate from "$lib/manage/AreaGate.svelte";
+  import Button from "#lib/design-system/components/Button.svelte";
+  import SectionLabel from "#lib/design-system/components/SectionLabel.svelte";
+  import { formatWindow } from "#lib/events/format.js";
+  import { raidIconUrl } from "#lib/events/raidIcons.js";
+  import type { EventStatus } from "#lib/events/types.js";
+  import ManageHeader from "#lib/manage/ManageHeader.svelte";
+  import AreaGate from "#lib/manage/AreaGate.svelte";
 
   let { data } = $props();
 

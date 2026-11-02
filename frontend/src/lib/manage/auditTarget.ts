@@ -1,7 +1,7 @@
-import type { AuditEntry } from "$lib/server/auditLog";
-import { welcomeNightSummary } from "$lib/discord/welcome";
-import { repeatSummary } from "$lib/discord/repeat";
-import { IMAGE_TIERS } from "$lib/discord/ceremony";
+import type { AuditEntry } from "#lib/server/auditLog.js";
+import { welcomeNightSummary } from "#lib/discord/welcome.js";
+import { repeatSummary } from "#lib/discord/repeat.js";
+import { IMAGE_TIERS } from "#lib/discord/ceremony.js";
 
 function object(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === "object" && !Array.isArray(value)

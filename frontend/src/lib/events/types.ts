@@ -1,4 +1,4 @@
-import type { GuildRankName } from "$lib/api/guildStats";
+import type { GuildRankName } from "#lib/api/guildStats.js";
 
 export type EventAccess = "public" | "members";
 

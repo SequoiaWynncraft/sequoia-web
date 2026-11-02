@@ -1,7 +1,7 @@
 import type { PageServerLoad } from "./$types";
-import type { WelcomeResponse } from "$lib/discord/welcome";
-import type { DiscordContext } from "$lib/discord/types";
-import { discordManagement } from "$lib/server/discordManagement";
+import type { WelcomeResponse } from "#lib/discord/welcome.js";
+import type { DiscordContext } from "#lib/discord/types.js";
+import { discordManagement } from "#lib/server/discordManagement.js";
 
 export const prerender = false;
 export const load: PageServerLoad = async ({ fetch, cookies }) => {

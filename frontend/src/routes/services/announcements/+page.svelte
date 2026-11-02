@@ -1,8 +1,8 @@
 <script lang="ts">
-  import PageHeader from "$lib/components/PageHeader.svelte";
-  import PageScaffold from "$lib/components/PageScaffold.svelte";
-  import PostHub from "$lib/posts/components/PostHub.svelte";
-  import { pageView } from "$lib/site/nav";
+  import PageHeader from "#lib/components/PageHeader.svelte";
+  import PageScaffold from "#lib/components/PageScaffold.svelte";
+  import PostHub from "#lib/posts/components/PostHub.svelte";
+  import { pageView } from "#lib/site/nav.js";
 
   let { data } = $props();
 

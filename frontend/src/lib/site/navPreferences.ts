@@ -1,4 +1,4 @@
-import { SECTIONS, leavesOf, type NavGroup, type NavLeaf, type NavSection } from "$lib/site/nav";
+import { SECTIONS, leavesOf, type NavGroup, type NavLeaf, type NavSection } from "#lib/site/nav.js";
 
 /**
  * Cookie holding this browser's navbar visibility choice. Read in the root

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { RankProfilesResponse } from "$lib/api/client";
-import { parseWynncraftGuildOverview } from "$lib/server/guildOverview";
+import type { RankProfilesResponse } from "#lib/api/client.js";
+import { parseWynncraftGuildOverview } from "#lib/server/guildOverview.js";
 
 const BRANCHMASTER = "11111111-1111-1111-1111-111111111111";
 const NOVICE = "22222222-2222-2222-2222-222222222222";

@@ -2,7 +2,7 @@ import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { env } from "$env/dynamic/private";
+import { SEQUOIA_WEB_DB_URL, TURSO_AUTH_TOKEN, TURSO_DATABASE_URL } from "$app/env/private";
 import { createClient, type Client } from "@libsql/client";
 
 let dbPromise: Promise<Client> | undefined;
@@ -34,14 +34,14 @@ async function createDatabase(): Promise<Client> {
 
   dbClient = createClient({
     url,
-    authToken: env.TURSO_AUTH_TOKEN?.trim() || undefined,
+    authToken: TURSO_AUTH_TOKEN?.trim() || undefined,
     timeout: 5000,
   });
   return dbClient;
 }
 
 function databaseUrl(): string {
-  return env.TURSO_DATABASE_URL?.trim() || env.SEQUOIA_WEB_DB_URL?.trim() || "file:.data/sequoia-web.db";
+  return TURSO_DATABASE_URL?.trim() || SEQUOIA_WEB_DB_URL?.trim() || "file:.data/sequoia-web.db";
 }
 
 function localDatabasePath(url: string): string | null {

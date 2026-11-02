@@ -1,10 +1,10 @@
 import type { Actions, PageServerLoad } from "./$types";
 
-import { pageAreaAccess } from "$lib/server/manageCapabilities";
-import { deletePostAction, updatePostAction } from "$lib/server/postActions";
-import { postFormContext } from "$lib/server/postFormContext";
-import { postStore } from "$lib/server/postStore";
-import { requestError } from "$lib/server/requestError";
+import { pageAreaAccess } from "#lib/server/manageCapabilities.js";
+import { deletePostAction, updatePostAction } from "#lib/server/postActions.js";
+import { postFormContext } from "#lib/server/postFormContext.js";
+import { postStore } from "#lib/server/postStore.js";
+import { requestError } from "#lib/server/requestError.js";
 
 export const prerender = false;
 

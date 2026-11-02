@@ -1,8 +1,8 @@
 import type { Client, Row } from "@libsql/client";
 
-import { SEED_EVENTS } from "$lib/events/seed";
-import type { GuildEvent } from "$lib/events/types";
-import { parseGuildEvent } from "$lib/events/validate";
+import { SEED_EVENTS } from "#lib/events/seed.js";
+import type { GuildEvent } from "#lib/events/types.js";
+import { parseGuildEvent } from "#lib/events/validate.js";
 
 import { database } from "./db";
 

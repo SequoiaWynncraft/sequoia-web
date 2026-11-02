@@ -5,7 +5,7 @@
  * response, so contract drift surfaces as a typed error instead of a render crash.
  */
 
-import { isRecord } from "$lib/api/guards";
+import { isRecord } from "#lib/api/guards.js";
 
 export type BagshopErrorCode =
   | "http_error"

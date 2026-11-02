@@ -1,16 +1,16 @@
 <script lang="ts">
-  import StatsHeader from "$lib/components/StatsHeader.svelte";
-  import { webAuthStartUrl } from "$lib/site/webAuth";
-  import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
-  import LedgerTable from "$lib/design-system/components/LedgerTable.svelte";
-  import type { LedgerColumn } from "$lib/design-system/components/ledgerTable";
-  import BarList from "$lib/design-system/components/BarList.svelte";
-  import StackedColumns from "$lib/design-system/components/charts/StackedColumns.svelte";
-  import ScopeChips from "$lib/design-system/components/ScopeChips.svelte";
-  import DeferredPanel from "$lib/design-system/components/DeferredPanel.svelte";
-  import { RAID_WINDOWS, raidWindowPreset } from "$lib/site/duration";
-  import { KNOWN_RAIDS, raidSeriesFor } from "$lib/site/raids";
-  import { insigniaLabel } from "$lib/site/honours";
+  import StatsHeader from "#lib/components/StatsHeader.svelte";
+  import { webAuthStartUrl } from "#lib/site/webAuth.js";
+  import SectionLabel from "#lib/design-system/components/SectionLabel.svelte";
+  import LedgerTable from "#lib/design-system/components/LedgerTable.svelte";
+  import type { LedgerColumn } from "#lib/design-system/components/ledgerTable.js";
+  import BarList from "#lib/design-system/components/BarList.svelte";
+  import StackedColumns from "#lib/design-system/components/charts/StackedColumns.svelte";
+  import ScopeChips from "#lib/design-system/components/ScopeChips.svelte";
+  import DeferredPanel from "#lib/design-system/components/DeferredPanel.svelte";
+  import { RAID_WINDOWS, raidWindowPreset } from "#lib/site/duration.js";
+  import { KNOWN_RAIDS, raidSeriesFor } from "#lib/site/raids.js";
+  import { insigniaLabel } from "#lib/site/honours.js";
 
   let { data } = $props();
 

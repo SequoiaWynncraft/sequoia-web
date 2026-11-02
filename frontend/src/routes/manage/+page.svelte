@@ -1,6 +1,6 @@
 <script lang="ts">
-  import ManageGate from "$lib/manage/ManageGate.svelte";
-  import { landingAccess } from "$lib/manage/registry";
+  import ManageGate from "#lib/manage/ManageGate.svelte";
+  import { landingAccess } from "#lib/manage/registry.js";
 
   let { data } = $props();
 </script>

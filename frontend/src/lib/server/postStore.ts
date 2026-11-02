@@ -1,7 +1,7 @@
 import type { Client, Row } from "@libsql/client";
 
-import type { GuildPost } from "$lib/posts/types";
-import { parseGuildPost } from "$lib/posts/validate";
+import type { GuildPost } from "#lib/posts/types.js";
+import { parseGuildPost } from "#lib/posts/validate.js";
 
 import { database } from "./db";
 

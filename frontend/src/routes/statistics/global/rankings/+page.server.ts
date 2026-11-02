@@ -1,10 +1,10 @@
 import type { PageServerLoad } from "./$types";
 
-import { isRankingWindow, type RankingWindow } from "$lib/api/globalRankings";
-import { getGlobalRaidRankings, getGlobalWarRankings } from "$lib/server/globalRankings";
-import { getGuildStats } from "$lib/server/guildStats";
-import { getSeasonRankings } from "$lib/server/seasonRankings";
-import { KNOWN_RAIDS } from "$lib/site/raids";
+import { isRankingWindow, type RankingWindow } from "#lib/api/globalRankings.js";
+import { getGlobalRaidRankings, getGlobalWarRankings } from "#lib/server/globalRankings.js";
+import { getGuildStats } from "#lib/server/guildStats.js";
+import { getSeasonRankings } from "#lib/server/seasonRankings.js";
+import { KNOWN_RAIDS } from "#lib/site/raids.js";
 
 export const prerender = false;
 

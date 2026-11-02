@@ -1,10 +1,10 @@
 import type { LayoutServerLoad } from "./$types";
 
-import { building } from "$app/environment";
-import { navManageVisible } from "$lib/server/manageCapabilities";
-import { loadViewer } from "$lib/server/viewerSession";
-import { DEFAULT_HIDDEN_NAV, NAV_PREFERENCE_COOKIE, parseHiddenNav } from "$lib/site/navPreferences";
-import { DEFAULT_THEME_ID, parseThemeId, THEME_COOKIE } from "$lib/site/themePreferences";
+import { building } from "$app/env";
+import { navManageVisible } from "#lib/server/manageCapabilities.js";
+import { loadViewer } from "#lib/server/viewerSession.js";
+import { DEFAULT_HIDDEN_NAV, NAV_PREFERENCE_COOKIE, parseHiddenNav } from "#lib/site/navPreferences.js";
+import { DEFAULT_THEME_ID, parseThemeId, THEME_COOKIE } from "#lib/site/themePreferences.js";
 
 export const load: LayoutServerLoad = async ({ cookies, fetch }) => {
   // Prerendered routes are baked without a request, so they render signed-out.

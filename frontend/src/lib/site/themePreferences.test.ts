@@ -7,7 +7,7 @@ import {
   SELECTABLE_THEMES,
   themeById,
   THEMES,
-} from "$lib/site/themePreferences";
+} from "#lib/site/themePreferences.js";
 
 describe("parseThemeId", () => {
   it("keeps a selectable theme", () => {

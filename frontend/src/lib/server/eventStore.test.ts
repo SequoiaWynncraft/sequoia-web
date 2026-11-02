@@ -1,8 +1,8 @@
 import { createClient } from "@libsql/client";
 import { describe, expect, it } from "vitest";
 
-import { SEED_EVENTS } from "$lib/events/seed";
-import type { GuildEvent } from "$lib/events/types";
+import { SEED_EVENTS } from "#lib/events/seed.js";
+import type { GuildEvent } from "#lib/events/types.js";
 
 import { createEventStore } from "./eventStore";
 

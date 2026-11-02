@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { EventDraft } from "$lib/events/editor/draft.svelte";
-import type { GuildEvent } from "$lib/events/types";
+import { EventDraft } from "#lib/events/editor/draft.svelte.js";
+import type { GuildEvent } from "#lib/events/types.js";
 
 const EVENT: GuildEvent = {
   slug: "raffle-event",

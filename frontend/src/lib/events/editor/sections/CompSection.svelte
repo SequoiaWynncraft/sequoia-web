@@ -1,9 +1,9 @@
 <script lang="ts">
   import { getContext } from "svelte";
 
-  import Field from "$lib/design-system/components/forms/Field.svelte";
-  import FormSection from "$lib/design-system/components/forms/FormSection.svelte";
-  import TextInput from "$lib/design-system/components/forms/TextInput.svelte";
+  import Field from "#lib/design-system/components/forms/Field.svelte";
+  import FormSection from "#lib/design-system/components/forms/FormSection.svelte";
+  import TextInput from "#lib/design-system/components/forms/TextInput.svelte";
 
   import { EDITOR_KEY, EventDraft } from "../draft.svelte";
 

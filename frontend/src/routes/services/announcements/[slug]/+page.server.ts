@@ -1,6 +1,6 @@
 import type { PageServerLoad } from "./$types";
 
-import { loadPostPage } from "$lib/server/postPages";
+import { loadPostPage } from "#lib/server/postPages.js";
 
 export const prerender = false;
 

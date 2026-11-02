@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
 
-  import { dayGap, type GuildLevelTracker } from "$lib/api/guildLevel";
+  import { dayGap, type GuildLevelTracker } from "#lib/api/guildLevel.js";
 
   let { tracker }: { tracker: GuildLevelTracker } = $props();
 

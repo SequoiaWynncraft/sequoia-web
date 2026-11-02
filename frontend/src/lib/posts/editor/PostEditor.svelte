@@ -1,24 +1,24 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
 
-  import "$lib/events/editor/editor.css";
+  import "#lib/events/editor/editor.css";
 
-  import { GUILD_RANKS, GUILD_RANK_LABELS } from "$lib/api/guildStats";
-  import Button from "$lib/design-system/components/Button.svelte";
-  import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
-  import ConfirmDialog from "$lib/design-system/components/forms/ConfirmDialog.svelte";
-  import Field from "$lib/design-system/components/forms/Field.svelte";
-  import FormSection from "$lib/design-system/components/forms/FormSection.svelte";
-  import FormStatus from "$lib/design-system/components/forms/FormStatus.svelte";
-  import InstantField from "$lib/design-system/components/forms/InstantField.svelte";
-  import Select from "$lib/design-system/components/forms/Select.svelte";
-  import TextArea from "$lib/design-system/components/forms/TextArea.svelte";
-  import TextInput from "$lib/design-system/components/forms/TextInput.svelte";
-  import Toggle from "$lib/design-system/components/forms/Toggle.svelte";
-  import EmojiPicker from "$lib/emoji/EmojiPicker.svelte";
-  import EventSky from "$lib/events/components/EventSky.svelte";
-  import { themeVars } from "$lib/events/theme";
-  import type { PostFormContext } from "$lib/server/postFormContext";
+  import { GUILD_RANKS, GUILD_RANK_LABELS } from "#lib/api/guildStats.js";
+  import Button from "#lib/design-system/components/Button.svelte";
+  import SectionLabel from "#lib/design-system/components/SectionLabel.svelte";
+  import ConfirmDialog from "#lib/design-system/components/forms/ConfirmDialog.svelte";
+  import Field from "#lib/design-system/components/forms/Field.svelte";
+  import FormSection from "#lib/design-system/components/forms/FormSection.svelte";
+  import FormStatus from "#lib/design-system/components/forms/FormStatus.svelte";
+  import InstantField from "#lib/design-system/components/forms/InstantField.svelte";
+  import Select from "#lib/design-system/components/forms/Select.svelte";
+  import TextArea from "#lib/design-system/components/forms/TextArea.svelte";
+  import TextInput from "#lib/design-system/components/forms/TextInput.svelte";
+  import Toggle from "#lib/design-system/components/forms/Toggle.svelte";
+  import EmojiPicker from "#lib/emoji/EmojiPicker.svelte";
+  import EventSky from "#lib/events/components/EventSky.svelte";
+  import { themeVars } from "#lib/events/theme.js";
+  import type { PostFormContext } from "#lib/server/postFormContext.js";
 
   import { POST_BRANCHES, POST_TIER_LABELS, audienceChip, postStatus } from "../audience";
   import PostBody from "../components/PostBody.svelte";

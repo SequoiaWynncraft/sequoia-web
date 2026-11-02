@@ -1,8 +1,8 @@
 import type { PageServerLoad } from "./$types";
 
-import { EXPORT_DATASETS } from "$lib/server/communityExports";
-import { pageAreaAccess } from "$lib/server/manageCapabilities";
-import { KNOWN_RAIDS } from "$lib/site/raids";
+import { EXPORT_DATASETS } from "#lib/server/communityExports.js";
+import { pageAreaAccess } from "#lib/server/manageCapabilities.js";
+import { KNOWN_RAIDS } from "#lib/site/raids.js";
 
 export const prerender = false;
 

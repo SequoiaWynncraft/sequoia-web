@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { homepageServices, pageView } from "$lib/site/nav";
+import { homepageServices, pageView } from "#lib/site/nav.js";
 
 describe("site navigation registry", () => {
   it("builds nested statistics page metadata from one registry", () => {

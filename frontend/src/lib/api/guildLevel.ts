@@ -1,4 +1,4 @@
-import { isRecord } from "$lib/api/guards";
+import { isRecord } from "#lib/api/guards.js";
 
 /** Milliseconds in a day, the unit every gap in the level tracker is expressed in. */
 const DAY_MS = 86_400_000;

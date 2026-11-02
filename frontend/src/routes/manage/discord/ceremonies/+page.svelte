@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { PageData } from "./$types";
-  import AreaGate from "$lib/manage/AreaGate.svelte";
-  import CeremonyManager from "$lib/discord/CeremonyManager.svelte";
+  import AreaGate from "#lib/manage/AreaGate.svelte";
+  import CeremonyManager from "#lib/discord/CeremonyManager.svelte";
   let { data }: { data: PageData } = $props();
 </script>
 

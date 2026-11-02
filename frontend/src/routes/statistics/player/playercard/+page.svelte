@@ -1,17 +1,17 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
-  import StatsHeader from "$lib/components/StatsHeader.svelte";
-  import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
-  import BarList from "$lib/design-system/components/BarList.svelte";
-  import DeferredPanel from "$lib/design-system/components/DeferredPanel.svelte";
-  import ScopeChips from "$lib/design-system/components/ScopeChips.svelte";
-  import DailyBars from "$lib/design-system/components/charts/DailyBars.svelte";
-  import { raidSeriesFor } from "$lib/site/raids";
-  import { tierColor } from "$lib/site/rankColors";
-  import { nmsrFullBodyIso } from "$lib/site/nmsr";
-  import type { PlayerCardResponse } from "$lib/api/playerCard";
-  import type { PlayerSeriesResponse } from "$lib/api/playerSeries";
-  import { insigniaLabel } from "$lib/site/honours";
+  import StatsHeader from "#lib/components/StatsHeader.svelte";
+  import SectionLabel from "#lib/design-system/components/SectionLabel.svelte";
+  import BarList from "#lib/design-system/components/BarList.svelte";
+  import DeferredPanel from "#lib/design-system/components/DeferredPanel.svelte";
+  import ScopeChips from "#lib/design-system/components/ScopeChips.svelte";
+  import DailyBars from "#lib/design-system/components/charts/DailyBars.svelte";
+  import { raidSeriesFor } from "#lib/site/raids.js";
+  import { tierColor } from "#lib/site/rankColors.js";
+  import { nmsrFullBodyIso } from "#lib/site/nmsr.js";
+  import type { PlayerCardResponse } from "#lib/api/playerCard.js";
+  import type { PlayerSeriesResponse } from "#lib/api/playerSeries.js";
+  import { insigniaLabel } from "#lib/site/honours.js";
 
   let { data } = $props();
 
@@ -35,7 +35,7 @@
   function search(event: SubmitEvent) {
     event.preventDefault();
     const name = query.trim();
-    if (name) void goto(`?player=${encodeURIComponent(name)}`, { keepFocus: true });
+    if (name) void goto(`?player=${encodeURIComponent(name)}`, { reset: false });
   }
 
   function raidBars(card: PlayerCardResponse) {

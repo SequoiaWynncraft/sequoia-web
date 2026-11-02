@@ -1,7 +1,7 @@
 <script lang="ts">
   import { tick } from "svelte";
 
-  import TextArea from "$lib/design-system/components/forms/TextArea.svelte";
+  import TextArea from "#lib/design-system/components/forms/TextArea.svelte";
   import { charCount, embedCount } from "./format";
   import type { DiscordContext } from "./types";
 

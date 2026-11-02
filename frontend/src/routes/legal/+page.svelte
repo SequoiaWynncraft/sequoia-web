@@ -1,7 +1,7 @@
 <script lang="ts">
-  import PageScaffold from "$lib/components/PageScaffold.svelte";
-  import PageHeader from "$lib/components/PageHeader.svelte";
-  import { pageView } from "$lib/site/nav";
+  import PageScaffold from "#lib/components/PageScaffold.svelte";
+  import PageHeader from "#lib/components/PageHeader.svelte";
+  import { pageView } from "#lib/site/nav.js";
 
   const CONTACT_EMAIL = "sequoia.branchmasters@gmail.com";
   const page = pageView("/legal");

@@ -1,5 +1,5 @@
-import { isoDay } from "$lib/events/format";
-import type { EventGoal } from "$lib/events/types";
+import { isoDay } from "#lib/events/format.js";
+import type { EventGoal } from "#lib/events/types.js";
 
 import { loadEventRaidCounts, sumCounts } from "./eventActivity";
 import { getMemberProgress } from "./memberProgress";

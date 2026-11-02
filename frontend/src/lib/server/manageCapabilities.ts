@@ -1,8 +1,8 @@
-import { createBagshopClient } from "$lib/api/bagshop";
-import { requestDiscord } from "$lib/api/discordManagement";
-import { MANAGE_AREAS, accessibleAreas } from "$lib/manage/registry";
-import type { AreaAccess, ManageAreaId, ManageBranchKey, ManageCapabilities } from "$lib/manage/types";
-import type { Viewer } from "$lib/site/viewer";
+import { createBagshopClient } from "#lib/api/bagshop.js";
+import { requestDiscord } from "#lib/api/discordManagement.js";
+import { MANAGE_AREAS, accessibleAreas } from "#lib/manage/registry.js";
+import type { AreaAccess, ManageAreaId, ManageBranchKey, ManageCapabilities } from "#lib/manage/types.js";
+import type { Viewer } from "#lib/site/viewer.js";
 
 import { branchAccessFrom, checkBranchArea, loadBranchSnapshot } from "./branchAccess";
 

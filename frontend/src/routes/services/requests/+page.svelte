@@ -3,19 +3,19 @@
   import { invalidate, invalidateAll } from "$app/navigation";
   import { page } from "$app/state";
 
-  import PageScaffold from "$lib/components/PageScaffold.svelte";
-  import PageHeader from "$lib/components/PageHeader.svelte";
-  import Button from "$lib/design-system/components/Button.svelte";
-  import Card from "$lib/design-system/components/Card.svelte";
-  import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
-  import Field from "$lib/design-system/components/forms/Field.svelte";
-  import FormStatus from "$lib/design-system/components/forms/FormStatus.svelte";
-  import TextArea from "$lib/design-system/components/forms/TextArea.svelte";
+  import PageScaffold from "#lib/components/PageScaffold.svelte";
+  import PageHeader from "#lib/components/PageHeader.svelte";
+  import Button from "#lib/design-system/components/Button.svelte";
+  import Card from "#lib/design-system/components/Card.svelte";
+  import SectionLabel from "#lib/design-system/components/SectionLabel.svelte";
+  import Field from "#lib/design-system/components/forms/Field.svelte";
+  import FormStatus from "#lib/design-system/components/forms/FormStatus.svelte";
+  import TextArea from "#lib/design-system/components/forms/TextArea.svelte";
   import QueuePanel from "./QueuePanel.svelte";
-  import { pageView } from "$lib/site/nav";
-  import { webAuthStartUrl } from "$lib/site/webAuth";
-  import { MAX_TOME_REASON_LENGTH, queueStanding, requestedAgoLabel } from "$lib/rewardQueue";
-  import type { RewardQueueEligibility, RewardRequestType } from "$lib/server/rewardQueue";
+  import { pageView } from "#lib/site/nav.js";
+  import { webAuthStartUrl } from "#lib/site/webAuth.js";
+  import { MAX_TOME_REASON_LENGTH, queueStanding, requestedAgoLabel } from "#lib/rewardQueue.js";
+  import type { RewardQueueEligibility, RewardRequestType } from "#lib/server/rewardQueue.js";
   import type { PageData, ActionData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();

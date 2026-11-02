@@ -1,4 +1,4 @@
-import { NMSR_BASE_URL } from "$lib/config/public";
+import { NMSR_BASE_URL } from "#lib/config/public.js";
 
 /** Self-hosted NMSR skin renderer (github.com/NickAcPT/nmsr-rs). */
 function base(): string {

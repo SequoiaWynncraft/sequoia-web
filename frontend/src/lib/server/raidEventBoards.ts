@@ -1,12 +1,12 @@
-import type { GuildMemberStats } from "$lib/api/guildStats";
-import type { GuildEvent, TrackerKind } from "$lib/events/types";
-import type { RaffleEntrant } from "$lib/events/raffle";
-import type { BadgeTier } from "$lib/site/honours";
-import { sequoiaBackendInternalHeaders, sequoiaBackendOrigin } from "$lib/server/sequoiaBackend";
+import type { GuildMemberStats } from "#lib/api/guildStats.js";
+import type { GuildEvent, TrackerKind } from "#lib/events/types.js";
+import type { RaffleEntrant } from "#lib/events/raffle.js";
+import type { BadgeTier } from "#lib/site/honours.js";
+import { sequoiaBackendInternalHeaders, sequoiaBackendOrigin } from "#lib/server/sequoiaBackend.js";
 import {
   sequoiaWebBackendInternalHeaders,
   sequoiaWebBackendUrl,
-} from "$lib/server/sequoiaWebBackend";
+} from "#lib/server/sequoiaWebBackend.js";
 
 export interface RaidEvent {
   id: string;

@@ -1,10 +1,10 @@
 <script lang="ts">
   import { page } from "$app/state";
   import Icon from "./Icon.svelte";
-  import { DEFAULT_HIDDEN_NAV, visibleSections } from "$lib/site/navPreferences";
-  import { nmsrFace } from "$lib/site/nmsr";
-  import { webAuthLogoutUrl, webAuthStartUrl } from "$lib/site/webAuth";
-  import type { Viewer } from "$lib/site/viewer";
+  import { DEFAULT_HIDDEN_NAV, visibleSections } from "#lib/site/navPreferences.js";
+  import { nmsrFace } from "#lib/site/nmsr.js";
+  import { webAuthLogoutUrl, webAuthStartUrl } from "#lib/site/webAuth.js";
+  import type { Viewer } from "#lib/site/viewer.js";
 
   const DISCORD = "https://discord.gg/seq";
   const MAP = "https://map.seqwawa.com";

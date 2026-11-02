@@ -1,7 +1,7 @@
 import type { PageServerLoad } from "./$types";
 
-import { getGuildStats } from "$lib/server/guildStats";
-import { getHeldTerritories } from "$lib/server/territories";
+import { getGuildStats } from "#lib/server/guildStats.js";
+import { getHeldTerritories } from "#lib/server/territories.js";
 
 export const prerender = false;
 
