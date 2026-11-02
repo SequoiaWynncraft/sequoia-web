@@ -1,6 +1,6 @@
 import type { Client, Row } from "@libsql/client";
 
-import type { StageEntrant, StageRoll } from "$lib/events/stageProtocol";
+import type { StageEntrant, StageRoll } from "#lib/events/stageProtocol.js";
 
 import { database } from "./db";
 

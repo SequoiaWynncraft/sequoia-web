@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { requestDiscord } from "./discordManagement";
 import { requestWelcomePreview, type WelcomePreviewRequest } from "./welcome";
-import { welcomePreviewKey, welcomePreviewScene } from "$lib/discord/welcome";
+import { welcomePreviewKey, welcomePreviewScene } from "#lib/discord/welcome.js";
 
 const input: WelcomePreviewRequest = { variant_id: "quiet", season: "winter", format: "png" };
 

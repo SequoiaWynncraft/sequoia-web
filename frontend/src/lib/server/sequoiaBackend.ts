@@ -1,6 +1,6 @@
-import { env } from "$env/dynamic/private";
+import { SEQUOIA_BACKEND_INTERNAL_TOKEN, SEQUOIA_BACKEND_URL } from "$app/env/private";
 
-import { SEQUOIA_API_BASE_URL } from "$lib/config/public";
+import { SEQUOIA_API_BASE_URL } from "#lib/config/public.js";
 
 /**
  * Authorization headers for sequoia-backend's internal endpoints (mod raid
@@ -8,7 +8,7 @@ import { SEQUOIA_API_BASE_URL } from "$lib/config/public";
  * stay behind a viewer membership check before these headers are used.
  */
 export function sequoiaBackendInternalHeaders(): Record<string, string> | null {
-  const token = env.SEQUOIA_BACKEND_INTERNAL_TOKEN?.trim();
+  const token = SEQUOIA_BACKEND_INTERNAL_TOKEN?.trim();
   return token ? { authorization: `Bearer ${token}` } : null;
 }
 
@@ -21,7 +21,7 @@ export function sequoiaBackendInternalHeaders(): Record<string, string> | null {
  */
 export function sequoiaBackendOrigin(): string | null {
   return (
-    absoluteHttpOrigin(env.SEQUOIA_BACKEND_URL) ?? absoluteHttpOrigin(SEQUOIA_API_BASE_URL)
+    absoluteHttpOrigin(SEQUOIA_BACKEND_URL) ?? absoluteHttpOrigin(SEQUOIA_API_BASE_URL)
   );
 }
 

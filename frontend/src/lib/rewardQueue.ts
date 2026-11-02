@@ -55,7 +55,7 @@ const DAY_MS = 24 * HOUR_MS;
 /**
  * How long ago a request was made, as a compact label like `2d 4h`, `3h`, or `18min`.
  * Numbers stay unspaced from their unit for the same reason `parseDuration`'s labels do
- * (see `$lib/site/duration`): these render through the uppercase pixel display face, where
+ * (see `#lib/site/duration.js`): these render through the uppercase pixel display face, where
  * a space between a number and its unit reads as two separate words.
  *
  * Anything under a minute (including a clock skewed slightly into the future) reads

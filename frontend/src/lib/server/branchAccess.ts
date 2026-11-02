@@ -1,9 +1,9 @@
 import type { Cookies } from "@sveltejs/kit";
 
-import type { RankProfilesResponse } from "$lib/api/client";
-import type { GuildMemberStats, GuildRankName } from "$lib/api/guildStats";
-import type { AreaAccess, ManageBranchKey } from "$lib/manage/types";
-import type { Viewer } from "$lib/site/viewer";
+import type { RankProfilesResponse } from "#lib/api/client.js";
+import type { GuildMemberStats, GuildRankName } from "#lib/api/guildStats.js";
+import type { AreaAccess, ManageBranchKey } from "#lib/manage/types.js";
+import type { Viewer } from "#lib/site/viewer.js";
 
 import { getGuildStats } from "./guildStats";
 import { sameUuid } from "./raidEventBoards";

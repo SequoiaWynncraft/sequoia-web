@@ -1,9 +1,9 @@
 <script lang="ts">
-  import Button from "$lib/design-system/components/Button.svelte";
-  import Field from "$lib/design-system/components/forms/Field.svelte";
-  import Select from "$lib/design-system/components/forms/Select.svelte";
-  import TextInput from "$lib/design-system/components/forms/TextInput.svelte";
-  import Toggle from "$lib/design-system/components/forms/Toggle.svelte";
+  import Button from "#lib/design-system/components/Button.svelte";
+  import Field from "#lib/design-system/components/forms/Field.svelte";
+  import Select from "#lib/design-system/components/forms/Select.svelte";
+  import TextInput from "#lib/design-system/components/forms/TextInput.svelte";
+  import Toggle from "#lib/design-system/components/forms/Toggle.svelte";
   import MarkdownField from "./MarkdownField.svelte";
   import {
     LIMITS,

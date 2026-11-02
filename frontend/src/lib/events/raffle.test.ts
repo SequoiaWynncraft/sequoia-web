@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { drawWinners, type RaffleEntrant } from "$lib/events/raffle";
+import { drawWinners, type RaffleEntrant } from "#lib/events/raffle.js";
 
 const POOL: RaffleEntrant[] = [
   { player_uuid: "a", username: "Alice", tickets: 3 },

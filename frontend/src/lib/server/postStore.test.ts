@@ -1,7 +1,7 @@
 import { createClient } from "@libsql/client";
 import { describe, expect, it } from "vitest";
 
-import type { GuildPost } from "$lib/posts/types";
+import type { GuildPost } from "#lib/posts/types.js";
 
 import { createPostStore } from "./postStore";
 

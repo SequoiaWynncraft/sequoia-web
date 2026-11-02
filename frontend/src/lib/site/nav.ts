@@ -1,4 +1,4 @@
-import type { IconName } from "$lib/icons";
+import type { IconName } from "#lib/icons.js";
 
 export interface NavLeaf {
   label: string;

@@ -1,11 +1,11 @@
 <script lang="ts">
-  import StatsHeader from "$lib/components/StatsHeader.svelte";
-  import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
-  import LedgerTable from "$lib/design-system/components/LedgerTable.svelte";
-  import type { LedgerColumn } from "$lib/design-system/components/ledgerTable";
-  import ScopeChips from "$lib/design-system/components/ScopeChips.svelte";
-  import { DIRECTORY_SORTS, type GlobalDirectoryEntry } from "$lib/api/globalDirectory";
-  import type { GuildSearchHit } from "$lib/server/globalGuild";
+  import StatsHeader from "#lib/components/StatsHeader.svelte";
+  import SectionLabel from "#lib/design-system/components/SectionLabel.svelte";
+  import LedgerTable from "#lib/design-system/components/LedgerTable.svelte";
+  import type { LedgerColumn } from "#lib/design-system/components/ledgerTable.js";
+  import ScopeChips from "#lib/design-system/components/ScopeChips.svelte";
+  import { DIRECTORY_SORTS, type GlobalDirectoryEntry } from "#lib/api/globalDirectory.js";
+  import type { GuildSearchHit } from "#lib/server/globalGuild.js";
 
   let { data } = $props();
 

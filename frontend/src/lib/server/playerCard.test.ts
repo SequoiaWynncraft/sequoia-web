@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { isPlayerCardResponse } from "$lib/api/playerCard";
-import { parsePlayerCard } from "$lib/server/playerCard";
+import { isPlayerCardResponse } from "#lib/api/playerCard.js";
+import { parsePlayerCard } from "#lib/server/playerCard.js";
 
 const playerPayload = {
   username: "GaztheCat",

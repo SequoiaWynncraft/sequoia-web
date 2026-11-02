@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { PageData } from "./$types";
-  import AreaGate from "$lib/manage/AreaGate.svelte";
-  import DiscordEditor from "$lib/discord/DiscordEditor.svelte";
+  import AreaGate from "#lib/manage/AreaGate.svelte";
+  import DiscordEditor from "#lib/discord/DiscordEditor.svelte";
   let { data }: { data: PageData } = $props();
 </script>
 

@@ -1,10 +1,10 @@
 import type { PageServerLoad } from "./$types";
 
-import { hubGroups, type HubEvent } from "$lib/events/helpers";
-import type { EventGoal } from "$lib/events/types";
-import { canSeeEvent, resolveEventAudience } from "$lib/server/eventVisibility";
-import { loadGoalProgress } from "$lib/server/goalProgress";
-import { eventStore } from "$lib/server/eventStore";
+import { hubGroups, type HubEvent } from "#lib/events/helpers.js";
+import type { EventGoal } from "#lib/events/types.js";
+import { canSeeEvent, resolveEventAudience } from "#lib/server/eventVisibility.js";
+import { loadGoalProgress } from "#lib/server/goalProgress.js";
+import { eventStore } from "#lib/server/eventStore.js";
 
 export const prerender = false;
 

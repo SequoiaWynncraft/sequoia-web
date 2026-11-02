@@ -131,14 +131,9 @@ describe("server request diagnostics", () => {
     const event = requestEvent();
     event.locals.requestId = "request-123";
 
-    expect(
-      handleError({
-        error: new Error("upstream failed"),
-        event,
-        status: 500,
-        message: "Internal Error",
-      }),
-    ).toEqual({ message: "Internal Error", requestId: "request-123" });
+    expect(handleError({ kind: "unknown", error: new Error("upstream failed"), event })).toEqual({
+      requestId: "request-123",
+    });
     expect(error).toHaveBeenCalledWith(
       "unexpected frontend error",
       expect.objectContaining({
@@ -155,13 +150,25 @@ describe("server request diagnostics", () => {
     event.locals.requestId = "request-404";
 
     expect(
+      handleError({ kind: "framework", error: { status: 404, message: "Not Found" }, event }),
+    ).toEqual({ requestId: "request-404" });
+    expect(error).not.toHaveBeenCalled();
+  });
+
+  it("keeps an expected error's own status and message", () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const event = requestEvent();
+    event.locals.requestId = "request-502";
+
+    // SvelteKit merges the hook's fields over the caught body, so any
+    // `status` or `message` returned here would replace the app's own.
+    expect(
       handleError({
-        error: new Error("not found"),
+        kind: "app",
+        error: { status: 502, message: "The guild API is unavailable" },
         event,
-        status: 404,
-        message: "Not Found",
       }),
-    ).toEqual({ message: "Not Found", requestId: "request-404" });
+    ).toEqual({ requestId: "request-502" });
     expect(error).not.toHaveBeenCalled();
   });
 });

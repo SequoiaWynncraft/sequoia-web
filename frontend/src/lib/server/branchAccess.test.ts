@@ -9,7 +9,7 @@ import {
 import { getGuildStats } from "./guildStats";
 import { getLinkedRankProfilesResult } from "./rankProfiles";
 import { loadViewer } from "./viewerSession";
-import type { Viewer } from "$lib/site/viewer";
+import type { Viewer } from "#lib/site/viewer.js";
 
 vi.mock("./guildStats", () => ({ getGuildStats: vi.fn() }));
 vi.mock("./rankProfiles", () => ({ getLinkedRankProfilesResult: vi.fn() }));

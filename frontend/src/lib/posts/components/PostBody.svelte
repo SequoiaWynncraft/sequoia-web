@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { emojiUrl } from "$lib/emoji/catalog";
+  import { emojiUrl } from "#lib/emoji/catalog.js";
 
   import { parseMarkdown, type Inline } from "../markdown";
 

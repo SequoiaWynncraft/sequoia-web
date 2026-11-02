@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { themeVars } from "$lib/events/theme";
-  import type { PostView } from "$lib/server/postPages";
+  import { themeVars } from "#lib/events/theme.js";
+  import type { PostView } from "#lib/server/postPages.js";
 
   import { formatPostDate } from "../format";
   import type { PostStatus } from "../types";

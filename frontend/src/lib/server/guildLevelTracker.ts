@@ -1,9 +1,9 @@
-import { dayGap, toLevelUps, type GuildLevelTracker, type GuildLevelUp } from "$lib/api/guildLevel";
-import { isBranchMemberViewer } from "$lib/server/branchGate";
-import { getGuildStats } from "$lib/server/guildStats";
-import { getGuildLevelHistory } from "$lib/server/guildLevelHistory";
-import { getLinkedRankProfilesResult } from "$lib/server/rankProfiles";
-import type { Viewer } from "$lib/site/viewer";
+import { dayGap, toLevelUps, type GuildLevelTracker, type GuildLevelUp } from "#lib/api/guildLevel.js";
+import { isBranchMemberViewer } from "#lib/server/branchGate.js";
+import { getGuildStats } from "#lib/server/guildStats.js";
+import { getGuildLevelHistory } from "#lib/server/guildLevelHistory.js";
+import { getLinkedRankProfilesResult } from "#lib/server/rankProfiles.js";
+import type { Viewer } from "#lib/site/viewer.js";
 
 /**
  * Discord ids pinged by the payout message, reproduced from the reference

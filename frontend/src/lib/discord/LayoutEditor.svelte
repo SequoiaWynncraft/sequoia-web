@@ -1,7 +1,7 @@
 <script lang="ts">
   import LayoutEditor from "./LayoutEditor.svelte";
-  import Field from "$lib/design-system/components/forms/Field.svelte";
-  import Select from "$lib/design-system/components/forms/Select.svelte";
+  import Field from "#lib/design-system/components/forms/Field.svelte";
+  import Select from "#lib/design-system/components/forms/Select.svelte";
   import MarkdownField from "./MarkdownField.svelte";
   import { hexColor, parseHexColor } from "./format";
   import type { DiscordContext, LayoutComponent } from "./types";

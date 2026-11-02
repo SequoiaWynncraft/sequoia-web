@@ -1,8 +1,8 @@
 <script lang="ts">
   import { page } from "$app/state";
-  import Container from "$lib/components/Container.svelte";
-  import Button from "$lib/design-system/components/Button.svelte";
-  import { errorCopy } from "$lib/site/errorCopy";
+  import Container from "#lib/components/Container.svelte";
+  import Button from "#lib/design-system/components/Button.svelte";
+  import { errorCopy } from "#lib/site/errorCopy.js";
 
   const copy = $derived(errorCopy(page.status));
   const requestId = $derived(page.error?.requestId);

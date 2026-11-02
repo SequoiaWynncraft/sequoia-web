@@ -1,15 +1,15 @@
 import type { PageServerLoad } from "./$types";
 
-import { getGuildStatsByName, loadGuildRaidActivity } from "$lib/server/globalGuild";
-import { getGuildStats } from "$lib/server/guildStats";
-import { requestError } from "$lib/server/requestError";
+import { getGuildStatsByName, loadGuildRaidActivity } from "#lib/server/globalGuild.js";
+import { getGuildStats } from "#lib/server/guildStats.js";
+import { requestError } from "#lib/server/requestError.js";
 import {
   getLinkedRankProfiles,
   inGameRankLadder,
   memberRanksByUuid,
   type InGameRankLadder,
   type MemberRankEntry,
-} from "$lib/server/rankProfiles";
+} from "#lib/server/rankProfiles.js";
 
 export const prerender = false;
 

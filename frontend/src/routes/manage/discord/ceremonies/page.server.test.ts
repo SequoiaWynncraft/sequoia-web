@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { load } from "./+page.server";
 
-vi.mock("$env/dynamic/private", () => ({ env: { SEQUOIA_DISCORD_MANAGEMENT_URL: "http://sierra:8082" } }));
+vi.mock("$app/env/private", () => ({ SEQUOIA_DISCORD_MANAGEMENT_URL: "http://sierra:8082" }));
 
 describe("achievement ceremonies protected page", () => {
   it("does not ask Sierra without a session", async () => {

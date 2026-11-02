@@ -5,7 +5,7 @@ import {
   fetchRewardQueueEligibility,
   fetchRewardQueues,
   parseRewardRequestType,
-} from "$lib/server/rewardQueue";
+} from "#lib/server/rewardQueue.js";
 
 afterEach(() => {
   vi.unstubAllGlobals();

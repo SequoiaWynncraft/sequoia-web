@@ -1,8 +1,8 @@
 <script lang="ts">
   import { getContext } from "svelte";
 
-  import Button from "$lib/design-system/components/Button.svelte";
-  import FormStatus from "$lib/design-system/components/forms/FormStatus.svelte";
+  import Button from "#lib/design-system/components/Button.svelte";
+  import FormStatus from "#lib/design-system/components/forms/FormStatus.svelte";
 
   import { EDITOR_KEY, EventDraft } from "./draft.svelte";
   import { EDITOR_SECTIONS, sectionIssues, type SectionId } from "./issues";

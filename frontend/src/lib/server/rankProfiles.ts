@@ -1,15 +1,15 @@
-import { createSequoiaApiClient, type RankProfilesResponse } from "$lib/api/client";
-import { isRecord } from "$lib/server/guards";
-import { GUILD_RANKS, type GuildRankName } from "$lib/api/guildStats";
-import { SEQUOIA_API_BASE_URL } from "$lib/config/public";
-import { createCachedResource, type CachedValue } from "$lib/server/serverCache";
+import { createSequoiaApiClient, type RankProfilesResponse } from "#lib/api/client.js";
+import { isRecord } from "#lib/server/guards.js";
+import { GUILD_RANKS, type GuildRankName } from "#lib/api/guildStats.js";
+import { SEQUOIA_API_BASE_URL } from "#lib/config/public.js";
+import { createCachedResource, type CachedValue } from "#lib/server/serverCache.js";
 import {
   EMPTY_HONOURS,
   type BadgeTier,
   type BadgeType,
   type HonourBadge,
   type PlayerHonours,
-} from "$lib/site/honours";
+} from "#lib/site/honours.js";
 
 const FRESH_MS = 30 * 1000;
 const STALE_MS = 30 * 60 * 1000;

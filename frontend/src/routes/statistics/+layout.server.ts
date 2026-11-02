@@ -1,6 +1,6 @@
 import type { LayoutServerLoad } from "./$types";
 
-import { getGuildStats } from "$lib/server/guildStats";
+import { getGuildStats } from "#lib/server/guildStats.js";
 
 export const prerender = false;
 

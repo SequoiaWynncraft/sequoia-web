@@ -1,12 +1,14 @@
+import { isRedirect } from "@sveltejs/kit";
 import { describe, expect, it, vi } from "vitest";
 
 import {
   getLinkedAccounts,
   parseAccountUuid,
+  redirectToSessionRefresh,
   removeAccount,
   sessionRefreshUrl,
   setPrimaryAccount,
-} from "$lib/server/linkedAccounts";
+} from "#lib/server/linkedAccounts.js";
 
 const MAIN = "0a000000-0000-0000-0000-000000000001";
 const ALT = "f1000000-0000-0000-0000-000000000002";
@@ -106,5 +108,19 @@ describe("linkedAccounts", () => {
     expect(sessionRefreshUrl("https://seqwawa.com/account/settings")).toMatch(
       /\/auth\/web\/accounts\/session\?return_to=https%3A%2F%2Fseqwawa\.com%2Faccount%2Fsettings$/,
     );
+  });
+
+  it("permits the session refresh to leave for the API origin", () => {
+    const returnTo = "https://seqwawa.com/account/settings";
+    let thrown: unknown;
+    try {
+      redirectToSessionRefresh(returnTo);
+    } catch (caught) {
+      thrown = caught;
+    }
+
+    expect(isRedirect(thrown)).toBe(true);
+    expect(thrown).toMatchObject({ status: 303, location: sessionRefreshUrl(returnTo) });
+    expect(sessionRefreshUrl(returnTo)).toMatch(/^https?:\/\//);
   });
 });

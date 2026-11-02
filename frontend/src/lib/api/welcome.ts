@@ -1,6 +1,6 @@
 import type { ApiResult } from "./client";
 import { isRecord } from "./guards";
-import type { WelcomeFont, WelcomeMessage, WelcomePreviewEffect, WelcomeSeason } from "$lib/discord/welcome";
+import type { WelcomeFont, WelcomeMessage, WelcomePreviewEffect, WelcomeSeason } from "#lib/discord/welcome.js";
 
 export interface WelcomePreviewRequest {
   variant_id: string;

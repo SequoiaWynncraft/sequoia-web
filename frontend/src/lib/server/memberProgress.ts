@@ -1,6 +1,6 @@
-import { isMemberProgressResponse, type MemberProgressResponse } from "$lib/api/memberProgress";
-import { SEQUOIA_API_BASE_URL } from "$lib/config/public";
-import { createCachedResource, type CachedResource, type CachedValue } from "$lib/server/serverCache";
+import { isMemberProgressResponse, type MemberProgressResponse } from "#lib/api/memberProgress.js";
+import { SEQUOIA_API_BASE_URL } from "#lib/config/public.js";
+import { createCachedResource, type CachedResource, type CachedValue } from "#lib/server/serverCache.js";
 
 const FRESH_MS = 5 * 60 * 1000;
 const STALE_MS = 60 * 60 * 1000;

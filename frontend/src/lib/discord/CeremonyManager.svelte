@@ -1,17 +1,17 @@
 <script lang="ts">
   import { onMount, tick, untrack } from "svelte";
   import { beforeNavigate } from "$app/navigation";
-  import { requestDiscord } from "$lib/api/discordManagement";
-  import { requestCeremonyPreview } from "$lib/api/ceremony";
-  import Button from "$lib/design-system/components/Button.svelte";
-  import Field from "$lib/design-system/components/forms/Field.svelte";
-  import FormStatus from "$lib/design-system/components/forms/FormStatus.svelte";
-  import TextInput from "$lib/design-system/components/forms/TextInput.svelte";
-  import NumberInput from "$lib/design-system/components/forms/NumberInput.svelte";
-  import Select from "$lib/design-system/components/forms/Select.svelte";
-  import Toggle from "$lib/design-system/components/forms/Toggle.svelte";
-  import ConfirmDialog from "$lib/design-system/components/forms/ConfirmDialog.svelte";
-  import ManageHeader from "$lib/manage/ManageHeader.svelte";
+  import { requestDiscord } from "#lib/api/discordManagement.js";
+  import { requestCeremonyPreview } from "#lib/api/ceremony.js";
+  import Button from "#lib/design-system/components/Button.svelte";
+  import Field from "#lib/design-system/components/forms/Field.svelte";
+  import FormStatus from "#lib/design-system/components/forms/FormStatus.svelte";
+  import TextInput from "#lib/design-system/components/forms/TextInput.svelte";
+  import NumberInput from "#lib/design-system/components/forms/NumberInput.svelte";
+  import Select from "#lib/design-system/components/forms/Select.svelte";
+  import Toggle from "#lib/design-system/components/forms/Toggle.svelte";
+  import ConfirmDialog from "#lib/design-system/components/forms/ConfirmDialog.svelte";
+  import ManageHeader from "#lib/manage/ManageHeader.svelte";
   import {
     CEREMONY_ALL_RAIDS, CEREMONY_BADGE_TITLE_MAX, CEREMONY_LOOP_MS, CEREMONY_RAIDS, CEREMONY_SCENES, CEREMONY_TIERS,
     ceremonyAchievementBody, ceremonyAchievementDescription, ceremonyAchievementIssue, ceremonyCatalogRows, ceremonyCategories, ceremonyChance,

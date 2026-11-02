@@ -1,8 +1,8 @@
 import { fail, redirect, type RequestEvent } from "@sveltejs/kit";
 
-import type { GuildPost } from "$lib/posts/types";
-import { parseGuildPost } from "$lib/posts/validate";
-import type { Viewer } from "$lib/site/viewer";
+import type { GuildPost } from "#lib/posts/types.js";
+import { parseGuildPost } from "#lib/posts/validate.js";
+import type { Viewer } from "#lib/site/viewer.js";
 
 import { recordAudit } from "./auditLog";
 import { requireBranchArea } from "./branchAccess";

@@ -1,4 +1,4 @@
-import { isRecord } from "$lib/api/guards";
+import { isRecord } from "#lib/api/guards.js";
 
 export interface HeldTerritory {
   name: string;

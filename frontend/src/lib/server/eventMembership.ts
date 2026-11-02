@@ -1,5 +1,5 @@
-import type { GuildMemberStats } from "$lib/api/guildStats";
-import type { Viewer } from "$lib/site/viewer";
+import type { GuildMemberStats } from "#lib/api/guildStats.js";
+import type { Viewer } from "#lib/site/viewer.js";
 
 import { getGuildStats } from "./guildStats";
 import { sameUuid } from "./raidEventBoards";

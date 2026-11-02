@@ -1,8 +1,8 @@
 <script lang="ts">
-  import PlayerName from "$lib/design-system/components/PlayerName.svelte";
+  import PlayerName from "#lib/design-system/components/PlayerName.svelte";
   import { getContext } from "svelte";
 
-  import type { RafflePreviewResponse } from "$lib/events/rafflePreview";
+  import type { RafflePreviewResponse } from "#lib/events/rafflePreview.js";
   
   import { EDITOR_KEY, EventDraft } from "../draft.svelte";
 

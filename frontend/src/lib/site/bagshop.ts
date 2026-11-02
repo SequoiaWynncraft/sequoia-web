@@ -1,5 +1,5 @@
-import { splitInventoryKey, type InventoryItem, type Order, type OrderType } from "$lib/api/bagshop";
-import type { CurrencyUnit } from "$lib/site/currency";
+import { splitInventoryKey, type InventoryItem, type Order, type OrderType } from "#lib/api/bagshop.js";
+import type { CurrencyUnit } from "#lib/site/currency.js";
 
 export const EB_PER_LE = 64;
 

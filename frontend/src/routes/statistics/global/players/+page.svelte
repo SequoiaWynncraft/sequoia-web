@@ -1,17 +1,17 @@
 <script lang="ts">
-  import StatsHeader from "$lib/components/StatsHeader.svelte";
-  import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
-  import LedgerTable from "$lib/design-system/components/LedgerTable.svelte";
-  import type { LedgerColumn } from "$lib/design-system/components/ledgerTable";
-  import ScopeChips from "$lib/design-system/components/ScopeChips.svelte";
-  import Podium from "$lib/design-system/components/Podium.svelte";
+  import StatsHeader from "#lib/components/StatsHeader.svelte";
+  import SectionLabel from "#lib/design-system/components/SectionLabel.svelte";
+  import LedgerTable from "#lib/design-system/components/LedgerTable.svelte";
+  import type { LedgerColumn } from "#lib/design-system/components/ledgerTable.js";
+  import ScopeChips from "#lib/design-system/components/ScopeChips.svelte";
+  import Podium from "#lib/design-system/components/Podium.svelte";
   import {
     PLAYER_METRICS,
     PLAYER_WINDOWS,
     type GlobalPlayerRankingEntry,
-  } from "$lib/api/globalPlayers";
-  import type { PlayerSearchHit } from "$lib/server/globalPlayer";
-  import { nmsrFace } from "$lib/site/nmsr";
+  } from "#lib/api/globalPlayers.js";
+  import type { PlayerSearchHit } from "#lib/server/globalPlayer.js";
+  import { nmsrFace } from "#lib/site/nmsr.js";
 
   let { data } = $props();
 

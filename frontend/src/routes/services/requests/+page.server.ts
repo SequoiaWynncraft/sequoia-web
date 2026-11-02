@@ -1,9 +1,9 @@
 import { fail, type Actions } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
 
-import { getGuildStats } from "$lib/server/guildStats";
-import { sameUuid } from "$lib/server/raidEventBoards";
-import { loadViewer } from "$lib/server/viewerSession";
+import { getGuildStats } from "#lib/server/guildStats.js";
+import { sameUuid } from "#lib/server/raidEventBoards.js";
+import { loadViewer } from "#lib/server/viewerSession.js";
 import {
   createRewardQueueRequest,
   fetchRewardQueueEligibility,
@@ -12,8 +12,8 @@ import {
   type RewardQueueSourceEntry,
   type RewardQueuesResult,
   type RewardRequestType,
-} from "$lib/server/rewardQueue";
-import { MAX_TOME_REASON_LENGTH, type RewardQueueEntry } from "$lib/rewardQueue";
+} from "#lib/server/rewardQueue.js";
+import { MAX_TOME_REASON_LENGTH, type RewardQueueEntry } from "#lib/rewardQueue.js";
 
 export const prerender = false;
 

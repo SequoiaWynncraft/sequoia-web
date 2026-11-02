@@ -1,6 +1,6 @@
-import { isPlayerSeriesResponse, type PlayerSeriesResponse } from "$lib/api/playerSeries";
-import { SEQUOIA_API_BASE_URL } from "$lib/config/public";
-import { createCachedResource, type CachedResource } from "$lib/server/serverCache";
+import { isPlayerSeriesResponse, type PlayerSeriesResponse } from "#lib/api/playerSeries.js";
+import { SEQUOIA_API_BASE_URL } from "#lib/config/public.js";
+import { createCachedResource, type CachedResource } from "#lib/server/serverCache.js";
 
 const FRESH_MS = 5 * 60 * 1000;
 const STALE_MS = 60 * 60 * 1000;

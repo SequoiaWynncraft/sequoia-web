@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { GuildLevelHistoryResponse } from "$lib/api/guildLevel";
+import type { GuildLevelHistoryResponse } from "#lib/api/guildLevel.js";
 
 const VIEWER_UUID = "11111111-1111-1111-1111-111111111111";
 
@@ -48,7 +48,7 @@ const H = vi.hoisted(() => ({
   historyReads: 0,
 }));
 
-vi.mock("$lib/server/guildStats", () => ({
+vi.mock("#lib/server/guildStats.js", () => ({
   getGuildStats: async () => ({
     stale: H.rosterStale,
     generated_at: H.generatedAt,
@@ -57,7 +57,7 @@ vi.mock("$lib/server/guildStats", () => ({
   }),
 }));
 
-vi.mock("$lib/server/rankProfiles", () => ({
+vi.mock("#lib/server/rankProfiles.js", () => ({
   getLinkedRankProfiles: async () => H.profiles,
   getLinkedRankProfilesResult: async () => ({
     data: H.profiles,
@@ -68,7 +68,7 @@ vi.mock("$lib/server/rankProfiles", () => ({
 
 // Stubbing the fetcher keeps the tracker's tests about the tracker: the request,
 // its caching and its failure modes are covered in guildLevelHistory.test.ts.
-vi.mock("$lib/server/guildLevelHistory", () => ({
+vi.mock("#lib/server/guildLevelHistory.js", () => ({
   getGuildLevelHistory: async () => {
     H.historyReads += 1;
     return H.history;
@@ -76,7 +76,7 @@ vi.mock("$lib/server/guildLevelHistory", () => ({
 }));
 
 // Imported after the mocks so the module binds the stubbed reads.
-const { buildPayoutText, loadGuildLevelTracker } = await import("$lib/server/guildLevelTracker");
+const { buildPayoutText, loadGuildLevelTracker } = await import("#lib/server/guildLevelTracker.js");
 
 /** A profile granting the viewer a branch role at the given level. */
 function profileWith(branch: string, level: string) {

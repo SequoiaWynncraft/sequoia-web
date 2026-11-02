@@ -1,5 +1,5 @@
 import { page } from "$app/state";
-import { SEQUOIA_API_BASE_URL } from "$lib/config/public";
+import { SEQUOIA_API_BASE_URL } from "#lib/config/public.js";
 
 // Empty base means same-origin mode - the auth links stay relative.
 const AUTH_BASE = `${SEQUOIA_API_BASE_URL}/auth/web`;

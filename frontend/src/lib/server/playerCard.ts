@@ -1,8 +1,8 @@
-import { type PlayerCardResponse, type PlayerCharacterSummary } from "$lib/api/playerCard";
-import { getWynncraftGuild } from "$lib/server/wynncraftGuild";
-import { createCachedResource, type CachedResource } from "$lib/server/serverCache";
-import { fetchWynncraftJson } from "$lib/server/wynncraft";
-import { isRecord, nonNegativeInteger, nonNegativeNumber, booleanValue, stringValue } from "$lib/server/guards";
+import { type PlayerCardResponse, type PlayerCharacterSummary } from "#lib/api/playerCard.js";
+import { getWynncraftGuild } from "#lib/server/wynncraftGuild.js";
+import { createCachedResource, type CachedResource } from "#lib/server/serverCache.js";
+import { fetchWynncraftJson } from "#lib/server/wynncraft.js";
+import { isRecord, nonNegativeInteger, nonNegativeNumber, booleanValue, stringValue } from "#lib/server/guards.js";
 
 const FRESH_MS = 2 * 60 * 1000;
 const STALE_MS = 60 * 60 * 1000;

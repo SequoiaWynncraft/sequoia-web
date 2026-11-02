@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { discordPath } from "$lib/icons";
+  import { discordPath } from "#lib/icons.js";
   let { size = 16 }: { size?: number } = $props();
 </script>
 
