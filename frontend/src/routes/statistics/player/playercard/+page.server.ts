@@ -3,7 +3,7 @@ import { redirect } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
 
 import type { PlayerCardResponse } from "#lib/api/playerCard.js";
-import type { PlayerSeriesResponse } from "#lib/api/playerSeries.js";
+import { SERIES_DAYS, windowStart, type PlayerSeriesResponse } from "#lib/api/playerSeries.js";
 import { getGuildStats } from "#lib/server/guildStats.js";
 import { getPlayerCard, PlayerNotFoundError } from "#lib/server/playerCard.js";
 import { getPlayerSeries } from "#lib/server/playerSeries.js";
@@ -21,8 +21,6 @@ export interface PlayerCardResult {
   series: Promise<PlayerSeriesResponse | null>;
 }
 
-/** Matches the backend's 400-day span clamp. */
-const SERIES_DAYS = 399;
 
 export const load: PageServerLoad = async ({ fetch, url, parent }) => {
   const player = url.searchParams.get("player")?.trim() ?? "";
@@ -66,7 +64,7 @@ async function loadCard(fetchImpl: typeof fetch, player: string): Promise<Player
     ]).catch(() => EMPTY_HONOURS);
     // The series streams after the card: one full-history fetch, ranges slice client-side.
     const to = new Date().toISOString().slice(0, 10);
-    const from = new Date(Date.now() - SERIES_DAYS * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const from = windowStart(to, SERIES_DAYS);
     const series = getPlayerSeries(fetchImpl, card.uuid, from, to).catch(() => null);
     return { ok: true, card, honours, error: null, series };
   } catch (error) {

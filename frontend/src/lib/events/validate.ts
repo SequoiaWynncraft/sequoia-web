@@ -1,5 +1,6 @@
 import { GUILD_RANKS, type GuildRankName } from "#lib/api/guildStats.js";
 
+import { parseInstant } from "./instant";
 import { RAID_ICONS } from "./raidIcons";
 import { isPrizeIconFile } from "./prizeIcons";
 import type {
@@ -25,7 +26,6 @@ export type ParseResult = { ok: true; event: GuildEvent } | { ok: false; error: 
 const RESERVED_SLUGS = new Set(["manage", "new", "audit"]);
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
-const ZONED_PATTERN = /(?:z|[+-]\d\d:\d\d)$/i;
 
 /**
  * Strict parser for event data crossing a trust boundary: management form
@@ -58,8 +58,8 @@ function parseEvent(value: unknown): GuildEvent {
     theme: parseTheme(raw.theme),
   };
 
-  const startsAt = present(raw.startsAt) ? parseInstant(raw.startsAt, "start date") : undefined;
-  const endsAt = present(raw.endsAt) ? parseInstant(raw.endsAt, "end date") : undefined;
+  const startsAt = present(raw.startsAt) ? requireInstant(raw.startsAt, "start date") : undefined;
+  const endsAt = present(raw.endsAt) ? requireInstant(raw.endsAt, "end date") : undefined;
   if ((startsAt === undefined) !== (endsAt === undefined)) fail("set both dates, or neither for TBA");
   if (startsAt !== undefined && endsAt !== undefined) {
     if (Date.parse(startsAt) >= Date.parse(endsAt)) fail("the event must end after it starts");
@@ -266,11 +266,11 @@ function parseIcon(value: unknown): EventIcon {
   return { file, placements };
 }
 
-function parseInstant(value: unknown, label: string): string {
-  if (typeof value !== "string" || !ZONED_PATTERN.test(value.trim()) || Number.isNaN(Date.parse(value))) {
-    fail(`${label} must be an ISO instant with a timezone`);
-  }
-  return new Date(Date.parse(value)).toISOString();
+function requireInstant(value: unknown, label: string): string {
+  return (
+    parseInstant(value) ??
+    fail(`${label} must be a real calendar date and time with a timezone, like 2026-07-05T18:00:00Z`)
+  );
 }
 
 const MAX_GOALS = 5;
@@ -530,7 +530,7 @@ function parseRaffle(value: unknown, label: string): EventRaffle {
       raffle.winners = winners;
     }
   }
-  if (present(raw.drawnAt)) raffle.drawnAt = parseInstant(raw.drawnAt, `${label} draw time`);
+  if (present(raw.drawnAt)) raffle.drawnAt = requireInstant(raw.drawnAt, `${label} draw time`);
   const requiresMilestone = optionalText(raw.requiresMilestone, `${label} milestone gate`, 64);
   // The referenced id is cross-checked against personalMilestones in parseEvent.
   if (requiresMilestone) raffle.requiresMilestone = requiresMilestone;
@@ -753,8 +753,8 @@ function parseRaffleWindow(
   allowEqual = false,
 ): NonNullable<EventRaffle["window"]> {
   const raw = asRecord(value, `${label} window`);
-  const from = parseInstant(raw.from, `${label} window start`);
-  const to = parseInstant(raw.to, `${label} window end`);
+  const from = requireInstant(raw.from, `${label} window start`);
+  const to = requireInstant(raw.to, `${label} window end`);
   const invalidOrder = allowEqual ? Date.parse(from) > Date.parse(to) : Date.parse(from) >= Date.parse(to);
   if (invalidOrder) {
     fail(`${label} window must end after it starts`);
