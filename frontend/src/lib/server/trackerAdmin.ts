@@ -1,6 +1,7 @@
 import { fail } from "@sveltejs/kit";
 import type { Cookies } from "@sveltejs/kit";
 
+import { parseInstant } from "#lib/events/instant.js";
 import type { TrackerKind } from "#lib/events/types.js";
 import type { Viewer } from "#lib/site/viewer.js";
 
@@ -9,8 +10,6 @@ import { trackerOption, type TrackerOption } from "./eventFormContext";
 import { requireEventManager } from "./eventManagers";
 import type { RaidEvent } from "./raidEventBoards";
 import { sequoiaWebBackendInternalHeaders, sequoiaWebBackendUrl } from "./sequoiaWebBackend";
-
-const ZONED_PATTERN = /(?:z|[+-]\d\d:\d\d)$/i;
 
 interface TrackerRequest {
   id?: string;
@@ -116,8 +115,8 @@ function parseTrackerRequest(raw: FormDataEntryValue | null): TrackerRequest | s
   const record = json as Record<string, unknown>;
   const name = typeof record.name === "string" ? record.name.trim() : "";
   if (!name || name.length > 80) return "the tracker needs a name";
-  const startsAt = instant(record.startsAt);
-  const endsAt = instant(record.endsAt);
+  const startsAt = parseInstant(record.startsAt);
+  const endsAt = parseInstant(record.endsAt);
   if (!startsAt || !endsAt) return "the tracker needs a start and an end";
   if (Date.parse(startsAt) >= Date.parse(endsAt)) return "the tracker must end after it starts";
   if (record.tracking !== "api" && record.tracking !== "mod" && record.tracking !== "wars") {
@@ -131,13 +130,6 @@ function parseTrackerRequest(raw: FormDataEntryValue | null): TrackerRequest | s
     request.raid = raid;
   }
   return request;
-}
-
-function instant(value: unknown): string | null {
-  if (typeof value !== "string" || !ZONED_PATTERN.test(value.trim()) || Number.isNaN(Date.parse(value))) {
-    return null;
-  }
-  return new Date(Date.parse(value)).toISOString();
 }
 
 function trackerSlug(name: string): string {
