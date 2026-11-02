@@ -54,18 +54,26 @@ stats keeps their recorded history; there is no per-player erasure yet.
 | Data | Kept |
 |---|---|
 | Raid deltas (event scores) | Forever; never pruned |
-| Counter samples | All for `TRACKER_COUNTER_COMPACTION_DAYS` (7); after that, only the samples where a member's counters, username or rank change, plus the first and last sample of each run |
+| Counter samples | All for `TRACKER_COUNTER_COMPACTION_DAYS` (7). After that, at most 3 per member, guild and UTC day: the day's first and last sample and the one with the most guild raids. A run of identical samples across days keeps only its first and last |
 | Snapshots | While a counter, delta or anomaly refers to them, and always each guild's latest |
 | Anomalies | `TRACKER_ANOMALY_DAYS` (90) |
 | Raw responses | `TRACKER_RAW_PAYLOAD_DAYS` (0) |
 | Presence from older versions | Cleared on the first applied pass |
 
-At the default 130 s interval a guild is polled about 665 times a day, and
-each poll writes one counter row per member. With the policy applied, the last
-7 days hold about 4,650 snapshots and 4,650 counter rows per member. Older
-history grows with raid activity rather than with polling: a member who
-doesn't raid adds no rows. These are row counts from the schema, not
-measurements of the production database.
+**Size targets.** At the default 130 s interval a guild is polled about 665
+times a day, and each poll writes one counter row per member. With the policy
+applied:
+
+- The last 7 days hold about 4,650 snapshots, and 4,650 counter rows per member.
+- Older counter history holds at most 3 rows per member per day, usually 2,
+  so at most about 1,100 a year. A member whose counters don't change adds
+  none.
+- Older snapshots are kept only while something refers to them. A delta
+  refers to the snapshots on either side of it, so the number kept is bounded
+  by the polls that recorded a raid. Those rows hold no raw payload.
+
+These are row counts from the schema, not measurements of the production
+database.
 
 ### What pruning cannot change
 
@@ -73,10 +81,11 @@ Event leaderboards are sums of deltas, so pruning leaves every finished and
 running event's scores unchanged. The next poll still diffs against the
 guild's latest snapshot, which keeps all its counters. The dropout high-water
 mark (the highest counter a member has had in the guild) is preserved,
-because the first sample of each run is kept.
+because every day keeps its highest sample.
 
-Member raid history beyond the compaction window keeps the same steps with
-fewer points. A deleted snapshot's payload hash no longer deduplicates an
+Member raid history beyond the compaction window keeps each day's opening,
+closing and peak values, with the username and rank of the opening and
+closing samples. Changes within a day are no longer visible. A deleted snapshot's payload hash no longer deduplicates an
 identical response; the next poll diffs against the latest snapshot either way.
 
 ### Activation
@@ -86,8 +95,10 @@ guild's ingest lock, so polls wait for it rather than racing it.
 
 1. **Dry run.** Run `sequoia-web-backend retention` in the backend container.
    It prints a JSON count of what would be cleared or deleted, then rolls back.
+   It never migrates. If the schema isn't exactly this version's, it refuses
+   and changes nothing; start this backend version once to migrate it.
 2. **Apply once.** Run `sequoia-web-backend retention --apply` once you've
-   reviewed the counts.
+   reviewed the counts. Like starting the server, this migrates first.
 3. **Schedule.** Set `TRACKER_RETENTION=apply` to run daily, starting 10
    minutes after startup. `dry-run` logs the counts daily instead.
 

@@ -16,15 +16,10 @@ async fn main() -> anyhow::Result<()> {
     let retention_command = retention_command(std::env::args().skip(1))?;
 
     let config = std::sync::Arc::new(config::Config::from_env()?);
-    let db = std::sync::Arc::new(db::Database::connect(&config.database_url).await?);
-
     if let Some(apply) = retention_command {
-        let report = db
-            .enforce_retention(&config.retention, time::OffsetDateTime::now_utc(), apply)
-            .await?;
-        println!("{}", serde_json::to_string_pretty(&report)?);
-        return Ok(());
+        return run_retention(&config, apply).await;
     }
+    let db = std::sync::Arc::new(db::Database::connect(&config.database_url).await?);
 
     if config.retention.stores_raw_payloads()
         && config.retention_mode != retention::RetentionMode::Apply
@@ -84,6 +79,21 @@ fn retention_command(mut args: impl Iterator<Item = String>) -> anyhow::Result<O
         ("retention", Some("--apply"), None) => Ok(Some(true)),
         _ => anyhow::bail!("usage: sequoia-web-backend [retention [--apply]]"),
     }
+}
+
+/// Prints what one retention pass removes. A preview changes nothing, so it
+/// doesn't migrate either; applying migrates first, like starting the server.
+async fn run_retention(config: &config::Config, apply: bool) -> anyhow::Result<()> {
+    let db = if apply {
+        db::Database::connect(&config.database_url).await?
+    } else {
+        db::Database::connect_current(&config.database_url).await?
+    };
+    let report = db
+        .enforce_retention(&config.retention, time::OffsetDateTime::now_utc(), apply)
+        .await?;
+    println!("{}", serde_json::to_string_pretty(&report)?);
+    Ok(())
 }
 
 fn init_tracing() -> anyhow::Result<()> {

@@ -1,6 +1,7 @@
-use anyhow::Context;
+use anyhow::{Context, bail};
 use sqlx::{
     PgPool, Row,
+    migrate::Migrator,
     postgres::{PgConnectOptions, PgPoolOptions},
 };
 use time::OffsetDateTime;
@@ -12,6 +13,8 @@ use crate::{
         GuildSnapshot, MemberRaidCounter, MemberRaidHistoryPoint, RaidEvent, RaidLeaderboardEntry,
     },
 };
+
+static MIGRATOR: Migrator = sqlx::migrate!("./migrations");
 
 /// Advisory lock class for a guild's ingest; the second key is the prefix's hash.
 /// Retention takes the same locks, so it never races an ingest.
@@ -47,26 +50,73 @@ pub struct StoredAnomaly {
 }
 
 impl Database {
+    /// Connects and applies any pending migrations.
     pub async fn connect(database_url: &str) -> anyhow::Result<Self> {
-        let options = database_url
-            .parse::<PgConnectOptions>()
-            .context("invalid DATABASE_URL")?;
-        Self::connect_with(options).await
+        Self::connect_with(parse_database_url(database_url)?).await
     }
 
     pub async fn connect_with(options: PgConnectOptions) -> anyhow::Result<Self> {
+        let db = Self::connect_unmigrated(options).await?;
+        MIGRATOR
+            .run(&db.pool)
+            .await
+            .context("failed to run tracker migrations")?;
+        Ok(db)
+    }
+
+    /// Connects without migrating, for previews that must not change the
+    /// database. Refuses unless the schema is exactly what this build migrates to.
+    pub async fn connect_current(database_url: &str) -> anyhow::Result<Self> {
+        let db = Self::connect_unmigrated(parse_database_url(database_url)?).await?;
+        db.ensure_current_schema().await?;
+        Ok(db)
+    }
+
+    async fn connect_unmigrated(options: PgConnectOptions) -> anyhow::Result<Self> {
         let pool = PgPoolOptions::new()
             .max_connections(10)
             .connect_with(options)
             .await
             .context("failed to connect to tracker database")?;
-
-        sqlx::migrate!("./migrations")
-            .run(&pool)
-            .await
-            .context("failed to run tracker migrations")?;
-
         Ok(Self { pool })
+    }
+
+    async fn ensure_current_schema(&self) -> anyhow::Result<()> {
+        let tracked: bool =
+            sqlx::query_scalar("SELECT to_regclass('_sqlx_migrations') IS NOT NULL")
+                .fetch_one(&self.pool)
+                .await
+                .context("failed to inspect the tracker schema")?;
+        let applied: Vec<(i64, Vec<u8>, bool)> = if tracked {
+            sqlx::query_as(
+                "SELECT version, checksum, success FROM _sqlx_migrations ORDER BY version",
+            )
+            .fetch_all(&self.pool)
+            .await
+            .context("failed to read applied tracker migrations")?
+        } else {
+            Vec::new()
+        };
+        let expected: Vec<(i64, &[u8])> = MIGRATOR
+            .iter()
+            .filter(|migration| !migration.migration_type.is_down_migration())
+            .map(|migration| (migration.version, migration.checksum.as_ref()))
+            .collect();
+        let current = applied.len() == expected.len()
+            && applied.iter().zip(&expected).all(
+                |((version, checksum, success), (expected_version, expected_checksum))| {
+                    *success && version == expected_version && checksum == expected_checksum
+                },
+            );
+        if !current {
+            let database_at = applied.last().map_or(0, |(version, ..)| *version);
+            let build_at = expected.last().map_or(0, |(version, _)| *version);
+            bail!(
+                "the tracker schema (migration {database_at}) does not match this build (migration {build_at}); \
+                 a preview never migrates, so start this backend version once to migrate, then preview again"
+            );
+        }
+        Ok(())
     }
 
     pub(crate) fn pool(&self) -> &PgPool {
@@ -484,6 +534,12 @@ impl Database {
             })
             .collect()
     }
+}
+
+fn parse_database_url(database_url: &str) -> anyhow::Result<PgConnectOptions> {
+    database_url
+        .parse::<PgConnectOptions>()
+        .context("invalid DATABASE_URL")
 }
 
 /// Records an out-of-order snapshot as an anomaly instead of storing it, so a

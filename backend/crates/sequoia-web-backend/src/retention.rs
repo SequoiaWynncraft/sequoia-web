@@ -27,8 +27,10 @@ pub enum RetentionMode {
 pub struct RetentionPolicy {
     /// Days a raw upstream payload is kept. 0 means raw payloads are not stored.
     pub raw_payload_days: u16,
-    /// Counter samples older than this many days keep only change points:
-    /// a sample identical to both its neighbours is removed.
+    /// Counter samples older than this many days are thinned to at most 3 per
+    /// member, guild and UTC day: the day's first and last sample and the one
+    /// with the most guild raids (the dropout high-water mark). Runs of
+    /// identical samples then keep only their ends.
     pub counter_compaction_days: u16,
     /// Days a tracker anomaly is kept.
     pub anomaly_days: u16,
@@ -98,6 +100,7 @@ pub struct RetentionReport {
     pub applied: bool,
     pub raw_payloads_cleared: u64,
     pub presence_cleared: u64,
+    pub daily_excess_counters_deleted: u64,
     pub redundant_counters_deleted: u64,
     pub anomalies_deleted: u64,
     pub orphan_snapshots_deleted: u64,
@@ -176,10 +179,9 @@ impl Database {
     ///
     /// Finalized results are never touched: deltas are never deleted, and a
     /// snapshot is deleted only when no delta, counter or anomaly refers to
-    /// it. Each guild's latest snapshot keeps all its counters, and a counter
-    /// sample is removed only from the middle of a run of identical samples,
-    /// so the next ingest's baseline and its dropout high-water mark stay the
-    /// same.
+    /// it. Each guild's latest snapshot keeps all its counters, and every day
+    /// keeps its highest counter, so the next ingest's baseline and its
+    /// dropout high-water mark stay the same.
     ///
     /// # Errors
     ///
@@ -246,12 +248,48 @@ impl Database {
             .context("failed to delete expired anomalies")?
             .rows_affected();
 
-        // A sample equal to both neighbours in its member's series is
-        // redundant: history still shows the same steps, the first sample of
-        // every run (which carries its value into the dropout high-water mark)
-        // stays, and so does each series' last sample, which includes every
-        // counter of a guild's latest snapshot. Series are per guild, matching
-        // the ingest's healing.
+        // Series are per guild, matching the ingest's healing. A day's last
+        // sample is also the last of its series once the day is past, so a
+        // guild's latest snapshot keeps its counters.
+        let daily_excess_counters_deleted = sqlx::query(
+            r#"
+            WITH ranked AS (
+                SELECT
+                    counters.id,
+                    ROW_NUMBER() OVER (member_day ORDER BY counters.captured_at, counters.id)
+                        AS from_start,
+                    ROW_NUMBER() OVER (member_day ORDER BY counters.captured_at DESC, counters.id DESC)
+                        AS from_end,
+                    ROW_NUMBER() OVER (
+                        member_day
+                        ORDER BY counters.current_guild_raids DESC NULLS LAST,
+                                 counters.captured_at, counters.id
+                    ) AS by_raids
+                FROM member_raid_counters counters
+                JOIN guild_snapshots snapshot ON snapshot.id = counters.snapshot_id
+                WHERE counters.captured_at < $1
+                WINDOW member_day AS (
+                    PARTITION BY snapshot.guild_uuid, counters.player_uuid,
+                        date_trunc('day', counters.captured_at AT TIME ZONE 'UTC')
+                )
+            )
+            DELETE FROM member_raid_counters counters
+            USING ranked
+            WHERE counters.id = ranked.id
+              AND ranked.from_start > 1
+              AND ranked.from_end > 1
+              AND ranked.by_raids > 1
+            "#,
+        )
+        .bind(cutoffs.counter_compaction)
+        .execute(&mut *tx)
+        .await
+        .context("failed to thin historical member raid counters")?
+        .rows_affected();
+
+        // Of what remains, a sample equal to both neighbours in its member's series is
+        // redundant: history still shows the same steps, and the first sample
+        // of every run, which carries its value into the high-water mark, stays.
         let redundant_counters_deleted = sqlx::query(
             r#"
             WITH series AS (
@@ -314,6 +352,7 @@ impl Database {
             applied: apply,
             raw_payloads_cleared,
             presence_cleared,
+            daily_excess_counters_deleted,
             redundant_counters_deleted,
             anomalies_deleted,
             orphan_snapshots_deleted,
@@ -418,12 +457,10 @@ mod tests {
     /// then backdates what the old schema kept: presence and anomaly times.
     async fn ingest_history(
         db: &Database,
-        now: OffsetDateTime,
-        days: &[(i64, Option<i64>, Option<i64>)],
+        polls: &[(OffsetDateTime, Option<i64>, Option<i64>)],
     ) -> anyhow::Result<()> {
-        for &(days_ago, alice, bob) in days {
-            let members = [(ALICE, alice), (BOB, bob)];
-            db.ingest_snapshot(snapshot(now - Duration::days(days_ago), &members))
+        for &(fetched_at, alice, bob) in polls {
+            db.ingest_snapshot(snapshot(fetched_at, &[(ALICE, alice), (BOB, bob)]))
                 .await?;
         }
         sqlx::query(
@@ -445,6 +482,16 @@ mod tests {
         .execute(db.pool())
         .await?;
         Ok(())
+    }
+
+    /// One poll per day, `days_ago` before `now`.
+    fn daily(
+        now: OffsetDateTime,
+        days: &[(i64, Option<i64>, Option<i64>)],
+    ) -> Vec<(OffsetDateTime, Option<i64>, Option<i64>)> {
+        days.iter()
+            .map(|&(days_ago, alice, bob)| (now - Duration::days(days_ago), alice, bob))
+            .collect()
     }
 
     async fn create_event(
@@ -534,7 +581,7 @@ mod tests {
             (2, Some(0), Some(55)),
             (1, Some(0), Some(55)),
         ]);
-        ingest_history(&test.db, now, &days).await?;
+        ingest_history(&test.db, &daily(now, &days)).await?;
         sqlx::query(
             "INSERT INTO tracker_anomalies (anomaly_type, details, created_at) VALUES ('out_of_order_snapshot', '{}', $1)",
         )
@@ -634,6 +681,140 @@ mod tests {
         test.remove().await
     }
 
+    /// Per member and UTC day before the full-resolution window: sample count,
+    /// then the first, last and highest guild raid counter.
+    async fn old_days(
+        db: &Database,
+        now: OffsetDateTime,
+    ) -> anyhow::Result<Vec<(Uuid, time::Date, i64, Option<i64>, Option<i64>, Option<i64>)>> {
+        Ok(sqlx::query_as(
+            r#"
+            SELECT
+                player_uuid,
+                (captured_at AT TIME ZONE 'UTC')::date AS day,
+                count(*),
+                (array_agg(current_guild_raids ORDER BY captured_at))[1],
+                (array_agg(current_guild_raids ORDER BY captured_at DESC))[1],
+                max(current_guild_raids)
+            FROM member_raid_counters
+            WHERE captured_at < $1
+            GROUP BY 1, 2
+            ORDER BY 1, 2
+            "#,
+        )
+        .bind(now - Duration::days(7))
+        .fetch_all(db.pool())
+        .await?)
+    }
+
+    #[tokio::test]
+    #[ignore = "needs TEST_DATABASE_URL"]
+    async fn busy_history_keeps_a_bounded_daily_shape() -> anyhow::Result<()> {
+        let test = TestDatabase::create().await?;
+        let now = OffsetDateTime::now_utc();
+        let midnight = now.replace_time(time::Time::MIDNIGHT);
+        // Ten old days of 12 polls, with both members raiding on every poll:
+        // 120 distinct samples each. On the last old day Alice peaks mid-day
+        // and then reads 0, as she does on every recent poll, so her
+        // high-water mark is in a sample that neither opens nor closes a day.
+        let mut polls = Vec::new();
+        let mut raids = 1000;
+        let mut alice_peak = 0;
+        for days_ago in (21..=30).rev() {
+            for poll in 0..12 {
+                raids += 1;
+                let alice = if days_ago == 21 && poll > 6 { 0 } else { raids };
+                alice_peak = alice_peak.max(alice);
+                let at = midnight - Duration::days(days_ago) + Duration::hours(1 + 2 * poll);
+                polls.push((at, Some(alice), Some(2 * raids)));
+            }
+        }
+        polls.extend(
+            (1..=6)
+                .rev()
+                .map(|days_ago| (now - Duration::days(days_ago), Some(0), Some(2 * raids))),
+        );
+        ingest_history(&test.db, &polls).await?;
+
+        let event = create_event(
+            &test.db,
+            "season",
+            now - Duration::days(31),
+            now + Duration::days(5),
+        )
+        .await?;
+        let standings_before = standings(&test.db.raid_event_leaderboard(event).await?);
+        let deltas_before = count(&test.db, "SELECT count(*) FROM member_raid_deltas").await?;
+        let recent = "SELECT count(*) FROM member_raid_counters WHERE captured_at >= now() - interval '7 days'";
+        let recent_before = count(&test.db, recent).await?;
+        let days_before = old_days(&test.db, now).await?;
+        assert_eq!(days_before.len(), 20);
+        assert!(days_before.iter().all(|day| day.2 == 12));
+
+        let report = test
+            .db
+            .enforce_retention(&RetentionPolicy::default(), now, true)
+            .await?;
+        // Each member's ordinary days keep their first and last sample; Alice's
+        // last old day also keeps its peak.
+        assert_eq!(
+            report.daily_excess_counters_deleted,
+            2 * 10 * 12 - (20 * 2 + 1),
+            "{report:?}"
+        );
+
+        let days_after = old_days(&test.db, now).await?;
+        assert_eq!(days_after.len(), days_before.len());
+        for (before, after) in days_before.iter().zip(&days_after) {
+            assert!(after.2 <= 3, "{after:?}");
+            assert_eq!(
+                (before.0, before.1, before.3, before.4, before.5),
+                (after.0, after.1, after.3, after.4, after.5)
+            );
+        }
+        assert_eq!(count(&test.db, recent).await?, recent_before);
+        assert_eq!(
+            count(&test.db, "SELECT count(*) FROM member_raid_deltas").await?,
+            deltas_before
+        );
+        assert_eq!(
+            standings(&test.db.raid_event_leaderboard(event).await?),
+            standings_before
+        );
+
+        // Alice's next real reading counts one raid past her peak.
+        let test = test.restart().await?;
+        let mut next_poll = snapshot(
+            now,
+            &[(ALICE, Some(alice_peak + 1)), (BOB, Some(2 * raids))],
+        );
+        next_poll.raw_payload = None;
+        assert_eq!(test.db.ingest_snapshot(next_poll).await?.delta_count, 1);
+        let mut expected = standings_before;
+        for entry in &mut expected {
+            if entry.0 == ALICE {
+                entry.2 += 1;
+            }
+        }
+        assert_eq!(
+            standings(&test.db.raid_event_leaderboard(event).await?),
+            expected
+        );
+
+        let second = test
+            .db
+            .enforce_retention(&RetentionPolicy::default(), now, true)
+            .await?;
+        assert_eq!(
+            second,
+            RetentionReport {
+                applied: true,
+                ..RetentionReport::default()
+            }
+        );
+        test.remove().await
+    }
+
     #[tokio::test]
     #[ignore = "needs TEST_DATABASE_URL"]
     async fn dry_run_reports_without_changing_anything() -> anyhow::Result<()> {
@@ -643,7 +824,7 @@ mod tests {
             .rev()
             .map(|days_ago| (days_ago, Some(5), Some(7)))
             .collect();
-        ingest_history(&test.db, now, &days).await?;
+        ingest_history(&test.db, &daily(now, &days)).await?;
         let before = fingerprint(&test.db).await?;
 
         let report = test
