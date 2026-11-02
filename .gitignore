@@ -1,74 +1,15 @@
-# Dependencies
 node_modules/
-.pnp/
-.pnp.*
-
-# Build output
-build/
-dist/
-out/
-out-tsc/
-package/
 .svelte-kit/
-
-# Tool caches and generated metadata
-.vite/
-.turbo/
-.jj/
-.playwright-cli/
-output/playwright/
-.eslintcache
-.stylelintcache
-*.tsbuildinfo
-vite.config.js.timestamp-*
+build/
+target/
+coverage/
 vite.config.ts.timestamp-*
 
-# Test and coverage output
-coverage/
-playwright-report/
-test-results/
-
-# Rust
-target/
-.sqlx/
-
-# Environment and local config
 .data/
 .env
 .env.*
 !.env.example
-!.env.*.example
-*.local
 
-# Logs
-logs/
+.jj/
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
-# Hosting and deployment metadata
-.vercel/
-.netlify/
-.wrangler/
-
-# Temporary files
-tmp/
-temp/
-.tmp/
-
-# Editors
-.idea/
-.vscode/*
-!.vscode/extensions.json
-!.vscode/launch.json
-!.vscode/settings.json
-!.vscode/tasks.json
-
-# OS files
 .DS_Store
-Thumbs.db
-ehthumbs.db
-Desktop.ini

@@ -4,8 +4,6 @@
 
 - `frontend/`: SvelteKit website.
 - `backend/`: Rust `sequoia-web-backend` service.
-- `shared/`: reserved for generated API contracts.
-- `infra/`: reserved for deploy support.
 
 ## Backend
 
