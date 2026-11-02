@@ -121,7 +121,10 @@
     return `${value.toLocaleString(undefined, { maximumFractionDigits: decimals })}${unit}`;
   }
 
-  const nonZero = $derived(buckets.filter((bucket) => bucket.value > 0));
+  // The table is the chart's complete accessible form, so zero buckets stay:
+  // a quiet day is data, not an absence of it.
+  const newestFirst = $derived([...buckets].reverse());
+  const period = $derived(weekly ? "week" : "day");
 </script>
 
 <figure class="daily">
@@ -132,7 +135,7 @@
         {height}
         shape-rendering="crispEdges"
         role="img"
-        aria-label="{metricLabel} per {weekly ? 'week' : 'day'}, {longDay(from)} to {longDay(to)}"
+        aria-label="{metricLabel} per {period}, {longDay(from)} to {longDay(to)}"
         onmouseleave={() => (hovered = null)}
       >
         {#each rendered as bucket (bucket.day)}
@@ -173,16 +176,17 @@
   {#if caption}
     <figcaption class="daily-caption">{caption}</figcaption>
   {/if}
-  {#if nonZero.length > 0}
+  {#if buckets.length > 0}
     <details class="daily-table">
       <summary>View as table</summary>
       <table>
+        <caption>{metricLabel} per {period}, {longDay(from)} to {longDay(to)}</caption>
         <thead>
           <tr><th scope="col">{weekly ? "Week of" : "Day"}</th><th scope="col">{metricLabel}</th></tr>
         </thead>
         <tbody>
-          {#each [...nonZero].reverse() as bucket (bucket.day)}
-            <tr><td>{longDay(bucket.day)}</td><td>{formatValue(bucket.value)}</td></tr>
+          {#each newestFirst as bucket (bucket.day)}
+            <tr><th scope="row">{longDay(bucket.day)}</th><td>{formatValue(bucket.value)}</td></tr>
           {/each}
         </tbody>
       </table>
@@ -289,7 +293,14 @@
     text-align: left;
   }
 
-  .daily-table th {
+  .daily-table caption {
+    padding: 0 8px 6px;
+    color: var(--text-muted);
+    font-size: var(--text-2xs);
+    text-align: left;
+  }
+
+  .daily-table thead th {
     color: var(--text-muted);
     font-family: var(--font-display);
     font-weight: var(--weight-regular);
@@ -298,8 +309,10 @@
     text-transform: uppercase;
   }
 
+  .daily-table tbody th,
   .daily-table td {
     color: var(--text-body);
+    font-weight: var(--weight-regular);
     font-family: var(--font-data);
   }
 </style>
