@@ -179,7 +179,7 @@ impl Database {
     ///
     /// Finalized results are never touched: deltas are never deleted, and a
     /// snapshot is deleted only when no delta, counter or anomaly refers to
-    /// it. Each guild's latest snapshot keeps all its counters, and every day
+    /// it and its raw payload, if any, has expired. Each guild's latest snapshot keeps all its counters, and every day
     /// keeps its highest counter, so the next ingest's baseline and its
     /// dropout high-water mark stay the same.
     ///
@@ -340,6 +340,8 @@ impl Database {
               AND NOT EXISTS (SELECT 1 FROM member_raid_deltas d WHERE d.from_snapshot_id = snapshot.id)
               AND NOT EXISTS (SELECT 1 FROM member_raid_deltas d WHERE d.to_snapshot_id = snapshot.id)
               AND NOT EXISTS (SELECT 1 FROM tracker_anomalies a WHERE a.snapshot_id = snapshot.id)
+              -- Expired raw payloads were cleared above; what is left is still in its window.
+              AND snapshot.raw_payload IS NULL
             "#,
         )
         .bind(cutoffs.counter_compaction)
@@ -811,6 +813,104 @@ mod tests {
                 applied: true,
                 ..RetentionReport::default()
             }
+        );
+        test.remove().await
+    }
+
+    #[tokio::test]
+    #[ignore = "needs TEST_DATABASE_URL"]
+    async fn raw_payloads_outlive_counter_compaction_until_they_expire() -> anyhow::Result<()> {
+        let raw_tier = RetentionPolicy {
+            raw_payload_days: 30,
+            ..RetentionPolicy::default()
+        };
+        // Identical daily polls 40..35 and 20..10 days ago; Bob's 2 raids land
+        // on day 20. Compaction empties the middle snapshots of both runs, but
+        // only days 39..36 are past the 30-day raw window.
+        let now = OffsetDateTime::now_utc();
+        let mut days: Vec<_> = (35..=40)
+            .rev()
+            .map(|days_ago| (days_ago, Some(5), Some(50)))
+            .collect();
+        days.extend(
+            (10..=20)
+                .rev()
+                .map(|days_ago| (days_ago, Some(5), Some(52))),
+        );
+        let raw = "SELECT count(*) FROM guild_snapshots WHERE raw_payload IS NOT NULL";
+
+        let test = TestDatabase::create().await?;
+        ingest_history(&test.db, &daily(now, &days)).await?;
+        let event = create_event(&test.db, "all", now - Duration::days(41), now).await?;
+        let standings_before = standings(&test.db.raid_event_leaderboard(event).await?);
+        assert_eq!(standings_before, vec![(BOB, "Bob".to_owned(), 2)]);
+
+        let before = fingerprint(&test.db).await?;
+        let preview = test.db.enforce_retention(&raw_tier, now, false).await?;
+        assert_eq!(fingerprint(&test.db).await?, before);
+        let applied = test.db.enforce_retention(&raw_tier, now, true).await?;
+        assert_eq!(
+            applied,
+            RetentionReport {
+                applied: true,
+                ..preview
+            }
+        );
+        assert_eq!(
+            (
+                applied.raw_payloads_cleared,
+                applied.orphan_snapshots_deleted
+            ),
+            (6, 4),
+            "{applied:?}"
+        );
+        assert_eq!(count(&test.db, raw).await?, 11);
+        assert_eq!(
+            test.db.enforce_retention(&raw_tier, now, true).await?,
+            RetentionReport {
+                applied: true,
+                ..RetentionReport::default()
+            }
+        );
+
+        // Three weeks on, the rest of the window has passed.
+        let later = now + Duration::days(21);
+        let expired = test.db.enforce_retention(&raw_tier, later, true).await?;
+        assert_eq!(
+            (
+                expired.raw_payloads_cleared,
+                expired.orphan_snapshots_deleted
+            ),
+            (11, 9),
+            "{expired:?}"
+        );
+        assert_eq!(count(&test.db, raw).await?, 0);
+        assert_eq!(
+            standings(&test.db.raid_event_leaderboard(event).await?),
+            standings_before
+        );
+        test.remove().await?;
+
+        // Without the diagnostic tier, the same history is pruned in one pass.
+        let test = TestDatabase::create().await?;
+        ingest_history(&test.db, &daily(now, &days)).await?;
+        let event = create_event(&test.db, "all", now - Duration::days(41), now).await?;
+        let minimal = test
+            .db
+            .enforce_retention(&RetentionPolicy::default(), now, true)
+            .await?;
+        assert_eq!(
+            (
+                minimal.raw_payloads_cleared,
+                minimal.orphan_snapshots_deleted
+            ),
+            (17, 13),
+            "{minimal:?}"
+        );
+        assert_eq!(count(&test.db, raw).await?, 0);
+        assert_eq!(
+            standings(&test.db.raid_event_leaderboard(event).await?),
+            standings_before
         );
         test.remove().await
     }

@@ -55,7 +55,7 @@ stats keeps their recorded history; there is no per-player erasure yet.
 |---|---|
 | Raid deltas (event scores) | Forever; never pruned |
 | Counter samples | All for `TRACKER_COUNTER_COMPACTION_DAYS` (7). After that, at most 3 per member, guild and UTC day: the day's first and last sample and the one with the most guild raids. A run of identical samples across days keeps only its first and last |
-| Snapshots | While a counter, delta or anomaly refers to them, and always each guild's latest |
+| Snapshots | While a counter, delta or anomaly refers to them or they hold a raw response still inside `TRACKER_RAW_PAYLOAD_DAYS`, and always each guild's latest |
 | Anomalies | `TRACKER_ANOMALY_DAYS` (90) |
 | Raw responses | `TRACKER_RAW_PAYLOAD_DAYS` (0) |
 | Presence from older versions | Cleared on the first applied pass |
