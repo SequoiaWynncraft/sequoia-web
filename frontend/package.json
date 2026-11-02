@@ -21,7 +21,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "start": "bun ./build/index.js",
-    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --tsgo-experimental-api",
     "test:unit": "svelte-kit sync && vitest run",
     "api:types": "openapi-typescript ../../sequoia-backend/openapi/public.yaml -o src/lib/api/generated/public-api.ts"
   },
@@ -30,6 +30,7 @@
     "@sveltejs/kit": "3.1.1",
     "@sveltejs/vite-plugin-svelte": "7.3.1",
     "@types/node": "26.0.0",
+    "@typescript/native": "npm:typescript@7.0.2",
     "openapi-typescript": "^7.13.0",
     "svelte": "5.57.3",
     "svelte-check": "4.7.7",
