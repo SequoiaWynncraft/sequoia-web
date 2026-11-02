@@ -29,6 +29,15 @@ STOPSIGNAL SIGUSR2
 ENV PROTOCOL_HEADER=x-forwarded-proto
 ENV HOST_HEADER=x-forwarded-host
 
+# A fixed unprivileged identity. Application files stay root-owned and
+# read-only; only the SQLite directory is writable. Docker seeds a new named
+# volume mounted there with this ownership, but an existing volume keeps its
+# own (see docs/architecture.md before switching a deployment to this image).
+RUN addgroup -S -g 10001 sequoia \
+    && adduser -S -D -H -h /nonexistent -s /sbin/nologin -u 10001 -G sequoia sequoia \
+    && mkdir .data \
+    && chown 10001:10001 .data
+
 COPY --from=production-deps /app/node_modules /app/node_modules
 COPY --from=production-deps /app/frontend/node_modules /app/frontend/node_modules
 COPY --from=build /app/frontend/build build
@@ -36,5 +45,10 @@ COPY --from=build /app/frontend/package.json package.json
 COPY frontend/retirement.js retirement.js
 COPY frontend/server.js server.js
 
+USER 10001:10001
 EXPOSE 3000
+# /healthz turns 503 once SIGUSR2 starts the drain, so a retiring container
+# also reports unhealthy. Busybox wget ships in the base image.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --start-interval=2s --retries=3 \
+    CMD wget -q -O /dev/null "http://127.0.0.1:${PORT}/healthz" || exit 1
 CMD ["bun", "./server.js"]
