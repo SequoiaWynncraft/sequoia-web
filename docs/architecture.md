@@ -56,6 +56,26 @@ If the owner is not `10001:10001`, pick one before rollout:
 
 Do not roll out until that is resolved: the new image cannot write a root-owned database file. In a local test with one, pages still rendered, but the database-backed `/api/guild-overview` waited out its 5-second database timeout and returned 503.
 
+### HTTP security headers
+
+The app sets its own browser security policy. Nothing depends on the reverse proxy adding it.
+
+- **Content Security Policy** is enforced on every page: SvelteKit's `csp` option in `vite.config.ts`, built by `src/lib/config/csp.ts`. Kit adds a nonce to each script it renders, so no inline or eval script is allowed.
+  - Markup `style` attributes are allowed through `style-src-attr`; they cannot run script.
+  - Images may come from the site itself, NMSR skin renders, `assets.seqwawa.com`, Discord emoji and the event raid icons on `api.seqwawa.com` (`RAID_ICON_BASE` in `src/lib/events/raidIcons.ts`).
+  - Forms may submit to the site and to the API origin, because saving linked accounts redirects through the API's session refresh.
+  - Browser code connects only to the site's own origin.
+  - Frames, plugins and embedding are all denied.
+- **Staff exception:** the Discord editors under `/manage/discord` also allow any HTTPS image, because they preview embed images from wherever a message points.
+  - A document keeps the policy it was loaded with, so client-side navigation into or out of `/manage/discord` reloads as a new document (`onNavigate` in `src/routes/+layout.svelte`). Links, `goto` and back/forward keep their history entries. Navigation within either side stays client-side.
+- **The API and NMSR origins** come from the same build-time `PUBLIC_*` values the app uses. Whether the policy defaults to a local API follows the Vite lifecycle (dev server versus build), not the mode name.
+- **Every app response, endpoints included,** gets `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Frame-Options: DENY` and a `Permissions-Policy` that turns off camera, microphone, geolocation, payment and USB (`src/lib/server/securityHeaders.ts`).
+- **HSTS** (`max-age=31536000`, this host only) is sent only when the request arrived over HTTPS, which behind the proxy comes from `PROTOCOL_HEADER`.
+  - `includeSubDomains` and `preload` are left off: they would commit every `*.seqwawa.com` service to HTTPS, which is an owner decision.
+- **Static files** that adapter-node serves before the app's handler (`/_app/*`, `/assets/*`) do not pass through these hooks. Add `nosniff` and HSTS for them at the proxy if wanted.
+
+After deploying, read the headers back from the live origin, for example `curl -sI https://dev.seqwawa.com/`. Check that the proxy neither drops them nor adds a conflicting second CSP, then watch the browser console on member and manager pages for `Content-Security-Policy` violations. Those authenticated flows were not browser-tested before release.
+
 ## Adding Pages
 
 Add page metadata to `src/lib/site/nav.ts`, then keep route files small by consuming `pageView(...)`, `PageHeader`, `SectionTabs`, `SubpageGrid`, and `Placeholder`. If a page should be addressable but not displayed as a normal card, add it to `EXTRA_PAGES`.
