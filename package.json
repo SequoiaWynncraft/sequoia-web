@@ -2,6 +2,11 @@
   "name": "sequoia-web",
   "version": "2.0.0",
   "description": "Sequoia website monorepo.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SequoiaWynncraft/sequoia-web.git"
+  },
   "private": true,
   "workspaces": [
     "frontend"

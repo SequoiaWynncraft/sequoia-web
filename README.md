@@ -18,3 +18,15 @@ To run one test file with the same command:
 ```sh
 mise exec -- bun run test:web src/lib/discord/format.test.ts
 ```
+
+## License
+
+The project's source code is available under the [MIT License](LICENSE).
+
+The license does not cover third-party material under `frontend/static/assets`, which keeps its own terms:
+
+- Inter (`fonts/inter-variable.woff2`) is under the SIL Open Font License 1.1; see `fonts/OFL-Inter.txt`.
+- The Minecraft typeface (`fonts/minecraft-*`) is by Jacob Debono (JDGraphics), whose [FontSpace listing](https://www.fontspace.com/minecraft-font-f28180) marks it public domain; its embedded metadata is kept unchanged.
+- Guild artwork, logos, emoji and prize images belong to their respective owners.
+
+Sequoia is not affiliated with Wynncraft or Mojang.
