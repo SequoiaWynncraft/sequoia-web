@@ -2,6 +2,12 @@
   "name": "seqwebsite",
   "version": "2.0.0",
   "description": "Sequoia - Wynncraft guild website (statistics, community, legal).",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SequoiaWynncraft/sequoia-web.git",
+    "directory": "frontend"
+  },
   "type": "module",
   "private": true,
   "engines": {
