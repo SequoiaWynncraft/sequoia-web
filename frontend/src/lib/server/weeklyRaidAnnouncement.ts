@@ -1,16 +1,16 @@
-import type { GuildMemberStats } from "$lib/api/guildStats";
-import { isBranchMemberViewer } from "$lib/server/branchGate";
-import { getGuildStats } from "$lib/server/guildStats";
+import type { GuildMemberStats } from "#lib/api/guildStats.js";
+import { isBranchMemberViewer } from "#lib/server/branchGate.js";
+import { getGuildStats } from "#lib/server/guildStats.js";
 import {
   loadModLeaderboardEntries,
   rosterLeaderboard,
   type ModLeaderboardEntry,
   type RaidLeaderboardEntry,
-} from "$lib/server/raidEventBoards";
-import { getLinkedRankProfilesResult } from "$lib/server/rankProfiles";
-import { createCachedResource, type CachedResource } from "$lib/server/serverCache";
-import { KNOWN_RAIDS } from "$lib/site/raids";
-import type { Viewer } from "$lib/site/viewer";
+} from "#lib/server/raidEventBoards.js";
+import { getLinkedRankProfilesResult } from "#lib/server/rankProfiles.js";
+import { createCachedResource, type CachedResource } from "#lib/server/serverCache.js";
+import { KNOWN_RAIDS } from "#lib/site/raids.js";
+import type { Viewer } from "#lib/site/viewer.js";
 
 /** Aspect emoji used verbatim in the Discord announcement header. */
 const ASPECT_EMOJI = "<:Aspect:1351246116024352818>";

@@ -1,8 +1,14 @@
-import { dev } from "$app/environment";
-import * as publicEnv from "$env/static/public";
+import { dev } from "$app/env";
+import {
+  PUBLIC_DEFAULT_THEME,
+  PUBLIC_NMSR_BASE_URL,
+  PUBLIC_SEQUOIA_API_BASE_URL,
+  PUBLIC_SEQUOIA_GUILD_UUID,
+  PUBLIC_SEQUOIA_MOD_VERSION,
+} from "$app/env/public";
 
-const configuredBaseUrl = envValue("PUBLIC_SEQUOIA_API_BASE_URL").trim().replace(/\/+$/, "");
-const configuredNmsrBaseUrl = envValue("PUBLIC_NMSR_BASE_URL").trim().replace(/\/+$/, "");
+const configuredBaseUrl = (PUBLIC_SEQUOIA_API_BASE_URL ?? "").trim().replace(/\/+$/, "");
+const configuredNmsrBaseUrl = (PUBLIC_NMSR_BASE_URL ?? "").trim().replace(/\/+$/, "");
 
 export const SEQUOIA_API_BASE_URL =
   configuredBaseUrl === "same-origin"
@@ -15,7 +21,7 @@ export const SEQUOIA_API_BASE_URL =
  * a usable version when it runs in ENFORCE mode, so the website sends the current mod release.
  * Overridable via env so ops can bump it without a code change when the minimum is raised.
  */
-export const SEQUOIA_MOD_VERSION = envValue("PUBLIC_SEQUOIA_MOD_VERSION").trim() || "1.6.8";
+export const SEQUOIA_MOD_VERSION = (PUBLIC_SEQUOIA_MOD_VERSION ?? "").trim() || "1.6.8";
 
 /**
  * Wynncraft uuid of the guild the site is about. Everything else here identifies
@@ -24,14 +30,14 @@ export const SEQUOIA_MOD_VERSION = envValue("PUBLIC_SEQUOIA_MOD_VERSION").trim()
  * Overridable via env so a redeploy can point a preview build at another guild.
  */
 export const SEQUOIA_GUILD_UUID =
-  envValue("PUBLIC_SEQUOIA_GUILD_UUID").trim() || "ee860b7c-9a1d-49cf-9f19-ab673ba0f23b";
+  (PUBLIC_SEQUOIA_GUILD_UUID ?? "").trim() || "ee860b7c-9a1d-49cf-9f19-ab673ba0f23b";
 
 /**
  * Theme id every visitor gets until they pick one. Raw and unvalidated here -
- * `$lib/site/themePreferences` checks it against the registered themes and
+ * `#lib/site/themePreferences.js` checks it against the registered themes and
  * falls back to its own default when it names none of them.
  */
-export const CONFIGURED_DEFAULT_THEME = envValue("PUBLIC_DEFAULT_THEME").trim();
+export const CONFIGURED_DEFAULT_THEME = (PUBLIC_DEFAULT_THEME ?? "").trim();
 
 export const NMSR_BASE_URL =
   configuredNmsrBaseUrl === "same-origin"
@@ -42,7 +48,3 @@ export const NMSR_BASE_URL =
 export const NMSR_PRECONNECT_ORIGIN = NMSR_BASE_URL.startsWith("https://")
   ? new URL(NMSR_BASE_URL).origin
   : null;
-
-function envValue(key: string): string {
-  return (publicEnv as Record<string, string | undefined>)[key] ?? "";
-}

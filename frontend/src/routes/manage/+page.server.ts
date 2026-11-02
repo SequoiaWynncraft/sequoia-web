@@ -1,9 +1,9 @@
 import { redirect } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
 
-import { contentAreas } from "$lib/manage/registry";
-import type { ManageCapabilities } from "$lib/manage/types";
-import { pageAreaAccess } from "$lib/server/manageCapabilities";
+import { contentAreas } from "#lib/manage/registry.js";
+import type { ManageCapabilities } from "#lib/manage/types.js";
+import { pageAreaAccess } from "#lib/server/manageCapabilities.js";
 
 export const prerender = false;
 

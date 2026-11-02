@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page } from "$app/state";
   import Icon from "./Icon.svelte";
-  import type { NavLeaf } from "$lib/site/nav";
+  import type { NavLeaf } from "#lib/site/nav.js";
 
   let { items }: { items: NavLeaf[] } = $props();
 </script>

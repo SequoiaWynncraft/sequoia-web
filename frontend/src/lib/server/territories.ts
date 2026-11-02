@@ -1,7 +1,7 @@
-import { type HeldTerritoriesResponse, type HeldTerritory } from "$lib/api/territories";
-import { isRecord } from "$lib/server/guards";
-import { createCachedResource } from "$lib/server/serverCache";
-import { fetchWynncraftJson } from "$lib/server/wynncraft";
+import { type HeldTerritoriesResponse, type HeldTerritory } from "#lib/api/territories.js";
+import { isRecord } from "#lib/server/guards.js";
+import { createCachedResource } from "#lib/server/serverCache.js";
+import { fetchWynncraftJson } from "#lib/server/wynncraft.js";
 
 const GUILD_NAME = "Sequoia";
 const FRESH_MS = 60 * 1000;

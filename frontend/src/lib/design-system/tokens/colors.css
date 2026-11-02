@@ -6,9 +6,9 @@
 
    This :root block IS the "Autumn" theme, so it needs no [data-theme] block
    of its own. Which theme a visitor gets before choosing one is set by
-   PUBLIC_DEFAULT_THEME (see $lib/site/themePreferences.ts); <html> always
+   PUBLIC_DEFAULT_THEME (see #lib/site/themePreferences.ts); <html> always
    carries a data-theme, so this block is only a fallback for other themes. Another theme
-   registers itself in $lib/site/themePreferences.ts and overrides the
+   registers itself in #lib/site/themePreferences.ts and overrides the
    theme-scoped groups in the slot at the bottom of this file: surfaces,
    borders, text, the gold ramp, and the accent spectrum. The semantic aliases
    and gradients are derived from those, so they follow on their own.

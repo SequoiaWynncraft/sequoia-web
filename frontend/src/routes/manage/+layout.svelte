@@ -1,8 +1,8 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
   import { page } from "$app/state";
-  import { MANAGE_AREAS, accessibleAreas } from "$lib/manage/registry";
-  import type { ManageCapabilities } from "$lib/manage/types";
+  import { MANAGE_AREAS, accessibleAreas } from "#lib/manage/registry.js";
+  import type { ManageCapabilities } from "#lib/manage/types.js";
 
   let { data, children }: { data: { capabilities: ManageCapabilities }; children: Snippet } =
     $props();

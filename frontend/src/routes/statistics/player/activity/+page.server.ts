@@ -1,13 +1,13 @@
 import type { PageServerLoad } from "./$types";
 
-import { getGuildStats } from "$lib/server/guildStats";
-import { getMemberProgress } from "$lib/server/memberProgress";
+import { getGuildStats } from "#lib/server/guildStats.js";
+import { getMemberProgress } from "#lib/server/memberProgress.js";
 import {
   getLinkedRankProfiles,
   memberRanksByUuid,
   type MemberRankEntry,
-} from "$lib/server/rankProfiles";
-import { loadWeeklyRaidAnnouncement } from "$lib/server/weeklyRaidAnnouncement";
+} from "#lib/server/rankProfiles.js";
+import { loadWeeklyRaidAnnouncement } from "#lib/server/weeklyRaidAnnouncement.js";
 
 import { resolveRange, resolveScope } from "./range";
 

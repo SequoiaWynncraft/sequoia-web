@@ -9,7 +9,7 @@
  * escapes. Anything else is text.
  */
 
-import { emojiAt } from "$lib/emoji/catalog";
+import { emojiAt } from "#lib/emoji/catalog.js";
 
 export type Inline =
   | { type: "text"; text: string }

@@ -1,7 +1,7 @@
 import type { PageServerLoad } from "./$types";
 
-import { pageAreaAccess } from "$lib/server/manageCapabilities";
-import { createBagshopClient, type InventoryItem, type Order } from "$lib/api/bagshop";
+import { pageAreaAccess } from "#lib/server/manageCapabilities.js";
+import { createBagshopClient, type InventoryItem, type Order } from "#lib/api/bagshop.js";
 
 export const prerender = false;
 

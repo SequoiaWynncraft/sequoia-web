@@ -1,6 +1,6 @@
 <script lang="ts">
-  import PlayerName from "$lib/design-system/components/PlayerName.svelte";
-  import type { StageEntrant } from "$lib/events/stageProtocol";
+  import PlayerName from "#lib/design-system/components/PlayerName.svelte";
+  import type { StageEntrant } from "#lib/events/stageProtocol.js";
 
   let { entrants }: { entrants: StageEntrant[] } = $props();
 

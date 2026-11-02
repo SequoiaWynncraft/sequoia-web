@@ -1,6 +1,6 @@
 import type { LayoutServerLoad } from "./$types";
 
-import { peekManageCapabilities } from "$lib/server/manageCapabilities";
+import { peekManageCapabilities } from "#lib/server/manageCapabilities.js";
 
 export const prerender = false;
 

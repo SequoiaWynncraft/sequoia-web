@@ -1,9 +1,9 @@
-import type { GuildMemberStats } from "$lib/api/guildStats";
-import { eventStatus } from "$lib/events/helpers";
-import type { GuildEvent } from "$lib/events/types";
-import { checkBranchAreaWithRoster } from "$lib/server/branchAccess";
-import { sameUuid } from "$lib/server/raidEventBoards";
-import type { Viewer } from "$lib/site/viewer";
+import type { GuildMemberStats } from "#lib/api/guildStats.js";
+import { eventStatus } from "#lib/events/helpers.js";
+import type { GuildEvent } from "#lib/events/types.js";
+import { checkBranchAreaWithRoster } from "#lib/server/branchAccess.js";
+import { sameUuid } from "#lib/server/raidEventBoards.js";
+import type { Viewer } from "#lib/site/viewer.js";
 
 /**
  * What a viewer is allowed to be shown, in increasing order of access. Derived

@@ -1,8 +1,8 @@
 import type { PageServerLoad } from "./$types";
 
-import { AmbiguousPlayerError, getAnyPlayerCard } from "$lib/server/globalPlayer";
-import { getPlayerSeries } from "$lib/server/playerSeries";
-import { requestError } from "$lib/server/requestError";
+import { AmbiguousPlayerError, getAnyPlayerCard } from "#lib/server/globalPlayer.js";
+import { getPlayerSeries } from "#lib/server/playerSeries.js";
+import { requestError } from "#lib/server/requestError.js";
 
 export const prerender = false;
 

@@ -1,9 +1,9 @@
 import type { Actions, PageServerLoad } from "./$types";
 
-import type { PostFeed } from "$lib/posts/types";
-import { pageAreaAccess } from "$lib/server/manageCapabilities";
-import { createPostAction } from "$lib/server/postActions";
-import { postFormContext } from "$lib/server/postFormContext";
+import type { PostFeed } from "#lib/posts/types.js";
+import { pageAreaAccess } from "#lib/server/manageCapabilities.js";
+import { createPostAction } from "#lib/server/postActions.js";
+import { postFormContext } from "#lib/server/postFormContext.js";
 
 export const prerender = false;
 

@@ -1,4 +1,4 @@
-import { isRecord } from "$lib/api/guards";
+import { isRecord } from "#lib/api/guards.js";
 
 /** Delta windows the rankings page offers; keys match the backend's range grammar. */
 export const RANKING_WINDOWS = [

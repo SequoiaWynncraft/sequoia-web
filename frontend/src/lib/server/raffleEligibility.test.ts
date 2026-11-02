@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { GuildMemberStats } from "$lib/api/guildStats";
-import type { EventRaffle, GuildEvent } from "$lib/events/types";
+import type { GuildMemberStats } from "#lib/api/guildStats.js";
+import type { EventRaffle, GuildEvent } from "#lib/events/types.js";
 
 import { resolveEligibility } from "./raffleEligibility";
 import { getMemberProgressResult } from "./memberProgress";

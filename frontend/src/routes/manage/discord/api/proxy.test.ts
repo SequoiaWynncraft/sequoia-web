@@ -3,7 +3,11 @@ import type { RequestEvent } from "@sveltejs/kit";
 import { POST, GET, PUT, DELETE } from "./[...path]/+server";
 
 const privateEnv = vi.hoisted(() => ({ SEQUOIA_DISCORD_MANAGEMENT_URL: "http://sierra:8082" }));
-vi.mock("$env/dynamic/private", () => ({ env: privateEnv }));
+vi.mock("$app/env/private", () => ({
+  get SEQUOIA_DISCORD_MANAGEMENT_URL() {
+    return privateEnv.SEQUOIA_DISCORD_MANAGEMENT_URL;
+  },
+}));
 
 function event(method: string, origin: string | null = "https://seqwawa.com", token = "cookie-session", path = "messages") {
   const url = new URL(`https://seqwawa.com/manage/discord/api/${path}`);

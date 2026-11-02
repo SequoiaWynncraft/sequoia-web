@@ -1,10 +1,10 @@
 import type { PageServerLoad } from "./$types";
 
-import type { EventTheme } from "$lib/events/types";
-import { audienceChip, postStatus } from "$lib/posts/audience";
-import type { PostFeed, PostStatus } from "$lib/posts/types";
-import { pageAreaAccess } from "$lib/server/manageCapabilities";
-import { postStore } from "$lib/server/postStore";
+import type { EventTheme } from "#lib/events/types.js";
+import { audienceChip, postStatus } from "#lib/posts/audience.js";
+import type { PostFeed, PostStatus } from "#lib/posts/types.js";
+import { pageAreaAccess } from "#lib/server/manageCapabilities.js";
+import { postStore } from "#lib/server/postStore.js";
 
 export const prerender = false;
 

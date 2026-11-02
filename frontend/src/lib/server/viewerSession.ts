@@ -1,5 +1,5 @@
-import { SEQUOIA_API_BASE_URL } from "$lib/config/public";
-import type { Viewer } from "$lib/site/viewer";
+import { SEQUOIA_API_BASE_URL } from "#lib/config/public.js";
+import type { Viewer } from "#lib/site/viewer.js";
 
 /** Resolves the seq_session cookie to a verified website identity, or null. */
 export async function loadViewer(

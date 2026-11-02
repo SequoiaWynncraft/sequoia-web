@@ -1,7 +1,7 @@
 import type { PageServerLoad } from "./$types";
 
-import { getGuildStats } from "$lib/server/guildStats";
-import { loadGuildLevelTracker } from "$lib/server/guildLevelTracker";
+import { getGuildStats } from "#lib/server/guildStats.js";
+import { loadGuildLevelTracker } from "#lib/server/guildLevelTracker.js";
 
 export const prerender = false;
 

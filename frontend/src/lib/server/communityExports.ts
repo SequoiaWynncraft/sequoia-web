@@ -1,10 +1,10 @@
-import type { GuildMemberStats } from "$lib/api/guildStats";
-import { guildRankLabel } from "$lib/api/guildStats";
-import type { CsvValue } from "$lib/server/csv";
-import { KNOWN_RAIDS } from "$lib/site/raids";
+import type { GuildMemberStats } from "#lib/api/guildStats.js";
+import { guildRankLabel } from "#lib/api/guildStats.js";
+import type { CsvValue } from "#lib/server/csv.js";
+import { KNOWN_RAIDS } from "#lib/site/raids.js";
 
-import type { RankProfilesResponse } from "$lib/api/client";
-import type { MemberProgressResponse } from "$lib/api/memberProgress";
+import type { RankProfilesResponse } from "#lib/api/client.js";
+import type { MemberProgressResponse } from "#lib/api/memberProgress.js";
 
 import { getGuildStats } from "./guildStats";
 import { loadModRunCounts } from "./modActivity";

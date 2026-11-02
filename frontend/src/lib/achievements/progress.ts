@@ -1,4 +1,4 @@
-import { isNonNegativeInteger, isRecord } from "$lib/api/guards";
+import { isNonNegativeInteger, isRecord } from "#lib/api/guards.js";
 
 /** One step on a category ladder, e.g. Gold at 100 wars or level 110. */
 export interface AchievementStep {

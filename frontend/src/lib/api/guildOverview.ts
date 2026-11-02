@@ -1,4 +1,4 @@
-import { isRecord, isNonNegativeInteger } from "$lib/api/guards";
+import { isRecord, isNonNegativeInteger } from "#lib/api/guards.js";
 
 export interface HomepageStats {
   members: number;

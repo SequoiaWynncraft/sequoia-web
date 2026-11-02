@@ -1,4 +1,4 @@
-import { isRecord, isNonNegativeInteger } from "$lib/api/guards";
+import { isRecord, isNonNegativeInteger } from "#lib/api/guards.js";
 
 export const GUILD_RANKS = ["owner", "chief", "strategist", "captain", "recruiter", "recruit"] as const;
 

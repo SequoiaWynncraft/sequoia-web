@@ -1,9 +1,9 @@
 import {
   isGuildLevelHistoryResponse,
   type GuildLevelHistoryResponse,
-} from "$lib/api/guildLevel";
-import { SEQUOIA_API_BASE_URL, SEQUOIA_GUILD_UUID } from "$lib/config/public";
-import { createCachedResource } from "$lib/server/serverCache";
+} from "#lib/api/guildLevel.js";
+import { SEQUOIA_API_BASE_URL, SEQUOIA_GUILD_UUID } from "#lib/config/public.js";
+import { createCachedResource } from "#lib/server/serverCache.js";
 
 /**
  * Kept short because reloading the page is how staff pick up a level-up, and a

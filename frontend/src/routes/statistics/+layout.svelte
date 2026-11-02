@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
   import { page } from "$app/state";
-  import { SECTIONS } from "$lib/site/nav";
+  import { SECTIONS } from "#lib/site/nav.js";
 
   import type { ShellStats } from "./+layout.server";
 

@@ -1,6 +1,6 @@
 import { invalidateAll } from "$app/navigation";
 
-import type { StageMessage, StageRoll } from "$lib/events/stageProtocol";
+import type { StageMessage, StageRoll } from "#lib/events/stageProtocol.js";
 
 /**
  * The stage's live connection: an EventSource over the event's roll stream,

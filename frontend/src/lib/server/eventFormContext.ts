@@ -1,6 +1,6 @@
-import type { RankProfilesResponse } from "$lib/api/client";
-import { formatWindow } from "$lib/events/format";
-import type { TrackerKind } from "$lib/events/types";
+import type { RankProfilesResponse } from "#lib/api/client.js";
+import { formatWindow } from "#lib/events/format.js";
+import type { TrackerKind } from "#lib/events/types.js";
 
 import { listPresets, type EventPreset } from "./eventPresets";
 import { getGuildStats } from "./guildStats";

@@ -4,14 +4,14 @@
 
   import "./editor.css";
 
-  import type { GuildEvent } from "$lib/events/types";
-  import type { EventFormContext, TrackerOption } from "$lib/server/eventFormContext";
-  import type { RaffleRoll as RaffleRollRecord } from "$lib/server/raffleRolls";
+  import type { GuildEvent } from "#lib/events/types.js";
+  import type { EventFormContext, TrackerOption } from "#lib/server/eventFormContext.js";
+  import type { RaffleRoll as RaffleRollRecord } from "#lib/server/raffleRolls.js";
 
-  import Button from "$lib/design-system/components/Button.svelte";
-  import ConfirmDialog from "$lib/design-system/components/forms/ConfirmDialog.svelte";
-  import FormStatus from "$lib/design-system/components/forms/FormStatus.svelte";
-  import Select from "$lib/design-system/components/forms/Select.svelte";
+  import Button from "#lib/design-system/components/Button.svelte";
+  import ConfirmDialog from "#lib/design-system/components/forms/ConfirmDialog.svelte";
+  import FormStatus from "#lib/design-system/components/forms/FormStatus.svelte";
+  import Select from "#lib/design-system/components/forms/Select.svelte";
   import { EDITOR_KEY, EventDraft } from "./draft.svelte";
   import PreviewPane from "./PreviewPane.svelte";
   import SectionRail from "./SectionRail.svelte";

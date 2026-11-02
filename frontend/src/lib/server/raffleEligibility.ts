@@ -1,5 +1,5 @@
-import type { GuildMemberStats } from "$lib/api/guildStats";
-import type { EventRaffle, GuildEvent, TicketWeight } from "$lib/events/types";
+import type { GuildMemberStats } from "#lib/api/guildStats.js";
+import type { EventRaffle, GuildEvent, TicketWeight } from "#lib/events/types.js";
 
 import { getMemberProgressResult } from "./memberProgress";
 import {

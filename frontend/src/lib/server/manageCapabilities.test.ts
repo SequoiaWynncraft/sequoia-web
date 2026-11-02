@@ -6,16 +6,16 @@ import {
   pageAreaAccess,
   peekManageCapabilities,
 } from "./manageCapabilities";
-import { createBagshopClient } from "$lib/api/bagshop";
-import { requestDiscord } from "$lib/api/discordManagement";
+import { createBagshopClient } from "#lib/api/bagshop.js";
+import { requestDiscord } from "#lib/api/discordManagement.js";
 import { getGuildStats } from "./guildStats";
 import { getLinkedRankProfilesResult } from "./rankProfiles";
-import type { Viewer } from "$lib/site/viewer";
+import type { Viewer } from "#lib/site/viewer.js";
 
 vi.mock("./guildStats", () => ({ getGuildStats: vi.fn() }));
 vi.mock("./rankProfiles", () => ({ getLinkedRankProfilesResult: vi.fn() }));
-vi.mock("$lib/api/bagshop", () => ({ createBagshopClient: vi.fn() }));
-vi.mock("$lib/api/discordManagement", () => ({ requestDiscord: vi.fn() }));
+vi.mock("#lib/api/bagshop.js", () => ({ createBagshopClient: vi.fn() }));
+vi.mock("#lib/api/discordManagement.js", () => ({ requestDiscord: vi.fn() }));
 
 const mockStats = vi.mocked(getGuildStats);
 const mockProfiles = vi.mocked(getLinkedRankProfilesResult);

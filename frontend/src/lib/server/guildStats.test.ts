@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { isGuildStatsResponse } from "$lib/api/guildStats";
-import { parseGuildStats } from "$lib/server/guildStats";
+import { isGuildStatsResponse } from "#lib/api/guildStats.js";
+import { parseGuildStats } from "#lib/server/guildStats.js";
 
 const guildPayload = {
   name: "Sequoia",

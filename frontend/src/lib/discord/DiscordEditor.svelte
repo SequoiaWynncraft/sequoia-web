@@ -1,15 +1,15 @@
 <script lang="ts">
   import { tick } from "svelte";
-  import { requestDiscord } from "$lib/api/discordManagement";
+  import { requestDiscord } from "#lib/api/discordManagement.js";
   import { beforeNavigate, pushState, replaceState } from "$app/navigation";
   import { page } from "$app/state";
-  import ConfirmDialog from "$lib/design-system/components/forms/ConfirmDialog.svelte";
-  import Button from "$lib/design-system/components/Button.svelte";
-  import Field from "$lib/design-system/components/forms/Field.svelte";
-  import FormStatus from "$lib/design-system/components/forms/FormStatus.svelte";
-  import TextInput from "$lib/design-system/components/forms/TextInput.svelte";
-  import Select from "$lib/design-system/components/forms/Select.svelte";
-  import ManageHeader from "$lib/manage/ManageHeader.svelte";
+  import ConfirmDialog from "#lib/design-system/components/forms/ConfirmDialog.svelte";
+  import Button from "#lib/design-system/components/Button.svelte";
+  import Field from "#lib/design-system/components/forms/Field.svelte";
+  import FormStatus from "#lib/design-system/components/forms/FormStatus.svelte";
+  import TextInput from "#lib/design-system/components/forms/TextInput.svelte";
+  import Select from "#lib/design-system/components/forms/Select.svelte";
+  import ManageHeader from "#lib/manage/ManageHeader.svelte";
   import DiscordPreview from "./DiscordPreview.svelte";
   import LayoutEditor from "./LayoutEditor.svelte";
   import EmbedEditor from "./EmbedEditor.svelte";
@@ -108,7 +108,7 @@
     return "Check the preview, then publish the saved draft.";
   });
 
-  beforeNavigate(({ cancel }) => { if (dirty) { cancel(); error = "Save your draft before leaving, or select Discard changes."; } });
+  beforeNavigate(({ cancel, shallow }) => { if (dirty && !shallow) { cancel(); error = "Save your draft before leaving, or select Discard changes."; } });
 
   // Returning to the list lands on the open message's row, not at the top of the page.
   let detailEntry = false;

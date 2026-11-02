@@ -1,20 +1,20 @@
 import type { PageServerLoad } from "./$types";
 
-import { eventChart, eventStatus } from "$lib/events/helpers";
-import { standingsUnit, type GuildEvent, type StandingsUnit } from "$lib/events/types";
-import type { Membership } from "$lib/server/eventMembership";
-import { canSeeEvent, resolveEventAudience } from "$lib/server/eventVisibility";
-import { eventStore } from "$lib/server/eventStore";
-import { loadEventRaidCounts, sumCounts, type EventDayCount } from "$lib/server/eventActivity";
-import { loadGoalProgress } from "$lib/server/goalProgress";
-import { loadModRunCounts } from "$lib/server/modActivity";
-import { raffleRollStore } from "$lib/server/raffleRolls";
+import { eventChart, eventStatus } from "#lib/events/helpers.js";
+import { standingsUnit, type GuildEvent, type StandingsUnit } from "#lib/events/types.js";
+import type { Membership } from "#lib/server/eventMembership.js";
+import { canSeeEvent, resolveEventAudience } from "#lib/server/eventVisibility.js";
+import { eventStore } from "#lib/server/eventStore.js";
+import { loadEventRaidCounts, sumCounts, type EventDayCount } from "#lib/server/eventActivity.js";
+import { loadGoalProgress } from "#lib/server/goalProgress.js";
+import { loadModRunCounts } from "#lib/server/modActivity.js";
+import { raffleRollStore } from "#lib/server/raffleRolls.js";
 import {
   getLinkedRankProfiles,
   memberRanksByUuid,
   type MemberRankEntry,
-} from "$lib/server/rankProfiles";
-import { requestError } from "$lib/server/requestError";
+} from "#lib/server/rankProfiles.js";
+import { requestError } from "#lib/server/requestError.js";
 import {
   loadModLeaderboard,
   loadRaidEvents,
@@ -22,9 +22,9 @@ import {
   sameUuid,
   type LeaderboardResult,
   type RaidLeaderboardEntry,
-} from "$lib/server/raidEventBoards";
-import { getGuildStats } from "$lib/server/guildStats";
-import type { GuildMemberStats } from "$lib/api/guildStats";
+} from "#lib/server/raidEventBoards.js";
+import { getGuildStats } from "#lib/server/guildStats.js";
+import type { GuildMemberStats } from "#lib/api/guildStats.js";
 
 export const prerender = false;
 

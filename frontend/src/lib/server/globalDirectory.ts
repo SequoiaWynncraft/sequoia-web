@@ -2,8 +2,8 @@ import {
   isGlobalDirectoryPage,
   type DirectorySort,
   type GlobalDirectoryPage,
-} from "$lib/api/globalDirectory";
-import { SEQUOIA_API_BASE_URL } from "$lib/config/public";
+} from "#lib/api/globalDirectory.js";
+import { SEQUOIA_API_BASE_URL } from "#lib/config/public.js";
 
 const TTL_MS = 60 * 1000;
 const MAX_CACHED_PAGES = 128;

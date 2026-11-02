@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { bagshopUrl, proxyToBagshop } from "$lib/server/bagshop";
+import { bagshopUrl, proxyToBagshop } from "#lib/server/bagshop.js";
 
 afterEach(() => {
   vi.unstubAllGlobals();

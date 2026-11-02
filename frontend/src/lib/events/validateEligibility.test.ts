@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseGuildEvent } from "$lib/events/validate";
+import { parseGuildEvent } from "#lib/events/validate.js";
 
 const VALID = {
   slug: "test-event",

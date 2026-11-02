@@ -1,7 +1,7 @@
 <script lang="ts">
-  import PlayerName from "$lib/design-system/components/PlayerName.svelte";
-  import { groupPrizeRows, type PrizeSlotRow } from "$lib/events/prizeBoard";
-  import { prizeIconUrl } from "$lib/events/prizeIcons";
+  import PlayerName from "#lib/design-system/components/PlayerName.svelte";
+  import { groupPrizeRows, type PrizeSlotRow } from "#lib/events/prizeBoard.js";
+  import { prizeIconUrl } from "#lib/events/prizeIcons.js";
 
   let { rows }: { rows: PrizeSlotRow[] } = $props();
 

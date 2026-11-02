@@ -1,26 +1,26 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { page } from "$app/state";
-  import SectionHeading from "$lib/design-system/components/SectionHeading.svelte";
-  import StatBlock from "$lib/design-system/components/StatBlock.svelte";
-  import ServiceCard from "$lib/design-system/components/ServiceCard.svelte";
-  import OfficerStrip from "$lib/design-system/components/OfficerStrip.svelte";
-  import SequoianTree from "$lib/components/SequoianTree.svelte";
-  import Icon from "$lib/components/Icon.svelte";
-  import EventSky from "$lib/events/components/EventSky.svelte";
-  import { formatWindow } from "$lib/events/format";
-  import { eventStatus } from "$lib/events/helpers";
-  import { formatPostDate } from "$lib/posts/format";
-  import { POST_FEEDS, postHref } from "$lib/posts/types";
-  import { createSequoiaApiClient } from "$lib/api/client";
+  import SectionHeading from "#lib/design-system/components/SectionHeading.svelte";
+  import StatBlock from "#lib/design-system/components/StatBlock.svelte";
+  import ServiceCard from "#lib/design-system/components/ServiceCard.svelte";
+  import OfficerStrip from "#lib/design-system/components/OfficerStrip.svelte";
+  import SequoianTree from "#lib/components/SequoianTree.svelte";
+  import Icon from "#lib/components/Icon.svelte";
+  import EventSky from "#lib/events/components/EventSky.svelte";
+  import { formatWindow } from "#lib/events/format.js";
+  import { eventStatus } from "#lib/events/helpers.js";
+  import { formatPostDate } from "#lib/posts/format.js";
+  import { POST_FEEDS, postHref } from "#lib/posts/types.js";
+  import { createSequoiaApiClient } from "#lib/api/client.js";
   import {
     branchLeadershipBadge,
     type BranchmasterMember,
     type HomepageStats,
-  } from "$lib/api/guildOverview";
-  import { NMSR_BASE_URL } from "$lib/config/public";
-  import { homepageServices, homepageStatistics } from "$lib/site/nav";
-  import { themeById } from "$lib/site/themePreferences";
+  } from "#lib/api/guildOverview.js";
+  import { NMSR_BASE_URL } from "#lib/config/public.js";
+  import { homepageServices, homepageStatistics } from "#lib/site/nav.js";
+  import { themeById } from "#lib/site/themePreferences.js";
 
   const IMG = "/assets/images/";
   const SERVICES = homepageServices();

@@ -1,8 +1,8 @@
 import { fail } from "@sveltejs/kit";
 import type { Cookies } from "@sveltejs/kit";
 
-import type { TrackerKind } from "$lib/events/types";
-import type { Viewer } from "$lib/site/viewer";
+import type { TrackerKind } from "#lib/events/types.js";
+import type { Viewer } from "#lib/site/viewer.js";
 
 import { recordAudit } from "./auditLog";
 import { trackerOption, type TrackerOption } from "./eventFormContext";

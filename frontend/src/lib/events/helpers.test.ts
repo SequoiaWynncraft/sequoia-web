@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { eventHubView, eventStatus, homepageEvents, hubGroups } from "$lib/events/helpers";
-import { SEED_EVENTS } from "$lib/events/seed";
-import type { GuildEvent } from "$lib/events/types";
+import { eventHubView, eventStatus, homepageEvents, hubGroups } from "#lib/events/helpers.js";
+import { SEED_EVENTS } from "#lib/events/seed.js";
+import type { GuildEvent } from "#lib/events/types.js";
 
 const THEME = {
   sky: ["#000000", "#111111"] as [string, string],
