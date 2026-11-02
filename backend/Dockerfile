@@ -31,7 +31,19 @@ RUN apt-get update \
     && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' ca-certificates)" ge 20250419~deb12u2 \
     && rm -rf /var/lib/apt/lists/*
 
+RUN groupadd --system --gid 10001 sequoia \
+    && useradd --system --uid 10001 --gid 10001 --no-create-home --home-dir /nonexistent \
+        --shell /usr/sbin/nologin sequoia
+
 COPY --from=build /app/backend/target/release/sequoia-web-backend /usr/local/bin/sequoia-web-backend
 
+# The tracker only needs network access; nothing in the image is writable by it.
+USER 10001:10001
 EXPOSE 8080
+# Readiness, not liveness: /ready fails while the database is unreachable,
+# polling is unconfigured or the last successful poll is stale, so routing
+# stops when the tracker cannot do its job. The probe assumes the default
+# BIND_ADDR port.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --start-interval=2s --retries=3 \
+    CMD curl --fail --silent --max-time 4 --output /dev/null http://127.0.0.1:8080/ready || exit 1
 CMD ["sequoia-web-backend"]

@@ -48,8 +48,39 @@ async fn main() -> anyhow::Result<()> {
             poller_health,
         }),
     )
+    .with_graceful_shutdown(shutdown_signal())
     .await
     .context("HTTP server failed")
+}
+
+/// Resolves on SIGTERM or Ctrl-C so in-flight requests finish before exit.
+///
+/// As PID 1 in a container the process has no default SIGTERM action, so
+/// without a handler `docker stop` waits out its grace period and kills it.
+/// The poll loop is dropped with the runtime; an interrupted ingest rolls back.
+async fn shutdown_signal() {
+    let interrupt = async {
+        if let Err(error) = tokio::signal::ctrl_c().await {
+            tracing::warn!(%error, "cannot listen for Ctrl-C");
+            std::future::pending::<()>().await;
+        }
+    };
+    let terminate = async {
+        match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
+            Ok(mut stream) => {
+                stream.recv().await;
+            }
+            Err(error) => {
+                tracing::warn!(%error, "cannot listen for SIGTERM");
+                std::future::pending::<()>().await;
+            }
+        }
+    };
+    tokio::select! {
+        () = interrupt => {}
+        () = terminate => {}
+    }
+    tracing::info!("shutdown signal received; draining HTTP connections");
 }
 
 fn init_tracing() -> anyhow::Result<()> {
