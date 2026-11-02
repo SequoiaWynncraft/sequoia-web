@@ -1,5 +1,8 @@
 use anyhow::Context;
-use sqlx::{PgPool, Row, postgres::PgPoolOptions};
+use sqlx::{
+    PgPool, Row,
+    postgres::{PgConnectOptions, PgPoolOptions},
+};
 use time::OffsetDateTime;
 use uuid::Uuid;
 
@@ -9,6 +12,10 @@ use crate::{
         GuildSnapshot, MemberRaidCounter, MemberRaidHistoryPoint, RaidEvent, RaidLeaderboardEntry,
     },
 };
+
+/// Advisory lock class for a guild's ingest; the second key is the prefix's hash.
+/// Retention takes the same locks, so it never races an ingest.
+pub(crate) const INGEST_LOCK_CLASS: i32 = 1845692265;
 
 #[derive(Clone)]
 pub struct Database {
@@ -41,9 +48,16 @@ pub struct StoredAnomaly {
 
 impl Database {
     pub async fn connect(database_url: &str) -> anyhow::Result<Self> {
+        let options = database_url
+            .parse::<PgConnectOptions>()
+            .context("invalid DATABASE_URL")?;
+        Self::connect_with(options).await
+    }
+
+    pub async fn connect_with(options: PgConnectOptions) -> anyhow::Result<Self> {
         let pool = PgPoolOptions::new()
             .max_connections(10)
-            .connect(database_url)
+            .connect_with(options)
             .await
             .context("failed to connect to tracker database")?;
 
@@ -53,6 +67,10 @@ impl Database {
             .context("failed to run tracker migrations")?;
 
         Ok(Self { pool })
+    }
+
+    pub(crate) fn pool(&self) -> &PgPool {
+        &self.pool
     }
 
     /// Bounded connectivity probe for readiness checks.
@@ -74,7 +92,8 @@ impl Database {
     /// anomaly instead of being stored.
     pub async fn ingest_snapshot(&self, snapshot: GuildSnapshot) -> anyhow::Result<IngestSummary> {
         let mut tx = self.pool.begin().await.context("failed to begin ingest")?;
-        sqlx::query("SELECT pg_advisory_xact_lock(1845692265, hashtext($1))")
+        sqlx::query("SELECT pg_advisory_xact_lock($1, hashtext($2))")
+            .bind(INGEST_LOCK_CLASS)
             .bind(&snapshot.guild_prefix)
             .execute(&mut *tx)
             .await
@@ -157,21 +176,17 @@ impl Database {
                     player_uuid,
                     username,
                     rank,
-                    online,
-                    joined_at,
                     current_guild_raids,
                     total_guild_raids,
                     captured_at
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
                 "#,
             )
             .bind(snapshot_id)
             .bind(member.player_uuid)
             .bind(&member.username)
             .bind(&member.rank)
-            .bind(member.online)
-            .bind(member.joined_at)
             .bind(member.current_guild_raids)
             .bind(member.total_guild_raids)
             .bind(member.captured_at)
@@ -533,8 +548,6 @@ async fn member_counters_in_tx(
             counters.player_uuid,
             counters.username,
             counters.rank,
-            counters.online,
-            counters.joined_at,
             GREATEST(counters.current_guild_raids, highest_prior.current_guild_raids)
                 AS current_guild_raids,
             counters.total_guild_raids,
@@ -563,8 +576,6 @@ async fn member_counters_in_tx(
                 player_uuid: row.try_get("player_uuid")?,
                 username: row.try_get("username")?,
                 rank: row.try_get("rank")?,
-                online: row.try_get("online")?,
-                joined_at: row.try_get("joined_at")?,
                 current_guild_raids: row.try_get("current_guild_raids")?,
                 total_guild_raids: row.try_get("total_guild_raids")?,
                 captured_at: row.try_get("captured_at")?,

@@ -9,7 +9,8 @@ pub struct GuildSnapshot {
     pub guild_prefix: String,
     pub fetched_at: OffsetDateTime,
     pub payload_hash: String,
-    pub raw_payload: serde_json::Value,
+    /// The full upstream response, kept only in the optional diagnostic tier.
+    pub raw_payload: Option<serde_json::Value>,
     pub members: Vec<MemberRaidCounter>,
 }
 
@@ -18,9 +19,6 @@ pub struct MemberRaidCounter {
     pub player_uuid: Uuid,
     pub username: String,
     pub rank: String,
-    pub online: bool,
-    #[serde(with = "time::serde::rfc3339::option")]
-    pub joined_at: Option<OffsetDateTime>,
     pub current_guild_raids: Option<i64>,
     pub total_guild_raids: Option<i64>,
     #[serde(with = "time::serde::rfc3339")]

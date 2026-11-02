@@ -5,7 +5,7 @@ use anyhow::Context;
 use reqwest::StatusCode;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
-use time::{OffsetDateTime, format_description::well_known::Rfc3339};
+use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::model::{GuildSnapshot, MemberRaidCounter};
@@ -127,7 +127,7 @@ pub fn parse_guild_snapshot(
         guild_prefix: response.prefix,
         fetched_at,
         payload_hash,
-        raw_payload,
+        raw_payload: Some(raw_payload),
         members,
     })
 }
@@ -187,8 +187,6 @@ impl WynnMembers {
                 player_uuid: *player_uuid,
                 username: member.username.clone(),
                 rank: rank.to_owned(),
-                online: member.online,
-                joined_at: member.joined.as_deref().and_then(parse_rfc3339),
                 current_guild_raids: member
                     .global_data
                     .as_ref()
@@ -209,9 +207,6 @@ impl WynnMembers {
 #[serde(rename_all = "camelCase")]
 struct WynnMember {
     username: String,
-    #[serde(default)]
-    online: bool,
-    joined: Option<String>,
     global_data: Option<WynnGlobalData>,
 }
 
@@ -225,10 +220,6 @@ struct WynnGlobalData {
 #[derive(Deserialize)]
 struct RaidTotals {
     total: i64,
-}
-
-fn parse_rfc3339(value: &str) -> Option<OffsetDateTime> {
-    OffsetDateTime::parse(value, &Rfc3339).ok()
 }
 
 #[cfg(test)]

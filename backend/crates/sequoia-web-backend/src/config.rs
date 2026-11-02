@@ -2,6 +2,8 @@ use std::{net::SocketAddr, str::FromStr, time::Duration};
 
 use anyhow::{Context, bail};
 
+use crate::retention::{RetentionMode, RetentionPolicy};
+
 #[derive(Clone, Debug)]
 pub struct Config {
     pub bind_addr: SocketAddr,
@@ -11,6 +13,8 @@ pub struct Config {
     pub guild_prefix: String,
     pub poll_interval: Duration,
     pub internal_api_token: Option<String>,
+    pub retention: RetentionPolicy,
+    pub retention_mode: RetentionMode,
 }
 
 impl Config {
@@ -36,6 +40,8 @@ impl Config {
             guild_prefix: env_or_default("GUILD_PREFIX", "SEQ"),
             poll_interval: Duration::from_secs(poll_interval_seconds),
             internal_api_token: optional_env("INTERNAL_API_TOKEN"),
+            retention: RetentionPolicy::from_env()?,
+            retention_mode: RetentionMode::from_env()?,
         })
     }
 }
