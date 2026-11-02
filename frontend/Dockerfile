@@ -10,6 +10,11 @@ FROM deps AS build
 COPY frontend frontend
 RUN bun run --cwd frontend build
 
+# adapter-node bundles devDependencies into the build, so the runtime needs
+# only production packages. Pruning keeps the lockfile's exact versions.
+FROM deps AS production-deps
+RUN bun prune --production
+
 FROM oven/bun:1.4.4-alpine@sha256:4cf82f5686b196504fe119db3fcd9185b191f82ece82c40680e597228ec6070a AS runtime
 WORKDIR /app/frontend
 ENV NODE_ENV=production
@@ -24,8 +29,8 @@ STOPSIGNAL SIGUSR2
 ENV PROTOCOL_HEADER=x-forwarded-proto
 ENV HOST_HEADER=x-forwarded-host
 
-COPY --from=deps /app/node_modules /app/node_modules
-COPY --from=deps /app/frontend/node_modules /app/frontend/node_modules
+COPY --from=production-deps /app/node_modules /app/node_modules
+COPY --from=production-deps /app/frontend/node_modules /app/frontend/node_modules
 COPY --from=build /app/frontend/build build
 COPY --from=build /app/frontend/package.json package.json
 COPY frontend/retirement.js retirement.js
