@@ -1687,8 +1687,36 @@ textarea.seq-input {
   transform: translateY(100%);
   transition: transform 0.4s var(--ease-out-soft);
 }
-.seq-art-frame:hover .seq-art-cap {
+.seq-art-frame:hover .seq-art-cap,
+.seq-art-frame:focus-visible .seq-art-cap {
   transform: translateY(0);
+}
+/* Touch screens have no hover to reveal captions, so keep them showing. */
+@media (hover: none) {
+  .seq-art-cap {
+    transform: none;
+  }
+}
+
+.seq-lightbox {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 2rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+.seq-lightbox[open] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: seq-fade-in 0.2s ease both;
+}
+.seq-lightbox::backdrop {
+  background: transparent;
 }
 
 .seq-apply-link {

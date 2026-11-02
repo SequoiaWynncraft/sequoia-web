@@ -4,8 +4,8 @@ members = ["crates/sequoia-web-backend"]
 
 [workspace.package]
 edition = "2024"
-license = "AGPL-3.0-or-later"
-repository = "https://github.com/seqwawa/sequoia-web"
+license = "MIT"
+repository = "https://github.com/SequoiaWynncraft/sequoia-web"
 
 [workspace.dependencies]
 anyhow = "1.0.100"
