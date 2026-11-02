@@ -124,8 +124,6 @@ mod tests {
             player_uuid,
             username: "OwORawr".to_owned(),
             rank: "chief".to_owned(),
-            online: false,
-            joined_at: None,
             current_guild_raids,
             total_guild_raids: current_guild_raids,
             captured_at: datetime!(2026-07-09 10:00 UTC),

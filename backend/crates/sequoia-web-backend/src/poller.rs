@@ -89,6 +89,7 @@ pub struct RaidTracker {
     wynn: Option<WynnClient>,
     guild_prefix: String,
     health: Arc<PollerHealth>,
+    store_raw_payloads: bool,
 }
 
 impl RaidTracker {
@@ -97,12 +98,14 @@ impl RaidTracker {
         wynn: Option<WynnClient>,
         guild_prefix: String,
         health: Arc<PollerHealth>,
+        store_raw_payloads: bool,
     ) -> Self {
         Self {
             db,
             wynn,
             guild_prefix,
             health,
+            store_raw_payloads,
         }
     }
 
@@ -111,7 +114,10 @@ impl RaidTracker {
     /// fresh regardless of who fetched it.
     pub async fn poll_once(&self) -> anyhow::Result<IngestSummary> {
         let result = async {
-            let snapshot = self.fetch_snapshot().await?;
+            let mut snapshot = self.fetch_snapshot().await?;
+            if !self.store_raw_payloads {
+                snapshot.raw_payload = None;
+            }
             self.db.ingest_snapshot(snapshot).await
         }
         .await;
