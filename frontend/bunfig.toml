@@ -1,4 +1,5 @@
-# App tooling runs on Bun. The root test:web command invokes Node's script
-# runner explicitly for Vitest, without loading this Bun-only policy.
+# App tooling and Vitest run on Bun. The root check:web command starts the
+# type checker with Node's script runner instead, because svelte-check's
+# TypeScript 7 mode fails under the Bun runtime.
 [run]
 bun = true
