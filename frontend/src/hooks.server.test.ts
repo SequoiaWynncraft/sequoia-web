@@ -106,6 +106,21 @@ describe("server request diagnostics", () => {
     expect(response.headers.get("cache-control")).toBe("public, max-age=60");
   });
 
+  it("adds security headers to page and endpoint responses alike", async () => {
+    const responses = await Promise.all(
+      ["/statistics", "/manage/discord", "/api/guild-overview"].map((path) =>
+        handle({ event: requestEvent(path), resolve: async () => new Response("ok", { status: path === "/manage/discord" ? 403 : 200 }) }),
+      ),
+    );
+
+    expect(responses.map((response) => response.headers.get("x-content-type-options"))).toEqual(["nosniff", "nosniff", "nosniff"]);
+    expect(responses.map((response) => response.headers.get("strict-transport-security"))).toEqual([
+      "max-age=31536000",
+      "max-age=31536000",
+      "max-age=31536000",
+    ]);
+  });
+
   it("logs error responses without query parameters", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const event = requestEvent();

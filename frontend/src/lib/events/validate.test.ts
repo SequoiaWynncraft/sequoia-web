@@ -841,6 +841,9 @@ describe("parseGuildEvent", () => {
     expectError({ ...VALID, theme: { ...VALID.theme, accent: "purple" } }, "accent");
     expectError({ ...VALID, startsAt: "2026-07-05T00:00:00Z" }, "both dates");
     expectError({ ...VALID, startsAt: "2026-07-05T00:00", endsAt: "2026-07-06T00:00" }, "timezone");
+    expectError({ ...VALID, startsAt: "2026-02-29T00:00:00Z", endsAt: "2026-03-06T00:00:00Z" }, "real calendar date");
+    expectError({ ...VALID, startsAt: "2026-07-05T24:00:00Z", endsAt: "2026-07-06T00:00:00Z" }, "start date");
+    expectError({ ...VALID, startsAt: "2026/07/05 00:00:00Z", endsAt: "2026-07-06T00:00:00Z" }, "start date");
     expectError(
       { ...VALID, startsAt: "2026-07-06T00:00:00Z", endsAt: "2026-07-05T00:00:00Z" },
       "end after it starts",

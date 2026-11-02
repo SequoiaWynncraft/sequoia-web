@@ -307,13 +307,18 @@
     { src: "nolers3.avif", title: "Nolers III", desc: "Fan art", w: 868, h: 512 },
   ];
   let lightbox = $state<number | null>(null);
+  let lightboxDialog = $state<HTMLDialogElement | null>(null);
   let lightboxClose = $state<HTMLButtonElement | null>(null);
   // Where focus sat before the lightbox opened, so closing returns it there
   // instead of dumping the keyboard user back at the top of the page.
   let lightboxOpener: HTMLElement | null = null;
 
+  // A modal dialog makes the rest of the page inert and turns Escape into a
+  // native close, so keyboard focus cannot wander behind the open image.
   $effect(() => {
-    if (lightbox !== null) lightboxClose?.focus();
+    if (lightbox === null || !lightboxDialog) return;
+    if (!lightboxDialog.open) lightboxDialog.showModal();
+    lightboxClose?.focus();
   });
 
   function openLightbox(index: number, opener: HTMLElement) {
@@ -322,17 +327,17 @@
   }
 
   function closeLightbox() {
+    lightboxDialog?.close();
+  }
+
+  /** Every dismissal (button, scrim, Escape) ends here through the dialog's close event. */
+  function onLightboxClosed() {
     lightbox = null;
     lightboxOpener?.focus();
+    lightboxOpener = null;
   }
 
 </script>
-
-<svelte:window
-  onkeydown={(event) => {
-    if (event.key === "Escape" && lightbox !== null) closeLightbox();
-  }}
-/>
 
 <!-- Hero -->
 <section class="seq-hero seq-home-page">
@@ -544,11 +549,11 @@
   </div>
 
   {#if lightbox !== null}
-    <div
-      role="dialog"
-      aria-modal="true"
+    <dialog
+      bind:this={lightboxDialog}
+      class="seq-lightbox"
       aria-label={ART[lightbox].title}
-      style="position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:2rem;animation:seq-fade-in 0.2s ease both"
+      onclose={onLightboxClosed}
     >
       <!-- The scrim is the click-anywhere-to-close target, so it has to be a real control. -->
       <button
@@ -557,7 +562,7 @@
         aria-label="Close image"
         style="position:absolute;inset:0;border:0;background:color-mix(in srgb, var(--color-abyss) 92%, transparent);backdrop-filter:blur(8px);cursor:zoom-out"
       ></button>
-      <img src={IMG + ART[lightbox].src} alt={ART[lightbox].title} style="position:relative;max-width:90vw;max-height:85vh;object-fit:contain;border-radius:4px;box-shadow:var(--shadow-lg)" />
+      <img src={IMG + ART[lightbox].src} alt={ART[lightbox].title} width={ART[lightbox].w} height={ART[lightbox].h} style="position:relative;width:auto;height:auto;max-width:90vw;max-height:85vh;object-fit:contain;border-radius:4px;box-shadow:var(--shadow-lg)" />
       <button
         bind:this={lightboxClose}
         type="button"
@@ -567,7 +572,7 @@
       >
         Close
       </button>
-    </div>
+    </dialog>
   {/if}
 </section>
 

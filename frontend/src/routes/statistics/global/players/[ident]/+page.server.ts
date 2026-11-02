@@ -1,13 +1,12 @@
 import type { PageServerLoad } from "./$types";
 
+import { SERIES_DAYS, windowStart } from "#lib/api/playerSeries.js";
 import { AmbiguousPlayerError, getAnyPlayerCard } from "#lib/server/globalPlayer.js";
 import { getPlayerSeries } from "#lib/server/playerSeries.js";
 import { requestError } from "#lib/server/requestError.js";
 
 export const prerender = false;
 
-/** Matches the backend's 400-day span clamp. */
-const SERIES_DAYS = 399;
 
 export const load: PageServerLoad = async ({ fetch, locals, params }) => {
   let card;
@@ -28,7 +27,7 @@ export const load: PageServerLoad = async ({ fetch, locals, params }) => {
   // The series streams after the card: one full-history fetch, ranges slice
   // client-side.
   const to = new Date().toISOString().slice(0, 10);
-  const from = new Date(Date.now() - SERIES_DAYS * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const from = windowStart(to, SERIES_DAYS);
   const series = getPlayerSeries(fetch, card.uuid, from, to).catch(() => null);
 
   return { card, series };

@@ -1,15 +1,23 @@
 import { type PlayerCardResponse, type PlayerCharacterSummary } from "#lib/api/playerCard.js";
 import { getWynncraftGuild } from "#lib/server/wynncraftGuild.js";
 import { createCachedResource, type CachedResource } from "#lib/server/serverCache.js";
-import { fetchWynncraftJson } from "#lib/server/wynncraft.js";
+import { WYNNCRAFT_API_BASE } from "#lib/server/wynncraft.js";
 import { isRecord, nonNegativeInteger, nonNegativeNumber, booleanValue, stringValue } from "#lib/server/guards.js";
 
 const FRESH_MS = 2 * 60 * 1000;
 const STALE_MS = 60 * 60 * 1000;
 
-type StoredPlayer = Record<string, unknown>;
+/** Bounds in-memory resources now that any public UUID lookup can create one. */
+const MAX_PLAYER_RESOURCES = 128;
+const UUID_PATTERN = /^([0-9a-f]{8})-?([0-9a-f]{4})-?([0-9a-f]{4})-?([0-9a-f]{4})-?([0-9a-f]{12})$/;
 
-const resources = new Map<string, CachedResource<StoredPlayer>>();
+/** Wynncraft's public full-result player payload, as stored; parsed per use. */
+export type WynnPlayerPayload = Record<string, unknown> & { username: string; uuid: string };
+
+const resources = new Map<string, CachedResource<WynnPlayerPayload>>();
+
+/** No Wynncraft player has this UUID. */
+export class UnknownPlayerError extends Error {}
 
 export class PlayerNotFoundError extends Error {
   constructor(name: string) {
@@ -46,26 +54,56 @@ export async function getPlayerCard(
   return value.stale ? { ...card, stale: true, online: null, server: null } : card;
 }
 
-function playerResource(uuid: string): CachedResource<StoredPlayer> {
-  let resource = resources.get(uuid);
+function playerResource(uuid: string): CachedResource<WynnPlayerPayload> {
+  const canonical = canonicalUuid(uuid);
+  if (!canonical) throw new Error(`Roster member has an invalid UUID: ${uuid}`);
+  return wynnPlayerResource(canonical);
+}
+
+/** A UUID in its canonical lowercase, hyphenated form, or null when `value` is not one. */
+export function canonicalUuid(value: string): string | null {
+  const match = UUID_PATTERN.exec(value.trim().toLowerCase());
+  return match ? match.slice(1).join("-") : null;
+}
+
+/**
+ * The single cache entry for one player. Every lookup path, by roster name
+ * or by any public name/UUID, stores Wynncraft's public full-result payload
+ * under the canonical UUID, so aliases never persist duplicate copies.
+ *
+ * `canonical` must come from {@link canonicalUuid}.
+ */
+export function wynnPlayerResource(canonical: string): CachedResource<WynnPlayerPayload> {
+  let resource = resources.get(canonical);
   if (!resource) {
+    if (resources.size >= MAX_PLAYER_RESOURCES) {
+      const oldest = resources.keys().next().value;
+      if (oldest !== undefined) resources.delete(oldest);
+    }
     resource = createCachedResource({
-      key: `wynn-player:${uuid}:v1`,
+      key: `wynn-player:${canonical}:v1`,
       freshMs: FRESH_MS,
       staleMs: STALE_MS,
       load: async (fetchImpl) => {
-        const payload = await fetchWynncraftJson(fetchImpl, `/player/${uuid}?fullResult`);
-        if (!isRecord(payload) || typeof payload.username !== "string") {
-          throw new Error("Unexpected Wynncraft player response.");
-        }
+        const response = await fetchImpl(`${WYNNCRAFT_API_BASE}/player/${canonical}?fullResult`, {
+          headers: { accept: "application/json" },
+          signal: AbortSignal.timeout(8000),
+        });
+        if (response.status === 404) throw new UnknownPlayerError(canonical);
+        if (!response.ok) throw new Error(`Wynncraft player request failed with status ${response.status}.`);
+        const payload: unknown = await response.json();
+        if (!isWynnPlayerPayload(payload)) throw new Error("Unexpected Wynncraft player response.");
         return payload;
       },
-      validate: (candidate): candidate is StoredPlayer =>
-        isRecord(candidate) && typeof candidate.username === "string",
+      validate: isWynnPlayerPayload,
     });
-    resources.set(uuid, resource);
+    resources.set(canonical, resource);
   }
   return resource;
+}
+
+export function isWynnPlayerPayload(value: unknown): value is WynnPlayerPayload {
+  return isRecord(value) && typeof value.username === "string" && typeof value.uuid === "string";
 }
 
 type RosterMember = { uuid: string; currentGuildRaids: number | null; joined: string | null };

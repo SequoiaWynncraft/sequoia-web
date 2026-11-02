@@ -10,7 +10,7 @@
   import { tierColor } from "#lib/site/rankColors.js";
   import { nmsrFullBodyIso } from "#lib/site/nmsr.js";
   import type { PlayerCardResponse } from "#lib/api/playerCard.js";
-  import type { PlayerSeriesResponse } from "#lib/api/playerSeries.js";
+  import { trackWindow, type PlayerSeriesResponse } from "#lib/api/playerSeries.js";
   import { insigniaLabel } from "#lib/site/honours.js";
 
   let { data } = $props();
@@ -120,20 +120,8 @@
     { key: "6m", label: "6m" },
     { key: "all", label: "all" },
   ];
-  const RANGE_DAYS: Record<string, number> = { "1w": 7, "1m": 30, "3m": 91, "6m": 182, all: 399 };
-
   let metric = $state("playtime");
   let trackRange = $state("1m");
-
-  function trackWindow(series: PlayerSeriesResponse): { from: string; to: string } {
-    const to = series.to;
-    const from = new Date(
-      Date.parse(`${to}T00:00:00Z`) - (RANGE_DAYS[trackRange] - 1) * 24 * 60 * 60 * 1000,
-    )
-      .toISOString()
-      .slice(0, 10);
-    return { from: from < series.from ? series.from : from, to };
-  }
 
   function trackPoints(series: PlayerSeriesResponse, from: string): { day: string; value: number }[] {
     return series.days
@@ -282,7 +270,7 @@
 
           {#await result.series then series}
             {#if series && series.days.length > 0}
-              {@const window = trackWindow(series)}
+              {@const window = trackWindow(series, trackRange)}
               <div class="card-section">
                 <SectionLabel meta="{formatDate(window.from)} to {formatDate(window.to)}">
                   {#snippet children()}Tracking{/snippet}

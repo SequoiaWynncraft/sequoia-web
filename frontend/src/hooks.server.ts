@@ -3,6 +3,7 @@ import type { Handle, HandleServerError, ServerInit } from "@sveltejs/kit/hooks"
 import { legacyManageRedirect } from "#lib/manage/redirects.js";
 import { closeDatabase } from "#lib/server/db.js";
 import { retireAllRooms } from "#lib/server/liveRolls.js";
+import { applySecurityHeaders } from "#lib/server/securityHeaders.js";
 import { parseThemeId, THEME_COOKIE } from "#lib/site/themePreferences.js";
 import { REQUEST_FINISHED, REQUEST_STARTED } from "../retirement.js";
 
@@ -59,6 +60,7 @@ const handleRequest: Handle = async ({ event, resolve }) => {
       html.replace("%seq.theme%", parseThemeId(event.cookies.get(THEME_COOKIE))),
   });
   response.headers.set("x-request-id", requestId);
+  applySecurityHeaders(response.headers, event.url);
 
   const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
   if (contentType.startsWith("text/html") || event.url.pathname.endsWith("/__data.json")) {
