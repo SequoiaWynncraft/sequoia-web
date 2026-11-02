@@ -1,6 +1,6 @@
 import type { PageServerLoad } from "./$types";
 
-import { createBagshopClient, type BagshopMe, type InventoryItem, type Order } from "$lib/api/bagshop";
+import { createBagshopClient, type BagshopMe, type InventoryItem, type Order } from "#lib/api/bagshop.js";
 
 export const prerender = false;
 

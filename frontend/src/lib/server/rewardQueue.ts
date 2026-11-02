@@ -1,4 +1,4 @@
-import { SEQUOIA_API_BASE_URL, SEQUOIA_MOD_VERSION } from "$lib/config/public";
+import { SEQUOIA_API_BASE_URL, SEQUOIA_MOD_VERSION } from "#lib/config/public.js";
 
 /** The two reward queues a member can request from, matching the backend's `RequestType`. */
 export const REWARD_REQUEST_TYPES = ["aspect", "tome"] as const;

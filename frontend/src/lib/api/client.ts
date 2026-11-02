@@ -1,7 +1,7 @@
-import { SEQUOIA_API_BASE_URL } from "$lib/config/public";
-import type { components, operations } from "$lib/api/generated/public-api";
-import { isGuildOverviewResponse, type GuildOverviewResponse } from "$lib/api/guildOverview";
-import { isRecord } from "$lib/api/guards";
+import { SEQUOIA_API_BASE_URL } from "#lib/config/public.js";
+import type { components, operations } from "#lib/api/generated/public-api.js";
+import { isGuildOverviewResponse, type GuildOverviewResponse } from "#lib/api/guildOverview.js";
+import { isRecord } from "#lib/api/guards.js";
 
 export type SeasonRaidActivityResponse = components["schemas"]["SeasonRaidActivityResponse"];
 export type GetSeasonRaidActivityQuery = operations["getSeasonRaidActivity"]["parameters"]["query"];

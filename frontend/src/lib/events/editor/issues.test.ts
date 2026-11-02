@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { EventDraft } from "$lib/events/editor/draft.svelte";
-import { sectionIssues } from "$lib/events/editor/issues";
+import { EventDraft } from "#lib/events/editor/draft.svelte.js";
+import { sectionIssues } from "#lib/events/editor/issues.js";
 
 describe("sectionIssues", () => {
   it("ignores incomplete rules only while a raffle is whitelist-only", () => {

@@ -6,7 +6,7 @@ import {
   queueStanding,
   requestedAgoLabel,
   type RewardQueueEntry,
-} from "$lib/rewardQueue";
+} from "#lib/rewardQueue.js";
 
 /** A queue entry with only the fields under test spelled out. */
 function entry(id: number, isViewer = false): RewardQueueEntry {

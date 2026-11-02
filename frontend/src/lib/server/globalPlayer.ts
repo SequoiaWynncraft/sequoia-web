@@ -1,7 +1,7 @@
-import type { PlayerCardResponse } from "$lib/api/playerCard";
-import { parsePlayerCard } from "$lib/server/playerCard";
-import { createCachedResource, type CachedResource } from "$lib/server/serverCache";
-import { WYNNCRAFT_API_BASE } from "$lib/server/wynncraft";
+import type { PlayerCardResponse } from "#lib/api/playerCard.js";
+import { parsePlayerCard } from "#lib/server/playerCard.js";
+import { createCachedResource, type CachedResource } from "#lib/server/serverCache.js";
+import { WYNNCRAFT_API_BASE } from "#lib/server/wynncraft.js";
 
 const FRESH_MS = 2 * 60 * 1000;
 const STALE_MS = 60 * 60 * 1000;

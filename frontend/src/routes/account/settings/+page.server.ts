@@ -1,26 +1,26 @@
-import { fail, redirect, type Actions } from "@sveltejs/kit";
+import { fail, type Actions } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
 
 import {
   getLinkedAccounts,
   parseAccountUuid,
+  redirectToSessionRefresh,
   removeAccount,
-  sessionRefreshUrl,
   setPrimaryAccount,
   type AccountChange,
-} from "$lib/server/linkedAccounts";
+} from "#lib/server/linkedAccounts.js";
 import {
   getPartyFinderDmLevel,
   parsePartyFinderDmLevel,
   setPartyFinderDmLevel,
-} from "$lib/server/partyFinderPreferences";
+} from "#lib/server/partyFinderPreferences.js";
 import {
   NAV_PREFERENCE_COOKIE,
   NAV_PREFERENCE_MAX_AGE,
   navToggleIds,
   serializeHiddenNav,
-} from "$lib/site/navPreferences";
-import { parseThemeId, THEME_COOKIE, THEME_MAX_AGE } from "$lib/site/themePreferences";
+} from "#lib/site/navPreferences.js";
+import { parseThemeId, THEME_COOKIE, THEME_MAX_AGE } from "#lib/site/themePreferences.js";
 
 export const prerender = false;
 
@@ -50,7 +50,7 @@ async function changeAccount(
   if (!uuid) return fail(400, { section: "accounts", error: "not_owned" as const });
 
   const result = await change(token, uuid);
-  if (result === "saved") redirect(303, sessionRefreshUrl(`${url.origin}${url.pathname}`));
+  if (result === "saved") redirectToSessionRefresh(`${url.origin}${url.pathname}`);
   if (result === "unauthorized") return fail(401, { section: "accounts", error: "signin" as const });
   return fail(result === "unavailable" ? 503 : 409, { section: "accounts", error: result });
 }

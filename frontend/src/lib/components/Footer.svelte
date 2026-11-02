@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { SECTIONS, leavesOf } from "$lib/site/nav";
+  import { SECTIONS, leavesOf } from "#lib/site/nav.js";
 
   const DISCORD = "https://discord.gg/seq";
   const MAP = "https://map.seqwawa.com";

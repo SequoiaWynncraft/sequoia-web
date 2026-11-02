@@ -402,7 +402,7 @@ describe("buildExport", () => {
   });
 
   it("rejects a progress payload without raid breakdowns at the validator", async () => {
-    const { isMemberProgressResponse } = await import("$lib/api/memberProgress");
+    const { isMemberProgressResponse } = await import("#lib/api/memberProgress.js");
     const entry = {
       player_uuid: UNDASHED,
       player_name: "Alice",
@@ -418,7 +418,7 @@ describe("buildExport", () => {
     };
     // Every exported column must be validated - wars_participated included.
     expect(
-      (await import("$lib/api/memberProgress")).isMemberProgressResponse({
+      (await import("#lib/api/memberProgress.js")).isMemberProgressResponse({
         generated_at: "now",
         from: "2026-07-01",
         to: "2026-07-31",

@@ -1,6 +1,6 @@
 import { error } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
-import { discordManagement } from "$lib/server/discordManagement";
+import { discordManagement } from "#lib/server/discordManagement.js";
 
 const proxy: RequestHandler = async ({ fetch, request, cookies, params, url }) => {
   const path = params.path;

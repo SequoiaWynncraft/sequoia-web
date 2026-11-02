@@ -1,6 +1,6 @@
-import type { RankProfilesResponse } from "$lib/api/client";
-import { ANONYMOUS_VIEWER, type PostViewer } from "$lib/posts/audience";
-import type { Viewer } from "$lib/site/viewer";
+import type { RankProfilesResponse } from "#lib/api/client.js";
+import { ANONYMOUS_VIEWER, type PostViewer } from "#lib/posts/audience.js";
+import type { Viewer } from "#lib/site/viewer.js";
 
 import { checkBranchAreaWithRoster } from "./branchAccess";
 import { sameUuid } from "./raidEventBoards";

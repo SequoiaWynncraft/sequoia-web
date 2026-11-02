@@ -1,9 +1,9 @@
-import type { Handle, HandleServerError, ServerInit } from "@sveltejs/kit";
+import type { Handle, HandleServerError, ServerInit } from "@sveltejs/kit/hooks";
 
-import { legacyManageRedirect } from "$lib/manage/redirects";
-import { closeDatabase } from "$lib/server/db";
-import { retireAllRooms } from "$lib/server/liveRolls";
-import { parseThemeId, THEME_COOKIE } from "$lib/site/themePreferences";
+import { legacyManageRedirect } from "#lib/manage/redirects.js";
+import { closeDatabase } from "#lib/server/db.js";
+import { retireAllRooms } from "#lib/server/liveRolls.js";
+import { parseThemeId, THEME_COOKIE } from "#lib/site/themePreferences.js";
 import { REQUEST_FINISHED, REQUEST_STARTED } from "../retirement.js";
 
 /** Docker uses a signal adapter-node does not consume so its listener stays live during the drain. */
@@ -80,16 +80,40 @@ const handleRequest: Handle = async ({ event, resolve }) => {
   return response;
 };
 
-export const handleError: HandleServerError = ({ error, event, status, message }) => {
+/**
+ * Every error reaches this hook, including expected `error(...)` responses and
+ * framework 404s. Only server failures are logged; the returned fields are
+ * merged over SvelteKit's own safe status and message.
+ */
+export const handleError: HandleServerError = (caught) => {
+  const { event } = caught;
   const requestId = event.locals.requestId ?? crypto.randomUUID();
-  if (status >= 500) {
+  const status = serverFailureStatus(caught);
+  if (status !== null) {
     console.error("unexpected frontend error", {
       requestId,
       method: event.request.method,
       path: event.url.pathname,
       status,
-      error,
+      error: caught.error,
     });
   }
-  return { message, requestId };
+  return { requestId };
 };
+
+/** The 5xx status of a failure the app did not raise itself, or null for anything else. */
+function serverFailureStatus(caught: Parameters<HandleServerError>[0]): number | null {
+  switch (caught.kind) {
+    case "unknown":
+      return 500;
+    case "framework":
+      return caught.error.status >= 500 ? caught.error.status : null;
+    case "app":
+    case "validation":
+      return null;
+    default: {
+      const _exhaustive: never = caught;
+      return _exhaustive;
+    }
+  }
+}

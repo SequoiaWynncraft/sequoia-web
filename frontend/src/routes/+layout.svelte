@@ -1,14 +1,14 @@
 <script lang="ts">
-  import "$lib/design-system/styles.css";
+  import "#lib/design-system/styles.css";
   import "../app.css";
   import { beforeNavigate } from "$app/navigation";
   import { page, updated } from "$app/state";
-  import { NMSR_PRECONNECT_ORIGIN } from "$lib/config/public";
-  import { staleNavigationUrl } from "$lib/site/deploymentVersion";
-  import Navbar from "$lib/components/Navbar.svelte";
-  import Footer from "$lib/components/Footer.svelte";
+  import { NMSR_PRECONNECT_ORIGIN } from "#lib/config/public.js";
+  import { staleNavigationUrl } from "#lib/site/deploymentVersion.js";
+  import Navbar from "#lib/components/Navbar.svelte";
+  import Footer from "#lib/components/Footer.svelte";
   import type { Snippet } from "svelte";
-  import type { Viewer } from "$lib/site/viewer";
+  import type { Viewer } from "#lib/site/viewer.js";
 
   beforeNavigate(({ willUnload, to }) => {
     const destination = staleNavigationUrl(updated.current, willUnload, to?.url ?? null);

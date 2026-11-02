@@ -2,13 +2,13 @@ import { redirect } from "@sveltejs/kit";
 
 import type { PageServerLoad } from "./$types";
 
-import type { PlayerCardResponse } from "$lib/api/playerCard";
-import type { PlayerSeriesResponse } from "$lib/api/playerSeries";
-import { getGuildStats } from "$lib/server/guildStats";
-import { getPlayerCard, PlayerNotFoundError } from "$lib/server/playerCard";
-import { getPlayerSeries } from "$lib/server/playerSeries";
-import { getLinkedRankProfiles, honoursForMinecraft } from "$lib/server/rankProfiles";
-import { EMPTY_HONOURS, type PlayerHonours } from "$lib/site/honours";
+import type { PlayerCardResponse } from "#lib/api/playerCard.js";
+import type { PlayerSeriesResponse } from "#lib/api/playerSeries.js";
+import { getGuildStats } from "#lib/server/guildStats.js";
+import { getPlayerCard, PlayerNotFoundError } from "#lib/server/playerCard.js";
+import { getPlayerSeries } from "#lib/server/playerSeries.js";
+import { getLinkedRankProfiles, honoursForMinecraft } from "#lib/server/rankProfiles.js";
+import { EMPTY_HONOURS, type PlayerHonours } from "#lib/site/honours.js";
 
 export const prerender = false;
 

@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { load } from "./+page.server";
-import { sampleProgress } from "$lib/achievements/progress.fixture";
+import { sampleProgress } from "#lib/achievements/progress.fixture.js";
 
-vi.mock("$env/dynamic/private", () => ({ env: { SEQUOIA_DISCORD_MANAGEMENT_URL: "http://sierra:8082" } }));
+vi.mock("$app/env/private", () => ({ SEQUOIA_DISCORD_MANAGEMENT_URL: "http://sierra:8082" }));
 
 describe("member achievements page", () => {
   it("asks for sign-in without calling Sierra when there is no session", async () => {

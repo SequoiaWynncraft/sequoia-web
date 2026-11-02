@@ -1,23 +1,23 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { loadModLeaderboard, loadRaidEvents, loadTrackerLeaderboard } from "$lib/server/raidEventBoards";
+import { loadModLeaderboard, loadRaidEvents, loadTrackerLeaderboard } from "#lib/server/raidEventBoards.js";
 import { load } from "./+page.server";
 
-vi.mock("$lib/api/client", () => ({
+vi.mock("#lib/api/client.js", () => ({
   createSequoiaApiClient: () => ({ getSeasonRaidActivity: async () => ({ days: [] }) }),
 }));
-vi.mock("$lib/server/eventStore", () => ({ eventStore: { list: async () => [] } }));
-vi.mock("$lib/server/eventVisibility", () => ({
+vi.mock("#lib/server/eventStore.js", () => ({ eventStore: { list: async () => [] } }));
+vi.mock("#lib/server/eventVisibility.js", () => ({
   canSeeEvent: () => true,
   // A manager sees every tracker, which keeps these cases about the query string.
   resolveEventAudience: async () => ({ audience: "manager", roster: [] }),
 }));
-vi.mock("$lib/server/guildStats", () => ({ getGuildStats: async () => ({ members: [], stale: false }) }));
-vi.mock("$lib/server/rankProfiles", () => ({
+vi.mock("#lib/server/guildStats.js", () => ({ getGuildStats: async () => ({ members: [], stale: false }) }));
+vi.mock("#lib/server/rankProfiles.js", () => ({
   getLinkedRankProfiles: async () => [],
   memberRanksByUuid: () => ({}),
 }));
-vi.mock("$lib/server/raidEventBoards", () => ({
+vi.mock("#lib/server/raidEventBoards.js", () => ({
   loadRaidEvents: vi.fn(async () => [{ id: "summer-slam", name: "Summer Slam", tracking: "mod", raid: null }]),
   loadModLeaderboard: vi.fn(async () => ({ leaderboard: [], error: null })),
   loadTrackerLeaderboard: vi.fn(async () => ({ leaderboard: [], error: null })),

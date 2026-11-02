@@ -1,4 +1,4 @@
-import { isRecord } from "$lib/api/guards";
+import { isRecord } from "#lib/api/guards.js";
 
 /** Metrics the player rankings boards cover; keys match the backend grammar. */
 export const PLAYER_METRICS = [

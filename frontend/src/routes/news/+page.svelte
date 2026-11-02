@@ -1,6 +1,6 @@
 <script lang="ts">
-  import PageHeader from "$lib/components/PageHeader.svelte";
-  import PostHub from "$lib/posts/components/PostHub.svelte";
+  import PageHeader from "#lib/components/PageHeader.svelte";
+  import PostHub from "#lib/posts/components/PostHub.svelte";
 
   let { data } = $props();
 </script>

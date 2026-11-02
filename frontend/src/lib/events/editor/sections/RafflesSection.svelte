@@ -1,16 +1,16 @@
 <script lang="ts">
   import { getContext } from "svelte";
 
-  import { GUILD_RANKS } from "$lib/api/guildStats";
-  import PlayerName from "$lib/design-system/components/PlayerName.svelte";
-  import { canonicalUuid } from "$lib/events/raffle";
-  import { PRIZE_ICONS, prizeIconUrl } from "$lib/events/prizeIcons";
-  import ConfirmDialog from "$lib/design-system/components/forms/ConfirmDialog.svelte";
-  import Field from "$lib/design-system/components/forms/Field.svelte";
-  import FormSection from "$lib/design-system/components/forms/FormSection.svelte";
-  import InstantField from "$lib/design-system/components/forms/InstantField.svelte";
-  import Select from "$lib/design-system/components/forms/Select.svelte";
-  import Toggle from "$lib/design-system/components/forms/Toggle.svelte";
+  import { GUILD_RANKS } from "#lib/api/guildStats.js";
+  import PlayerName from "#lib/design-system/components/PlayerName.svelte";
+  import { canonicalUuid } from "#lib/events/raffle.js";
+  import { PRIZE_ICONS, prizeIconUrl } from "#lib/events/prizeIcons.js";
+  import ConfirmDialog from "#lib/design-system/components/forms/ConfirmDialog.svelte";
+  import Field from "#lib/design-system/components/forms/Field.svelte";
+  import FormSection from "#lib/design-system/components/forms/FormSection.svelte";
+  import InstantField from "#lib/design-system/components/forms/InstantField.svelte";
+  import Select from "#lib/design-system/components/forms/Select.svelte";
+  import Toggle from "#lib/design-system/components/forms/Toggle.svelte";
 
   import { EDITOR_KEY, EventDraft, RAFFLE_MAX_WINNERS, type ManualRow, type RaffleRow, type RuleType } from "../draft.svelte";
   import RafflePreview from "./RafflePreview.svelte";

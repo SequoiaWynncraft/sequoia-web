@@ -1,7 +1,7 @@
 <script lang="ts">
   import { tick, type Snippet } from "svelte";
-  import Field from "$lib/design-system/components/forms/Field.svelte";
-  import Select from "$lib/design-system/components/forms/Select.svelte";
+  import Field from "#lib/design-system/components/forms/Field.svelte";
+  import Select from "#lib/design-system/components/forms/Select.svelte";
   import {
     MAIN_GUILD, UNAVAILABLE, UNPLACED, attention, browse, endSearch, groupKey, guildOf, isOpen, isThread, reveal as revealGroup, threadLabel, toggle,
     type BrowserGroup, type Disclosure,

@@ -1,12 +1,12 @@
 <script lang="ts">
-  import PageHeader from "$lib/components/PageHeader.svelte";
-  import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
-  import EventSky from "$lib/events/components/EventSky.svelte";
-  import EventMeta from "$lib/events/components/EventMeta.svelte";
-  import GoalMeter from "$lib/events/components/GoalMeter.svelte";
-  import type { HubEvent } from "$lib/events/helpers";
-  import { raidIconUrl } from "$lib/events/raidIcons";
-  import type { EventStatus } from "$lib/events/types";
+  import PageHeader from "#lib/components/PageHeader.svelte";
+  import SectionLabel from "#lib/design-system/components/SectionLabel.svelte";
+  import EventSky from "#lib/events/components/EventSky.svelte";
+  import EventMeta from "#lib/events/components/EventMeta.svelte";
+  import GoalMeter from "#lib/events/components/GoalMeter.svelte";
+  import type { HubEvent } from "#lib/events/helpers.js";
+  import { raidIconUrl } from "#lib/events/raidIcons.js";
+  import type { EventStatus } from "#lib/events/types.js";
 
   let { data } = $props();
 

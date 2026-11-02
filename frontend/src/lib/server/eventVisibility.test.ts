@@ -1,18 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { GuildMemberStats } from "$lib/api/guildStats";
-import type { GuildEvent } from "$lib/events/types";
-import { checkBranchAreaWithRoster } from "$lib/server/branchAccess";
+import type { GuildMemberStats } from "#lib/api/guildStats.js";
+import type { GuildEvent } from "#lib/events/types.js";
+import { checkBranchAreaWithRoster } from "#lib/server/branchAccess.js";
 import {
   canSeeEvent,
   eventAudience,
   resolveEventAudience,
   visibilityTightened,
   type EventAudience,
-} from "$lib/server/eventVisibility";
-import type { Viewer } from "$lib/site/viewer";
+} from "#lib/server/eventVisibility.js";
+import type { Viewer } from "#lib/site/viewer.js";
 
-vi.mock("$lib/server/branchAccess", () => ({ checkBranchAreaWithRoster: vi.fn() }));
+vi.mock("#lib/server/branchAccess.js", () => ({ checkBranchAreaWithRoster: vi.fn() }));
 
 const mockBranchArea = vi.mocked(checkBranchAreaWithRoster);
 

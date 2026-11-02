@@ -1,5 +1,5 @@
-import type { GuildEvent } from "$lib/events/types";
-import { parseGuildEvent } from "$lib/events/validate";
+import type { GuildEvent } from "#lib/events/types.js";
+import { parseGuildEvent } from "#lib/events/validate.js";
 
 export type EventPayload = { event: GuildEvent; published: boolean } | { error: string };
 

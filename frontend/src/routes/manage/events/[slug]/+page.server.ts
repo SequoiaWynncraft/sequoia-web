@@ -1,23 +1,23 @@
 import { fail, redirect } from "@sveltejs/kit";
 import type { Actions, PageServerLoad } from "./$types";
 
-import { pageAreaAccess } from "$lib/server/manageCapabilities";
-import { recordAudit } from "$lib/server/auditLog";
-import { drawWinners, drawablePool, secureRng } from "$lib/events/raffle";
-import { parseGuildEvent } from "$lib/events/validate";
-import { eventFormContext } from "$lib/server/eventFormContext";
-import { visibilityTightened } from "$lib/server/eventVisibility";
-import { requireEventManager } from "$lib/server/eventManagers";
-import { getGuildStats } from "$lib/server/guildStats";
-import { withEventLock } from "$lib/server/eventLocks";
-import { endRoom, publish } from "$lib/server/liveRolls";
-import { resolveEligibility } from "$lib/server/raffleEligibility";
-import { raffleRollStore } from "$lib/server/raffleRolls";
-import { createTrackerAction, updateTrackerAction } from "$lib/server/trackerAdmin";
-import { parseEventPayload } from "$lib/server/eventPayload";
-import { deletePresetAction, savePresetAction } from "$lib/server/eventPresets";
-import { eventStore } from "$lib/server/eventStore";
-import { requestError } from "$lib/server/requestError";
+import { pageAreaAccess } from "#lib/server/manageCapabilities.js";
+import { recordAudit } from "#lib/server/auditLog.js";
+import { drawWinners, drawablePool, secureRng } from "#lib/events/raffle.js";
+import { parseGuildEvent } from "#lib/events/validate.js";
+import { eventFormContext } from "#lib/server/eventFormContext.js";
+import { visibilityTightened } from "#lib/server/eventVisibility.js";
+import { requireEventManager } from "#lib/server/eventManagers.js";
+import { getGuildStats } from "#lib/server/guildStats.js";
+import { withEventLock } from "#lib/server/eventLocks.js";
+import { endRoom, publish } from "#lib/server/liveRolls.js";
+import { resolveEligibility } from "#lib/server/raffleEligibility.js";
+import { raffleRollStore } from "#lib/server/raffleRolls.js";
+import { createTrackerAction, updateTrackerAction } from "#lib/server/trackerAdmin.js";
+import { parseEventPayload } from "#lib/server/eventPayload.js";
+import { deletePresetAction, savePresetAction } from "#lib/server/eventPresets.js";
+import { eventStore } from "#lib/server/eventStore.js";
+import { requestError } from "#lib/server/requestError.js";
 
 export const prerender = false;
 

@@ -1,6 +1,6 @@
-import { GUILD_RANK_LABELS, type GuildRankName } from "$lib/api/guildStats";
-import { MANAGE_AREAS } from "$lib/manage/registry";
-import type { ManageBranchKey } from "$lib/manage/types";
+import { GUILD_RANK_LABELS, type GuildRankName } from "#lib/api/guildStats.js";
+import { MANAGE_AREAS } from "#lib/manage/registry.js";
+import type { ManageBranchKey } from "#lib/manage/types.js";
 
 import type { GuildPost, PostAudience, PostStatus, PostTier } from "./types";
 

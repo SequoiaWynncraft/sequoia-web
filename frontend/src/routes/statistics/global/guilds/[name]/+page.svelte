@@ -1,16 +1,16 @@
 <script lang="ts">
-  import Icon from "$lib/components/Icon.svelte";
-  import StatsHeader from "$lib/components/StatsHeader.svelte";
-  import LedgerTable from "$lib/design-system/components/LedgerTable.svelte";
-  import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
-  import StatBlock from "$lib/design-system/components/StatBlock.svelte";
-  import StackedColumns from "$lib/design-system/components/charts/StackedColumns.svelte";
-  import Podium from "$lib/design-system/components/Podium.svelte";
-  import type { LedgerColumn } from "$lib/design-system/components/ledgerTable";
-  import { guildRankLabel, guildRankOrder, type GuildMemberStats } from "$lib/api/guildStats";
-  import { raidSeriesFor } from "$lib/site/raids";
-  import { nmsrFace } from "$lib/site/nmsr";
-  import { compact } from "$lib/site/format";
+  import Icon from "#lib/components/Icon.svelte";
+  import StatsHeader from "#lib/components/StatsHeader.svelte";
+  import LedgerTable from "#lib/design-system/components/LedgerTable.svelte";
+  import SectionLabel from "#lib/design-system/components/SectionLabel.svelte";
+  import StatBlock from "#lib/design-system/components/StatBlock.svelte";
+  import StackedColumns from "#lib/design-system/components/charts/StackedColumns.svelte";
+  import Podium from "#lib/design-system/components/Podium.svelte";
+  import type { LedgerColumn } from "#lib/design-system/components/ledgerTable.js";
+  import { guildRankLabel, guildRankOrder, type GuildMemberStats } from "#lib/api/guildStats.js";
+  import { raidSeriesFor } from "#lib/site/raids.js";
+  import { nmsrFace } from "#lib/site/nmsr.js";
+  import { compact } from "#lib/site/format.js";
 
   let { data } = $props();
 

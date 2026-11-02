@@ -1,6 +1,6 @@
 import type { PageServerLoad } from "./$types";
-import { parseAchievementProgress } from "$lib/achievements/progress";
-import { discordManagement } from "$lib/server/discordManagement";
+import { parseAchievementProgress } from "#lib/achievements/progress.js";
+import { discordManagement } from "#lib/server/discordManagement.js";
 
 export const prerender = false;
 

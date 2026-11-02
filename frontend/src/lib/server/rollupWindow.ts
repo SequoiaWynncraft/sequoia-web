@@ -1,4 +1,4 @@
-import { isoDay } from "$lib/events/format";
+import { isoDay } from "#lib/events/format.js";
 
 /** Whether an instant sits exactly on a UTC midnight boundary. */
 function isUtcMidnight(instant: Date): boolean {

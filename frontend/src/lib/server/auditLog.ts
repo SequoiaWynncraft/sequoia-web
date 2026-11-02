@@ -1,6 +1,6 @@
 import type { Client } from "@libsql/client";
 
-import type { Viewer } from "$lib/site/viewer";
+import type { Viewer } from "#lib/site/viewer.js";
 
 import { database } from "./db";
 import { discordManagement } from "./discordManagement";

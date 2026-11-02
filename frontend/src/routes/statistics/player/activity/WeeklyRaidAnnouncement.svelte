@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
 
-  import type { WeeklyRaidAnnouncement } from "$lib/server/weeklyRaidAnnouncement";
+  import type { WeeklyRaidAnnouncement } from "#lib/server/weeklyRaidAnnouncement.js";
 
   let { announcement }: { announcement: WeeklyRaidAnnouncement } = $props();
 
