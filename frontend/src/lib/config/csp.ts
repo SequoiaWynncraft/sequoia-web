@@ -15,8 +15,8 @@ const IMAGE_HOSTS = ["https://assets.seqwawa.com", "https://cdn.discordapp.com"]
  * SvelteKit adds a nonce for every script and style element it renders, so
  * neither needs `unsafe-inline`. Markup does carry `style` attributes, which
  * `style-src-attr` allows separately and which cannot run script. Staff-only
- * Discord previews show arbitrary embed images; that route widens `img-src`
- * itself, see `#lib/server/securityHeaders.js`.
+ * Discord previews show arbitrary embed images, so those routes widen `img-src`
+ * (see {@link allowsAnyHttpsImage}).
  */
 export function contentSecurityPolicy(
   env: { apiBaseUrl?: string; nmsrBaseUrl?: string },
@@ -40,6 +40,17 @@ export function contentSecurityPolicy(
     "object-src": ["none"],
     "base-uri": ["self"],
   };
+}
+
+/** Staff-only Discord editors preview embed images from wherever the message points. */
+const OPEN_IMAGE_ROUTES = "/manage/discord";
+
+/**
+ * Whether a page's policy also allows any HTTPS image. A document keeps the
+ * policy it was loaded with, so client navigation must not cross this boundary.
+ */
+export function allowsAnyHttpsImage(pathname: string): boolean {
+  return pathname === OPEN_IMAGE_ROUTES || pathname.startsWith(`${OPEN_IMAGE_ROUTES}/`);
 }
 
 /** The origin of an absolute base URL; a same-origin (relative) base needs none beyond `self`. */

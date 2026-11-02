@@ -46,6 +46,7 @@ The app sets its own browser security policy. Nothing depends on the reverse pro
   - Browser code connects only to the site's own origin.
   - Frames, plugins and embedding are all denied.
 - **Staff exception:** the Discord editors under `/manage/discord` also allow any HTTPS image, because they preview embed images from wherever a message points.
+  - A document keeps the policy it was loaded with, so client-side navigation into or out of `/manage/discord` reloads as a new document (`onNavigate` in `src/routes/+layout.svelte`). Links, `goto` and back/forward keep their history entries. Navigation within either side stays client-side.
 - **The API and NMSR origins** come from the same build-time `PUBLIC_*` values the app uses. Whether the policy defaults to a local API follows the Vite lifecycle (dev server versus build), not the mode name.
 - **Every app response, endpoints included,** gets `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Frame-Options: DENY` and a `Permissions-Policy` that turns off camera, microphone, geolocation, payment and USB (`src/lib/server/securityHeaders.ts`).
 - **HSTS** (`max-age=31536000`, this host only) is sent only when the request arrived over HTTPS, which behind the proxy comes from `PROTOCOL_HEADER`.

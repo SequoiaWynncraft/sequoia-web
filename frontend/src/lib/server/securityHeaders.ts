@@ -1,3 +1,5 @@
+import { allowsAnyHttpsImage } from "#lib/config/csp.js";
+
 /**
  * Baseline browser protections for every response the app renders. Static
  * assets served before the app's handler rely on the reverse proxy instead.
@@ -16,9 +18,6 @@ const BASELINE_HEADERS: Readonly<Record<string, string>> = {
  */
 const HSTS = "max-age=31536000";
 
-/** Staff-only Discord editors preview embed images from wherever the message points. */
-const OPEN_IMAGE_ROUTES = "/manage/discord";
-
 /**
  * Adds the baseline security headers to an app response, keeping any value a
  * route already chose. HSTS is sent only over HTTPS, where browsers honor it.
@@ -29,13 +28,9 @@ export function applySecurityHeaders(headers: Headers, url: URL): void {
   }
   if (url.protocol === "https:") headers.set("strict-transport-security", HSTS);
   const policy = headers.get("content-security-policy");
-  if (policy && isUnder(url.pathname, OPEN_IMAGE_ROUTES)) {
+  if (policy && allowsAnyHttpsImage(url.pathname)) {
     headers.set("content-security-policy", allowAnyHttpsImage(policy));
   }
-}
-
-function isUnder(pathname: string, prefix: string): boolean {
-  return pathname === prefix || pathname.startsWith(`${prefix}/`);
 }
 
 function allowAnyHttpsImage(policy: string): string {
