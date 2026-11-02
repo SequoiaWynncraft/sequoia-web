@@ -7,13 +7,9 @@ import {
   PUBLIC_SEQUOIA_MOD_VERSION,
 } from "$app/env/public";
 
-const configuredBaseUrl = (PUBLIC_SEQUOIA_API_BASE_URL ?? "").trim().replace(/\/+$/, "");
-const configuredNmsrBaseUrl = (PUBLIC_NMSR_BASE_URL ?? "").trim().replace(/\/+$/, "");
+import { resolveApiBaseUrl, resolveNmsrBaseUrl } from "./endpoints";
 
-export const SEQUOIA_API_BASE_URL =
-  configuredBaseUrl === "same-origin"
-    ? ""
-    : configuredBaseUrl || (dev ? "http://localhost:8081" : "https://api.seqwawa.com");
+export const SEQUOIA_API_BASE_URL = resolveApiBaseUrl(PUBLIC_SEQUOIA_API_BASE_URL, dev);
 
 /**
  * Mod version advertised to the Sequoia backend via the `X-Sequoia-Mod-Version` header on
@@ -39,10 +35,7 @@ export const SEQUOIA_GUILD_UUID =
  */
 export const CONFIGURED_DEFAULT_THEME = (PUBLIC_DEFAULT_THEME ?? "").trim();
 
-export const NMSR_BASE_URL =
-  configuredNmsrBaseUrl === "same-origin"
-    ? "/nmsr"
-    : configuredNmsrBaseUrl || "https://nmsr.seqwawa.com";
+export const NMSR_BASE_URL = resolveNmsrBaseUrl(PUBLIC_NMSR_BASE_URL);
 
 /** Origin to preconnect to for skin renders, when served from a dedicated host. */
 export const NMSR_PRECONNECT_ORIGIN = NMSR_BASE_URL.startsWith("https://")
