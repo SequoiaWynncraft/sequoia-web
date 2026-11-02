@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { nmsrFrontBust } from "$lib/site/nmsr";
+  import { nmsrFrontBust } from "#lib/site/nmsr.js";
 
   export interface PodiumEntry {
     name: string;

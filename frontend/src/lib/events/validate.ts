@@ -1,4 +1,4 @@
-import { GUILD_RANKS, type GuildRankName } from "$lib/api/guildStats";
+import { GUILD_RANKS, type GuildRankName } from "#lib/api/guildStats.js";
 
 import { RAID_ICONS } from "./raidIcons";
 import { isPrizeIconFile } from "./prizeIcons";

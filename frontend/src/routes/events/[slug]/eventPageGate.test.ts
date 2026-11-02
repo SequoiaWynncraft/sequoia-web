@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { GuildEvent } from "$lib/events/types";
-import type { Viewer } from "$lib/site/viewer";
+import type { GuildEvent } from "#lib/events/types.js";
+import type { Viewer } from "#lib/site/viewer.js";
 
 /**
  * The event page's existence gate. The hub hides an event it may not list, but
@@ -19,10 +19,10 @@ const OUTSIDER_UUID = "33333333-3333-3333-3333-333333333333";
 /** On the roster at an ordinary rank, but a full member of the Events branch. */
 const BRANCH_UUID = "44444444-4444-4444-4444-444444444444";
 
-vi.mock("$lib/server/eventStore", () => ({
+vi.mock("#lib/server/eventStore.js", () => ({
   eventStore: { get: async () => H.stored },
 }));
-vi.mock("$lib/server/guildStats", () => ({
+vi.mock("#lib/server/guildStats.js", () => ({
   getGuildStats: async () => ({
     stale: H.rosterStale,
     members: [
@@ -32,7 +32,7 @@ vi.mock("$lib/server/guildStats", () => ({
     ],
   }),
 }));
-vi.mock("$lib/server/rankProfiles", () => ({
+vi.mock("#lib/server/rankProfiles.js", () => ({
   getLinkedRankProfilesResult: async () => ({
     stale: false,
     updatedAt: 0,

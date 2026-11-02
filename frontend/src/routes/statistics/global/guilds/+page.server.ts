@@ -1,8 +1,8 @@
 import type { PageServerLoad } from "./$types";
 
-import { isDirectorySort, type DirectorySort } from "$lib/api/globalDirectory";
-import { getGlobalGuildDirectory } from "$lib/server/globalDirectory";
-import { searchGuilds } from "$lib/server/globalGuild";
+import { isDirectorySort, type DirectorySort } from "#lib/api/globalDirectory.js";
+import { getGlobalGuildDirectory } from "#lib/server/globalDirectory.js";
+import { searchGuilds } from "#lib/server/globalGuild.js";
 
 export const prerender = false;
 

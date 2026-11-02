@@ -1,6 +1,6 @@
 import type { RequestHandler } from "./$types";
 
-import { proxyToBagshop } from "$lib/server/bagshop";
+import { proxyToBagshop } from "#lib/server/bagshop.js";
 
 const ALLOWED_METHODS = new Set(["GET", "POST", "PATCH"]);
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { RAID_WINDOWS, parseDuration, parseTimestampRange, raidWindowPreset } from "$lib/site/duration";
+import { RAID_WINDOWS, parseDuration, parseTimestampRange, raidWindowPreset } from "#lib/site/duration.js";
 
 const MIN = 60_000;
 const HOUR = 3_600_000;

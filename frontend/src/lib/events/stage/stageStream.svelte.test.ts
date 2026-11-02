@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { StageMessage, StageRoll } from "$lib/events/stageProtocol";
+import type { StageMessage, StageRoll } from "#lib/events/stageProtocol.js";
 
 vi.mock("$app/navigation", () => ({ invalidateAll: vi.fn() }));
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { SEED_EVENTS } from "$lib/events/seed";
-import { ICON_PLACEMENTS, parseGuildEvent } from "$lib/events/validate";
+import { SEED_EVENTS } from "#lib/events/seed.js";
+import { ICON_PLACEMENTS, parseGuildEvent } from "#lib/events/validate.js";
 
 const VALID = {
   slug: "test-event",

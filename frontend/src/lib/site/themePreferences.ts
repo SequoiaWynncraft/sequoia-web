@@ -11,13 +11,13 @@
  *
  * Adding a theme is two edits: an entry in `THEMES` here, and a matching
  * `:root[data-theme="<id>"]` override block in
- * `$lib/design-system/tokens/colors.css`. Nothing else should need touching -
+ * `#lib/design-system/tokens/colors.css`. Nothing else should need touching -
  * every palette colour in the app resolves through the tokens that block
  * overrides. Autumn is the exception: its palette is the bare `:root` block
  * there, so it has no override block of its own.
  */
 
-import { CONFIGURED_DEFAULT_THEME } from "$lib/config/public";
+import { CONFIGURED_DEFAULT_THEME } from "#lib/config/public.js";
 
 /**
  * Cookie holding this browser's theme. Read in the root layout load so page

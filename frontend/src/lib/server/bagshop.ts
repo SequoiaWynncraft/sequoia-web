@@ -1,10 +1,10 @@
-import { env } from "$env/dynamic/private";
+import { BAGSHOP_API_URL } from "$app/env/private";
 
 const DEFAULT_BAGSHOP_URL = "http://localhost:8090";
 
 /** Absolute URL for a bag shop API path against the configured internal origin. */
 export function bagshopUrl(path: string): string {
-  const base = (env.BAGSHOP_API_URL || DEFAULT_BAGSHOP_URL).replace(/\/+$/, "");
+  const base = (BAGSHOP_API_URL || DEFAULT_BAGSHOP_URL).replace(/\/+$/, "");
   return `${base}${path.startsWith("/") ? path : `/${path}`}`;
 }
 

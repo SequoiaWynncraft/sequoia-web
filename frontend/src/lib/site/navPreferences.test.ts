@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { cardsFor, pageView } from "$lib/site/nav";
+import { cardsFor, pageView } from "#lib/site/nav.js";
 import {
   categoriesToggleId,
   DEFAULT_HIDDEN_NAV,
@@ -9,7 +9,7 @@ import {
   serializeHiddenNav,
   visibleCards,
   visibleSections,
-} from "$lib/site/navPreferences";
+} from "#lib/site/navPreferences.js";
 
 const STATS_CATEGORIES = categoriesToggleId("/statistics");
 

@@ -1,9 +1,9 @@
-import type { SubmitFunction } from "@sveltejs/kit";
+import type { SubmitFunction } from "$app/forms";
 
-import type { GuildRankName } from "$lib/api/guildStats";
-import { keepInstant, toInput } from "$lib/events/editor/draft.svelte";
-import type { EventTheme } from "$lib/events/types";
-import type { ManageBranchKey } from "$lib/manage/types";
+import type { GuildRankName } from "#lib/api/guildStats.js";
+import { keepInstant, toInput } from "#lib/events/editor/draft.svelte.js";
+import type { EventTheme } from "#lib/events/types.js";
+import type { ManageBranchKey } from "#lib/manage/types.js";
 
 import { describeAudience } from "../audience";
 import type { GuildPost, PostAudience, PostFeed, PostTier } from "../types";

@@ -1,12 +1,12 @@
 <script lang="ts">
   import { untrack } from "svelte";
 
-  import PrizeBoard from "$lib/events/components/PrizeBoard.svelte";
-  import { prizeIconUrl } from "$lib/events/prizeIcons";
-  import EventSky from "$lib/events/components/EventSky.svelte";
-  import EntrantList from "$lib/events/stage/EntrantList.svelte";
-  import RaffleWheel from "$lib/events/stage/RaffleWheel.svelte";
-  import { StageFeed } from "$lib/events/stage/stageStream.svelte";
+  import PrizeBoard from "#lib/events/components/PrizeBoard.svelte";
+  import { prizeIconUrl } from "#lib/events/prizeIcons.js";
+  import EventSky from "#lib/events/components/EventSky.svelte";
+  import EntrantList from "#lib/events/stage/EntrantList.svelte";
+  import RaffleWheel from "#lib/events/stage/RaffleWheel.svelte";
+  import { StageFeed } from "#lib/events/stage/stageStream.svelte.js";
 
   let { data } = $props();
 

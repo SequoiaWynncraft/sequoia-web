@@ -2,16 +2,16 @@
   import { invalidateAll } from "$app/navigation";
   import { SvelteSet } from "svelte/reactivity";
 
-  import Button from "$lib/design-system/components/Button.svelte";
-  import Card from "$lib/design-system/components/Card.svelte";
-  import LedgerTable from "$lib/design-system/components/LedgerTable.svelte";
-  import type { LedgerColumn } from "$lib/design-system/components/ledgerTable";
-  import FormStatus from "$lib/design-system/components/forms/FormStatus.svelte";
-  import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
-  import { createBagshopClient, RARITIES, type Order } from "$lib/api/bagshop";
-  import AreaGate from "$lib/manage/AreaGate.svelte";
-  import ManageHeader from "$lib/manage/ManageHeader.svelte";
-  import { groupInventoryByRaid } from "$lib/site/bagshop";
+  import Button from "#lib/design-system/components/Button.svelte";
+  import Card from "#lib/design-system/components/Card.svelte";
+  import LedgerTable from "#lib/design-system/components/LedgerTable.svelte";
+  import type { LedgerColumn } from "#lib/design-system/components/ledgerTable.js";
+  import FormStatus from "#lib/design-system/components/forms/FormStatus.svelte";
+  import SectionLabel from "#lib/design-system/components/SectionLabel.svelte";
+  import { createBagshopClient, RARITIES, type Order } from "#lib/api/bagshop.js";
+  import AreaGate from "#lib/manage/AreaGate.svelte";
+  import ManageHeader from "#lib/manage/ManageHeader.svelte";
+  import { groupInventoryByRaid } from "#lib/site/bagshop.js";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();

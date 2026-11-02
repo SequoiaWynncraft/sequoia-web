@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { GuildEvent } from "$lib/events/types";
-import type { Viewer } from "$lib/site/viewer";
+import type { GuildEvent } from "#lib/events/types.js";
+import type { Viewer } from "#lib/site/viewer.js";
 
 /**
  * The roster the standings board is filtered against.
@@ -40,16 +40,16 @@ const EVENT: GuildEvent = {
   tracker: { eventId: TRACKER_ID, tracking: "mod" },
 };
 
-vi.mock("$lib/server/eventStore", () => ({
+vi.mock("#lib/server/eventStore.js", () => ({
   eventStore: { get: async () => ({ event: EVENT, published: true }) },
 }));
-vi.mock("$lib/server/guildStats", () => ({
+vi.mock("#lib/server/guildStats.js", () => ({
   getGuildStats: async () => {
     if (H.stats === null) throw new Error("Unable to load guild statistics.");
     return H.stats;
   },
 }));
-vi.mock("$lib/server/rankProfiles", () => ({
+vi.mock("#lib/server/rankProfiles.js", () => ({
   getLinkedRankProfilesResult: async () => ({
     stale: false,
     updatedAt: 0,
@@ -58,8 +58,8 @@ vi.mock("$lib/server/rankProfiles", () => ({
   getLinkedRankProfiles: async () => ({ profiles: [] }),
   memberRanksByUuid: () => ({}),
 }));
-vi.mock("$lib/server/raidEventBoards", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("$lib/server/raidEventBoards")>();
+vi.mock("#lib/server/raidEventBoards.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("#lib/server/raidEventBoards.js")>();
   return {
     ...actual,
     loadRaidEvents: async () => [

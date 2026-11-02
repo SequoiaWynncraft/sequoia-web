@@ -1,4 +1,4 @@
-import type { StageMessage } from "$lib/events/stageProtocol";
+import type { StageMessage } from "#lib/events/stageProtocol.js";
 
 /**
  * In-process fan-out for the live raffle stage: the roll action publishes,

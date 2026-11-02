@@ -1,9 +1,9 @@
 import type { PageServerLoad } from "./$types";
 
-import { pageAreaAccess } from "$lib/server/manageCapabilities";
-import { eventStatus } from "$lib/events/helpers";
-import type { EventStatus, GuildEvent } from "$lib/events/types";
-import { eventStore } from "$lib/server/eventStore";
+import { pageAreaAccess } from "#lib/server/manageCapabilities.js";
+import { eventStatus } from "#lib/events/helpers.js";
+import type { EventStatus, GuildEvent } from "#lib/events/types.js";
+import { eventStore } from "#lib/server/eventStore.js";
 
 export const prerender = false;
 

@@ -1,8 +1,8 @@
 import type { PageServerLoad } from "./$types";
 
-import { isPlayerMetric, isPlayerWindow, type PlayerMetric, type PlayerWindow } from "$lib/api/globalPlayers";
-import { searchPlayers } from "$lib/server/globalPlayer";
-import { getGlobalPlayerRankings } from "$lib/server/globalPlayerRankings";
+import { isPlayerMetric, isPlayerWindow, type PlayerMetric, type PlayerWindow } from "#lib/api/globalPlayers.js";
+import { searchPlayers } from "#lib/server/globalPlayer.js";
+import { getGlobalPlayerRankings } from "#lib/server/globalPlayerRankings.js";
 
 export const prerender = false;
 

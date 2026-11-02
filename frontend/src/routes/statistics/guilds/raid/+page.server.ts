@@ -1,22 +1,22 @@
 import type { PageServerLoad } from "./$types";
 
-import { createSequoiaApiClient } from "$lib/api/client";
-import { eventStore, type StoredEvent } from "$lib/server/eventStore";
-import { canSeeEvent, resolveEventAudience } from "$lib/server/eventVisibility";
-import { getGuildStats } from "$lib/server/guildStats";
+import { createSequoiaApiClient } from "#lib/api/client.js";
+import { eventStore, type StoredEvent } from "#lib/server/eventStore.js";
+import { canSeeEvent, resolveEventAudience } from "#lib/server/eventVisibility.js";
+import { getGuildStats } from "#lib/server/guildStats.js";
 import {
   loadModLeaderboard,
   loadRaidEvents,
   loadTrackerLeaderboard,
   type RaidLeaderboardEntry,
-} from "$lib/server/raidEventBoards";
+} from "#lib/server/raidEventBoards.js";
 import {
   getLinkedRankProfiles,
   memberRanksByUuid,
   type MemberRankEntry,
-} from "$lib/server/rankProfiles";
-import { parseDuration, parseTimestampRange } from "$lib/site/duration";
-import { KNOWN_RAIDS } from "$lib/site/raids";
+} from "#lib/server/rankProfiles.js";
+import { parseDuration, parseTimestampRange } from "#lib/site/duration.js";
+import { KNOWN_RAIDS } from "#lib/site/raids.js";
 
 export const prerender = false;
 

@@ -1,7 +1,7 @@
 <script lang="ts">
-  import AreaGate from "$lib/manage/AreaGate.svelte";
-  import ManageHeader from "$lib/manage/ManageHeader.svelte";
-  import PostEditor from "$lib/posts/editor/PostEditor.svelte";
+  import AreaGate from "#lib/manage/AreaGate.svelte";
+  import ManageHeader from "#lib/manage/ManageHeader.svelte";
+  import PostEditor from "#lib/posts/editor/PostEditor.svelte";
 
   let { data, form } = $props();
 </script>

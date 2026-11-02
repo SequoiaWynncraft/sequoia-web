@@ -1,9 +1,9 @@
 import { redirect } from "@sveltejs/kit";
 
-import type { EventTheme } from "$lib/events/types";
-import { audienceAdmits, audienceChip, canSeePost, postStatus } from "$lib/posts/audience";
-import { postHref, type PostFeed, type PostStatus } from "$lib/posts/types";
-import type { Viewer } from "$lib/site/viewer";
+import type { EventTheme } from "#lib/events/types.js";
+import { audienceAdmits, audienceChip, canSeePost, postStatus } from "#lib/posts/audience.js";
+import { postHref, type PostFeed, type PostStatus } from "#lib/posts/types.js";
+import type { Viewer } from "#lib/site/viewer.js";
 
 import { postStore, type StoredPost } from "./postStore";
 import { resolvePostViewer } from "./postVisibility";

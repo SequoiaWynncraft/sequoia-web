@@ -1,6 +1,6 @@
 import type { PageServerLoad } from "./$types";
-import type { DiscordContext, ManagedMessage } from "$lib/discord/types";
-import { discordManagement } from "$lib/server/discordManagement";
+import type { DiscordContext, ManagedMessage } from "#lib/discord/types.js";
+import { discordManagement } from "#lib/server/discordManagement.js";
 
 export const prerender = false;
 export const load: PageServerLoad = async ({ fetch, cookies }) => {

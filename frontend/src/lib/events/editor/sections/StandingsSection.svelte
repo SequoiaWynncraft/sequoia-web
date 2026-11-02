@@ -1,14 +1,14 @@
 <script lang="ts">
   import { getContext } from "svelte";
 
-  import Button from "$lib/design-system/components/Button.svelte";
-  import Field from "$lib/design-system/components/forms/Field.svelte";
-  import FormSection from "$lib/design-system/components/forms/FormSection.svelte";
-  import InstantField from "$lib/design-system/components/forms/InstantField.svelte";
-  import Select from "$lib/design-system/components/forms/Select.svelte";
-  import TextInput from "$lib/design-system/components/forms/TextInput.svelte";
-  import Toggle from "$lib/design-system/components/forms/Toggle.svelte";
-  import { KNOWN_RAIDS } from "$lib/site/raids";
+  import Button from "#lib/design-system/components/Button.svelte";
+  import Field from "#lib/design-system/components/forms/Field.svelte";
+  import FormSection from "#lib/design-system/components/forms/FormSection.svelte";
+  import InstantField from "#lib/design-system/components/forms/InstantField.svelte";
+  import Select from "#lib/design-system/components/forms/Select.svelte";
+  import TextInput from "#lib/design-system/components/forms/TextInput.svelte";
+  import Toggle from "#lib/design-system/components/forms/Toggle.svelte";
+  import { KNOWN_RAIDS } from "#lib/site/raids.js";
 
   import { EDITOR_KEY, EventDraft } from "../draft.svelte";
 

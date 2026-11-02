@@ -1,6 +1,6 @@
 import type { ApiResult } from "./client";
 import { isRecord } from "./guards";
-import type { CeremonyAchievement, CeremonyAmbiance, CeremonyRaid, CeremonySeason, CeremonyTier, CrashText } from "$lib/discord/ceremony";
+import type { CeremonyAchievement, CeremonyAmbiance, CeremonyRaid, CeremonySeason, CeremonyTier, CrashText } from "#lib/discord/ceremony.js";
 
 interface CeremonyPreviewBase {
   story_id: string;

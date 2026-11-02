@@ -5,7 +5,7 @@ import {
   isGuildLevelHistoryResponse,
   toLevelUps,
   type GuildLevelHistoryEntry,
-} from "$lib/api/guildLevel";
+} from "#lib/api/guildLevel.js";
 
 /** The live payload shape, as the backend sends it. */
 const RESPONSE = {

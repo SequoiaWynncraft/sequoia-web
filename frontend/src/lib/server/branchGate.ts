@@ -1,7 +1,7 @@
-import type { RankProfilesResponse } from "$lib/api/client";
-import type { GuildMemberStats } from "$lib/api/guildStats";
-import { sameUuid } from "$lib/server/raidEventBoards";
-import type { Viewer } from "$lib/site/viewer";
+import type { RankProfilesResponse } from "#lib/api/client.js";
+import type { GuildMemberStats } from "#lib/api/guildStats.js";
+import { sameUuid } from "#lib/server/raidEventBoards.js";
+import type { Viewer } from "#lib/site/viewer.js";
 
 /** Branch ids (`RankSummary.branches[].branch`) whose full members may see the
  * gated management sections. These are stable backend ids, not Discord display

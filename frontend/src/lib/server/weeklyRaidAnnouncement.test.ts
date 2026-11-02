@@ -17,15 +17,15 @@ const H = vi.hoisted(() => ({
   db: null as Client | null,
 }));
 
-vi.mock("$lib/server/sequoiaBackend", () => ({
+vi.mock("#lib/server/sequoiaBackend.js", () => ({
   sequoiaBackendInternalHeaders: () => ({ authorization: "Bearer mod" }),
   sequoiaBackendOrigin: () => "https://backend.test",
 }));
-vi.mock("$lib/server/sequoiaWebBackend", () => ({
+vi.mock("#lib/server/sequoiaWebBackend.js", () => ({
   sequoiaWebBackendUrl: (path: string) => `https://web.test${path}`,
   sequoiaWebBackendInternalHeaders: () => ({ authorization: "Bearer web" }),
 }));
-vi.mock("$lib/server/guildStats", () => ({
+vi.mock("#lib/server/guildStats.js", () => ({
   getGuildStats: async () => ({
     stale: H.rosterStale,
     members: H.players.map((player) => ({
@@ -36,7 +36,7 @@ vi.mock("$lib/server/guildStats", () => ({
   }),
 }));
 
-vi.mock("$lib/server/rankProfiles", () => ({
+vi.mock("#lib/server/rankProfiles.js", () => ({
   getLinkedRankProfiles: async () => H.profiles,
   getLinkedRankProfilesResult: async () => ({
     data: H.profiles,
@@ -46,7 +46,7 @@ vi.mock("$lib/server/rankProfiles", () => ({
 }));
 // The announcement cache persists through the shared libsql client; an in-memory
 // one keeps the cached-build tests off the developer's .data database file.
-vi.mock("$lib/server/db", () => ({
+vi.mock("#lib/server/db.js", () => ({
   database: async () => {
     const { createClient } = await import("@libsql/client");
     H.db ??= createClient({ url: ":memory:" });
@@ -60,7 +60,7 @@ const {
   isAnnouncementViewer,
   loadWeeklyRaidAnnouncement,
   weekWindows,
-} = await import("$lib/server/weeklyRaidAnnouncement");
+} = await import("#lib/server/weeklyRaidAnnouncement.js");
 
 afterEach(() => {
   vi.unstubAllGlobals();

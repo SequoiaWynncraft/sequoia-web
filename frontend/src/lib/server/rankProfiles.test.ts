@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import type { RankProfilesResponse } from "$lib/api/client";
+import type { RankProfilesResponse } from "#lib/api/client.js";
 import {
   honoursForMinecraft,
   inGameRankLadder,
   memberRanksByUuid,
-} from "$lib/server/rankProfiles";
+} from "#lib/server/rankProfiles.js";
 
 const MEMBER = "11111111-1111-1111-1111-111111111111";
 const RETIRED = "33333333-3333-3333-3333-333333333333";

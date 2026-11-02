@@ -1,6 +1,6 @@
 import type { Cookies } from "@sveltejs/kit";
 
-import type { Viewer } from "$lib/site/viewer";
+import type { Viewer } from "#lib/site/viewer.js";
 
 import { checkBranchArea, MANAGER_RANKS } from "./branchAccess";
 import { requestError } from "./requestError";

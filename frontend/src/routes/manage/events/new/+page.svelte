@@ -1,7 +1,7 @@
 <script lang="ts">
-  import ManageHeader from "$lib/manage/ManageHeader.svelte";
-  import EventEditor from "$lib/events/editor/EventEditor.svelte";
-  import AreaGate from "$lib/manage/AreaGate.svelte";
+  import ManageHeader from "#lib/manage/ManageHeader.svelte";
+  import EventEditor from "#lib/events/editor/EventEditor.svelte";
+  import AreaGate from "#lib/manage/AreaGate.svelte";
 
   let { data, form } = $props();
 </script>

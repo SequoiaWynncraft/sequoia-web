@@ -1,17 +1,17 @@
 import type { RequestHandler } from "./$types";
 
-import { guildRankLabel } from "$lib/api/guildStats";
-import { csvResponse, type CsvValue } from "$lib/server/csv";
-import { requireEventManager } from "$lib/server/eventManagers";
-import { eventStore } from "$lib/server/eventStore";
-import { getGuildStats } from "$lib/server/guildStats";
+import { guildRankLabel } from "#lib/api/guildStats.js";
+import { csvResponse, type CsvValue } from "#lib/server/csv.js";
+import { requireEventManager } from "#lib/server/eventManagers.js";
+import { eventStore } from "#lib/server/eventStore.js";
+import { getGuildStats } from "#lib/server/guildStats.js";
 import {
   loadModLeaderboard,
   loadRaidEvents,
   loadTrackerLeaderboard,
   type RaidLeaderboardEntry,
-} from "$lib/server/raidEventBoards";
-import { requestError } from "$lib/server/requestError";
+} from "#lib/server/raidEventBoards.js";
+import { requestError } from "#lib/server/requestError.js";
 
 export const prerender = false;
 
