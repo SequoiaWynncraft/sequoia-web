@@ -22,8 +22,7 @@ export function publish(eventSlug: string, message: StageMessage): void {
   for (const subscriber of room) {
     try {
       subscriber.send(message);
-    } catch {
-    }
+    } catch {}
   }
 }
 
@@ -56,8 +55,7 @@ export function endRoom(eventSlug: string): void {
   for (const subscriber of room) {
     try {
       subscriber.end?.();
-    } catch {
-    }
+    } catch {}
   }
 }
 

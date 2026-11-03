@@ -17,20 +17,20 @@
   import type { DiscordContext } from "./types";
 
   let { initial, channels }: { initial: WelcomeResponse; channels: DiscordContext["channels"] } = $props();
-  const seeded = welcomeStateWithNight(structuredClone(initial));
+  const seeded = untrack(() => welcomeStateWithNight(structuredClone(initial)));
   let saved = $state<WelcomeState>(seeded.state);
   let nightSupported = $state(seeded.nightSupported);
   let mentionSupported = $state(seeded.mentionSupported);
   let imagesSupported = $state(seeded.imagesSupported);
   let repeatSupported = $state(seeded.repeatSupported);
   let draft = $state(structuredClone(seeded.state.settings));
-  let selectedId = $state(initial.catalog[0]?.id ?? "");
-  let season = $state<WelcomeSeason>(initial.effective_season);
+  let selectedId = $state(untrack(() => initial.catalog[0]?.id ?? ""));
+  let season = $state<WelcomeSeason>(untrack(() => initial.effective_season));
   let previewEffect = $state<WelcomePreviewEffect>("none");
   let previewTime = $state<"scheduled" | "day" | "night">("scheduled");
   let previewMoon = $state<"saved" | "shown" | "hidden">("saved");
   let deviceZone = $state("");
-  let sampleName = $state(initial.viewer.display_name);
+  let sampleName = $state(untrack(() => initial.viewer.display_name));
   let busy = $state(false);
   let error = $state<string | null>(null);
   let notice = $state<string | null>(null);

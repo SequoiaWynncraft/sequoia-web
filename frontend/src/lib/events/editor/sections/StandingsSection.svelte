@@ -15,24 +15,9 @@
   const draft = getContext<EventDraft>(EDITOR_KEY);
 
   let trackerSubmit = $state<HTMLButtonElement | null>(null);
-  const trackerSubmitInputTypes = new Set([
-    "email",
-    "number",
-    "password",
-    "search",
-    "tel",
-    "text",
-    "time",
-    "url",
-  ]);
 
   function submitTrackerOnEnter(event: KeyboardEvent) {
     if (event.key !== "Enter") return;
-    if (
-      !(event.target instanceof HTMLInputElement) ||
-      !trackerSubmitInputTypes.has(event.target.type)
-    )
-      return;
     event.preventDefault();
     trackerSubmit?.click();
   }
@@ -106,13 +91,13 @@
     {/if}
 
     {#if draft.trackerEditor !== "closed"}
-      <div class="evf-tracker-new" onkeydown={submitTrackerOnEnter}>
+      <div class="evf-tracker-new">
         <span class="seq-field-label">
           {draft.trackerEditor === "edit" ? `Edit tracker: ${draft.newTrackerName}` : "New tracker event"}
         </span>
         <div class="evf-grid-2">
           <Field label="Name">
-            <TextInput bind:value={draft.newTrackerName} maxlength={80} />
+            <TextInput bind:value={draft.newTrackerName} maxlength={80} onkeydown={submitTrackerOnEnter} />
           </Field>
           <Field label="Tracking source">
             <Select bind:value={draft.newTrackerTracking}>
@@ -126,10 +111,10 @@
             </Select>
           </Field>
           <Field label="Starts (UTC)">
-            <InstantField bind:value={draft.newTrackerStarts} name="Tracker start" />
+            <InstantField bind:value={draft.newTrackerStarts} name="Tracker start" onkeydown={submitTrackerOnEnter} />
           </Field>
           <Field label="Ends (UTC)">
-            <InstantField bind:value={draft.newTrackerEnds} name="Tracker end" />
+            <InstantField bind:value={draft.newTrackerEnds} name="Tracker end" onkeydown={submitTrackerOnEnter} />
           </Field>
           {#if draft.newTrackerTracking === "mod"}
             <Field label="Which raids count">

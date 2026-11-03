@@ -46,8 +46,7 @@ function profileStanding(
   let seqRank: string | null = null;
   try {
     seqRank = memberRanksByUuid(profiles)[profile.minecraft.uuid.toLowerCase()]?.rank ?? null;
-  } catch {
-  }
+  } catch {}
   const branches: unknown = profile.summary?.branches;
   return {
     seqRank,

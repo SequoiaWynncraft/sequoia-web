@@ -24,7 +24,7 @@
   import type { DiscordContext } from "./types";
 
   let { initial, channels }: { initial: CeremonyResponse; channels: DiscordContext["channels"] } = $props();
-  const seeded = ceremonyState(structuredClone(initial));
+  const seeded = untrack(() => ceremonyState(structuredClone(initial)));
   let saved = $state<CeremonyState>(seeded.state);
   let mentionSupported = $state(seeded.mentionSupported);
   let imagesSupported = $state(seeded.imagesSupported);
@@ -34,7 +34,7 @@
   let repeatSupported = $state(seeded.repeatSupported);
   let screenSupported = $state(seeded.screenSupported);
   let draft = $state(structuredClone(seeded.state.settings));
-  let storyId = $state((initial.catalog.find((item) => item.ready) ?? initial.catalog[0])?.id ?? "");
+  let storyId = $state(untrack(() => (initial.catalog.find((item) => item.ready) ?? initial.catalog[0])?.id ?? ""));
   const LEGACY_TIERS = CEREMONY_TIERS.map(({ id }) => id as string);
   const LEGACY_RAIDS = [CEREMONY_ALL_RAIDS, ...CEREMONY_RAIDS];
   function pick<T>(wanted: T, options: readonly T[]): T {
@@ -43,7 +43,7 @@
   function entryOf<K extends CeremonyCategoryKind>(list: CeremonyCategory[] | null, kind: K) {
     return list?.find((item): item is Extract<CeremonyCategory, { kind: K }> => item.kind === kind);
   }
-  const initialCategories = ceremonyCategories(initial);
+  const initialCategories = untrack(() => ceremonyCategories(initial));
   const initialRaid = entryOf(initialCategories, "raid");
   const initialWar = entryOf(initialCategories, "war");
   const initialProfession = entryOf(initialCategories, "profession");

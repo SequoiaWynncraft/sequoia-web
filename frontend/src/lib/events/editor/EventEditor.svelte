@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { setContext } from "svelte";
+  import { setContext, untrack } from "svelte";
   import { enhance } from "$app/forms";
 
   import "./editor.css";
@@ -63,7 +63,7 @@
 
   const FORM_ID = "event-editor-form";
 
-  const draft = new EventDraft({ mode, initial, initialPublished, initialUpdatedAt, context });
+  const draft = untrack(() => new EventDraft({ mode, initial, initialPublished, initialUpdatedAt, context }));
   setContext(EDITOR_KEY, draft);
 
   let presetDeleteForm = $state<HTMLFormElement>();

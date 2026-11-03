@@ -137,6 +137,7 @@
             class:wheel-wedge-alt={index % 2 === 1}
             class:wheel-wedge-mine={index === mineIndex}
             class:wheel-wedge-winner={showWinner && index === roll.winnerIndex}
+            role="presentation"
             onmouseenter={() => (hoveredIndex = index)}
             onmouseleave={() => (hoveredIndex = -1)}
           />

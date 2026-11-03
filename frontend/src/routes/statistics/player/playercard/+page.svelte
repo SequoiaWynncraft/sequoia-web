@@ -15,10 +15,7 @@
 
   let { data } = $props();
 
-  let query = $state(data.player);
-  $effect(() => {
-    query = data.player;
-  });
+  let query = $derived(data.player);
 
   const MAX_SUGGESTIONS = 10;
 

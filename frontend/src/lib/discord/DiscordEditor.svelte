@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tick } from "svelte";
+  import { tick, untrack } from "svelte";
   import { requestDiscord } from "#lib/api/discordManagement.js";
   import { beforeNavigate, pushState, replaceState } from "$app/navigation";
   import { page } from "$app/state";
@@ -20,8 +20,8 @@
   import type { Definition, DiscordContext, ManagedMessage, RoleButton, AttachmentRef } from "./types";
 
   let { initial, context: initialContext, problem }: { initial: ManagedMessage[]; context: DiscordContext; problem: string | null } = $props();
-  let context = $state(structuredClone($state.snapshot(initialContext)));
-  let messages = $state<ManagedMessage[]>(initial);
+  let context = $state(untrack(() => structuredClone($state.snapshot(initialContext))));
+  let messages = $state<ManagedMessage[]>(untrack(() => initial));
   let selected = $state<ManagedMessage | null>(null);
   let draft = $state<Definition | null>(null);
   let baseline = $state("");

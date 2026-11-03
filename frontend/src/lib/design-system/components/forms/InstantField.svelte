@@ -9,10 +9,12 @@
   let {
     value = $bindable(),
     name,
+    onkeydown,
   }: {
     value: string;
     /** Accessible name prefix, e.g. "Start". */
     name: string;
+    onkeydown?: (event: KeyboardEvent) => void;
   } = $props();
 
   const uid = $props.id();
@@ -56,6 +58,7 @@
   /** Enter submits the surrounding form - commit the typed time first. */
   function commitOnEnter(event: KeyboardEvent & { currentTarget: HTMLInputElement }) {
     if (event.key === "Enter") commitTime(event.currentTarget);
+    onkeydown?.(event);
   }
 
   const timeInvalid = $derived(datePart !== "" && timePart !== "" && normalizeTime(timePart) === null);
