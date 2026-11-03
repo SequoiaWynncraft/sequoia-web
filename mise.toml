@@ -38,8 +38,8 @@ run = '''
 if [ "${usage_replace_rustup:-false}" = true ] || ! command -v rustup >/dev/null; then
   rustup-init -y --no-modify-path --default-toolchain none
 fi
+rustup toolchain install --no-self-update
 rustup --version
-rustup toolchain install
 '''
 
 [tasks.dev]
