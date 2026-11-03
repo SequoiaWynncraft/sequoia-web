@@ -3,11 +3,11 @@
 Wynncraft guild website.
 
 ```sh
-mise trust mise.toml
-mise install
-mise exec -- bun install --frozen-lockfile
-cp frontend/.env.example frontend/.env
-mise exec -- bun run dev
+mise trust
+mise run setup
+mise run dev
 ```
+
+`mise tasks` lists the checks, tests, builds and API type generation.
 
 Code and documentation: [MIT](LICENSE). Images and fonts are excluded.

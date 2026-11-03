@@ -7,9 +7,8 @@ on:
       - ".dockerignore"
       - "rust-toolchain.toml"
       - "rustfmt.toml"
-      - "package.json"
-      - "bunfig.toml"
       - "mise.toml"
+      - "mise.lock"
       - ".github/workflows/backend.yml"
   push:
     branches: [main]
@@ -18,9 +17,8 @@ on:
       - ".dockerignore"
       - "rust-toolchain.toml"
       - "rustfmt.toml"
-      - "package.json"
-      - "bunfig.toml"
       - "mise.toml"
+      - "mise.lock"
       - ".github/workflows/backend.yml"
 
 permissions:
@@ -36,6 +34,7 @@ jobs:
     timeout-minutes: 15
     env:
       RUSTUP_USE_CURL: "1"
+      MISE_TASK_RUN_AUTO_INSTALL: "false"
     services:
       postgres:
         image: postgres:17-alpine@sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b
@@ -52,45 +51,34 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      - uses: jdx/mise-action@5228313ee0372e111a38da051671ca30fc5a96db # v3.6.3
         with:
-          bun-version: "1.4.4"
-          no-cache: true
-      - name: Install pinned rustup 1.29.2
+          version: "2026.10.17"
+          sha256: fe6dd17e68e09682b31d2e7bb7bb755d22636ac1af5d94621e300f2ca9e9fe8a
+          install_args: aqua:rust-lang/rustup
+          cache_key_prefix: mise-backend
+          cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      - name: Install pinned rustup and the Rust toolchain
         run: |
           set -euo pipefail
-          case "$(uname -m)" in
-            x86_64) rustup_sha=5be191e8c70a5007074254cb74d78dbfdd25cd5a61c27de7b8e5410122ec24f4 ;;
-            aarch64) rustup_sha=a9c168dbea81a84671c6b7a5c1795cb0eb699020110d107ddfca427bd797e697 ;;
-            *) exit 1 ;;
-          esac
-          installer="$RUNNER_TEMP/rustup-init"
-          curl --proto '=https' --tlsv1.2 --fail --silent --show-error \
-            -o "$installer" "https://static.rust-lang.org/rustup/archive/1.29.2/$(uname -m)-unknown-linux-gnu/rustup-init"
-          printf '%s  %s\n' "$rustup_sha" "$installer" | sha256sum -c -
-          chmod +x "$installer"
-          "$installer" -y --no-modify-path --default-toolchain none
-          rm "$installer"
-          export PATH="$HOME/.cargo/bin:$PATH"
-          printf '%s\n' "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          mise run setup:rust --replace-rustup
           rustup --version | grep -E '^rustup 1\.29\.2 '
-      - uses: dtolnay/rust-toolchain@e2a55d2ffb04f378e9626c28d38b36d230d1e12f # master
-        with:
-          toolchain: "1.96.1"
-          components: rustfmt, clippy
+          printf '%s\n' "${CARGO_HOME:-$HOME/.cargo}/bin" >> "$GITHUB_PATH"
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: backend -> target
           cache-bin: false
           save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - name: Check formatting
-        run: bun run fmt:backend
+        run: mise run fmt:backend
       - name: Check and lint backend
-        run: bun run clippy:backend
+        run: mise run clippy:backend
       - name: Test backend
+        run: mise run test:backend
+      - name: Test backend against PostgreSQL
         env:
           TEST_DATABASE_URL: postgres://postgres:ci-only@127.0.0.1:5432/postgres
-        run: cargo test --locked --manifest-path backend/Cargo.toml --workspace --all-features -- --include-ignored
+        run: mise run test:integration
 
   image:
     name: Backend image

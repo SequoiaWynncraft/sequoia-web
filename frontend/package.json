@@ -22,8 +22,7 @@
     "preview": "vite preview",
     "start": "bun ./build/index.js",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --tsgo-experimental-api",
-    "test:unit": "svelte-kit sync && vitest run",
-    "api:types": "openapi-typescript ../../sequoia-backend/openapi/public.yaml -o src/lib/api/generated/public-api.ts"
+    "test:unit": "svelte-kit sync && vitest run"
   },
   "devDependencies": {
     "@sveltejs/adapter-node": "^6.0.1",

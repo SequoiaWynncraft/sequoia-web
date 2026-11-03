@@ -22,24 +22,5 @@
     "vite": "8.1.6",
     "devalue": "5.9.4",
     "brace-expansion": "2.1.7"
-  },
-  "scripts": {
-    "dev": "bun run --cwd frontend dev",
-    "build": "bun run build:web && bun run build:backend",
-    "build:web": "bun run --cwd frontend build",
-    "build:backend": "cargo build --locked --manifest-path backend/Cargo.toml --workspace --all-features",
-    "preview:web": "bun run --cwd frontend preview",
-    "start:web": "bun run --cwd frontend start",
-    "check": "bun run check:lockfile && bun run check:web && bun run check:backend",
-    "check:lockfile": "bun scripts/audit-lockfile.mjs",
-    "check:advisories": "bun audit --ignore=GHSA-g3hv-75wg-m249 --ignore=GHSA-gcqx-w48m-w2h4",
-    "check:web": "cd frontend && node --run check",
-    "check:backend": "cargo check --locked --manifest-path backend/Cargo.toml --workspace --all-targets --all-features",
-    "clippy:backend": "cargo clippy --locked --manifest-path backend/Cargo.toml --workspace --all-targets --all-features -- -D warnings",
-    "fmt:backend": "cargo fmt --manifest-path backend/Cargo.toml --all --check",
-    "test": "bun run test:web && bun run test:backend",
-    "test:web": "bun run --cwd frontend test:unit",
-    "test:backend": "cargo test --locked --manifest-path backend/Cargo.toml --workspace --all-features",
-    "api:types": "bun run --cwd frontend api:types"
   }
 }
