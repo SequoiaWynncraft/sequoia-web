@@ -20,7 +20,7 @@ export function currencyParts(eb: number): CurrencyPart[] {
   ];
 }
 
-/** Formats an emerald-block amount as "3 LE 12 EB" — the shop's currency (1 LE = 64 EB). */
+/** Formats an emerald-block amount in the shop's currency, e.g. "3 LE 12 EB" (1 LE = 64 EB). */
 export function formatEb(eb: number): string {
   return currencyParts(eb)
     .map((part) => `${part.amount} ${part.unit}`)

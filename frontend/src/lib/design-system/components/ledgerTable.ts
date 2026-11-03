@@ -5,7 +5,7 @@ export interface LedgerColumn<Row> {
   label: string;
   numeric?: boolean;
   sortable?: boolean;
-  /** Render cell text in the pixel display face — for player/guild names. */
+  /** Render cell text in the pixel display face, for player and guild names. */
   nameStyle?: boolean;
   /** Small color square in the column header (chart series identity). */
   headerColor?: string;
