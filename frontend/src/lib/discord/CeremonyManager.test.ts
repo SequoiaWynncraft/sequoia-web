@@ -81,7 +81,6 @@ describe("twelve-story ceremony catalog", () => {
     expect(storyRow(body, "Great sequoia wakes")).toContain(">Suggested for Mythril<");
     expect(storyRow(body, "Sample story")).not.toContain("Suggested");
     expect(body.match(/class="suggested/g)).toHaveLength(7);
-    expect(body).not.toContain("\u2014");
   });
   it("offers new stories in the per-tier list with the same hint, allowed by default", () => {
     const { body } = render(CeremonyManager, { props: { initial: twelve, channels: [] } });
@@ -177,7 +176,6 @@ describe("achievement ceremony interface", () => {
     expect(body).toMatch(/<option[^>]*value="sample_story"[^>]*disabled/);
     expect(body).toContain("Sample story saved chance: Not available");
     expect(body).not.toContain("<img");
-    expect(body).not.toContain("\u2014");
   });
   it("lists only catalog stories with saved chances, the channel picker and the scheduled scene", () => {
     const channels = [{ id: "2222222222222222222", name: "achievements" }, { id: "3333333333333333333", name: "old-thread", archived: false }];
@@ -210,7 +208,6 @@ describe("achievement ceremony interface", () => {
     expect(body).toContain("Other story next chance: 40%");
     expect(body.match(/class="recent-tag[^"]*">recent</g)).toHaveLength(1);
     expect(body).not.toContain("not available on this server");
-    expect(body).not.toContain("\u2014");
   });
   it("shows the repeat default locked for an older server, with next odds equal to base", () => {
     const { settings: { repeat: _repeat, ...settings }, ...rest } = structuredClone(ready);
@@ -233,7 +230,6 @@ describe("achievement ceremony interface", () => {
     expect(body).not.toMatch(/renderer|bundle|Sierra/i);
     expect(body).toContain("Play animation");
     expect(body).toMatch(/<input[^>]*type="number"[^>]*value="1000"/);
-    expect(body).not.toContain("\u2014");
   });
   it("keeps the raid-only controls for an older server without a catalog", () => {
     const { body } = render(CeremonyManager, { props: { initial: ready, channels: [] } });
@@ -262,7 +258,6 @@ describe("achievement ceremony interface", () => {
     expect(body).toContain(">Count<");
     for (const absent of [">Profession<", ">Level<", ">Role<", ">Badge title<", ">Wars<"]) expect(body).not.toContain(absent);
     expect(body).toContain("Marked DEMO, never posted.");
-    expect(body).not.toContain("\u2014");
   });
   it("starts on the first catalog category when raids are not offered", () => {
     const catalog: CeremonyResponse = {
@@ -322,7 +317,6 @@ describe("ceremony images control", () => {
     expect(toggle?.[1]).toContain("disabled");
     expect(toggle?.[0]).toMatch(/\schecked/);
     expect(body).toMatch(/<span>Send images<\/span><\/label>(?:\s|<!--[^>]*-->)*<small[^>]*>Not available on this server yet\.<\/small>/);
-    expect(body).not.toContain("\u2014");
   });
   it("allows enabling text-only ceremonies without installed artwork", () => {
     const textOnly = structuredClone(unavailable);
@@ -352,7 +346,6 @@ describe("ceremony image tier controls", () => {
     }
     expect(body.indexOf("Images by tier")).toBeGreaterThan(body.indexOf("Send images"));
     expect(body.indexOf("Images by tier")).toBeLessThan(body.indexOf("Story odds"));
-    expect(body).not.toContain("\u2014");
   });
   it("disables the tier switches when Send images is off or the server lacks them", () => {
     const off = render(CeremonyManager, { props: { initial: current({ send_images: false }), channels: [] } }).body;

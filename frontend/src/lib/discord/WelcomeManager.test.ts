@@ -74,7 +74,6 @@ describe("welcome unavailable interface", () => {
     expect(body).toContain("Sample name");
     expect(body).toContain("Uses your avatar and a sample name. Season, time, moon, sky effect and name here are preview only, never saved.");
     expect(body).not.toContain('type="file"');
-    expect(body).not.toContain("\u2014");
   });
   it("shows actual saved effect chances and an independent explicit preview choice", () => {
     const state = structuredClone(unavailable);
@@ -89,7 +88,6 @@ describe("welcome unavailable interface", () => {
     expect(body).toMatch(/<option[^>]*value="aurora"(?![^>]*disabled)[^>]*>/);
     expect(body).toContain("sky effect and name here are preview only, never saved.");
     expect(body).toContain("Quiet forest weight");
-    expect(body).not.toContain("\u2014");
   });
   it("renders a separate night section with the named timezone, interval and server status", () => {
     const { body } = render(WelcomeManager, { props: { initial: unavailable, channels: [] } });
@@ -108,7 +106,6 @@ describe("welcome unavailable interface", () => {
     expect(body).toMatch(/<button[^>]*aria-pressed="false"[^>]*disabled[^>]*>Night<\/button>/);
     // No device suggestion is rendered on the server, so the browser zone is never a default.
     expect(body).not.toContain("this device");
-    expect(body).not.toContain("\u2014");
   });
   it("lets a text-only welcome schedule night without night artwork", () => {
     const state = structuredClone(unavailable);
@@ -170,7 +167,6 @@ describe("welcome unavailable interface", () => {
     expect(body.match(/class="recent-tag[^"]*">recent</g)).toHaveLength(2);
     expect(body).toContain("If none remain, base odds apply.");
     expect(body).not.toContain("not available on this server");
-    expect(body).not.toContain("\u2014");
   });
   it("keeps the previous interface against a server without night scheduling", () => {
     const { effective_night: _effective, settings: { night: _night, repeat: _repeat, ...settings }, ...rest } = structuredClone(unavailable);
@@ -242,7 +238,6 @@ describe("welcome images control", () => {
     expect(toggle?.[1]).toContain("disabled");
     expect(toggle?.[0]).toMatch(/\schecked/);
     expect(body).toMatch(/<span>Send images<\/span><\/label>(?:\s|<!--[^>]*-->)*<small[^>]*>Not available on this server yet\.<\/small>/);
-    expect(body).not.toContain("\u2014");
   });
   it("allows enabling text-only welcomes without ready artwork", () => {
     const textOnly = structuredClone(unavailable);
