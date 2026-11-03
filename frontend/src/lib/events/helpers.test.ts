@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import { eventHubView, eventStatus, homepageEvents, hubGroups } from "#lib/events/helpers.js";
-import { SEED_EVENTS } from "#lib/events/seed.js";
 import type { GuildEvent } from "#lib/events/types.js";
 
 const THEME = {
@@ -28,11 +27,6 @@ function published(events: GuildEvent[]): { event: GuildEvent; published: boolea
 }
 
 describe("event helpers", () => {
-  it("seeds unique slugs", () => {
-    const slugs = SEED_EVENTS.map((event) => event.slug);
-    expect(new Set(slugs).size).toBe(slugs.length);
-  });
-
   it("derives status from the event window", () => {
     const event = makeEvent({
       startsAt: "2026-07-05T00:00:00Z",
@@ -50,12 +44,18 @@ describe("event helpers", () => {
 
   it("groups the hub with dated upcoming events before TBA entries", () => {
     const now = new Date("2026-07-11T12:00:00Z");
-    const groups = hubGroups(published(SEED_EVENTS), now);
-    expect(groups.live.map((event) => event.slug)).toContain("grootslang-gauntlet");
-    expect(groups.past.map((event) => event.slug)).toContain("colossus-sprint");
-
-    const upcoming = groups.upcoming.map((event) => event.slug);
-    expect(upcoming.indexOf("lsto-article-5")).toBeLessThan(upcoming.indexOf("the-nameless-hunt"));
+    const groups = hubGroups(
+      published([
+        makeEvent({ slug: "undated" }),
+        makeEvent({ slug: "dated", startsAt: "2026-08-03T00:00:00Z", endsAt: "2026-08-10T23:59:59Z" }),
+        makeEvent({ slug: "live", startsAt: "2026-07-05T00:00:00Z", endsAt: "2026-07-19T23:59:59Z" }),
+        makeEvent({ slug: "past", startsAt: "2026-06-01T00:00:00Z", endsAt: "2026-06-08T23:59:59Z" }),
+      ]),
+      now,
+    );
+    expect(groups.live.map((event) => event.slug)).toEqual(["live"]);
+    expect(groups.past.map((event) => event.slug)).toEqual(["past"]);
+    expect(groups.upcoming.map((event) => event.slug)).toEqual(["dated", "undated"]);
   });
 
   it("does not expose gated member details in hub entries", () => {

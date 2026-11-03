@@ -1,6 +1,5 @@
 import type { Client, Row } from "@libsql/client";
 
-import { SEED_EVENTS } from "#lib/events/seed.js";
 import type { GuildEvent } from "#lib/events/types.js";
 import { parseGuildEvent } from "#lib/events/validate.js";
 
@@ -66,29 +65,7 @@ export function createEventStore(getClient: () => Promise<Client>): EventStore {
         updated_at INTEGER NOT NULL
       )
     `);
-    await db.execute(`
-      CREATE TABLE IF NOT EXISTS guild_events_meta (
-        key TEXT PRIMARY KEY,
-        value TEXT NOT NULL
-      )
-    `);
-    await seed(db);
     return db;
-  }
-
-  // The seed marker (not row count) decides whether to import, so deleting
-  // every event later does not bring the seed back.
-  async function seed(db: Client) {
-    const marker = await db.execute("SELECT value FROM guild_events_meta WHERE key = 'seeded'");
-    if (marker.rows.length > 0) return;
-    const now = Date.now();
-    for (const event of SEED_EVENTS) {
-      await db.execute({
-        sql: "INSERT OR IGNORE INTO guild_events (slug, data, published, created_at, updated_at) VALUES (?, ?, 1, ?, ?)",
-        args: [event.slug, JSON.stringify(event), now, now],
-      });
-    }
-    await db.execute("INSERT OR REPLACE INTO guild_events_meta (key, value) VALUES ('seeded', '1')");
   }
 
   return {

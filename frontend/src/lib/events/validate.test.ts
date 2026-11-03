@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { SEED_EVENTS } from "#lib/events/seed.js";
 import { ICON_PLACEMENTS, parseGuildEvent } from "#lib/events/validate.js";
 
 const VALID = {
@@ -23,18 +22,32 @@ function expectError(value: unknown, fragment: string) {
 }
 
 describe("parseGuildEvent", () => {
-  it("accepts every seed event, only normalizing instants", () => {
-    for (const event of SEED_EVENTS) {
-      const result = parseGuildEvent(JSON.parse(JSON.stringify(event)));
-      expect(result).toEqual({
-        ok: true,
-        event: {
-          ...event,
-          startsAt: event.startsAt ? new Date(event.startsAt).toISOString() : undefined,
-          endsAt: event.endsAt ? new Date(event.endsAt).toISOString() : undefined,
+  it("accepts a fully populated event, only normalizing instants", () => {
+    const event = {
+      ...VALID,
+      theme: { ...VALID.theme, sky: ["#171120", "#251b38"] },
+      access: "members",
+      startsAt: "2026-07-05T00:00:00Z",
+      endsAt: "2026-07-19T23:59:59Z",
+      about: ["A raid push."],
+      goals: [
+        {
+          metricLabel: "clears",
+          milestones: [{ at: 600, unlock: "Raffle" }],
+          feed: "raids",
+          countRaid: "The Canyon Colossus",
+          finalTotal: 683,
         },
-      });
-    }
+      ],
+      prizes: [{ donor: "member", prize: "Store credit" }],
+      prizesNote: "Donated by members.",
+      comp: { roles: [{ role: "Healer", builds: "Acolyte", note: "Preferred" }], note: "Bring one healer." },
+      rules: ["Clears inside the window count."],
+    };
+    expect(parseGuildEvent(event)).toEqual({
+      ok: true,
+      event: { ...event, startsAt: "2026-07-05T00:00:00.000Z", endsAt: "2026-07-19T23:59:59.000Z" },
+    });
   });
 
   it("canonicalizes colors, whitespace, and instants", () => {
