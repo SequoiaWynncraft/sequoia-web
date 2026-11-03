@@ -55,7 +55,7 @@ jobs:
         with:
           version: "2026.10.17"
           sha256: fe6dd17e68e09682b31d2e7bb7bb755d22636ac1af5d94621e300f2ca9e9fe8a
-          install_args: aqua:rust-lang/rustup
+          install_args: http:rustup-init
           cache_key_prefix: mise-backend
           cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - name: Install pinned rustup and the Rust toolchain

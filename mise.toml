@@ -6,9 +6,18 @@ locked = true
 [tools]
 bun = "1.4.4"
 node = "26.13.0"
+
 # rust-toolchain.toml owns the Rust version and components; this pins the
-# rustup installer used when no rustup is present.
-"aqua:rust-lang/rustup" = "1.29.2"
+# rustup installer that setup:rust runs when no rustup is present.
+[tools."http:rustup-init"]
+version = "1.29.2"
+
+[tools."http:rustup-init".platforms]
+linux-x64 = { url = "https://static.rust-lang.org/rustup/archive/{{ version }}/x86_64-unknown-linux-gnu/rustup-init", checksum = "sha256:5be191e8c70a5007074254cb74d78dbfdd25cd5a61c27de7b8e5410122ec24f4" }
+linux-arm64 = { url = "https://static.rust-lang.org/rustup/archive/{{ version }}/aarch64-unknown-linux-gnu/rustup-init", checksum = "sha256:a9c168dbea81a84671c6b7a5c1795cb0eb699020110d107ddfca427bd797e697" }
+macos-x64 = { url = "https://static.rust-lang.org/rustup/archive/{{ version }}/x86_64-apple-darwin/rustup-init", checksum = "sha256:b9610730ddeef52765723847866fd1e3540b2bf7d5ab0c324aa143a5edf25ba0" }
+macos-arm64 = { url = "https://static.rust-lang.org/rustup/archive/{{ version }}/aarch64-apple-darwin/rustup-init", checksum = "sha256:f7c7e11eb2e07f006e532a8aaac77b32f4527d305ac386c0c633ca6133d35ca9" }
+windows-x64 = { url = "https://static.rust-lang.org/rustup/archive/{{ version }}/x86_64-pc-windows-msvc/rustup-init.exe", checksum = "sha256:00f139da614dced87d3c3d4121c43eebdac3c1bf8a5ee86b9d80dfd71c8d70fd" }
 
 [env]
 _.path = ["{{ env.CARGO_HOME | default(value=env.HOME ~ '/.cargo') }}/bin"]
