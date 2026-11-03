@@ -68,8 +68,8 @@ depends = ["setup:rust"]
 run = "cargo clippy --locked --manifest-path backend/Cargo.toml --workspace --all-targets --all-features -- -D warnings"
 
 [tasks."check:secrets"]
-description = "Scan the history reachable from HEAD for secrets"
-run = "gitleaks git --log-opts=HEAD --redact --verbose --no-banner"
+description = "Scan every commit and merge reachable from HEAD for secrets"
+run = "gitleaks git --log-opts='--diff-merges=first-parent HEAD' --redact --ignore-gitleaks-allow --no-banner --no-color --report-format=template --report-template=scripts/gitleaks-report.tmpl --report-path=-"
 
 [tasks.check]
 description = "Run every lint, type, dependency and secret check"

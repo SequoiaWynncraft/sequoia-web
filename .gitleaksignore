@@ -1,0 +1,2 @@
+# Public OAuth client ID (sent in the authorize URL), not a secret.
+c7d6ededf10ce47c1f48302ff12f195aca99e3e9:backend/.env.example:generic-api-key:5
