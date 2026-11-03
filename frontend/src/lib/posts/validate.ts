@@ -7,7 +7,6 @@ import type { GuildPost, PostAudience, PostFeed, PostTier } from "./types";
 
 export type PostParseResult = { ok: true; post: GuildPost } | { ok: false; error: string };
 
-/** Route segments under the feeds and the console a post slug must never shadow. */
 const RESERVED_SLUGS = new Set(["new"]);
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const ZONED_PATTERN = /(?:z|[+-]\d\d:\d\d)$/i;
@@ -19,8 +18,7 @@ export const MAX_POST_BODY = 20_000;
 const MAX_SEQ_RANKS = 40;
 
 /**
- * Strict parser for post data crossing a trust boundary: management form
- * submissions and database rows. Mirrors `parseGuildEvent` - unknown fields are
+ * Strict parser for post data crossing a trust boundary: unknown fields are
  * dropped, strings trimmed, instants normalized, empty narrowing omitted.
  */
 export function parseGuildPost(value: unknown): PostParseResult {

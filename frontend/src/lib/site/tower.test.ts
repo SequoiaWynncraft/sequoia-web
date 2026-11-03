@@ -17,7 +17,6 @@ describe("tower calculator", () => {
   });
 
   it("stacks the external multiplier on top of connections at HQ", () => {
-    // 5400 * (1 + 0.3*4) * (1.5 + 0.25*24) = 89100
     expect(calcStat(5400, true, 4, 24)).toBeCloseTo(89_100, 9);
   });
 
@@ -33,7 +32,6 @@ describe("tower calculator", () => {
   });
 
   it("counts both hits of a tower attack in the DPS band", () => {
-    // Level 0 is 1000-1500 per hit at 0.5x, so two hits land back on 1000-1500.
     expect(calcDpsRange(0, 0, false, 0, 0)).toEqual([1000, 1500]);
     expect(calcDps(0, 0, false, 0, 0)).toBeCloseTo(1250, 9);
   });
@@ -51,7 +49,6 @@ describe("tower calculator", () => {
 
   it("divides health by the remaining damage taken for EHP", () => {
     expect(calcEhp(0, 0, false, 0, 0)).toBeCloseTo(300_000 / 0.9, 9);
-    // Level 11 defense is 90%, so effective HP is ten times the raw pool.
     expect(calcEhp(11, 11, false, 0, 0)).toBeCloseTo(33_000_000, 3);
   });
 
@@ -100,7 +97,6 @@ describe("tower calculator", () => {
   });
 
   it("picks the suffix from the rounded value, not the raw one", () => {
-    // Health 0 at 70% defence lands one ULP under 1M; it used to print "1000k".
     expect(calcEhp(0, 4, false, 0, 0)).toBeLessThan(1_000_000);
     expect(formatStat(calcEhp(0, 4, false, 0, 0))).toBe("1.0M");
 

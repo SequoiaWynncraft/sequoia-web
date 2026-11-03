@@ -3,12 +3,10 @@ import { requestDiscord } from "./discordManagement";
 import { requestCeremonyPreview, type CeremonyPreviewRequest } from "./ceremony";
 import { ceremonyPreviewScene } from "#lib/discord/ceremony.js";
 
-// Fictional story id and sample values.
 const input: CeremonyPreviewRequest = { story_id: "sample_story", tier: "diamond", raid: "TNA", count: 1000, format: "png" };
 
 describe("ceremony preview transport", () => {
   it("uses explicit fetch and cancellation, returning binary bytes without owning playback", async () => {
-    // Transport sentinel, not a rendered ceremony.
     const bytes = new Uint8Array([9, 0, 255]);
     const fetchImpl = vi.fn().mockResolvedValue(new Response(bytes, { headers: { "content-type": "image/png" } }));
     const signal = new AbortController().signal;

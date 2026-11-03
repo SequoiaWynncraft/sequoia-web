@@ -1,7 +1,3 @@
-//! Runs the compiled `retention` command against real PostgreSQL databases,
-//! one per test, on the server named by `TEST_DATABASE_URL`:
-//! `cargo test -- --include-ignored`.
-
 use std::{path::PathBuf, process::Output};
 
 use anyhow::Context;
@@ -56,7 +52,6 @@ impl TestDatabase {
         )
     }
 
-    /// Every table, index and row, migration records included.
     async fn fingerprint(&self) -> anyhow::Result<Vec<String>> {
         let mut connection = self.connect().await?;
         let mut parts: Vec<String> = sqlx::query_scalar(
@@ -130,7 +125,6 @@ async fn preview_refuses_an_unmigrated_database_without_writing() -> anyhow::Res
 #[ignore = "needs TEST_DATABASE_URL"]
 async fn preview_refuses_a_legacy_schema_without_writing() -> anyhow::Result<()> {
     let test = TestDatabase::create().await?;
-    // The schema as the previous release left it: migrations 1 to 4.
     let legacy = std::env::temp_dir().join(format!("retention-legacy-{}", Uuid::new_v4().simple()));
     std::fs::create_dir(&legacy)?;
     let migrations = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("migrations");
@@ -178,11 +172,9 @@ async fn preview_refuses_a_legacy_schema_without_writing() -> anyhow::Result<()>
 #[ignore = "needs TEST_DATABASE_URL"]
 async fn preview_matches_apply_on_a_current_schema() -> anyhow::Result<()> {
     let test = TestDatabase::create().await?;
-    // Applying migrates an empty database, like starting the server.
     let empty = report(&test.retention(&["--apply"])?)?;
     assert_eq!(empty["daily_excess_counters_deleted"], 0);
 
-    // One member raiding on every 12-minute poll for a whole day, 30 days ago.
     let mut connection = test.connect().await?;
     connection
         .execute(

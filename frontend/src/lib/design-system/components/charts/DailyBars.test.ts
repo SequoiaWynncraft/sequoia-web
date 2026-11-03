@@ -4,7 +4,6 @@ import { describe, expect, it } from "vitest";
 
 import DailyBars from "./DailyBars.svelte";
 
-/** Server markup without scoped-style classes and hydration comments. */
 function markup(props: ComponentProps<typeof DailyBars>): string {
   return render(DailyBars, { props }).body.replace(/ class="[^"]*"/g, "").replace(/<!--.*?-->/g, "");
 }

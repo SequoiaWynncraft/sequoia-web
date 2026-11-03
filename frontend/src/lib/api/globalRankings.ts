@@ -1,6 +1,5 @@
 import { isRecord } from "#lib/api/guards.js";
 
-/** Delta windows the rankings page offers; keys match the backend's range grammar. */
 export const RANKING_WINDOWS = [
   { key: "1d", label: "24h" },
   { key: "7d", label: "7 days" },
@@ -32,7 +31,6 @@ export interface GlobalRaidRankings {
   baseline_sampled_at: string | null;
   current_sampled_at: string | null;
   warming_up: boolean;
-  /** Lifetime and warm-up boards rank by current totals; the deltas are meaningless. */
   totals_only: boolean;
   entries: GlobalRaidRankingEntry[];
 }

@@ -7,11 +7,6 @@ import {
   PUBLIC_SITE_TAGLINE,
 } from "$app/env/public";
 
-/**
- * How the website presents itself. The guild it tracks (its Wynncraft name,
- * prefix and uuid), backend identifiers and the legal controller are separate
- * and stay as they are when the site is renamed.
- */
 export interface Brand {
   name: string;
   tagline: string;
@@ -36,7 +31,6 @@ export const BRAND: Brand = {
   mapUrl: set(PUBLIC_SITE_MAP_URL, "https://map.seqwawa.com"),
 };
 
-/** Document title for a page, suffixed with the site name. */
 export function pageTitle(title: string): string {
   return `${title} - ${BRAND.name}`;
 }
@@ -44,7 +38,6 @@ export function pageTitle(title: string): string {
 const HTML_ESCAPES: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" };
 const escapeHtml = (value: string) => value.replace(/[&<>"]/g, (char) => HTML_ESCAPES[char] ?? char);
 
-/** Fills the brand placeholders in `app.html`. */
 export function fillBrandPlaceholders(html: string): string {
   return html
     .replace("%site.title%", () => escapeHtml(`${BRAND.name} - ${BRAND.tagline}`))

@@ -16,8 +16,6 @@
   } = $props();
 
   const page = $derived(pageView(path));
-  // The card grid follows the navbar: an entry hidden from the menu is not
-  // advertised here either, though its tab and URL keep working.
   const cards = $derived(
     visibleCards(page.cards, appPage.data.navHidden ?? [...DEFAULT_HIDDEN_NAV]),
   );

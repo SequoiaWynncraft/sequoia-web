@@ -43,14 +43,10 @@
     initialPublished?: boolean;
     /** Stored version the form loaded from; a save based on an older one is rejected. */
     initialUpdatedAt?: number | null;
-    /** Feed a new post starts in, e.g. from the feed page's "New post" link. */
     initialFeed?: PostFeed;
-    /** Picker data; the audience section degrades without it. */
     context?: PostFormContext | null;
-    /** Rejection from the last server submission. */
     error?: string | null;
     saved?: boolean;
-    /** The last action succeeded but its audit row did not land. */
     auditWarning?: boolean;
   } = $props();
 
@@ -63,9 +59,6 @@
     expired: "Past its expiry date. Only post managers can see it.",
   };
 
-  // The draft deliberately seeds from the props once - the parent remounts the
-  // editor via {#key} when the post changes.
-  // svelte-ignore state_referenced_locally
   const draft = new PostDraft({ mode, initial, initialPublished, initialUpdatedAt, initialFeed });
 
   let bodyInput = $state<HTMLTextAreaElement>();
@@ -74,7 +67,6 @@
 
   const footerError = $derived(draft.showValidation && draft.liveError ? draft.liveError : error);
   const footerWarning = $derived(auditWarning ? "Saved. The audit log entry didn't go through." : null);
-  // A saved pick stays listed even if the ladder no longer has it (or failed to load).
   const seqRankChoices = $derived([...new Set([...(context?.seqRanks ?? []), ...draft.seqRanks])]);
   const status = $derived(postStatus(draft.post, draft.published, new Date()));
   const chip = $derived(audienceChip(draft.post.audience));
@@ -328,7 +320,6 @@
 
     {#if mode === "edit"}
       <form bind:this={deleteForm} class="evf-danger" method="POST" action="?/delete" use:enhance>
-        <!-- Pinned to the version the manager reviewed, like the save. -->
         <input type="hidden" name="baseUpdatedAt" value={draft.knownUpdatedAt ?? ""} />
         <Button size="sm" variant="ghost" onclick={() => confirmDelete?.open()}>Delete post</Button>
         <ConfirmDialog

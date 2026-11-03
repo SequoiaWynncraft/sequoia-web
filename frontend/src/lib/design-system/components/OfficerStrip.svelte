@@ -158,8 +158,6 @@
 
     measureUnitWidth();
     requestAnimationFrame(measureUnitWidth);
-    // Re-measure when the strip actually changes size - a polling interval
-    // forced a layout flush every 0.9s forever, including mid-drag.
     if ("ResizeObserver" in window) {
       resizeObserver = new ResizeObserver(() => measureUnitWidth());
       resizeObserver.observe(container);
@@ -190,7 +188,6 @@
   });
 </script>
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
   bind:this={container}
   class="seq-branchmasters-strip"

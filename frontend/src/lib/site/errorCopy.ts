@@ -1,15 +1,3 @@
-/**
- * Map an HTTP error status to the heading, recovery copy, and document title
- * shown on the global error page.
- *
- * Distinguishes the statuses the app actually surfaces (403, 404, 409, and the
- * 5xx family) and falls back to a generic message for anything else, so the
- * error page never claims "404" for a failure that was something else.
- *
- * @param status - The SvelteKit error status (`page.status`).
- * @returns The `heading` (large status label), `message` (recovery copy), and
- *   `title` (document `<title>` text) for that status.
- */
 export function errorCopy(status: number): {
   heading: string;
   message: string;

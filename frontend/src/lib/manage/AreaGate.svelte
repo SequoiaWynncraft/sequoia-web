@@ -13,8 +13,6 @@
     returnTo: string;
   } = $props();
 
-  // The registry covers every area id; the copy lives there so a page never
-  // invents its own gate wording.
   const copy = $derived(MANAGE_AREAS.find((entry) => entry.id === area)?.gate);
 </script>
 

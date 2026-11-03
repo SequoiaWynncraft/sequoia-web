@@ -2,8 +2,6 @@
 # its own [run] policy for app tooling.
 
 [install]
-# pnpm-style strict, symlinked node_modules (no phantom dependencies).
 linker = "isolated"
 # Supply-chain cooldown: only install versions published >= 1 day ago.
-# (pnpm minimumReleaseAge was 1440 minutes; bun's unit is seconds.)
 minimumReleaseAge = 86400

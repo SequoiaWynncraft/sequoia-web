@@ -321,11 +321,6 @@ export function homepageServices(): NavLeaf[] {
   return cardsFor("/services").filter((s) => !s.hideFromHome);
 }
 
-/**
- * The three headline statistics pages surfaced on the homepage, ordered
- * left-to-right. These carry curated query strings (e.g. a default window) so
- * the cards land on a ready-to-read view rather than a bare page.
- */
 export function homepageStatistics(): NavLeaf[] {
   return [
     {

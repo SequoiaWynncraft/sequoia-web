@@ -13,15 +13,12 @@ import {
 
 const STATS_CATEGORIES = categoriesToggleId("/statistics");
 
-/** The default preference with the Statistics category headings switched on. */
 const CATEGORIES_ON = DEFAULT_HIDDEN_NAV.filter((id) => id !== STATS_CATEGORIES);
 
-/** The Statistics menu as the navbar would draw it. */
 function statisticsMenu(hidden: Iterable<string>) {
   return visibleSections(hidden).find((section) => section.to === "/statistics");
 }
 
-/** The menu as label paths, e.g. "Statistics > Player > Playercard". */
 function menu(hidden: Iterable<string>): string[] {
   return visibleSections(hidden).flatMap((section) => [
     section.label,
@@ -58,8 +55,6 @@ describe("navbar visibility preference", () => {
   });
 
   it("stacks a short menu into one column, across categories", () => {
-    // Playercard and Raid sit under different categories, but two links do not
-    // earn two columns.
     const statistics = statisticsMenu(DEFAULT_HIDDEN_NAV);
 
     expect(statistics?.groups).toBeUndefined();
@@ -165,7 +160,6 @@ describe("navbar visibility preference", () => {
 
     expect(byId.get("/statistics")?.categoriesId).toBe(STATS_CATEGORIES);
     expect(byId.get("/services")?.categoriesId).toBeUndefined();
-    // It has to be a known id, or the cookie would drop it on the way back in.
     expect(parseHiddenNav(serializeHiddenNav([STATS_CATEGORIES]))).toEqual([STATS_CATEGORIES]);
   });
 
@@ -181,8 +175,6 @@ describe("navbar visibility preference", () => {
   });
 
   it("keeps an overview page's own cards when filtering would empty the grid", () => {
-    // Every page on the Global overview is hidden by default, but opening it
-    // should still show what is there.
     expect(visibleCards(cardsFor("/statistics/global"), DEFAULT_HIDDEN_NAV).map((c) => c.to)).toEqual([
       "/statistics/global/rankings",
       "/statistics/global/guilds",

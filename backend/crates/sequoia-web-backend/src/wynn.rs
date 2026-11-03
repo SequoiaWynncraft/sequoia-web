@@ -10,8 +10,6 @@ use uuid::Uuid;
 
 use crate::model::{GuildSnapshot, MemberRaidCounter};
 
-/// A stalled upstream must never hang polling forever: connections and whole
-/// requests are bounded so both the scheduled loop and manual polls resolve.
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
@@ -50,11 +48,6 @@ impl WynnClient {
 
     pub async fn fetch_guild_snapshot(&self, prefix: &str) -> Result<GuildSnapshot, WynnError> {
         let url = format!("{}/guild/prefix/{}", self.base_url, prefix);
-        // Stamped before the request goes out: the payload can only reflect
-        // server state from before this instant, so ordering snapshots by a
-        // request-start time keeps a stalled older request older than any
-        // faster later one - stamping on receipt would let it leapfrog the
-        // monotonic admission check.
         let fetched_at = OffsetDateTime::now_utc();
         let response = self
             .http
@@ -79,7 +72,6 @@ impl WynnClient {
     }
 }
 
-/// Seconds-form `Retry-After`, with Wynncraft's `RateLimit-Reset` as fallback.
 fn retry_after(headers: &reqwest::header::HeaderMap) -> Option<Duration> {
     ["retry-after", "ratelimit-reset"].iter().find_map(|name| {
         let seconds = headers
@@ -243,7 +235,6 @@ mod tests {
         headers.insert("ratelimit-reset", HeaderValue::from_static("42"));
         assert_eq!(retry_after(&headers), Some(Duration::from_secs(42)));
 
-        // Retry-After wins over the fallback; a non-numeric value is skipped.
         headers.insert("retry-after", HeaderValue::from_static("7"));
         assert_eq!(retry_after(&headers), Some(Duration::from_secs(7)));
         headers.insert(

@@ -7,7 +7,6 @@ const input: WelcomePreviewRequest = { variant_id: "quiet", season: "winter", fo
 
 describe("welcome preview transport", () => {
   it("uses explicit fetch and cancellation, returning binary bytes without owning playback", async () => {
-    // Transport sentinel, not rendered or accepted artwork.
     const bytes = new Uint8Array([9, 0, 255]);
     const fetchImpl = vi.fn().mockResolvedValue(new Response(bytes, { headers: { "content-type": "image/png" } }));
     const signal = new AbortController().signal;
@@ -49,7 +48,6 @@ describe("welcome preview transport", () => {
       expect(JSON.parse(fetchImpl.mock.lastCall![1].body)).toEqual({ ...input, ...scene });
     }
     fetchImpl.mockResolvedValueOnce(new Response(new Uint8Array([9]), { headers: { "content-type": "image/png" } }));
-    // Older servers cannot accept scene fields; undefined fields must not reach the wire.
     await requestWelcomePreview(fetchImpl, { ...input, night: undefined, moon: undefined }, signal);
     const body = JSON.parse(fetchImpl.mock.lastCall![1].body);
     expect(body).not.toHaveProperty("night");
@@ -61,7 +59,6 @@ describe("welcome preview transport", () => {
     const scene = welcomePreviewScene(true, serverScene, "scheduled", "saved");
     const key = (choice: typeof scene) => welcomePreviewKey("quiet", "winter", "Member", message, "none", "minecraft", choice);
     const stillKey = key(scene);
-    // Wire sentinels only. The fixture's server changes schedule and moon between requests.
     const fetchImpl = vi.fn(async (_url, init) => {
       const body = JSON.parse(init.body);
       const resolved = { night: body.night ?? serverScene.active, moon: body.moon ?? serverScene.moon };
@@ -76,7 +73,6 @@ describe("welcome preview transport", () => {
       expect(JSON.parse(fetchImpl.mock.lastCall![1].body)).toMatchObject({ night: false, moon: true });
       expect(key(scene)).toBe(stillKey);
     }
-    // A loaded/saved response replaces the snapshot and therefore the still/playback identity.
     const refreshed = welcomePreviewScene(true, serverScene, "scheduled", "saved");
     expect(refreshed).toEqual({ night: true, moon: false });
     expect(key(refreshed)).not.toBe(stillKey);

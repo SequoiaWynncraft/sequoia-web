@@ -5,7 +5,6 @@
 
   let { source }: { source: string } = $props();
 
-  // Rendered from tokens, never {@html}: an author's markup stays text.
   const blocks = $derived(parseMarkdown(source));
 </script>
 

@@ -16,8 +16,6 @@ use crate::{
 
 static MIGRATOR: Migrator = sqlx::migrate!("./migrations");
 
-/// Advisory lock class for a guild's ingest; the second key is the prefix's hash.
-/// Retention takes the same locks, so it never races an ingest.
 pub(crate) const INGEST_LOCK_CLASS: i32 = 1845692265;
 
 #[derive(Clone)]
@@ -123,7 +121,6 @@ impl Database {
         &self.pool
     }
 
-    /// Bounded connectivity probe for readiness checks.
     pub async fn ping(&self) -> anyhow::Result<()> {
         tokio::time::timeout(std::time::Duration::from_secs(2), async {
             sqlx::query("SELECT 1").execute(&self.pool).await
@@ -134,12 +131,6 @@ impl Database {
         Ok(())
     }
 
-    /// Ingests a snapshot under a per-guild advisory lock. Admission is
-    /// monotonic by `fetched_at`: snapshots are fetched before the lock is
-    /// taken, so a stalled older fetch can insert after a newer one and would
-    /// otherwise become the delta baseline, booking a spurious decrease plus a
-    /// duplicate raid on the next poll. Such snapshots are quarantined as an
-    /// anomaly instead of being stored.
     pub async fn ingest_snapshot(&self, snapshot: GuildSnapshot) -> anyhow::Result<IngestSummary> {
         let mut tx = self.pool.begin().await.context("failed to begin ingest")?;
         sqlx::query("SELECT pg_advisory_xact_lock($1, hashtext($2))")
@@ -542,9 +533,6 @@ fn parse_database_url(database_url: &str) -> anyhow::Result<PgConnectOptions> {
         .context("invalid DATABASE_URL")
 }
 
-/// Records an out-of-order snapshot as an anomaly instead of storing it, so a
-/// late-arriving older fetch can never become the delta baseline. The rejected
-/// payload's hash is kept for diagnosis; the snapshot itself is discarded.
 async fn quarantine_out_of_order(
     mut tx: sqlx::Transaction<'_, sqlx::Postgres>,
     snapshot: &GuildSnapshot,

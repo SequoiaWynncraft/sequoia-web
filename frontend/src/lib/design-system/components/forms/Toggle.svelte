@@ -14,7 +14,6 @@
   } & Omit<HTMLInputAttributes, "checked" | "type"> = $props();
 
   const hintId = $props.id();
-  // A caller's own description ids stay alongside the hint's, never under it.
   const description = $derived(
     [describedBy, hint ? hintId : undefined].filter(Boolean).join(" ") || undefined,
   );
@@ -59,7 +58,6 @@
 
   .check-hint {
     display: block;
-    /* Aligns under the label text, past the checkbox and its gap. */
     padding-left: 23px;
     color: var(--text-muted);
     font-size: var(--text-xs);

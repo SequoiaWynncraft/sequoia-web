@@ -1,9 +1,3 @@
-//! Retention for tracker history; the policy is documented in docs/raid-tracking.md.
-//!
-//! New rows never store presence, and store raw upstream payloads only in an
-//! optional diagnostic tier. Historical pruning is explicit: nothing is deleted
-//! unless `TRACKER_RETENTION=apply` or the `retention --apply` command asks.
-
 use std::{sync::Arc, time::Duration};
 
 use anyhow::{Context, bail};
@@ -11,7 +5,6 @@ use time::OffsetDateTime;
 
 use crate::db::{Database, INGEST_LOCK_CLASS};
 
-/// Whether the scheduled retention pass runs, and whether it changes anything.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RetentionMode {
     /// No scheduled pass. The default, so a deploy never prunes history by itself.
@@ -22,7 +15,6 @@ pub enum RetentionMode {
     Apply,
 }
 
-/// How long each kind of history is kept in full.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RetentionPolicy {
     /// Days a raw upstream payload is kept. 0 means raw payloads are not stored.
@@ -32,7 +24,6 @@ pub struct RetentionPolicy {
     /// with the most guild raids (the dropout high-water mark). Runs of
     /// identical samples then keep only their ends.
     pub counter_compaction_days: u16,
-    /// Days a tracker anomaly is kept.
     pub anomaly_days: u16,
 }
 
@@ -70,12 +61,10 @@ impl RetentionPolicy {
         })
     }
 
-    /// Whether new snapshots keep their raw upstream payload.
     pub fn stores_raw_payloads(&self) -> bool {
         self.raw_payload_days > 0
     }
 
-    /// The instants before which each kind of history is pruned.
     pub fn cutoffs(&self, now: OffsetDateTime) -> RetentionCutoffs {
         let days = |count: u16| now - time::Duration::days(i64::from(count));
         RetentionCutoffs {
@@ -86,7 +75,6 @@ impl RetentionPolicy {
     }
 }
 
-/// Absolute cutoffs derived from a [`RetentionPolicy`] at one instant.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RetentionCutoffs {
     pub raw_payloads: OffsetDateTime,
@@ -94,7 +82,6 @@ pub struct RetentionCutoffs {
     pub anomalies: OffsetDateTime,
 }
 
-/// What one retention pass removed, or would remove in a dry run.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize)]
 pub struct RetentionReport {
     pub applied: bool,
@@ -122,7 +109,6 @@ impl RetentionMode {
     }
 }
 
-/// First pass after startup, so it never competes with the initial poll.
 const FIRST_PASS_DELAY: Duration = Duration::from_secs(10 * 60);
 const PASS_INTERVAL: Duration = Duration::from_secs(24 * 60 * 60);
 
@@ -170,7 +156,6 @@ fn days_from_env(
     Ok(days)
 }
 
-/// Serializes retention passes, e.g. the daily loop and the CLI.
 const RETENTION_LOCK_CLASS: i32 = 1845692266;
 
 impl Database {
@@ -228,7 +213,6 @@ impl Database {
         .context("failed to clear raw payloads")?
         .rows_affected();
 
-        // Presence is no longer collected, so none of it is kept.
         let presence_cleared = sqlx::query(
             r#"
             UPDATE member_raid_counters
@@ -248,9 +232,6 @@ impl Database {
             .context("failed to delete expired anomalies")?
             .rows_affected();
 
-        // Series are per guild, matching the ingest's healing. A day's last
-        // sample is also the last of its series once the day is past, so a
-        // guild's latest snapshot keeps its counters.
         let daily_excess_counters_deleted = sqlx::query(
             r#"
             WITH ranked AS (
@@ -287,9 +268,6 @@ impl Database {
         .context("failed to thin historical member raid counters")?
         .rows_affected();
 
-        // Of what remains, a sample equal to both neighbours in its member's series is
-        // redundant: history still shows the same steps, and the first sample
-        // of every run, which carries its value into the high-water mark, stays.
         let redundant_counters_deleted = sqlx::query(
             r#"
             WITH series AS (
@@ -370,8 +348,6 @@ impl Database {
     }
 }
 
-/// These run against a real PostgreSQL server named by `TEST_DATABASE_URL`,
-/// each in a database of its own: `cargo test -- --include-ignored`.
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
@@ -415,7 +391,6 @@ mod tests {
             Ok(Self { admin, name, db })
         }
 
-        /// A new pool on the same database, as after a restart.
         async fn restart(self) -> anyhow::Result<Self> {
             self.db.pool().close().await;
             let db = Database::connect_with(self.admin.clone().database(&self.name)).await?;
@@ -455,8 +430,6 @@ mod tests {
         }
     }
 
-    /// Ingests a series of daily snapshots the way the poller would have,
-    /// then backdates what the old schema kept: presence and anomaly times.
     async fn ingest_history(
         db: &Database,
         polls: &[(OffsetDateTime, Option<i64>, Option<i64>)],
@@ -486,7 +459,6 @@ mod tests {
         Ok(())
     }
 
-    /// One poll per day, `days_ago` before `now`.
     fn daily(
         now: OffsetDateTime,
         days: &[(i64, Option<i64>, Option<i64>)],
@@ -519,7 +491,6 @@ mod tests {
         Ok(sqlx::query_scalar(sql).fetch_one(db.pool()).await?)
     }
 
-    /// Every row of every tracker table, so a dry run can be shown to change nothing.
     async fn fingerprint(db: &Database) -> anyhow::Result<Vec<Option<String>>> {
         let mut tables = Vec::new();
         for table in [
@@ -534,8 +505,6 @@ mod tests {
         Ok(tables)
     }
 
-    /// Each sample still has an identical sample at or before it and at or
-    /// after it, so the history draws the same steps.
     fn assert_same_steps(before: &[MemberRaidHistoryPoint], after: &[MemberRaidHistoryPoint]) {
         let value =
             |point: &MemberRaidHistoryPoint| (point.current_guild_raids, point.total_guild_raids);
@@ -562,9 +531,6 @@ mod tests {
     async fn pruning_keeps_scores_baselines_and_dropout_high_water() -> anyhow::Result<()> {
         let test = TestDatabase::create().await?;
         let now = OffsetDateTime::now_utc();
-        // Alice's counter reads 0 from day 26 and again from day 9 on, so the
-        // only samples holding her high-water mark of 100 are 20 to 29 days
-        // old. Bob's last raids land on day 8, the finished event's last day.
         let mut days = vec![
             (30, Some(90), Some(50)),
             (29, Some(100), Some(50)),
@@ -655,9 +621,6 @@ mod tests {
             0
         );
 
-        // After a restart the next poll diffs against the kept baseline:
-        // Alice's restored counter counts one raid past her high-water mark,
-        // not 101 raids from the dip or 11 from her first sample.
         let test = test.restart().await?;
         let mut next_poll = snapshot(now, &[(ALICE, Some(101)), (BOB, Some(55))]);
         next_poll.raw_payload = None;
@@ -683,8 +646,6 @@ mod tests {
         test.remove().await
     }
 
-    /// Per member and UTC day before the full-resolution window: sample count,
-    /// then the first, last and highest guild raid counter.
     async fn old_days(
         db: &Database,
         now: OffsetDateTime,
@@ -715,10 +676,6 @@ mod tests {
         let test = TestDatabase::create().await?;
         let now = OffsetDateTime::now_utc();
         let midnight = now.replace_time(time::Time::MIDNIGHT);
-        // Ten old days of 12 polls, with both members raiding on every poll:
-        // 120 distinct samples each. On the last old day Alice peaks mid-day
-        // and then reads 0, as she does on every recent poll, so her
-        // high-water mark is in a sample that neither opens nor closes a day.
         let mut polls = Vec::new();
         let mut raids = 1000;
         let mut alice_peak = 0;
@@ -757,8 +714,6 @@ mod tests {
             .db
             .enforce_retention(&RetentionPolicy::default(), now, true)
             .await?;
-        // Each member's ordinary days keep their first and last sample; Alice's
-        // last old day also keeps its peak.
         assert_eq!(
             report.daily_excess_counters_deleted,
             2 * 10 * 12 - (20 * 2 + 1),
@@ -784,7 +739,6 @@ mod tests {
             standings_before
         );
 
-        // Alice's next real reading counts one raid past her peak.
         let test = test.restart().await?;
         let mut next_poll = snapshot(
             now,
@@ -824,9 +778,6 @@ mod tests {
             raw_payload_days: 30,
             ..RetentionPolicy::default()
         };
-        // Identical daily polls 40..35 and 20..10 days ago; Bob's 2 raids land
-        // on day 20. Compaction empties the middle snapshots of both runs, but
-        // only days 39..36 are past the 30-day raw window.
         let now = OffsetDateTime::now_utc();
         let mut days: Vec<_> = (35..=40)
             .rev()
@@ -873,7 +824,6 @@ mod tests {
             }
         );
 
-        // Three weeks on, the rest of the window has passed.
         let later = now + Duration::days(21);
         let expired = test.db.enforce_retention(&raw_tier, later, true).await?;
         assert_eq!(
@@ -891,7 +841,6 @@ mod tests {
         );
         test.remove().await?;
 
-        // Without the diagnostic tier, the same history is pruned in one pass.
         let test = TestDatabase::create().await?;
         ingest_history(&test.db, &daily(now, &days)).await?;
         let event = create_event(&test.db, "all", now - Duration::days(41), now).await?;

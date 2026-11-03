@@ -110,7 +110,7 @@ describe("orderRemainingTotal / isCancellable", () => {
   });
 
   it("returns null when any item's price is unknown rather than counting it as zero", () => {
-    const prices = new Map([["NOTG_Rare", 10]]); // NOL_Unique missing
+    const prices = new Map([["NOTG_Rare", 10]]);
     expect(orderRemainingTotal(order, prices)).toBeNull();
   });
 

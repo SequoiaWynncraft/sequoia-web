@@ -19,13 +19,9 @@
   } from "./catalog";
 
   let { initial }: { initial: CatalogResponse } = $props();
-  // The saved view seeds one local draft; Rust owns validation, ids and persistence.
-  // svelte-ignore state_referenced_locally
   let saved = $state<CatalogResponse>(structuredClone(initial));
-  // svelte-ignore state_referenced_locally
   let draft = $state(structuredClone(initial.catalog.categories));
   let expanded = $state<Record<string, boolean>>({});
-  // svelte-ignore state_referenced_locally
   let storyId = $state(initial.stories.find((story) => story.ready)?.id ?? "");
   let busy = $state(false);
   let error = $state<string | null>(null);
@@ -79,7 +75,6 @@
 
   onMount(() => clearPreview);
 
-  // A shown image is cleared once its story changes or its milestone is edited away from what was saved.
   $effect(() => {
     const shown = previewed;
     if (!shown) return;
@@ -97,7 +92,6 @@
     previewError = null;
     previewBusy = true;
     const requestSerial = serial;
-    // The response belongs to the story it was requested for, not to a later selection.
     const requestedStory = storyId;
     const description = `${name(category)} ${milestone.label} at ${number.format(milestone.at)}`;
     controller = new AbortController();
@@ -123,14 +117,12 @@
 
   function received(response: CatalogResponse) {
     saved = response;
-    // Keep the chosen story only while the new response still offers it ready.
     const ready = response.stories.filter((story) => story.ready);
     storyId = ready.some((story) => story.id === storyId) ? storyId : ready[0]?.id ?? "";
     draft = structuredClone(response.catalog.categories);
     conflict = false;
     error = null;
     navigationBlocked = false;
-    // A saved catalog can rename or remove the previewed milestone.
     clearPreview();
   }
 

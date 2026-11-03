@@ -8,7 +8,6 @@ import {
   type RewardQueueEntry,
 } from "#lib/rewardQueue.js";
 
-/** A queue entry with only the fields under test spelled out. */
 function entry(id: number, isViewer = false): RewardQueueEntry {
   return {
     requestId: id,
@@ -19,7 +18,6 @@ function entry(id: number, isViewer = false): RewardQueueEntry {
   };
 }
 
-/** A three-deep queue with the viewer at `position`, or nowhere in it when omitted. */
 function queueWithViewerAt(position?: number): RewardQueueEntry[] {
   return [1, 2, 3].map((id) => entry(id, id === position));
 }

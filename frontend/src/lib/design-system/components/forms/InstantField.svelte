@@ -1,11 +1,4 @@
 <script lang="ts">
-  /**
-   * A UTC instant editor: the native date picker (which works well) paired
-   * with a free-typed time - "18", "1830", and "18:30" all normalize to
-   * HH:MM on change, which beats stepping through datetime-local's segmented
-   * time. The value is a datetime-local string ("YYYY-MM-DDTHH:MM") so it
-   * drops into the existing keepInstant/toInstant pipeline unchanged.
-   */
   let {
     value = $bindable(),
     name,
@@ -24,7 +17,6 @@
   const datePart = $derived(value.slice(0, 10));
   const timePart = $derived(value.length >= 16 ? value.slice(11, 16) : "");
 
-  /** "18" → 18:00, "1830"/"18:30"/"6:5" → zero-padded HH:MM; null if not a time. */
   function normalizeTime(raw: string): string | null {
     const text = raw.trim();
     if (!text) return null;
@@ -55,7 +47,6 @@
     commitTime(event.currentTarget);
   }
 
-  /** Enter submits the surrounding form - commit the typed time first. */
   function commitOnEnter(event: KeyboardEvent & { currentTarget: HTMLInputElement }) {
     if (event.key === "Enter") commitTime(event.currentTarget);
     onkeydown?.(event);

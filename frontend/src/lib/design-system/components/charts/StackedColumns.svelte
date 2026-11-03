@@ -98,7 +98,6 @@
     {#if rendered.length > 0}
       <svg {width} {height} shape-rendering="crispEdges" role="img" aria-label="Stacked column chart">
         {#each rendered as column (column.label)}
-          <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
           <g
             class="column"
             tabindex="0"

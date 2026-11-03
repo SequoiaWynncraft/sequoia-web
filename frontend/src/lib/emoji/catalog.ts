@@ -1,13 +1,5 @@
-/**
- * Sequoia's custom emojis - a hard allowlist, like the prize and raid icons.
- * Authors write `:name:` in post bodies and event text; an unknown name stays
- * plain text. Adding one is dropping `<name>.webp` in static/assets/emoji and
- * listing it here.
- */
 export interface Emoji {
-  /** Shortcode and file stem. */
   name: string;
-  /** Picker caption. */
   label: string;
 }
 
@@ -49,7 +41,6 @@ function isEmoji(name: string): boolean {
   return NAMES.has(name);
 }
 
-/** The known emoji whose `:name:` starts at `index`, or null. */
 export function emojiAt(text: string, index: number): string | null {
   SHORTCODE.lastIndex = index;
   const match = SHORTCODE.exec(text);
@@ -58,7 +49,6 @@ export function emojiAt(text: string, index: number): string | null {
 
 export type EmojiPart = { type: "text"; text: string } | { type: "emoji"; name: string };
 
-/** Splits plain text around known shortcodes, for fields without markdown. */
 export function splitEmoji(text: string): EmojiPart[] {
   const parts: EmojiPart[] = [];
   let buffer = "";

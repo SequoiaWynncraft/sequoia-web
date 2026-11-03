@@ -1,7 +1,4 @@
 #!/usr/bin/env bun
-// Compensating control for pnpm's `blockExoticSubdeps: true` (no Bun
-// equivalent): fail `check` if any package in bun.lock resolves to a
-// non-registry (git/github/tarball-URL/file) source.
 import { readFileSync } from "node:fs";
 
 const raw = readFileSync(new URL("../bun.lock", import.meta.url), "utf8");
@@ -12,7 +9,7 @@ const exotic = [];
 for (const [key, entry] of Object.entries(lock.packages ?? {})) {
   const spec = Array.isArray(entry) ? String(entry[0]) : String(entry);
   const resolution = spec.slice(spec.lastIndexOf("@") + 1);
-  if (resolution.startsWith("workspace:")) continue; // our own workspace
+  if (resolution.startsWith("workspace:")) continue;
   // Registry resolutions are bare semver versions, e.g. "name@1.2.3".
   if (!/^\d+\.\d+\.\d+/.test(resolution)) exotic.push(`${key} -> ${spec}`);
 }

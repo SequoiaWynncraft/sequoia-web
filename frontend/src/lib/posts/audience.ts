@@ -11,19 +11,12 @@ export const POST_TIER_LABELS: Record<PostTier, string> = {
   managers: "Post managers",
 };
 
-/** Branch keys with their console labels, in sidebar order. */
 export const POST_BRANCHES: readonly { key: ManageBranchKey; label: string }[] = MANAGE_AREAS.flatMap(
   (area) => (area.branch === null ? [] : [{ key: area.branch, label: area.label }]),
 );
 
 export type PostViewerTier = "anonymous" | "signedIn" | "member" | "manager";
 
-/**
- * Everything post visibility is decided on, resolved once per request by
- * `resolvePostViewer`. Unverifiable facts are absent rather than guessed: a
- * viewer whose rank profile could not be read freshly carries no Sequoia rank
- * and no branches, so a post narrowed to those stays hidden from them.
- */
 export interface PostViewer {
   tier: PostViewerTier;
   /** In-game rank from the fresh roster; null off-roster. */
@@ -86,9 +79,8 @@ export function audienceAdmits(audience: PostAudience, viewer: PostViewer): bool
 }
 
 /**
- * The one visibility rule for every post surface - feeds, post pages, and the
- * homepage strip. Managers see everything, including drafts, scheduled, and
- * expired posts; everyone else sees only live posts their audience admits.
+ * Managers see everything, including drafts, scheduled, and expired posts;
+ * everyone else sees only live posts their audience admits.
  */
 export function canSeePost(
   post: GuildPost,
@@ -114,7 +106,6 @@ export function audienceChip(audience: PostAudience): string | null {
   }
 }
 
-/** Plain-language answer to "who sees this", for the editor. */
 export function describeAudience(audience: PostAudience): string {
   switch (audience.tier) {
     case "everyone":

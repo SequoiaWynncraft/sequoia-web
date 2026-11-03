@@ -1,8 +1,6 @@
 <script lang="ts" module>
   import { rankColor as sharedRankColor } from "#lib/site/rankColors.js";
 
-  // Backgrounds are badge-local; foregrounds come from the shared rank
-  // vocabulary so a rank never renders two colors on two pages.
   const RANK_BACKGROUNDS: Record<string, string> = {
     owner: "color-mix(in srgb, var(--color-gold) 20%, transparent)",
     chief: "color-mix(in srgb, var(--color-enchant) 20%, transparent)",

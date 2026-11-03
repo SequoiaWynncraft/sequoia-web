@@ -1,5 +1,2 @@
-# App tooling and Vitest run on Bun. The root check:web command starts the
-# type checker with Node's script runner instead, because svelte-check's
-# TypeScript 7 mode fails under the Bun runtime.
 [run]
 bun = true

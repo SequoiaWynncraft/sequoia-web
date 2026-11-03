@@ -1,6 +1,5 @@
 import type { CatalogResponse } from "./catalog";
 
-// Fictional catalog view: one category of each kind, not the seeded catalog.
 export const catalogFixture: CatalogResponse = {
   catalog: {
     version: 3,

@@ -1,9 +1,7 @@
-/** Test-only sample of Sierra GET /v1/achievements/me. */
 const ladder = [
   { label: "Bronze", at: 25 }, { label: "Silver", at: 50 }, { label: "Gold", at: 100 }, { label: "Platinum", at: 500 },
 ];
 
-// Fictional player and award ids.
 export const sampleProgress = {
   player: { uuid: "00000000-0000-4000-8000-000000000001", username: "FictionalMember" },
   eligible: true,
