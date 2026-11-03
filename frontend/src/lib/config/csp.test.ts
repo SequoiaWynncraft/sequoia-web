@@ -9,14 +9,17 @@ import { RAID_ICONS, raidIconUrl } from "#lib/events/raidIcons.js";
 import { securityPolicy } from "../../../vite.config";
 
 let envDir: string;
+const runnerEnv = Object.entries(process.env).filter(([name]) => name.startsWith("PUBLIC_"));
 
 beforeAll(async () => {
+  for (const [name] of runnerEnv) delete process.env[name];
   envDir = await mkdtemp(path.join(tmpdir(), "sequoia-csp-env-"));
   await writeFile(path.join(envDir, ".env.staging"), "PUBLIC_SEQUOIA_API_BASE_URL=https://staging-api.example.test\n");
   await writeFile(path.join(envDir, ".env.sameorigin"), "PUBLIC_SEQUOIA_API_BASE_URL=same-origin\nPUBLIC_NMSR_BASE_URL=same-origin\n");
 });
 
 afterAll(async () => {
+  Object.assign(process.env, Object.fromEntries(runnerEnv));
   await rm(envDir, { recursive: true, force: true });
 });
 
