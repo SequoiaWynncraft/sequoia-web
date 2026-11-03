@@ -1555,19 +1555,38 @@ textarea.seq-input {
   }
 }
 
-/* Art shown whole: as tall as the image's 16:9 shape needs, never shorter than the screen. */
+/* Art shown whole: the image sits below the fixed navbar at its own 16:9 shape,
+   so nothing is cropped or hidden behind the bar on screens 16:9 or wider. The
+   sky colour fills the strip behind the navbar. Narrower screens crop the sides. */
 .seq-hero.seq-hero-full {
-  height: max(100vh, 56.25vw);
+  --seq-hero-nav: 3.6rem;
+  height: calc(56.25vw + var(--seq-hero-nav));
+  min-height: 60vh;
+  background: #27364d;
 }
 
 @supports (height: 100svh) {
   .seq-hero.seq-hero-full {
-    height: max(100svh, 56.25vw);
+    min-height: 60svh;
   }
+}
+
+/* Keep the title on the snow below the tree instead of across it. */
+.seq-hero-full {
+  align-items: flex-end;
+}
+
+.seq-hero-full .seq-hero-content {
+  padding-bottom: clamp(5rem, 9vw, 9rem);
+}
+
+.seq-hero-full .seq-hero-bg-wrap {
+  top: var(--seq-hero-nav);
 }
 
 .seq-hero-full .seq-hero-bg {
   object-position: center top;
+  transform-origin: center top;
 }
 
 .seq-hero-bg-wrap {

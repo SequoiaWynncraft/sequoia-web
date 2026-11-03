@@ -30,6 +30,8 @@
   // so it is already resolved on the first server render.
   const theme = $derived(themeById(page.data.theme));
   let heroImage: HTMLImageElement;
+  // A slight zoom hides the parallax edge, but it would crop art shown whole.
+  const heroScale = $derived(theme.heroFullImage ? 1 : 1.045);
   let statsSection: HTMLElement;
   let refreshedHomepageStats = $state<HomepageStats | null>(null);
   const homepageStats = $derived(refreshedHomepageStats ?? data.homepageStats);
@@ -74,7 +76,7 @@
     let raf = 0;
     const render = () => {
       const heroOffset = Math.max(-18, smoothScrollY * -0.032);
-      heroImage.style.transform = `translate3d(0,${heroOffset}px,0) scale(1.045)`;
+      heroImage.style.transform = `translate3d(0,${heroOffset}px,0) scale(${heroScale})`;
     };
     const tick = () => {
       const delta = targetScrollY - smoothScrollY;
@@ -345,7 +347,7 @@
       fetchpriority="high"
       class="seq-hero-bg"
       bind:this={heroImage}
-      style="transform:translate3d(0,0px,0) scale(1.045)"
+      style="transform:translate3d(0,0px,0) scale({heroScale})"
     />
   </div>
   <div class="seq-hero-vignette"></div>
