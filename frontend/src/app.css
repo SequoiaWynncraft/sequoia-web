@@ -1097,6 +1097,12 @@ textarea.seq-input {
   margin: 0 0 1rem;
 }
 
+.seq-footer-ctas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.5rem;
+}
+
 .seq-footer-nav {
   display: flex;
   flex-wrap: wrap;

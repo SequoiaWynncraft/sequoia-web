@@ -30,6 +30,7 @@ export const variables = defineEnvVars({
   PUBLIC_SITE_DESCRIPTION: { ...buildTimePublic, description: "Default meta description and footer summary." },
   PUBLIC_SITE_LOGO: { ...buildTimePublic, description: "Logo and favicon path or data: URL." },
   PUBLIC_SITE_DISCORD_URL: { ...buildTimePublic, description: "Community Discord invite." },
+  PUBLIC_SITE_GITHUB_URL: { ...buildTimePublic, description: "GitHub organization or repository link." },
   PUBLIC_SITE_MAP_URL: { ...buildTimePublic, description: "Territory map link." },
   SEQUOIA_WEB_BACKEND_URL: { schema: optional, description: "Rust web backend origin." },
   SEQUOIA_WEB_BACKEND_INTERNAL_TOKEN: {

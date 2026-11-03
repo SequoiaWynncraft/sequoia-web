@@ -1,6 +1,7 @@
 import {
   PUBLIC_SITE_DESCRIPTION,
   PUBLIC_SITE_DISCORD_URL,
+  PUBLIC_SITE_GITHUB_URL,
   PUBLIC_SITE_LOGO,
   PUBLIC_SITE_MAP_URL,
   PUBLIC_SITE_NAME,
@@ -14,6 +15,7 @@ export interface Brand {
   /** Logo and favicon: a same-origin path or a `data:` URL. */
   logo: string;
   discordUrl: string;
+  githubUrl: string;
   mapUrl: string;
 }
 
@@ -28,6 +30,7 @@ export const BRAND: Brand = {
   ),
   logo: set(PUBLIC_SITE_LOGO, "/assets/images/fruma-icon.png"),
   discordUrl: set(PUBLIC_SITE_DISCORD_URL, "https://discord.gg/seq"),
+  githubUrl: set(PUBLIC_SITE_GITHUB_URL, "https://github.com/SequoiaWynncraft"),
   mapUrl: set(PUBLIC_SITE_MAP_URL, "https://map.seqwawa.com"),
 };
 
