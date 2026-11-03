@@ -19,6 +19,13 @@ The developer toolchain pins Bun 1.4.4 and Node 26.13.0. Bun is the package mana
 - It runs under Node because it fails under the Bun runtime, so start it from the repository root rather than with `bun run check` inside `frontend`.
 - TypeScript 6 stays installed because SvelteKit requires it.
 
+`bun run test:backend` skips the tracker's PostgreSQL tests. To include them, point `TEST_DATABASE_URL` at a disposable PostgreSQL server; each test creates and drops its own database:
+
+```sh
+TEST_DATABASE_URL=postgres://user:password@127.0.0.1:5432/postgres \
+  cargo test --locked --manifest-path backend/Cargo.toml -- --include-ignored
+```
+
 To run one test file with the same command:
 
 ```sh

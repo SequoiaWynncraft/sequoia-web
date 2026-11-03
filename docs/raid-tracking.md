@@ -1,13 +1,8 @@
-# Guild Raid Tracking
-
-`sequoia-web` is now a monorepo:
-
-- `frontend/`: SvelteKit website.
-- `backend/`: Rust `sequoia-web-backend` service.
+# Guild raid tracking
 
 ## Backend
 
-The Rust backend polls Wynncraft's guild prefix endpoint for `SEQ` and stores snapshots in Postgres. Raid contribution attribution uses each member's `globalData.currentGuildRaids.total`; `globalData.guildRaids.total` is stored for reference but is not used for Sequoia event contribution.
+The Rust backend in `backend/` polls Wynncraft's guild prefix endpoint for `SEQ` and stores snapshots in Postgres. Raid contribution attribution uses each member's `globalData.currentGuildRaids.total`; `globalData.guildRaids.total` is stored for reference but is not used for Sequoia event contribution.
 
 The first successful snapshot is a baseline. Later positive changes become `member_raid_deltas`; missing counters and negative changes become `tracker_anomalies`.
 
@@ -133,8 +128,8 @@ Create three services on the same Coolify network:
 - `sequoia-web-backend`
   - Dockerfile: `backend/Dockerfile`
   - Port: `8080`
-  - Public route: `https://api.seqwawa.com`
-  - Attach Postgres env/secrets listed above.
+  - Attach the Postgres env and secrets listed above. Its internal routes need
+    `INTERNAL_API_TOKEN`; the examples below call it at `$TRACKER_URL`.
 
 - Postgres
   - Used only by `sequoia-web-backend`.
@@ -142,7 +137,7 @@ Create three services on the same Coolify network:
 Run a manual poll after deploy:
 
 ```bash
-curl -X POST https://api.seqwawa.com/internal/poll-now \
+curl -X POST "$TRACKER_URL/internal/poll-now" \
   -H "authorization: Bearer $INTERNAL_API_TOKEN"
 ```
 
@@ -163,7 +158,7 @@ contribution source shown on the website:
   point values are marked as partial on the event page.
 
 ```bash
-curl -X POST https://web-api.dev.seqwawa.com/internal/raid-events \
+curl -X POST "$TRACKER_URL/internal/raid-events" \
   -H "authorization: Bearer $INTERNAL_API_TOKEN" \
   -H "content-type: application/json" \
   -d '{"slug":"summer-raid-week","name":"Summer raid week","tracking":"mod",
@@ -172,34 +167,3 @@ curl -X POST https://web-api.dev.seqwawa.com/internal/raid-events \
 
 The frontend needs `SEQUOIA_BACKEND_INTERNAL_TOKEN` (sequoia-backend's
 `INTERNAL_API_TOKEN`) to read mod-tracked contributions.
-
-### Development deployment
-
-The isolated website development stack lives in the `development` environment of the
-Coolify `sequoia-web` project:
-
-- Git branch: `dev`
-- Frontend: `https://dev.seqwawa.com`
-- Website-only API: `https://web-api.dev.seqwawa.com`
-- Database: private `sequoia-web-dev-postgres` service
-- Internal backend alias: `http://sequoia-web-dev-backend:8080`
-
-Both applications use the Coolify GitHub App and automatically redeploy when `dev` is
-pushed. The exact, unproxied DNS records for the two development hosts override the
-proxied `*.seqwawa.com` catch-all, so requests do not enter its redirect ruleset.
-
-Sign-in on `dev.seqwawa.com` uses the production sequoia-backend web session; the
-`seq_session` cookie is issued for `.seqwawa.com`, so it is shared across the dev and
-production sites.
-
-## Validation
-
-Local checks:
-
-```bash
-bun run check
-bun run test
-bun run build
-bun run clippy:backend
-bun run fmt:backend
-```

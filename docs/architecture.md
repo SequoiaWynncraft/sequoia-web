@@ -1,39 +1,36 @@
 # Architecture
 
-This repository is the public SvelteKit web app. The backend owns data ingestion, persistence, API validation, and OpenAPI contracts. The web app should not connect directly to Postgres or any other database.
+## Ownership
 
-## Module Boundaries
+- `frontend/` is the SvelteKit website. Its server owns website data in libSQL (`src/lib/server/db.ts`): events, posts, presets, the audit log and API caches. It reads guild and player data from the Wynncraft API and from `sequoia-backend`, a separate repository.
+- `backend/` is the Rust raid tracker. It owns its own Postgres database; see [raid-tracking.md](raid-tracking.md).
+- Discord management is owned by Sierra, a module of `sequoia-backend`. The website only proxies to it.
 
-- `src/lib/site/` owns static site structure: top-level sections, child pages, breadcrumbs, tabs, homepage cards, and placeholder metadata.
-- `src/lib/components/` owns reusable Svelte components without route-specific data fetching.
-- `src/lib/config/` owns browser-safe public runtime configuration.
-- `src/lib/api/` owns generated API types and handwritten API clients.
-- `src/routes/` should compose modules instead of defining duplicate navigation, API URLs, or shared styles.
+Inside `frontend/src`:
 
-## Backend Boundary
+- `lib/site/` owns site structure: sections, pages, breadcrumbs, tabs, homepage cards and the brand (`brand.ts`).
+- `lib/components/` and `lib/design-system/` own reusable components without route-specific data fetching.
+- `lib/config/` owns browser-safe public configuration.
+- `lib/api/` owns generated API types and handwritten API clients.
+- `lib/server/` owns server-only data access and authorization.
+- `routes/` composes these modules instead of repeating navigation, API URLs or shared styles.
 
-The public website consumes `../sequoia-backend/src/main/resources/openapi/public.yaml` through:
+## API contract
 
-```sh
-bun run api:types
-```
+`src/lib/api/generated/public-api.ts` is generated from `sequoia-backend`'s `openapi/public.yaml` and checked in, so install, check, test and build don't need that repository. To regenerate it, check `sequoia-backend` out next to this repository and run `bun run api:types`. Don't edit the generated file by hand.
 
-Generated files live under `src/lib/api/generated/` and should not be edited by hand. Handwritten clients should wrap generated types and return explicit result objects instead of throwing into route components.
+Handwritten clients wrap the generated types and return explicit result objects instead of throwing into route components. Create them with an explicit `fetch`: in `load` functions, server routes and actions, pass SvelteKit's `fetch` so same-origin calls work during SSR. Browser-only code such as event handlers can pass `globalThis.fetch.bind(globalThis)`.
 
-Create API clients with an explicit `fetch`. In SvelteKit `load` functions, server routes, and actions, pass SvelteKit's provided `fetch` so same-origin calls work during SSR and prerendering. Browser-only code paths such as event handlers can pass `globalThis.fetch.bind(globalThis)` explicitly.
+## Deployment
 
-## Coolify Deployment
-
-Both `sequoia-web` and `sequoia-backend` can run on the same Coolify VPS. The web app supports two public API routing modes:
+The website supports two API routing modes:
 
 - `PUBLIC_SEQUOIA_API_BASE_URL=https://api.seqwawa.com` for a separate backend origin.
-- `PUBLIC_SEQUOIA_API_BASE_URL=same-origin` when the proxy routes `/public/**` and `/auth/web/**` from the web origin to the backend service.
+- `PUBLIC_SEQUOIA_API_BASE_URL=same-origin` when the proxy routes `/public/**` and `/auth/web/**` from the web origin to `sequoia-backend`.
 
-For same-origin production deploys, configure Coolify or the front proxy to forward `/public/**` **and** `/auth/web/**` to `sequoia-backend` on its application port, typically `8081`. `/auth/web/**` carries website sign-in, the session probe (`/auth/web/me` resolves the layout `viewer`, which member-gated pages like the raid leaderboard authorize against), and logout — without it, same-origin deploys render every visitor as signed out. Keep Postgres credentials on the backend service only; the web app should reach homepage stats through `/public/homepage/stats`. No current deployment uses same-origin mode; both live frontends point at `https://api.seqwawa.com`.
+In same-origin mode the proxy must forward both prefixes. `/auth/web/**` carries sign-in, the session probe that resolves the layout's viewer, and logout; without it every visitor renders as signed out.
 
-Player skin renders use `PUBLIC_NMSR_BASE_URL`, defaulting to the public NMSR route at `https://api.seqwawa.com/nmsr`. If the web origin also proxies `/nmsr/**`, set `PUBLIC_NMSR_BASE_URL=same-origin`; backend/container-only calls can use the internal Coolify service URL `http://nmsr:8080`.
-
-Local development defaults to `http://localhost:8081` when no value is configured.
+Player skin renders use `PUBLIC_NMSR_BASE_URL`, defaulting to `https://api.seqwawa.com/nmsr`. Set it to `same-origin` if the web origin proxies `/nmsr/**`. Local development defaults the API to `http://localhost:8081`.
 
 ### Container runtime user
 
@@ -54,7 +51,7 @@ If the owner is not `10001:10001`, pick one before rollout:
 - start on a new volume; the API cache rebuilds on its own, but events, presets and audit history do not move over, so copy the old file first if that data must survive
 - use Turso and no local volume
 
-Do not roll out until that is resolved: the new image cannot write a root-owned database file. In a local test with one, pages still rendered, but the database-backed `/api/guild-overview` waited out its 5-second database timeout and returned 503.
+Do not roll out until that is resolved: the new image cannot write a root-owned database file.
 
 ### HTTP security headers
 
@@ -74,7 +71,7 @@ The app sets its own browser security policy. Nothing depends on the reverse pro
   - `includeSubDomains` and `preload` are left off: they would commit every `*.seqwawa.com` service to HTTPS, which is an owner decision.
 - **Static files** that adapter-node serves before the app's handler (`/_app/*`, `/assets/*`) do not pass through these hooks. Add `nosniff` and HSTS for them at the proxy if wanted.
 
-After deploying, read the headers back from the live origin, for example `curl -sI https://dev.seqwawa.com/`. Check that the proxy neither drops them nor adds a conflicting second CSP, then watch the browser console on member and manager pages for `Content-Security-Policy` violations. Those authenticated flows were not browser-tested before release.
+After deploying, read the headers back from the live origin with `curl -sI`. Check that the proxy neither drops them nor adds a second CSP, then watch the browser console on member and manager pages for `Content-Security-Policy` violations.
 
 ## Adding Pages
 
@@ -82,132 +79,21 @@ Add page metadata to `src/lib/site/nav.ts`, then keep route files small by consu
 
 ## Adding Public API Features
 
-1. Add or update the backend endpoint and `openapi/public.yaml`.
-2. Run `bun run api:types` in this repo.
-3. Add a typed wrapper in `src/lib/api/`.
-4. Pass SvelteKit's provided `fetch` from route/load boundaries instead of relying on `globalThis.fetch`.
-5. Add unit tests around URL building, error handling, and response validation.
-6. Keep visual route behavior separate from API wiring so layout changes and data changes remain reviewable.
+1. Add or update the backend endpoint and `openapi/public.yaml` in `sequoia-backend`.
+2. Run `bun run api:types`.
+3. Add a typed wrapper in `src/lib/api/` and pass SvelteKit's `fetch` from route and load boundaries.
+4. Test URL building, error handling and response validation.
 
-## Discord Management
+## Discord management
 
-`/manage/discord` is the responsive editor behind the console's own ✦ Discord category.
-The Rust Sierra module in `sequoia-backend` owns authorization, definition validation,
-database persistence, Discord delivery, emoji uploads and role-button dispatch. The Svelte
-component owns only the editable workspace and preview; WASM adds no useful boundary here.
+`/manage/discord` edits Discord messages, welcome messages, achievement ceremonies and the achievement catalog. Sierra owns authorization, validation, persistence, Discord delivery, emoji uploads and previews; the Svelte pages own only the editable workspace.
 
-The message browser (`src/lib/discord/navigation.ts`) arranges Rust's existing context and
-listing metadata as Discord's server › channel › thread hierarchy: reviewed threads sit under
-the parent their import source records, and drafts without a destination stay apart. It adds
-no requests. On narrow workspaces the list and the open message alternate, with a shallow
-history entry so the device's back gesture returns to the list instead of leaving the page.
+- **Configuration:** set server-only `SEQUOIA_DISCORD_MANAGEMENT_URL` to Sierra's private management listener. Don't publish that listener or use a `PUBLIC_` variable. Without it the pages show an unavailable gate.
+- **Proxy:** the same-origin adapter under `/manage/discord/api` forwards the HttpOnly `seq_session` cookie, rejects cross-origin writes, disables caching, ignores browser-supplied bearer credentials and forwards only an allowlist of management paths, with fixed methods for the welcome, ceremony and catalog settings.
+- **Authorization:** the navbar and sidebar ask Sierra's `/v1/access` probe and cache only grants and denials; an outage hides the category. Every page load and API call re-authorizes in Sierra.
+- **Saves** send the version they edited. A 409 keeps the edits until staff reload. Saving a message definition never edits Discord; publishing is a separate, read-back step, and uncertain delivery is recovered by message link rather than retried.
+- **Previews** are rendered by Sierra from the same code as real messages, use the viewer's own identity and are never posted.
 
-Sierra decides who may manage Discord messages (Senior Moderators, Treants and higher,
-leadership, full Community/Military/Development branch members and website admins). The
-sidebar and navbar ask its `/v1/access` probe through the same-origin adapter, memoized per
-viewer like the bag-shop staff flag: only grants and denials are cached, display peeks wait
-at most 150 ms from the check's start, and an outage hides the category instead of slowing
-navigation. The `/manage` landing and every page/API call re-authorize fresh in Rust.
+The preview markdown is parsed by `discord-markdown-parser` into a typed AST (`src/lib/discord/markdown.ts`) and rendered with Svelte elements, never HTML. Only http(s) link targets are kept. Emoji shortcode data is bundled, so previews make no emoji network requests.
 
-The live preview parses Discord's markdown dialect with `discord-markdown-parser` into a
-typed AST (`src/lib/discord/markdown.ts`) and renders it with Svelte elements, never HTML.
-That module adds Discord list syntax and correct line starts for headings and subtext, which
-the parser lacks, and only keeps http(s) link targets. `parser.d.ts` types the small parser
-surface used because the package's bundled declarations fail this project's strict library
-checks. The preview approximates Discord's dark theme with the site's text face; Discord's
-own clients decide the final rendering, and unicode emoji use the device's emoji font.
-Standard emoji shortcodes use Emojibase's JoyPixels preset (its Discord alias) inside the
-markdown grammar, so code, escapes and link destinations are not rewritten. The pinned
-dataset is bundled locally; preview rendering makes no emoji-data network requests.
-
-Set server-only `SEQUOIA_DISCORD_MANAGEMENT_URL=http://<private-sierra-service>:8082` on
-both websites after enabling Sierra's `SEQUOIA_SIERRA_MANAGEMENT_BIND` on the private
-container network. Do not publish Sierra's listener or use a `PUBLIC_` URL variable.
-The BFF forwards the HttpOnly `seq_session` cookie to Rust's existing session authority,
-rejects cross-origin JSON writes, disables caching and does not accept browser-supplied
-Bearer credentials. Missing configuration renders an unavailable gate, not a fake editor.
-
-Definitions have distinct saved and published revisions. Saving never edits Discord;
-publication is explicit and read back. Uncertain delivery requires recovery by exact message
-link instead of a blind retry. Exact reviewed maintained panels can use durable image
-attachments and bounded Components V2 text layouts. Import, replacement publication and
-original retirement are separate gates, with source/order/reference and actual byte checks
-owned by Rust. Automated application/trial messages, separately managed controls and other
-people's integrations remain under their existing workflow owners. Server emoji
-uploads affect the guild immediately and are shown separately from draft publication.
-See the backend's `docs/sierra-discord-management.md` for admission, protected-role setup,
-bootstrap, persistence and recovery operations.
-
-### Personalized welcomes
-
-`/manage/discord/welcome` lives under the same Discord category and admission rule.
-Its server load asks Rust for fresh welcome configuration before reading channel choices;
-it never authorizes from the console layout's cached capabilities. The existing private
-adapter permits only GET/PUT `welcome` and POST `welcome/preview`, including private,
-uncached PNG/GIF bytes from the renderer. No preview sends a Discord message.
-
-The Svelte workspace holds one editable settings object and the last saved response.
-Version conflicts retain edits until staff explicitly reload, and navigation protects
-unsaved changes with a reachable focused status. Odds are relative integer weights.
-Clean drafts show Rust's saved percentages; dirty drafts show display-only proposed shares
-over enabled weights, labeled "after save". Asset readiness is a separate enable guard,
-not another odds filter. Staff can edit up to five welcome link labels and HTTPS URLs
-through the same settings draft. Rust validates their content. The recurring winter window includes
-both dates in UTC, with explicit normal/winter overrides. Rust validates destinations,
-known variants, dates, readiness and positive eligible weights.
-The website's display-only enable guard evaluates the complete proposed eligibility and
-destination, so disabling or zeroing a pending motif and enabling ready motifs needs only
-one save. Destination problems are shown separately from pending normal/winter artwork.
-
-Sky effects form an independent percentage category, separate from welcome variant weights.
-The sky-category total is at most 100; unused percentage means no effect. Aurora defaults
-to 35% with 65% no effect once both seasonal bundles are ready. Pending effect artwork
-falls back to no effect without blocking emergency disable. The editor shows Rust's saved
-effective chances or readiness-aware proposed chances for the draft.
-
-Previews use the authenticated member's real avatar and an optional sample display name.
-Their explicit-fetch binary client lives in `src/lib/api/welcome.ts`; cancellation serials,
-object URLs and playback remain in the Svelte workspace.
-They call the same Rust renderer as member joins, never a browser compositor or WASM.
-The explicit sky-effect preview choice is independent of saved odds and defaults to no effect.
-It participates in the exact PNG/GIF cache identity. Effect selection changes retain the
-correctly labeled previous still, like other non-message preview changes.
-One selected PNG still loads at a time. Previous/next controls compare motifs without
-returning to the odds list. Replacement requests retain the correctly labeled previous
-image until actual new bytes arrive when changing motif, season or sample name.
-Headline, subtitle or font edits clear the old image immediately so outdated copy is not shown.
-Play animation explicitly requests a GIF and returns
-to its one cached exact-identity PNG after the authored 16-second loop, without another
-render. Reduced-motion changes stop ongoing or pending animation playback.
-
-### Achievement ceremonies
-
-`/manage/discord/ceremonies` follows the welcome page: same Discord category and admission
-rule, a fresh Rust load before channel choices, and a private adapter that permits only
-GET/PUT `ceremonies` and POST `ceremonies/preview` (private, uncached PNG/GIF bytes).
-The workspace edits one settings draft: the enable switch, destination channel and
-relative integer story weights for the stories in Sierra's catalog. Clean drafts show Rust's
-saved chances; dirty drafts show display-only shares labeled "after save". Saves send the
-version, keep edits on a 409 until staff reload, and navigation protects unsaved changes.
-Enabling stays unavailable until the bundle is installed. Season and night follow the welcome
-schedule, so the page only shows the scene in effect.
-
-Previews render the viewer's own head and in-game name with sample tier, raid and count
-values through `src/lib/api/ceremony.ts`. They carry a DEMO stamp and are never posted.
-As scheduled pins the scene from the last loaded response, so stills, playback and retries
-match. One exact-identity PNG is cached; Play animation requests a GIF and returns to it after
-the 32-second loop. Saves are audited as `ceremony.settings.save` and the audit log summarizes
-enabled, destination and changed story rows.
-Missing artwork remains a visible pending state, not a substitute image or fake success.
-Saving configuration changes future joins, not previously delivered messages. Automatic
-delivery remains disabled until the deployment owner verifies the separate Java cutover.
-
-### Achievement catalog
-
-`/manage/discord/achievements` edits achievement milestones, names, styles and enabled
-categories. It uses the same Discord category and a fresh Rust load, and the private adapter
-permits only GET/PUT `achievements/catalog`. Rust owns validation, milestone ids, defaults and
-award claims; the page only mirrors limits as hints and sends new milestones with an empty id.
-Saves send the version and keep edits on a 409 until staff reload. Saved milestones preview
-through POST `ceremonies/preview` with `{milestone: {key, id}}`. Saves are audited as
-`achievements.catalog.save`, summarized per changed category.
+See `sequoia-backend`'s `docs/sierra-discord-management.md` for admission rules, setup and recovery.
