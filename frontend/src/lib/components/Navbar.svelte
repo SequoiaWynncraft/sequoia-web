@@ -35,6 +35,23 @@
     return page.url.pathname === to || page.url.pathname.startsWith(to + "/");
   }
 
+  // Hover or keyboard focus opens a menu; focus leaving it or Escape closes it.
+  function menuHandlers(key: string) {
+    return {
+      onmouseenter: () => (open = key),
+      onfocusin: () => (open = key),
+      onfocusout: (event: FocusEvent & { currentTarget: HTMLElement }) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) open = null;
+      },
+      onkeydown: (event: KeyboardEvent & { currentTarget: HTMLElement }) => {
+        if (event.key !== "Escape" || open !== key) return;
+        // Refocusing the trigger reopens the menu through focusin, so close after.
+        event.currentTarget.querySelector<HTMLElement>(".seq-nav-link")?.focus();
+        open = null;
+      },
+    };
+  }
+
   function clampToViewport(node: HTMLElement) {
     const rect = node.getBoundingClientRect();
     const overflow = rect.right - (window.innerWidth - 16);
@@ -57,11 +74,12 @@
         {@const active = isActive(s.to)}
         {@const isOpen = open === s.to}
         <!-- svelte-ignore a11y_no_static_element_interactions -->
-        <span class="seq-nav-item" onmouseenter={() => open = s.to} style="position:relative">
+        <span class="seq-nav-item" {...menuHandlers(s.to)} style="position:relative">
           <a
             href={s.to}
             class="seq-nav-link"
             class:seq-nav-link-active={active}
+            aria-expanded={hasMenu ? isOpen : undefined}
           >
             {s.label}
             {#if hasMenu}
@@ -118,16 +136,8 @@
       {/if}
       {#if viewer}
         <!-- svelte-ignore a11y_no_static_element_interactions -->
-        <span
-          class="seq-nav-item"
-          onmouseenter={() => open = ACCOUNT}
-          onfocusin={() => open = ACCOUNT}
-          onfocusout={(event) => {
-            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) open = null;
-          }}
-          style="position:relative"
-        >
-          <a href={viewerCardUrl ?? signOutUrl} class="seq-nav-link seq-nav-viewer">
+        <span class="seq-nav-item" {...menuHandlers(ACCOUNT)} style="position:relative">
+          <a href={viewerCardUrl ?? signOutUrl} class="seq-nav-link seq-nav-viewer" aria-expanded={open === ACCOUNT}>
             <img class="seq-nav-face" src={nmsrFace(viewer.minecraftUuid, 18)} alt="" width="18" height="18" />
             {viewer.minecraftUsername ?? "Account"}
             <svg class="seq-nav-chevron" class:seq-nav-chevron-open={open === ACCOUNT} width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
