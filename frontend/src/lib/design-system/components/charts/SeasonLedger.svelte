@@ -83,6 +83,7 @@
       <svg {width} {height} shape-rendering="crispEdges" role="img" aria-label="Season rating history">
         {#each columns as column (column.season)}
           {@const first = column.position === 1}
+          <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
           <g
             class="ledger-col"
             class:ledger-col-first={first}

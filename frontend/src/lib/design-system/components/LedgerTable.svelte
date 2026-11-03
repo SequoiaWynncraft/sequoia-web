@@ -1,4 +1,6 @@
 <script lang="ts" generics="Row">
+  import { untrack } from "svelte";
+
   import type { LedgerColumn } from "./ledgerTable";
 
   let {
@@ -23,7 +25,7 @@
     sortKey?: string;
   } = $props();
 
-  let descending = $state(defaultDescending);
+  let descending = $state(untrack(() => defaultDescending));
 
   const sorted = $derived.by(() => {
     const column = columns.find((candidate) => candidate.key === sortKey) ?? columns[0];
@@ -156,6 +158,7 @@
                 {@render column.cell(row)}
               {:else}
                 {#if avatar}
+                  <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
                   <span
                     class="tip-anchor"
                     role={avatarAlt ? "img" : undefined}
@@ -179,6 +182,7 @@
                     style={secondaryColor ? `color:${secondaryColor}` : undefined}>{secondary}</span
                   >{/if}
                 {#if icon}
+                  <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
                   <span
                     class="tip-anchor"
                     role={icon.alt ? "img" : undefined}

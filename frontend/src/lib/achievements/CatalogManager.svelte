@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, tick } from "svelte";
+  import { onMount, tick, untrack } from "svelte";
   import { beforeNavigate } from "$app/navigation";
   import { requestDiscord } from "#lib/api/discordManagement.js";
   import { requestCeremonyPreview } from "#lib/api/ceremony.js";
@@ -19,10 +19,10 @@
   } from "./catalog";
 
   let { initial }: { initial: CatalogResponse } = $props();
-  let saved = $state<CatalogResponse>(structuredClone(initial));
-  let draft = $state(structuredClone(initial.catalog.categories));
+  let saved = $state<CatalogResponse>(untrack(() => structuredClone(initial)));
+  let draft = $state(untrack(() => structuredClone(initial.catalog.categories)));
   let expanded = $state<Record<string, boolean>>({});
-  let storyId = $state(initial.stories.find((story) => story.ready)?.id ?? "");
+  let storyId = $state(untrack(() => initial.stories.find((story) => story.ready)?.id ?? ""));
   let busy = $state(false);
   let error = $state<string | null>(null);
   let notice = $state<string | null>(null);

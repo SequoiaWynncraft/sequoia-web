@@ -1,5 +1,6 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
+  import { untrack } from "svelte";
 
   import "#lib/events/editor/editor.css";
 
@@ -59,7 +60,7 @@
     expired: "Past its expiry date. Only post managers can see it.",
   };
 
-  const draft = new PostDraft({ mode, initial, initialPublished, initialUpdatedAt, initialFeed });
+  const draft = untrack(() => new PostDraft({ mode, initial, initialPublished, initialUpdatedAt, initialFeed }));
 
   let bodyInput = $state<HTMLTextAreaElement>();
   let deleteForm = $state<HTMLFormElement>();
