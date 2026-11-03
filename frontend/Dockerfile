@@ -32,7 +32,7 @@ ENV HOST_HEADER=x-forwarded-host
 # A fixed unprivileged identity. Application files stay root-owned and
 # read-only; only the SQLite directory is writable. Docker seeds a new named
 # volume mounted there with this ownership, but an existing volume keeps its
-# own (see docs/architecture.md before switching a deployment to this image).
+# own.
 RUN addgroup -S -g 10001 sequoia \
     && adduser -S -D -H -h /nonexistent -s /sbin/nologin -u 10001 -G sequoia sequoia \
     && mkdir .data \
