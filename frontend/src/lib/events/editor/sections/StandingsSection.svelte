@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getContext } from "svelte";
+  import { getContext, tick } from "svelte";
 
   import Button from "#lib/design-system/components/Button.svelte";
   import Field from "#lib/design-system/components/forms/Field.svelte";
@@ -16,9 +16,10 @@
 
   let trackerSubmit = $state<HTMLButtonElement | null>(null);
 
-  function submitTrackerOnEnter(event: KeyboardEvent) {
+  async function submitTrackerOnEnter(event: KeyboardEvent) {
     if (event.key !== "Enter") return;
     event.preventDefault();
+    await tick();
     trackerSubmit?.click();
   }
 </script>
