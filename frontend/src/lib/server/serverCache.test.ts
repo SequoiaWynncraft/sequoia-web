@@ -29,7 +29,6 @@ const unused = async (): Promise<string> => {
   throw new Error("load should not run");
 };
 
-let file: string;
 let reader: Client;
 let cache: CacheModule;
 let warn: ReturnType<typeof vi.spyOn>;
