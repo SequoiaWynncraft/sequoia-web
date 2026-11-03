@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { pageTitle } from "#lib/site/brand.js";
   import { invalidateAll } from "$app/navigation";
   import { SvelteSet } from "svelte/reactivity";
 
@@ -145,7 +146,7 @@
 </script>
 
 <svelte:head>
-  <title>Manage bag shop - Sequoia</title>
+  <title>{pageTitle("Manage bag shop")}</title>
   <meta name="robots" content="noindex" />
 </svelte:head>
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { pageTitle } from "#lib/site/brand.js";
   import ManageHeader from "#lib/manage/ManageHeader.svelte";
   import EventEditor from "#lib/events/editor/EventEditor.svelte";
   import AreaGate from "#lib/manage/AreaGate.svelte";
@@ -7,7 +8,7 @@
 </script>
 
 <svelte:head>
-  <title>{data.stored ? `Edit ${data.stored.event.name}` : "Edit event"} - Sequoia</title>
+  <title>{pageTitle(data.stored ? `Edit ${data.stored.event.name}` : "Edit event")}</title>
   <meta name="robots" content="noindex" />
 </svelte:head>
 

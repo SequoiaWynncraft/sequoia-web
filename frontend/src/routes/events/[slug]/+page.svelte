@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { pageTitle } from "#lib/site/brand.js";
   import { guildRankLabel } from "#lib/api/guildStats.js";
   import PlayerName from "#lib/design-system/components/PlayerName.svelte";
   import { playercardUrl } from "#lib/site/identity.js";
@@ -154,7 +155,7 @@
 </script>
 
 <svelte:head>
-  <title>{event.name} - Sequoia</title>
+  <title>{pageTitle(event.name)}</title>
   <meta name="description" content="{event.name}: {event.tagline}" />
 </svelte:head>
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { pageTitle } from "#lib/site/brand.js";
   import { untrack } from "svelte";
 
   import PrizeBoard from "#lib/events/components/PrizeBoard.svelte";
@@ -76,7 +77,7 @@
 </script>
 
 <svelte:head>
-  <title>{data.event.name} · Raffle - Sequoia</title>
+  <title>{pageTitle(`${data.event.name} · Raffle`)}</title>
   <meta name="robots" content="noindex" />
 </svelte:head>
 

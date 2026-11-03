@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { pageTitle } from "#lib/site/brand.js";
   import { page } from "$app/state";
   import PageHeader from "#lib/components/PageHeader.svelte";
   import Button from "#lib/design-system/components/Button.svelte";
@@ -10,7 +11,7 @@
 </script>
 
 <svelte:head>
-  <title>Achievements - Sequoia</title>
+  <title>{pageTitle("Achievements")}</title>
   <meta name="robots" content="noindex" />
 </svelte:head>
 

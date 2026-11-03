@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { BRAND } from "#lib/site/brand.js";
   import { onMount } from "svelte";
   import { page } from "$app/state";
   import SectionHeading from "#lib/design-system/components/SectionHeading.svelte";
@@ -358,7 +359,7 @@
   <canvas bind:this={canvas} class="seq-hero-particles"></canvas>
   <div class="seq-hero-content">
     <h1 class="seq-hero-title text-gold-gradient">
-      Sequoia
+      {BRAND.name}
     </h1>
   </div>
   <div class="seq-hero-scroll">
@@ -581,7 +582,7 @@
   <div style="max-width:36rem;margin:0 auto;padding:3rem 2rem;text-align:center">
     <div style="width:3rem;height:1px;margin:0 auto 1.75rem;background:linear-gradient(90deg,transparent,color-mix(in srgb, var(--color-gold) 30%, transparent),transparent)"></div>
     <a
-      href="https://discord.gg/seq" target="_blank" rel="noreferrer"
+      href={BRAND.discordUrl} target="_blank" rel="noreferrer"
       class="seq-apply-link"
     >
       Apply Now

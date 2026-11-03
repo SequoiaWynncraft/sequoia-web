@@ -1,11 +1,12 @@
 <script lang="ts">
+  import { pageTitle } from "#lib/site/brand.js";
   import type { PageData } from "./$types";
   import AreaGate from "#lib/manage/AreaGate.svelte";
   import CeremonyManager from "#lib/discord/CeremonyManager.svelte";
   let { data }: { data: PageData } = $props();
 </script>
 
-<svelte:head><title>Achievement ceremonies · Sequoia</title></svelte:head>
+<svelte:head><title>{pageTitle("Achievement ceremonies")}</title></svelte:head>
 
 {#if data.access !== "granted"}
   <AreaGate area="discord" access={data.access} returnTo="/manage/discord/ceremonies" />

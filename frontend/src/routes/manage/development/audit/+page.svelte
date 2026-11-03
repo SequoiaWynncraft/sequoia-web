@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { pageTitle } from "#lib/site/brand.js";
   import ManageHeader from "#lib/manage/ManageHeader.svelte";
   import SectionLabel from "#lib/design-system/components/SectionLabel.svelte";
   import { messageLink, settingsAuditChanges } from "#lib/manage/auditTarget.js";
@@ -32,7 +33,7 @@
 </script>
 
 <svelte:head>
-  <title>Audit log - Sequoia</title>
+  <title>{pageTitle("Audit log")}</title>
   <meta name="robots" content="noindex" />
 </svelte:head>
 

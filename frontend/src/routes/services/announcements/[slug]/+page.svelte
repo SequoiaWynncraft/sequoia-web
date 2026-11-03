@@ -1,11 +1,12 @@
 <script lang="ts">
+  import { pageTitle } from "#lib/site/brand.js";
   import PostArticle from "#lib/posts/components/PostArticle.svelte";
 
   let { data } = $props();
 </script>
 
 <svelte:head>
-  <title>{data.post.title} - Sequoia</title>
+  <title>{pageTitle(data.post.title)}</title>
   <meta name="description" content={data.post.summary} />
 </svelte:head>
 

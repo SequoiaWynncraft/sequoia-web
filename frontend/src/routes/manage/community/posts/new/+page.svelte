@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { pageTitle } from "#lib/site/brand.js";
   import AreaGate from "#lib/manage/AreaGate.svelte";
   import ManageHeader from "#lib/manage/ManageHeader.svelte";
   import PostEditor from "#lib/posts/editor/PostEditor.svelte";
@@ -7,7 +8,7 @@
 </script>
 
 <svelte:head>
-  <title>New post - Sequoia</title>
+  <title>{pageTitle("New post")}</title>
   <meta name="robots" content="noindex" />
 </svelte:head>
 

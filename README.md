@@ -25,6 +25,12 @@ To run one test file with the same command:
 mise exec -- bun run test:web src/lib/discord/format.test.ts
 ```
 
+## Rebranding
+
+The site's name, tagline, description, logo, Discord invite and map link come from `frontend/src/lib/site/brand.ts`. Its defaults are Sequoia's; set the `PUBLIC_SITE_*` variables listed in `frontend/.env.example` at build time to override them, and `PUBLIC_DEFAULT_THEME` to pick the palette.
+
+These settings don't change the guild the site tracks, its backend identifiers, stored data or the legal page, which name Sequoia on purpose. Guild-specific copy such as member and rank labels also stays.
+
 ## License
 
 The project's source code is available under the [MIT License](LICENSE).

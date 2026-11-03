@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { pageTitle } from "#lib/site/brand.js";
   import { page } from "$app/state";
   import PageHeader from "#lib/components/PageHeader.svelte";
   import Button from "#lib/design-system/components/Button.svelte";
@@ -74,7 +75,7 @@
 </script>
 
 <svelte:head>
-  <title>Settings - Sequoia</title>
+  <title>{pageTitle("Settings")}</title>
   <meta name="robots" content="noindex" />
 </svelte:head>
 

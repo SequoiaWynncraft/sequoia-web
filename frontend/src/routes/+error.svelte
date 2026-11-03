@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { pageTitle } from "#lib/site/brand.js";
   import { page } from "$app/state";
   import Container from "#lib/components/Container.svelte";
   import Button from "#lib/design-system/components/Button.svelte";
@@ -9,7 +10,7 @@
 </script>
 
 <svelte:head>
-  <title>{copy.title} — Sequoia</title>
+  <title>{pageTitle(copy.title)}</title>
 </svelte:head>
 
 <Container width="md" style="text-align:center;padding:4rem 1.25rem">

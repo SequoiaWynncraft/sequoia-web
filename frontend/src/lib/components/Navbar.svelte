@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { BRAND } from "#lib/site/brand.js";
   import { page } from "$app/state";
   import Icon from "./Icon.svelte";
   import { DEFAULT_HIDDEN_NAV, visibleSections } from "#lib/site/navPreferences.js";
@@ -6,8 +7,6 @@
   import { webAuthLogoutUrl, webAuthStartUrl } from "#lib/site/webAuth.js";
   import type { Viewer } from "#lib/site/viewer.js";
 
-  const DISCORD = "https://discord.gg/seq";
-  const MAP = "https://map.seqwawa.com";
   // Sentinel for `open`; section keys are route paths, so this can't collide.
   const ACCOUNT = "#account";
 
@@ -49,7 +48,7 @@
 <nav class="seq-top-nav" onmouseleave={() => open = null}>
   <div class="seq-top-nav-shell">
     <a href="/" class="seq-nav-brand" onclick={() => mobileOpen = false}>
-      SEQUOIA
+      {BRAND.name.toUpperCase()}
     </a>
 
     <div class="seq-nav-desktop">
@@ -110,8 +109,8 @@
         </span>
       {/each}
 
-      <a href={MAP} target="_blank" rel="noreferrer" class="seq-nav-link seq-nav-accent">Map</a>
-      <a href={DISCORD} target="_blank" rel="noreferrer" class="seq-nav-link seq-nav-accent">Discord</a>
+      <a href={BRAND.mapUrl} target="_blank" rel="noreferrer" class="seq-nav-link seq-nav-accent">Map</a>
+      <a href={BRAND.discordUrl} target="_blank" rel="noreferrer" class="seq-nav-link seq-nav-accent">Discord</a>
       {#if manage}
         <a href="/manage" class="seq-nav-link" class:seq-nav-link-active={isActive("/manage")}>
           Manage
@@ -223,8 +222,8 @@
             {/each}
           {/if}
         {/each}
-        <a href={MAP} target="_blank" rel="noreferrer" onclick={() => mobileOpen = false} class="seq-mobile-link seq-nav-accent">Map</a>
-        <a href={DISCORD} target="_blank" rel="noreferrer" onclick={() => mobileOpen = false} class="seq-mobile-link seq-nav-accent">Discord</a>
+        <a href={BRAND.mapUrl} target="_blank" rel="noreferrer" onclick={() => mobileOpen = false} class="seq-mobile-link seq-nav-accent">Map</a>
+        <a href={BRAND.discordUrl} target="_blank" rel="noreferrer" onclick={() => mobileOpen = false} class="seq-mobile-link seq-nav-accent">Discord</a>
         {#if viewer}
           {#if viewerCardUrl}
             <a href={viewerCardUrl} onclick={() => mobileOpen = false} class="seq-mobile-link seq-mobile-viewer">

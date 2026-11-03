@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { pageTitle } from "#lib/site/brand.js";
   import Button from "#lib/design-system/components/Button.svelte";
   import SectionLabel from "#lib/design-system/components/SectionLabel.svelte";
   import { formatWindow } from "#lib/events/format.js";
@@ -18,7 +19,7 @@
 </script>
 
 <svelte:head>
-  <title>Manage events - Sequoia</title>
+  <title>{pageTitle("Manage events")}</title>
   <meta name="robots" content="noindex" />
 </svelte:head>
 

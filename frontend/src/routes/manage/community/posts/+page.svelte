@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { pageTitle } from "#lib/site/brand.js";
   import Button from "#lib/design-system/components/Button.svelte";
   import ScopeChips from "#lib/design-system/components/ScopeChips.svelte";
   import SectionLabel from "#lib/design-system/components/SectionLabel.svelte";
@@ -29,7 +30,7 @@
 </script>
 
 <svelte:head>
-  <title>Posts - Sequoia</title>
+  <title>{pageTitle("Posts")}</title>
   <meta name="robots" content="noindex" />
 </svelte:head>
 
