@@ -28,7 +28,7 @@ The site's name, tagline, description, logo, Discord invite and map link default
 
 ## License
 
-The source code is available under the [MIT License](LICENSE). Third-party material under `frontend/static/assets` keeps its own terms:
+Code and documentation are [MIT licensed](LICENSE). All images and fonts are excluded.
 
 - Inter (`fonts/inter-variable.woff2`) is under the SIL Open Font License 1.1 (`fonts/OFL-Inter.txt`).
 - The Minecraft typeface (`fonts/minecraft-*`) is by Jacob Debono (JDGraphics), whose [FontSpace listing](https://www.fontspace.com/minecraft-font-f28180) marks it public domain. Its embedded metadata is unchanged.
