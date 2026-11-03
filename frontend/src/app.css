@@ -1555,6 +1555,21 @@ textarea.seq-input {
   }
 }
 
+/* Art shown whole: as tall as the image's 16:9 shape needs, never shorter than the screen. */
+.seq-hero.seq-hero-full {
+  height: max(100vh, 56.25vw);
+}
+
+@supports (height: 100svh) {
+  .seq-hero.seq-hero-full {
+    height: max(100svh, 56.25vw);
+  }
+}
+
+.seq-hero-full .seq-hero-bg {
+  object-position: center top;
+}
+
 .seq-hero-bg-wrap {
   position: absolute;
   inset: 0;

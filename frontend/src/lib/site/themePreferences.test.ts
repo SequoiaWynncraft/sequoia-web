@@ -52,9 +52,9 @@ describe("THEMES", () => {
     expect(THEMES.some((theme) => theme.id === FALLBACK_THEME_ID)).toBe(true);
   });
 
-  it("defaults to Tna purple when PUBLIC_DEFAULT_THEME is unset", () => {
+  it("defaults to winter when PUBLIC_DEFAULT_THEME is unset", () => {
     if (!import.meta.env.PUBLIC_DEFAULT_THEME) {
-      expect(DEFAULT_THEME_ID).toBe("gaz-purple");
+      expect(DEFAULT_THEME_ID).toBe("winter");
     }
   });
 

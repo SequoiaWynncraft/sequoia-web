@@ -37,6 +37,12 @@ export interface Theme {
   description: string;
   /** Homepage hero art, a filename under `static/assets/images/`. */
   heroImage: string;
+  /**
+   * Size the hero to the art's 16:9 shape, so a normal desktop window shows the
+   * whole image (the page scrolls a little further) instead of cropping it to the
+   * viewport. Narrow screens still crop the sides.
+   */
+  heroFullImage?: boolean;
   /** Not offered to visitors yet; still usable as the configured default. */
   hidden?: boolean;
 }
@@ -50,6 +56,13 @@ export const THEMES: readonly Theme[] = [
     heroImage: "fruma_banner.avif",
   },
   {
+    id: "winter",
+    label: "Winter",
+    description: "A snowy night around a lantern-strung tree, in the classic Tna purple palette.",
+    heroImage: "winter_banner.avif",
+    heroFullImage: true,
+  },
+  {
     id: "autumn",
     label: "Autumn",
     description:
@@ -61,7 +74,7 @@ export const THEMES: readonly Theme[] = [
 ];
 
 /** The default when `PUBLIC_DEFAULT_THEME` is unset or names no registered theme. */
-export const FALLBACK_THEME_ID = "gaz-purple";
+export const FALLBACK_THEME_ID = "winter";
 
 /** Applied when nobody has chosen, and whenever a stored choice is no longer selectable. */
 export const DEFAULT_THEME_ID = THEMES.some((theme) => theme.id === CONFIGURED_DEFAULT_THEME)

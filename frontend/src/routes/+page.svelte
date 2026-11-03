@@ -335,7 +335,7 @@
 />
 
 <!-- Hero -->
-<section class="seq-hero seq-home-page">
+<section class="seq-hero seq-home-page" class:seq-hero-full={theme.heroFullImage}>
   <div class="seq-hero-bg-wrap">
     <img
       src={IMG + theme.heroImage}

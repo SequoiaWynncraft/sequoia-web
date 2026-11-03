@@ -113,7 +113,8 @@
 
 /* The original Sequoia look: a nocturnal forest lit by enchanted gold, with
    Minecraft-derived accents (enchant purple, diamond cyan, emerald, lapis). */
-:root[data-theme="gaz-purple"] {
+:root[data-theme="gaz-purple"],
+:root[data-theme="winter"] {
   /* ── Base surfaces (darkest → lightest) ── */
   --color-abyss: #0c0e17;
   --color-deep: #13161f;
