@@ -1,3 +1,126 @@
+min_version = { hard = "2026.10.17" }
+
+[settings]
+locked = true
+
 [tools]
 bun = "1.4.4"
 node = "26.13.0"
+
+# rust-toolchain.toml owns the Rust version and components; this pins the
+# rustup installer that setup:rust runs when no rustup is present.
+[tools."http:rustup-init"]
+version = "1.29.2"
+
+[tools."http:rustup-init".platforms]
+linux-x64 = { url = "https://static.rust-lang.org/rustup/archive/{{ version }}/x86_64-unknown-linux-gnu/rustup-init", checksum = "sha256:5be191e8c70a5007074254cb74d78dbfdd25cd5a61c27de7b8e5410122ec24f4" }
+linux-arm64 = { url = "https://static.rust-lang.org/rustup/archive/{{ version }}/aarch64-unknown-linux-gnu/rustup-init", checksum = "sha256:a9c168dbea81a84671c6b7a5c1795cb0eb699020110d107ddfca427bd797e697" }
+macos-x64 = { url = "https://static.rust-lang.org/rustup/archive/{{ version }}/x86_64-apple-darwin/rustup-init", checksum = "sha256:b9610730ddeef52765723847866fd1e3540b2bf7d5ab0c324aa143a5edf25ba0" }
+macos-arm64 = { url = "https://static.rust-lang.org/rustup/archive/{{ version }}/aarch64-apple-darwin/rustup-init", checksum = "sha256:f7c7e11eb2e07f006e532a8aaac77b32f4527d305ac386c0c633ca6133d35ca9" }
+windows-x64 = { url = "https://static.rust-lang.org/rustup/archive/{{ version }}/x86_64-pc-windows-msvc/rustup-init.exe", checksum = "sha256:00f139da614dced87d3c3d4121c43eebdac3c1bf8a5ee86b9d80dfd71c8d70fd" }
+
+[env]
+_.path = ["{{ env.CARGO_HOME | default(value=env.HOME ~ '/.cargo') }}/bin"]
+
+[tasks.setup]
+description = "Install locked dependencies and the Rust toolchain; create frontend/.env if absent"
+depends = ["deps:web", "setup:rust"]
+run = '[ -e frontend/.env ] || [ -L frontend/.env ] || cp frontend/.env.example frontend/.env'
+
+[tasks."deps:web"]
+description = "Install locked frontend dependencies"
+run = "bun install --frozen-lockfile"
+
+[tasks."setup:rust"]
+description = "Install the Rust toolchain from rust-toolchain.toml"
+usage = 'flag "--replace-rustup" help="Reinstall rustup with the locked installer even if one exists"'
+run = '''
+if [ "${usage_replace_rustup:-false}" = true ] || ! command -v rustup >/dev/null; then
+  rustup-init -y --no-modify-path --default-toolchain none
+fi
+rustup toolchain install --no-self-update
+rustup --version
+'''
+
+[tasks.dev]
+description = "Run the website dev server"
+depends = ["deps:web"]
+dir = "frontend"
+run = "bun run dev"
+
+[tasks."check:lockfile"]
+depends = ["deps:web"]
+run = "bun scripts/audit-lockfile.mjs"
+
+[tasks."check:advisories"]
+depends = ["deps:web"]
+run = "bun audit --ignore=GHSA-g3hv-75wg-m249 --ignore=GHSA-gcqx-w48m-w2h4"
+
+[tasks."check:web"]
+depends = ["deps:web"]
+dir = "frontend"
+run = "node --run check"
+
+[tasks."fmt:backend"]
+depends = ["setup:rust"]
+run = "cargo fmt --manifest-path backend/Cargo.toml --all --check"
+
+[tasks."clippy:backend"]
+depends = ["setup:rust"]
+run = "cargo clippy --locked --manifest-path backend/Cargo.toml --workspace --all-targets --all-features -- -D warnings"
+
+[tasks.check]
+description = "Run every lint, type and dependency check"
+depends = ["check:lockfile", "check:advisories", "check:web", "fmt:backend", "clippy:backend"]
+
+[tasks."test:web"]
+depends = ["deps:web"]
+dir = "frontend"
+run = "bun run test:unit"
+
+[tasks."test:backend"]
+description = "Run backend tests that need no database"
+depends = ["setup:rust"]
+run = "cargo test --locked --manifest-path backend/Cargo.toml --workspace --all-features"
+
+[tasks."test:integration"]
+description = "Run the backend PostgreSQL tests against TEST_DATABASE_URL"
+depends = ["setup:rust"]
+run = '''
+if [ -z "${TEST_DATABASE_URL:-}" ]; then
+  echo "test:integration: set TEST_DATABASE_URL to a disposable PostgreSQL server, e.g. postgres://user:password@127.0.0.1:5432/postgres; each test creates and drops its own database" >&2
+  exit 2
+fi
+cargo test --locked --manifest-path backend/Cargo.toml --workspace --all-features -- --ignored
+'''
+
+[tasks.test]
+description = "Run the frontend and backend unit tests"
+depends = ["test:web", "test:backend"]
+
+[tasks."build:web"]
+depends = ["deps:web"]
+dir = "frontend"
+run = "bun run build"
+
+[tasks."build:backend"]
+depends = ["setup:rust"]
+run = "cargo build --locked --manifest-path backend/Cargo.toml --workspace --all-features"
+
+[tasks.build]
+depends = ["build:web", "build:backend"]
+
+[tasks."api:types"]
+description = "Generate frontend API types from sequoia-backend's OpenAPI schema"
+depends = ["deps:web"]
+usage = '''
+arg "[schema]" default="../sequoia-backend/openapi/public.yaml" help="Path to public.yaml"
+flag "--check" help="Fail if the generated file is out of date instead of writing it"
+'''
+run = '''
+if [ ! -f "$usage_schema" ]; then
+  echo "api:types: no schema at $usage_schema; check out sequoia-backend next to this repository or pass the path" >&2
+  exit 1
+fi
+frontend/node_modules/.bin/openapi-typescript "$usage_schema" -o frontend/src/lib/api/generated/public-api.ts ${usage_check:+--check}
+'''
