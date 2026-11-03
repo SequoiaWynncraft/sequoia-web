@@ -15,9 +15,14 @@
         <p class="seq-footer-copy">
           {BRAND.description}
         </p>
-        <a href={BRAND.discordUrl} target="_blank" rel="noreferrer" class="seq-text-cta">
-          Join us on Discord
-        </a>
+        <div class="seq-footer-ctas">
+          <a href={BRAND.discordUrl} target="_blank" rel="noreferrer" class="seq-text-cta">
+            Join us on Discord
+          </a>
+          <a href={BRAND.githubUrl} target="_blank" rel="noreferrer" class="seq-text-cta">
+            GitHub
+          </a>
+        </div>
       </div>
 
       <div class="seq-footer-nav">

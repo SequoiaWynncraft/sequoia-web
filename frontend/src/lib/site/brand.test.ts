@@ -8,6 +8,7 @@ const UNSET = {
   PUBLIC_SITE_DESCRIPTION: undefined,
   PUBLIC_SITE_LOGO: undefined,
   PUBLIC_SITE_DISCORD_URL: undefined,
+  PUBLIC_SITE_GITHUB_URL: undefined,
   PUBLIC_SITE_MAP_URL: undefined,
 };
 
@@ -23,7 +24,7 @@ afterEach(() => {
 
 describe("brand", () => {
   it("defaults to Sequoia", async () => {
-    const { fillBrandPlaceholders, pageTitle } = await brandWith({});
+    const { BRAND, fillBrandPlaceholders, pageTitle } = await brandWith({});
 
     expect(fillBrandPlaceholders(APP_HTML)).toBe(
       '<link rel="icon" href="/assets/images/fruma-icon.png" />' +
@@ -31,6 +32,7 @@ describe("brand", () => {
         "<title>Sequoia - Rooted in Purpose</title>",
     );
     expect(pageTitle("Events")).toBe("Events - Sequoia");
+    expect(BRAND.githubUrl).toBe("https://github.com/SequoiaWynncraft");
   });
 
   it("takes the configured identity and escapes it into the page shell", async () => {
@@ -39,11 +41,13 @@ describe("brand", () => {
       PUBLIC_SITE_TAGLINE: 'Say "hi"',
       PUBLIC_SITE_DESCRIPTION: "  ",
       PUBLIC_SITE_DISCORD_URL: "https://discord.gg/oak",
+      PUBLIC_SITE_GITHUB_URL: "https://github.com/oak",
     });
 
     expect(fillBrandPlaceholders(APP_HTML)).toContain("<title>Oak &amp; &lt;Ash&gt; - Say &quot;hi&quot;</title>");
     expect(BRAND.description).toBe("Wynncraft guild resources, player and guild statistics, and community.");
     expect(BRAND.discordUrl).toBe("https://discord.gg/oak");
+    expect(BRAND.githubUrl).toBe("https://github.com/oak");
     expect(BRAND.mapUrl).toBe("https://map.seqwawa.com");
   });
 
