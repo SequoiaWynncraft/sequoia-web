@@ -4,7 +4,6 @@ export interface RaidSeries {
   color: string;
 }
 
-/** Fixed identity colors for known raids — assignment never cycles. */
 export const KNOWN_RAIDS: RaidSeries[] = [
   { key: "The Canyon Colossus", short: "TCC", color: "var(--chart-teal)" },
   { key: "Nest of the Grootslangs", short: "NOTG", color: "var(--chart-emerald)" },

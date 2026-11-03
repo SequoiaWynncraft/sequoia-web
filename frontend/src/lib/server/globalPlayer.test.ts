@@ -38,7 +38,6 @@ afterAll(() => db.dispose());
 
 type Names = Record<string, { status: number; uuid?: string }>;
 
-/** Wynncraft as seen by the app: a name route and a UUID route. */
 function wynncraft(names: Names) {
   return vi.fn<typeof fetch>(async (input) => {
     const url = new URL(String(input));
@@ -126,7 +125,6 @@ describe("getAnyPlayerCard identity", () => {
     });
     const start = Date.now();
     for (const [index, uuid] of uuids.entries()) {
-      // Distinct timestamps, so eviction order is the lookup order, not a tie.
       vi.setSystemTime(start + index);
       expect((await players.getAnyPlayerCard(upstream, uuid))?.uuid).toBe(uuid);
     }
@@ -134,7 +132,6 @@ describe("getAnyPlayerCard identity", () => {
       "SELECT COUNT(*) AS rows, SUM(bytes) AS bytes FROM api_cache WHERE key LIKE 'wynn-player:%'",
     );
 
-    // A restart during a Wynncraft outage: memory is gone, only durable rows remain.
     vi.resetModules();
     const restarted = await import("./globalPlayer");
     const down = vi.fn<typeof fetch>(async () => new Response("", { status: 503 }));

@@ -30,24 +30,15 @@
       event.icon?.placements.includes(placement) ? raidIconUrl(event.icon.file) : null,
   );
 
-  /**
-   * Live and ended both read the feed (ended is frozen at the event's end in the
-   * loader); before the event starts shows zero. A null progress (manual goal or
-   * feed down) falls back to finalTotal inside GoalMeter.
-   */
   const goalCurrent = $derived((index: number): number | null => {
     if (status === "upcoming") return 0;
     return data.progress?.[index] ?? null;
   });
 
-  // One row per winner slot across every raffle, mirroring the manage table:
-  // a raffle with three winners shows three rows sharing its prize.
   const raffleRows = $derived(
     (event.raffles ?? []).flatMap((raffle) =>
       Array.from({ length: raffle.winnerCount }, (_unused, slot) => {
         const key = `${raffle.id}:${slot}`;
-        // A slot still animating on the stage keeps its committed winner
-        // masked here - this page must not spoil the wheel's landing.
         const spinning = data.spinningSlots.includes(key);
         const stored = raffle.winners?.find((entry) => entry.slot === slot) ?? null;
         return {
@@ -64,7 +55,6 @@
     ),
   );
 
-  // The most recent draw across the event's raffles, for the meta line.
   const lastDrawnAt = $derived.by(() => {
     const times = (event.raffles ?? [])
       .map((raffle) => (raffle.drawnAt ? Date.parse(raffle.drawnAt) : Number.NaN))
@@ -79,29 +69,21 @@
     });
   });
 
-  // Personal milestones are ascending by target (enforced by the validator), so
-  // the last one a member has cleared is their highest tier.
   const personalMilestones = $derived(event.personalMilestones ?? []);
 
-  /** The highest personal milestone a raid count has reached, or null. */
   const highestTier = (raids: number) =>
     personalMilestones.reduce<(typeof personalMilestones)[number] | null>(
       (best, milestone) => (raids >= milestone.at ? milestone : best),
       null,
     );
 
-  /** Count of tiers reached, for sorting the standings milestone column. */
   const tiersReached = (raids: number) =>
     personalMilestones.filter((milestone) => raids >= milestone.at).length;
 
-  /** What the board counts: raids, or war points on a war tracker. */
   const unit = $derived(data.standings?.state === "board" ? data.standings.unit : "raids");
 
-  // War points can be fractional; raid counts format the same as before.
   const formatUnits = (value: number) => value.toLocaleString(undefined, { maximumFractionDigits: 1 });
 
-  // A war-point total with wars still awaiting their points is partial: mark
-  // it, and never show a member whose only wars are pending as a confirmed 0.
   const formatStanding = (value: number, pendingWars: number | undefined) => {
     if (!pendingWars) return formatUnits(value);
     return value === 0 ? "pending" : `${formatUnits(value)}*`;
@@ -110,8 +92,6 @@
     data.standings?.state === "board" && data.standings.leaderboard.some((entry) => entry.pendingWars),
   );
 
-  // A GoalMeter renders any {metricLabel, milestones} shape - reuse it for the
-  // signed-in member's own progress by feeding their total as the current.
   const viewerGoal = $derived({ metricLabel: unit, milestones: personalMilestones });
 
   const standingsColumns = $derived<LedgerColumn<RaidLeaderboardEntry>[]>([
@@ -121,8 +101,6 @@
       nameStyle: true,
       value: (entry) => entry.username,
       sortValue: (entry) => entry.username.toLowerCase(),
-      // Role-aware: the Sequoia progression rank when the member is linked,
-      // the in-game rank otherwise - colored from the shared rank vocabulary.
       secondary: (entry) => entry.progressionRank ?? guildRankLabel(entry.rank),
       secondaryColor: (entry) =>
         entry.progressionRankColor ?? rankColor(entry.progressionRank ?? entry.rank),
@@ -140,7 +118,6 @@
       value: (entry) => formatStanding(entry.raids, entry.pendingWars),
       sortValue: (entry) => entry.raids,
     },
-    // The milestone column only appears when the event defines personal milestones.
     ...(personalMilestones.length > 0
       ? [
           {
@@ -393,8 +370,6 @@
 </article>
 
 <style>
-  /* One continuous sky: the hero gradient dissipates into the abyss instead
-     of cutting off, and the star field fades out with it. */
   .ev-page {
     position: relative;
     isolation: isolate;
@@ -406,7 +381,6 @@
     inset: 0;
     z-index: -1;
     overflow: hidden;
-    /* Whatever the page height, the sky never ends on a hard edge. */
     mask-image: linear-gradient(to bottom, black calc(100% - 320px), transparent);
     -webkit-mask-image: linear-gradient(to bottom, black calc(100% - 320px), transparent);
     background:
@@ -439,8 +413,6 @@
     -webkit-mask-image: linear-gradient(to bottom, black 0, black 800px, transparent 1600px);
   }
 
-  /* The sky runs under the fixed translucent navbar (the layout drops its
-     top padding for event pages), so the hero clears it with its own. */
   .ev-hero {
     display: grid;
     justify-items: center;
@@ -448,9 +420,6 @@
     text-align: center;
   }
 
-  /* Orchestrated entrance: each hero element arrives a beat after the last.
-     will-change keeps the elements composited after the animation ends -
-     dropping the layer re-rasterizes the pixel-font gradient (a visible pop). */
   .ev-enter {
     animation: seq-fade-in-up 0.55s var(--ease-out-soft) both;
     animation-delay: calc(var(--enter) * 90ms);
@@ -488,7 +457,6 @@
     text-shadow: 0 0 18px color-mix(in srgb, var(--ev-accent) 60%, transparent);
   }
 
-  /* The icon takes the spark's slot - both stacked would crowd the name. */
   .ev-hero-icon {
     width: 40px;
     height: 40px;
@@ -564,8 +532,6 @@
     padding: 28px 0 64px;
   }
 
-  /* The gate is the page's one bordered moment - it only appears when
-     everything else is stripped. */
   .ev-gate {
     display: grid;
     justify-items: center;
@@ -636,7 +602,6 @@
     text-transform: none;
   }
 
-  /* Chart marks take the event accent: quiet bars, accent peak. */
   .ev-chart {
     --chart-context: color-mix(in srgb, var(--ev-accent) 30%, #565b78);
     --color-gold-dark: var(--ev-accent);

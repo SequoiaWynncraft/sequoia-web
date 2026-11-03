@@ -5,15 +5,8 @@ import { createBagshopClient, type InventoryItem, type Order } from "#lib/api/ba
 
 export const prerender = false;
 
-/**
- * The staff panel: access comes from the console layout's capabilities; the
- * load only fetches panel data once granted. Mutations go through the bot,
- * which re-rejects non-staff itself, so the gate here is presentation.
- */
 export const load: PageServerLoad = async ({ fetch, parent }) => {
   const { viewer } = await parent();
-  // Re-resolved per page load: the console layout's capabilities are cached
-  // across child navigations, so they must not gate protected data here.
   const access = await pageAreaAccess(fetch, viewer, "treasury");
   if (access !== "granted") {
     return { access, openOrders: null, inventory: null, ordersError: null, inventoryError: null };

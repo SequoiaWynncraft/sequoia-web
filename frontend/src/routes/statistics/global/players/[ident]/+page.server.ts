@@ -24,8 +24,6 @@ export const load: PageServerLoad = async ({ fetch, locals, params }) => {
   }
   if (card === null) requestError(locals, 404, "No such player.");
 
-  // The series streams after the card: one full-history fetch, ranges slice
-  // client-side.
   const to = new Date().toISOString().slice(0, 10);
   const from = windowStart(to, SERIES_DAYS);
   const series = getPlayerSeries(fetch, card.uuid, from, to).catch(() => null);

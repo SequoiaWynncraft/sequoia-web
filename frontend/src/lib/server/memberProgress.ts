@@ -12,7 +12,6 @@ function resourceFor(from: string, to: string): CachedResource<MemberProgressRes
   const key = `${from}..${to}`;
   let resource = resources.get(key);
   if (!resource) {
-    // Preset ranges dominate, so a small keyed pool is enough; drop the oldest beyond it.
     if (resources.size >= MAX_RANGES) {
       const oldest = resources.keys().next().value;
       if (oldest !== undefined) resources.delete(oldest);
@@ -37,12 +36,6 @@ export async function getMemberProgress(
   return (await resourceFor(from, to).get(fetchImpl, { allowStale: true })).data;
 }
 
-/**
- * The progress with its staleness attached. Callers whose decision is
- * irreversible (raffle draws) must ask with `allowStale: false` AND refuse a
- * result that still reports `stale` - the cache falls back to a stale value
- * when the refresh itself fails.
- */
 export async function getMemberProgressResult(
   fetchImpl: typeof fetch,
   from: string,

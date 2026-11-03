@@ -8,7 +8,6 @@ export const prerender = false;
 export const load: PageServerLoad = async ({ fetch }) => {
   return {
     stats: await getGuildStats(fetch, { allowStale: true }).catch(() => null),
-    // Streamed: the optional territory ledger must never hold the page back.
     territories: getHeldTerritories(fetch, { allowStale: true }).catch(() => null),
   };
 };

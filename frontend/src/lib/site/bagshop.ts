@@ -8,7 +8,6 @@ export interface CurrencyPart {
   unit: Extract<CurrencyUnit, "EB" | "LE">;
 }
 
-/** Splits an emerald-block amount into the denominations shown by the shop. */
 export function currencyParts(eb: number): CurrencyPart[] {
   const safe = Number.isFinite(eb) ? Math.max(0, Math.round(eb)) : 0;
   const le = Math.floor(safe / EB_PER_LE);
@@ -21,7 +20,7 @@ export function currencyParts(eb: number): CurrencyPart[] {
   ];
 }
 
-/** Formats an emerald-block amount as "3 LE 12 EB" — the shop's currency (1 LE = 64 EB). */
+/** Formats an emerald-block amount in the shop's currency, e.g. "3 LE 12 EB" (1 LE = 64 EB). */
 export function formatEb(eb: number): string {
   return currencyParts(eb)
     .map((part) => `${part.amount} ${part.unit}`)
@@ -61,8 +60,7 @@ export function groupInventoryByRaid(inventory: InventoryItem[]): RaidGroup[] {
 
 /**
  * Sum of an order's outstanding items using the supplied per-key unit prices, or `null` when
- * any item's price is unknown — so callers can hide the total rather than show one that silently
- * treats a missing price as zero.
+ * any item's price is unknown.
  */
 export function orderRemainingTotal(order: Order, unitPriceByKey: Map<string, number>): number | null {
   let sum = 0;
@@ -74,7 +72,6 @@ export function orderRemainingTotal(order: Order, unitPriceByKey: Map<string, nu
   return sum;
 }
 
-/** True while an order can still be cancelled by its owner (no staff has claimed it). */
 export function isCancellable(order: Order): boolean {
   return order.claimedByMention === null || order.claimedByMention === undefined;
 }

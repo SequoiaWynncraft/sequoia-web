@@ -107,8 +107,6 @@ async fn health() -> Json<HealthResponse> {
     })
 }
 
-/// Readiness: the tracker's core function is operating - database reachable,
-/// polling configured, and a successful poll recent enough to trust.
 async fn ready(State(state): State<AppState>) -> Response {
     let db_ok = match state.db.ping().await {
         Ok(()) => true,
@@ -141,13 +139,8 @@ async fn ready(State(state): State<AppState>) -> Response {
         .into_response()
 }
 
-/// Polls that fail this many times in a row before ever succeeding end the
-/// startup readiness grace early.
 const STARTUP_FAILURE_LIMIT: u32 = 3;
 
-/// Pure readiness decision so every branch is unit-testable. Startup gets one
-/// stale-window of grace before "no successful poll yet" turns unready -
-/// unless polling is already observably failing.
 fn readiness_problems(
     db_ok: bool,
     polling_enabled: bool,
@@ -168,9 +161,6 @@ fn readiness_problems(
                     "last successful poll was {age}s ago (limit {stale_after}s)"
                 ));
             }
-            // Startup grace holds only while polling hasn't demonstrably
-            // failed: a bad token fails on the first attempts and must not
-            // keep routing traffic for a whole grace window.
             None if poller.seconds_since_start > stale_after
                 || poller.consecutive_failures >= STARTUP_FAILURE_LIMIT =>
             {
@@ -226,8 +216,6 @@ async fn poll_now(State(state): State<AppState>, headers: HeaderMap) -> Result<R
     require_internal_token(&state, &headers)?;
     match state.tracker.poll_once().await {
         Ok(summary) => Ok(Json(summary).into_response()),
-        // An upstream rate limit is the caller's signal to back off, not an
-        // internal fault; pass the reset window through so callers can honor it.
         Err(error) => match error.downcast_ref::<crate::wynn::WynnError>() {
             Some(crate::wynn::WynnError::RateLimited { retry_after }) => {
                 let mut response = ApiError::new(
@@ -321,14 +309,10 @@ async fn update_raid_event(
     }
 }
 
-/// Events linked to a tracker read its board in the tracker's unit, so a
-/// switch between raids and war points would silently reinterpret their
-/// milestones and ticket divisors. Moving between the raid sources is fine.
 fn tracking_change_allowed(old: &str, new: &str) -> bool {
     (old == "wars") == (new == "wars")
 }
 
-/// Shared create/update validation; returns the normalized raid scope.
 fn validate_event_fields<'a>(
     name: &str,
     starts_at: OffsetDateTime,
@@ -470,7 +454,6 @@ mod tests {
 
     #[test]
     fn unready_when_last_success_is_stale() {
-        // Stale window for a 130s interval is max(3*130, 300) = 390s.
         assert!(readiness_problems(true, true, INTERVAL, &poller(Some(390), 10_000, 0)).is_empty());
         let problems = readiness_problems(true, true, INTERVAL, &poller(Some(391), 10_000, 0));
         assert_eq!(problems.len(), 1);
@@ -479,8 +462,6 @@ mod tests {
 
     #[test]
     fn startup_failures_end_the_grace_early() {
-        // Two failures could still be transient; three in a row without any
-        // success means polling is observably broken (e.g. a bad token).
         assert!(readiness_problems(true, true, INTERVAL, &poller(None, 30, 2)).is_empty());
         let problems = readiness_problems(true, true, INTERVAL, &poller(None, 30, 3));
         assert_eq!(problems.len(), 1);
@@ -489,7 +470,6 @@ mod tests {
 
     #[test]
     fn startup_gets_one_stale_window_of_grace() {
-        // Covers a dead poll task too: successes stop, age keeps growing.
         assert!(readiness_problems(true, true, INTERVAL, &poller(None, 390, 0)).is_empty());
         let problems = readiness_problems(true, true, INTERVAL, &poller(None, 391, 0));
         assert_eq!(problems.len(), 1);

@@ -2,10 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import { isMemberProgressResponse, type MemberProgressEntry } from "./memberProgress";
 
-/**
- * A member entry that passes validation, so each case can vary one field and
- * attribute the verdict to that field alone.
- */
 function entry(overrides: Partial<MemberProgressEntry> = {}): MemberProgressEntry {
   return {
     player_uuid: "36d64818-0428-4f23-a955-5a4e9f782513",
@@ -20,7 +16,6 @@ function entry(overrides: Partial<MemberProgressEntry> = {}): MemberProgressEntr
   };
 }
 
-/** A full response wrapping the given members. */
 function response(members: unknown[] = [entry()]): unknown {
   return {
     generated_at: "2026-08-17T12:37:05.181808539Z",
@@ -36,8 +31,6 @@ describe("isMemberProgressResponse", () => {
     expect(isMemberProgressResponse(response())).toBe(true);
   });
 
-  // War points are decay-weighted, so the backend really does send fractions.
-  // Rejecting them broke every historical range on the player activity page.
   it("accepts fractional war points", () => {
     expect(isMemberProgressResponse(response([entry({ war_points: 2716.605211731036 })]))).toBe(
       true,
@@ -49,7 +42,6 @@ describe("isMemberProgressResponse", () => {
   });
 
   it("rejects a single fractional war points value among valid members", () => {
-    // The guard is an `every`, so one bad member must not be masked by good ones.
     expect(
       isMemberProgressResponse(response([entry(), entry({ war_points: Number.NaN }), entry()])),
     ).toBe(false);
@@ -64,7 +56,6 @@ describe("isMemberProgressResponse", () => {
     expect(isMemberProgressResponse(response([entry(overrides)]))).toBe(false);
   });
 
-  // Counts stay strict: these are whole tallies, and raffle weights read them.
   it.each([
     ["fractional raids", { raids: 1.5 }],
     ["fractional wars", { wars: 1.5 }],

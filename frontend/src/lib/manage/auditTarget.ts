@@ -28,7 +28,7 @@ export function messageLink(entry: Pick<AuditEntry, "source" | "detail" | "actio
       const ids = [target.guild_id, target.channel_id, target.message_id];
       if (ids.every(snowflake)) return `https://discord.com/channels/${ids.join("/")}`;
     }
-  } catch { /* Malformed historical details have no navigable target. */ }
+  } catch {}
   return null;
 }
 
@@ -44,7 +44,6 @@ const WELCOME_LABELS: Record<string, string> = {
 const SEASON_MODES: Record<string, string> = { automatic: "Automatic", normal: "Always normal", winter: "Always winter" };
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
-/** Stable ids read as names even when they postdate this view, e.g. gnome_party as Gnome party. */
 function readableId(value: unknown): string {
   if (typeof value !== "string" || !value) return "Unknown";
   const words = value.replaceAll("_", " ");
@@ -62,9 +61,6 @@ function variantRows(value: unknown): Map<string, string> {
 
 function welcomeValue(key: string, value: unknown, other: unknown): string {
   if (value === undefined || value === null) return "Not set";
-  // Snapshots from before mention_member existed recorded no choice (those senders did ping),
-  // so an absent value stays "Not set" above rather than reading as Off.
-  // send_images follows the same rule: older snapshots predate the choice (those senders attached images).
   if (key === "mention_member" || key === "send_images") return value === true ? "On" : "Off";
   const record = object(value);
   switch (key) {
@@ -85,7 +81,6 @@ function welcomeValue(key: string, value: unknown, other: unknown): string {
       return `${record.enabled === true ? "On" : "Off"}. ${interval}. ${record.moon === false ? "No moon" : "Moon shown"}.`;
     }
     case "variants": {
-      // Only rows that differ, so added catalog entries and single odds edits stay readable.
       const mine = variantRows(value);
       const theirs = variantRows(other);
       const changed = [...mine].filter(([id, row]) => theirs.get(id) !== row).map(([, row]) => row);
@@ -96,7 +91,6 @@ function welcomeValue(key: string, value: unknown, other: unknown): string {
   }
 }
 
-/** Readable welcome settings changes from the Rust audit snapshot. The raw detail stays available. */
 export function welcomeAuditChanges(entry: Pick<AuditEntry, "source" | "detail" | "action">): AuditChange[] | null {
   if (entry.source !== "discord" || !entry.detail || !entry.action.endsWith("welcome.settings.save")) return null;
   try {
@@ -105,7 +99,6 @@ export function welcomeAuditChanges(entry: Pick<AuditEntry, "source" | "detail" 
     const before = object(change.before) ?? {};
     const after = object(change.after) ?? {};
     return change.changed.filter((key): key is string => typeof key === "string").map((key) => {
-      // Audit snapshots summarize links by count rather than storing every URL twice.
       const field = key === "links" ? "link_count" : key;
       const value = (side: Record<string, unknown>, other: Record<string, unknown>) => key === "links"
         ? `${String(side[field] ?? 0)} links` : welcomeValue(key, side[field], other[field]);
@@ -119,7 +112,6 @@ const CEREMONY_LABELS: Record<string, string> = {
   send_images: "Send images", image_tiers: "Images by tier", story_tiers: "Animations by tier", repeat: "Repeat penalty",
 };
 
-/** Enabled tiers in display order, then any unknown enabled keys. */
 function imageTiersSummary(value: unknown): string {
   const record = object(value);
   if (!record) return "Not set";
@@ -136,7 +128,6 @@ function ceremonyValue(key: string, value: unknown, other: unknown): string {
   if (value === undefined || value === null) return "Not set";
   switch (key) {
     case "enabled": return value === true ? "On" : "Off";
-    // Story rows share the welcome odds shape, so only differing rows are listed.
     case "stories": return welcomeValue("variants", value, other);
     case "repeat": return repeatSummary(value);
     case "image_tiers": return imageTiersSummary(value);
@@ -154,7 +145,6 @@ function ceremonyValue(key: string, value: unknown, other: unknown): string {
   }
 }
 
-/** Readable achievement ceremony settings changes from the Rust audit snapshot. The raw detail stays available. */
 export function ceremonyAuditChanges(entry: Pick<AuditEntry, "source" | "detail" | "action">): AuditChange[] | null {
   if (entry.source !== "discord" || !entry.detail || !entry.action.endsWith("ceremony.settings.save")) return null;
   try {
@@ -185,8 +175,6 @@ function catalogValue(category: Record<string, unknown> | undefined, other: Reco
   const parts = [category.enabled === true ? "On" : "Off"];
   if (other && typeof category.label === "string" && category.label !== other.label) parts.push(`"${category.label}"`);
   const all = Array.isArray(category.milestones) ? category.milestones.map(object) : [];
-  // Beyond the cutoff, show the milestones that differ from the other side so an edit to a
-  // later milestone stays visible; the remainder is counted.
   const others = Array.isArray(other?.milestones) ? other.milestones.map(object) : [];
   const same = (milestone: Record<string, unknown> | null) =>
     others.some((item) => JSON.stringify(item) === JSON.stringify(milestone));
@@ -199,7 +187,6 @@ function catalogValue(category: Record<string, unknown> | undefined, other: Reco
       const style = typeof milestone?.tier === "string" ? ` (${milestone.tier.charAt(0).toUpperCase()}${milestone.tier.slice(1)})` : "";
       return `${String(milestone?.label)} ${typeof milestone?.at === "number" ? number.format(milestone.at) : "?"}${style}`;
     };
-    // A milestone that only changed identity (a reset to the default id) shows its id.
     const listed = milestones.slice(0, CATALOG_LISTED)
       .map((milestone) => !same(milestone) && others.some((item) => text(item) === text(milestone)) && typeof milestone?.id === "string"
         ? `${text(milestone)} [${milestone.id}]`
@@ -210,7 +197,6 @@ function catalogValue(category: Record<string, unknown> | undefined, other: Reco
   return parts.join(" · ");
 }
 
-/** Readable achievement catalog changes, one per changed category. The raw detail stays available. */
 export function achievementCatalogAuditChanges(entry: Pick<AuditEntry, "source" | "detail" | "action">): AuditChange[] | null {
   if (entry.source !== "discord" || !entry.detail || !entry.action.endsWith("achievements.catalog.save")) return null;
   try {
@@ -221,7 +207,6 @@ export function achievementCatalogAuditChanges(entry: Pick<AuditEntry, "source" 
     const keys = change.changed.filter((key): key is string => typeof key === "string");
     const names = keys.map((key) => [after.get(key)?.label, before.get(key)?.label]
       .find((value): value is string => typeof value === "string" && value.length > 0) ?? key);
-    // Rows are keyed by label, so a name shared by two categories falls back to its stable key.
     return keys.map((key, index) => {
       const [old, next] = [before.get(key), after.get(key)];
       const shared = names.filter((name) => name === names[index]).length > 1;
@@ -230,7 +215,6 @@ export function achievementCatalogAuditChanges(entry: Pick<AuditEntry, "source" 
   } catch { return null; }
 }
 
-/** The readable settings summary for any audited Discord settings save, or null. */
 export function settingsAuditChanges(entry: Pick<AuditEntry, "source" | "detail" | "action">): AuditChange[] | null {
   return welcomeAuditChanges(entry) ?? ceremonyAuditChanges(entry) ?? achievementCatalogAuditChanges(entry);
 }

@@ -16,7 +16,6 @@ export interface WelcomePreviewRequest {
   moon?: boolean;
 }
 
-/** Same-origin binary transport only. The caller owns cancellation and image playback. */
 export async function requestWelcomePreview(
   fetchImpl: typeof fetch,
   input: WelcomePreviewRequest,

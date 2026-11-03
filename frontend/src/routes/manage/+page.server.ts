@@ -7,8 +7,6 @@ import { pageAreaAccess } from "#lib/server/manageCapabilities.js";
 
 export const prerender = false;
 
-/** The console has no landing content: go straight to the first area with
- * content - a granted branch without pages yet has nowhere to land. */
 export const load: PageServerLoad = async ({ fetch, parent }) => {
   const { viewer } = await parent();
   const capabilities = {} as ManageCapabilities;
@@ -20,8 +18,6 @@ export const load: PageServerLoad = async ({ fetch, parent }) => {
 
   let grantedArea: (typeof areas)[number] | undefined;
   try {
-    // Registry order is a preference, not a guarantee: immediate entry beats
-    // waiting for a preferred area's slower authority when several grant.
     grantedArea = await Promise.any(
       checks.map(async (check) => {
         const [area, access] = await check;
@@ -30,8 +26,6 @@ export const load: PageServerLoad = async ({ fetch, parent }) => {
       }),
     );
   } catch {
-    // Every area denied, failed closed, or requires sign-in. Build the full
-    // capability result below so the landing gate can show the best action.
   }
 
   if (grantedArea) redirect(307, grantedArea.href);

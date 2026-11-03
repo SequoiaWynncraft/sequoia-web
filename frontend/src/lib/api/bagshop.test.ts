@@ -30,7 +30,6 @@ const meRow: BagshopMe = {
   staff: true,
 };
 
-/** Records the URL + method of each proxy request while replying with `body`. */
 function recordingClient(body: unknown) {
   const calls: { url: string; method: string }[] = [];
   const client = createBagshopClient({

@@ -9,9 +9,6 @@
 
   const path = $derived(page.url.pathname);
   const capabilities = $derived.by(() => {
-    // An area is current when the path sits under its href OR any of its
-    // sub-links - a link route (e.g. community/announcements) is not always
-    // under the area's own href (community/exports).
     const currentArea = MANAGE_AREAS.find((area) =>
       [area.href, ...area.links.map((link) => link.href)].some(
         (href) => href !== null && activeArea(href),

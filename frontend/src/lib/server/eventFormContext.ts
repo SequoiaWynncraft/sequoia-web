@@ -7,39 +7,30 @@ import { getGuildStats } from "./guildStats";
 import { loadRaidEvents } from "./raidEventBoards";
 import { getLinkedRankProfiles, progressionRankLabels } from "./rankProfiles";
 
-/** Optional rank choices must not hold the editor behind the rank API timeout. */
 const RANK_PROFILES_GRACE_MS = 500;
 
 export interface TrackerOption {
   id: string;
   name: string;
   window: string;
-  /** RFC3339 instants backing the window - the editor prefills from these. */
   startsAt: string;
   endsAt: string;
   tracking: TrackerKind;
-  /** Raid the tracker counts; null means all guild raids. */
   raid: string | null;
 }
 
-/** A roster member for editor pickers; raffle identity needs the uuid. */
 export interface MemberOption {
   username: string;
   uuid: string | null;
 }
 
 export interface EventFormContext {
-  /** Roster members for the donor and raffle pickers, alphabetical. */
   members: MemberOption[];
-  /** Backend tracker events for the standings picker. */
   trackerEvents: TrackerOption[];
-  /** Saved editor presets, alphabetical. */
   presets: EventPreset[];
-  /** Org ladder labels for the eligibility picker, most senior first. */
   seqRanks: string[];
 }
 
-/** Picker data for the event editor - lookup helpers, not authorization. */
 export async function eventFormContext(fetchImpl: typeof fetch): Promise<EventFormContext> {
   const [stats, raidEvents, presets, profiles] = await Promise.all([
     getGuildStats(fetchImpl, { allowStale: true }).catch(() => null),
@@ -56,14 +47,10 @@ export async function eventFormContext(fetchImpl: typeof fetch): Promise<EventFo
       .sort((a, b) => a.username.localeCompare(b.username)),
     trackerEvents: raidEvents.map(trackerOption),
     presets,
-    // A keyless catalog role throws out of `progressionRankLabels`; the picker
-    // it feeds is optional, so a skewed snapshot loses the rank list rather
-    // than the whole editor.
     seqRanks: profiles ? rankLabelsOrNone(profiles) : [],
   };
 }
 
-/** The org rank ladder's labels, or none when the catalog cannot be read. */
 function rankLabelsOrNone(profiles: RankProfilesResponse): string[] {
   try {
     return progressionRankLabels(profiles);

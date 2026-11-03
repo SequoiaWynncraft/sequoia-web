@@ -18,7 +18,6 @@
   const lastPage = $derived(
     directory && directory.size > 0 ? Math.max(0, Math.ceil(directory.total / directory.size) - 1) : 0,
   );
-  // Stale links can point past the end; every pager target clamps to reality.
   const currentPage = $derived(Math.min(page, lastPage));
 
   function directoryHref(sort: string, targetPage: number): string {

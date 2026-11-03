@@ -4,12 +4,6 @@ import path from "node:path";
 
 import { createClient, type Client } from "@libsql/client";
 
-/**
- * Real libSQL files in a temporary directory, for storage tests. Each
- * `connect` opens an independent connection to the named file. WAL with
- * synchronous=OFF only skips fsyncs; every write still runs in a real SQLite
- * transaction, and production connections keep their defaults.
- */
 export async function disposableDatabase() {
   const dir = await mkdtemp(path.join(tmpdir(), "sequoia-test-db-"));
   const clients: Client[] = [];

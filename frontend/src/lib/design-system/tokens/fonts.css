@@ -1,9 +1,3 @@
-/* ── Sequoia webfonts ─────────────────────────────────────────────
-   Minecraft: the pixel display face used for all headings, nav, badges,
-   stat labels and CTAs. The WOFF2 files include CFF hints so pixel stems
-   rasterize consistently across platforms and device pixel ratios.
-   Font files are served from static assets, so absolute paths are used here. */
-
 @font-face {
   font-family: Minecraft;
   src: url("/assets/fonts/minecraft-regular.woff2") format("woff2");
@@ -33,8 +27,6 @@
   font-display: swap;
 }
 
-/* Inter: the single text face — body copy and data values alike — so numbers
-   and prose stay consistent. Tabular figures via font-variant-numeric. */
 @font-face {
   font-family: "Inter";
   src: url("/assets/fonts/inter-variable.woff2") format("woff2");

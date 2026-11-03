@@ -24,7 +24,7 @@
     /** Leaderboard slug → placement, e.g. { guildSeason31: 1 }. */
     positions?: Record<string, number>;
     compact?: boolean;
-    /** Season still in progress — shown as a standing, not a finish. */
+    /** Season still in progress, shown as a standing rather than a finish. */
     liveSeason?: number | null;
   } = $props();
 

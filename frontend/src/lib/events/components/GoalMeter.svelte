@@ -8,7 +8,6 @@
     size = "full",
   }: {
     goal: EventGoal;
-    /** Null when the count is unknown (feed down or event not started). */
     current: number | null;
     size?: "band" | "full";
   } = $props();
@@ -19,24 +18,18 @@
   const reached = $derived((at: number) => shown !== null && shown >= at);
   const nextLocked = $derived(goal.milestones.find((milestone) => !reached(milestone.at)) ?? null);
 
-  // A long ladder is summarized around the member's position instead of listed
-  // in full; see milestoneWindow for why and where the threshold sits.
   const tiers = $derived(milestoneWindow(goal.milestones, reached));
 
-  /** Milestones before the last one become ticks on the track. */
   const ticks = $derived(
     tiers.compact
       ? tiers.visible.filter((milestone) => milestone.at !== finalAt)
       : goal.milestones.slice(0, -1),
   );
 
-  // The band strip always keeps its one-line summary; the style only shapes
-  // the full-size meter.
   const style = $derived(goal.milestoneStyle ?? "list");
   const showMarkers = $derived(size === "full" && (style === "markers" || style === "both"));
   const showList = $derived(size === "full" && (style === "list" || style === "both"));
 
-  /** Anchor markers and tooltips inward near the edges so nothing clips. */
   function anchor(at: number): "start" | "middle" | "end" {
     const percent = (at / finalAt) * 100;
     if (percent <= 10) return "start";
@@ -44,8 +37,6 @@
     return "middle";
   }
 
-  // A tap pins the tooltip open (hover does not exist on touch); blur,
-  // Escape, or a second tap releases it.
   let pinned = $state<number | null>(null);
 </script>
 
@@ -90,8 +81,6 @@
           onblur={() => (pinned = null)}
           onmouseleave={() => pinned === milestone.at && (pinned = null)}
           onkeydown={(event) => {
-            // Blur too: the focus-visible tooltip is independent of the pin,
-            // so Escape must actually dismiss what the keyboard user sees.
             if (event.key === "Escape") {
               pinned = null;
               event.currentTarget.blur();
@@ -208,8 +197,6 @@
     background: var(--ev-accent, var(--color-gold));
   }
 
-  /* ── Waypoint markers ─────────────────────────────────────────────── */
-
   .goal-waypoints {
     position: relative;
     height: 34px;
@@ -243,7 +230,6 @@
     justify-items: end;
   }
 
-  /* The waypoint node: the site's ✦ spark reduced to a solid diamond. */
   .goal-node {
     width: 7px;
     height: 7px;
@@ -333,8 +319,6 @@
     }
   }
 
-  /* ── Unlock list ──────────────────────────────────────────────────── */
-
   .goal-milestones {
     display: grid;
     gap: 4px;
@@ -357,9 +341,6 @@
     color: var(--ev-accent, var(--color-gold));
   }
 
-  /* The summary rows are context, not tiers: no spark, and set as plain text
-     rather than the list's uppercase. Kept at the muted colour rather than
-     dimmed further, which would put it under the contrast floor. */
   .goal-unlock-rest {
     text-transform: none;
     letter-spacing: normal;

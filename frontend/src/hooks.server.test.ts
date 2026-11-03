@@ -175,8 +175,6 @@ describe("server request diagnostics", () => {
     const event = requestEvent();
     event.locals.requestId = "request-502";
 
-    // SvelteKit merges the hook's fields over the caught body, so any
-    // `status` or `message` returned here would replace the app's own.
     expect(
       handleError({
         kind: "app",

@@ -1,10 +1,3 @@
-/**
- * The public API and skin-render bases, resolved from build-time public env.
- *
- * Plain functions without SvelteKit imports, so the Vite config can derive
- * the Content Security Policy from exactly the origins the app will use.
- */
-
 /** Sequoia API base without a trailing slash; empty in same-origin mode. */
 export function resolveApiBaseUrl(configured: string | undefined, dev: boolean): string {
   const value = (configured ?? "").trim().replace(/\/+$/, "");

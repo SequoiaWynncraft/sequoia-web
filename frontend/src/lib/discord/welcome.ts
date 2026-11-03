@@ -9,7 +9,6 @@ export interface WelcomeMessage {
   subtitle: string;
   font: WelcomeFont;
 }
-/** Time of day is its own mode, independent of season, motif and sky effect. */
 export interface WelcomeNight {
   enabled: boolean;
   start: string;
@@ -31,9 +30,7 @@ export interface WelcomeSettings {
   name_font: WelcomeFont;
   effects: { sky: { id: WelcomeSkyEffect; percent: number }[] };
   night: WelcomeNight;
-  /** Ping the new member in the welcome post. */
   mention_member: boolean;
-  /** Attach the welcome image. Off sends a text-only post. */
   send_images: boolean;
   repeat: RepeatPenalty;
 }
@@ -48,19 +45,15 @@ export interface WelcomeState {
   effects: { sky: { id: WelcomeSkyEffect; label: string; description: string; normal_ready: boolean; winter_ready: boolean }[] };
   effective_effect_chances: { sky: { id: WelcomePreviewEffect; percent: number }[] };
   effective_night: { active: boolean; scheduled: boolean; local_time: string | null; timezone: string; ready: boolean; timezones: string[] };
-  /** Last live picks, most recent first. Absent on servers without repeat penalties. */
   recent_events?: string[];
-  /** Next live pick odds after the repeat penalty. Absent on servers without repeat penalties. */
   current_chances?: { id: string; percent: number }[];
 }
-/** Wire shape. Servers from before night scheduling omit both night fields; older servers omit mention_member, send_images and repeat. */
 export type WelcomeResponse = Omit<WelcomeState, "settings" | "effective_night"> & {
   settings: Omit<WelcomeSettings, "night" | "mention_member" | "send_images" | "repeat"> & { night?: WelcomeNight; mention_member?: boolean; send_images?: boolean; repeat?: RepeatPenalty };
   effective_night?: WelcomeState["effective_night"];
 };
 export const WELCOME_NIGHT_DEFAULT: WelcomeNight = { enabled: false, start: "21:00", end: "07:00", timezone: "UTC", moon: false };
 
-/** Fills the night, mention, images and repeat defaults for older servers. Unsupported fields are never sent back to them. */
 export function welcomeStateWithNight(response: WelcomeResponse): { state: WelcomeState; nightSupported: boolean; mentionSupported: boolean; imagesSupported: boolean; repeatSupported: boolean } {
   const nightSupported = response.settings.night !== undefined && response.effective_night !== undefined;
   const mentionSupported = typeof response.settings.mention_member === "boolean";
@@ -75,7 +68,6 @@ export function welcomeStateWithNight(response: WelcomeResponse): { state: Welco
         ...response.settings,
         night: response.settings.night ?? { ...WELCOME_NIGHT_DEFAULT },
         mention_member: response.settings.mention_member === true,
-        // Servers that omit the field always attach images, so it reads as on.
         send_images: response.settings.send_images !== false,
         repeat: response.settings.repeat ?? { ...REPEAT_DEFAULT },
       },
@@ -84,7 +76,6 @@ export function welcomeStateWithNight(response: WelcomeResponse): { state: Welco
   };
 }
 
-/** Full settings definition for save. Older servers reject the unknown night, mention_member, send_images and repeat fields. */
 export function welcomeSaveBody(
   settings: WelcomeSettings,
   nightSupported: boolean,
@@ -102,18 +93,15 @@ export function welcomeSaveBody(
   };
 }
 
-/** Unsaved edits, including unsupported fields that are never sent. */
 export function welcomeSettingsDirty(draft: WelcomeSettings, saved: WelcomeSettings): boolean {
   return JSON.stringify(draft) !== JSON.stringify(saved);
 }
 
-/** Explicit preview scene overrides. Absent fields follow the saved schedule and moon setting. */
 export interface WelcomePreviewScene {
   night?: boolean;
   moon?: boolean;
 }
 
-/** Pin the saved-state server scene across stills, playback and retries until settings refresh. */
 export function welcomePreviewScene(nightSupported: boolean, snapshot: { active: boolean; moon: boolean }, time: "scheduled" | "day" | "night", moon: "saved" | "shown" | "hidden"): WelcomePreviewScene {
   if (!nightSupported) return {};
   return {
@@ -122,7 +110,6 @@ export function welcomePreviewScene(nightSupported: boolean, snapshot: { active:
   };
 }
 
-/** The server remains the authority for glyph support and visible text fit. */
 export function welcomeMessageIssue(message: WelcomeMessage): string | null {
   for (const [label, text] of [["Headline", message.headline], ["Subtitle", message.subtitle]]) {
     if (!text.trim()) return `Enter a ${label.toLowerCase()}.`;
@@ -132,16 +119,13 @@ export function welcomeMessageIssue(message: WelcomeMessage): string | null {
   return null;
 }
 
-/** PNG stills and GIF playback must refer to exactly the same unsaved draft. */
 export function welcomePreviewKey(variantId: string, season: WelcomeSeason, name: string, message: WelcomeMessage, effect: WelcomePreviewEffect = "none", nameFont: WelcomeFont = "minecraft", scene: WelcomePreviewScene & { saved?: WelcomeNight } = {}): string {
-  // A scene that follows the saved schedule or moon changes whenever that saved setting changes.
   const follows = scene.night === undefined || scene.moon === undefined ? scene.saved ?? null : null;
   return JSON.stringify([variantId, season, name, message.headline, message.subtitle, message.font, effect, nameFont, scene.night ?? null, scene.moon ?? null, follows]);
 }
 
 const NIGHT_TIME = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
 
-/** Mirrors the Rust schedule rules. Rust remains the timezone and boundary authority. */
 export function welcomeNightIssue(night: WelcomeNight, timezones: readonly string[]): { start?: string; end?: string; timezone?: string } | null {
   const issue: { start?: string; end?: string; timezone?: string } = {};
   if (!NIGHT_TIME.test(night.start)) issue.start = "Use a 24-hour time such as 21:00.";
@@ -152,14 +136,11 @@ export function welcomeNightIssue(night: WelcomeNight, timezones: readonly strin
   return Object.keys(issue).length ? issue : null;
 }
 
-/** Plain-language active interval, or null while the schedule is incomplete. */
 export function welcomeNightSummary(night: Pick<WelcomeNight, "start" | "end" | "timezone">): string | null {
   if (!NIGHT_TIME.test(night.start) || !NIGHT_TIME.test(night.end) || night.start === night.end || !night.timezone.trim()) return null;
   return `Night from ${night.start} to ${night.end} (${night.timezone})${night.start > night.end ? ", crossing midnight" : ""}`;
 }
 
-/** Turning night on, or changing an enabled schedule, needs verified night artwork. Turning it off, or sending text only, never does. */
-/** Night artwork matters only for image welcomes: a changed schedule, or images turned back on. */
 export function welcomeNightReadinessIssue(draft: WelcomeNight, saved: WelcomeNight, ready: boolean, sendImages = true, savedSendImages = true): string | null {
   if (!sendImages || ready || !draft.enabled) return null;
   if (savedSendImages && JSON.stringify(draft) === JSON.stringify(saved)) return null;
@@ -172,7 +153,6 @@ export function welcomeSkyEffectIssue(sky: WelcomeSettings["effects"]["sky"]): s
   return null;
 }
 
-/** Display-only draft chances. Unavailable effects fall back to no effect; Rust owns delivery. */
 export function welcomeSkyChances(sky: WelcomeSettings["effects"]["sky"], catalog: WelcomeState["effects"]["sky"]): Map<WelcomePreviewEffect, number> | null {
   if (welcomeSkyEffectIssue(sky)) return null;
   const chances = new Map<WelcomePreviewEffect, number>();
@@ -187,12 +167,10 @@ export function welcomeSkyChances(sky: WelcomeSettings["effects"]["sky"], catalo
   return chances;
 }
 
-/** Only copy or font changes remove the previous raster while its replacement loads. */
 export function welcomePreviewMessageChanged(previous: WelcomeMessage, next: WelcomeMessage): boolean {
   return previous.headline !== next.headline || previous.subtitle !== next.subtitle || previous.font !== next.font;
 }
 
-/** Draft display guard only. Rust still verifies permissions and actual artwork readiness on save. Text-only delivery needs no artwork. */
 export function welcomeReadinessIssue(settings: WelcomeSettings, catalog: WelcomeState["catalog"], sendImages = settings.send_images): string | null {
   if (!/^[1-9][0-9]*$/.test(settings.channel_id) || BigInt(settings.channel_id) > 18446744073709551615n) return "Choose a valid channel before turning welcomes on.";
   if (settings.variants.some(({ weight }) => !Number.isInteger(weight) || weight < 0 || weight > 1000)) return "Use whole-number weights from 0 to 1000.";
@@ -205,7 +183,6 @@ export function welcomeReadinessIssue(settings: WelcomeSettings, catalog: Welcom
   return null;
 }
 
-/** Only local input completeness. Rust remains the date, odds and destination authority. Null timezones means the server has no night schedule. */
 export function welcomeInputIssue(settings: WelcomeSettings, timezones: readonly string[] | null): string | null {
   const messageIssue = welcomeMessageIssue(settings.message);
   if (messageIssue) return messageIssue;

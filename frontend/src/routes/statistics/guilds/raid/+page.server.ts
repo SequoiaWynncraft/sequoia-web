@@ -20,24 +20,15 @@ import { KNOWN_RAIDS } from "#lib/site/raids.js";
 
 export const prerender = false;
 
-/** Timeframe shown when the viewer hasn't picked an event or typed a window. */
 const DEFAULT_WINDOW = "7d";
 
-/** How long the optional insignia lookup may keep a ready board waiting. */
 const RANKS_GRACE_MS = 1500;
 
 const EMPTY_RANKS: Record<string, MemberRankEntry> = {};
 
-/** A member-contribution board scoped to an ad-hoc timeframe. */
 export interface CustomWindow {
-  /**
-   * How the window was expressed: a relative "duration" ending now, or an
-   * explicit timestamp "range". The view titles the board accordingly.
-   */
   kind: "duration" | "range";
-  /** The raw timeframe text the viewer typed, echoed back into the form. */
   input: string;
-  /** Compact label for a duration window, e.g. "20 min" (unused for ranges). */
   label: string;
   from: string;
   to: string;
@@ -51,43 +42,28 @@ export interface ActivityDay {
 }
 
 export const load: PageServerLoad = async ({ fetch, url, parent }) => {
-  // Streamed: the activity feed must never hold the page back.
   const activity = loadActivity(fetch).catch(() => null);
-  // Best-effort insignia enrichment for the leaderboard - kicked off now so it
-  // runs alongside the roster/event fetches and is usually ready by the time the
-  // board is built (a short grace below caps how long it may hold the page).
   const ranksPromise = getLinkedRankProfiles(fetch)
     .then(memberRanksByUuid)
     .catch(() => EMPTY_RANKS);
   const { viewer } = await parent();
-  // The audience is authorized on its own fresh reads; `stats` here is the
-  // page's display data, which anonymous visitors and administrators may take
-  // stale. Both share one cached roster fetch, so this is not a second call out.
   const [events, stats, storedEvents, { audience, roster: freshRoster }] = await Promise.all([
     loadRaidEvents(fetch),
     getGuildStats(fetch, { allowStale: viewer === null || viewer.websiteAdmin }).catch(() => null),
-    // The hub decides who may know an event exists; this page only mirrors it.
     eventStore.list().catch(() => [] as StoredEvent[]),
     resolveEventAudience(fetch, viewer),
   ]);
 
   const now = new Date();
 
-  // Event contributions are member-only; the tracker trusts this check, so it
-  // must not authorize from a stale roster (stale stats are display-only).
   const isMember = audience === "member" || audience === "manager";
   const membershipUnverified = viewer !== null && freshRoster === null && !isMember;
 
-  // A tracker structure is created before the event it belongs to is announced,
-  // and this page named every one of them to anyone who loaded it. Each is now
-  // shown only to whoever may already see its event on the hub; a tracker with
-  // no event behind it yet is unannounced by definition, so managers only.
   const eventsByTracker = new Map(
     storedEvents
       .filter((stored) => stored.event.tracker !== undefined)
       .map((stored) => [stored.event.tracker!.eventId, stored]),
   );
-  // War-point trackers share the tracker table but count no raids.
   const visibleEvents = events.filter((event) => {
     if (event.tracking === "wars") return false;
     const stored = eventsByTracker.get(event.id);
@@ -95,39 +71,21 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
     return canSeeEvent(stored.event, stored.published, audience, now);
   });
 
-  // A custom timeframe (e.g. `?window=0.5d`) reuses the mod contribution board
-  // over an ad-hoc window ending now. With no window and no event selected the
-  // board falls back to the default window, so it always shows something.
   const windowRaw = url.searchParams.get("window")?.trim() ?? "";
 
-  // An event drives the board only when explicitly selected; otherwise the
-  // board defaults to a timeframe window (above) rather than the first event.
-  // Selection reads the *visible* list, so `?event=` cannot name a tracker the
-  // viewer was not shown - and an explicit window outranks it, because the
-  // board below is built from the window whenever there is one. Resolving the
-  // precedence here keeps it in one place: a page given both params would
-  // otherwise render an event's chips over a window's numbers.
   const eventParam = windowRaw === "" ? url.searchParams.get("event") : null;
   const selectedEvent = eventParam
     ? (visibleEvents.find((event) => event.id === eventParam) ?? null)
     : null;
 
-  // The default window is implicit (no explicit input, no event selected); the
-  // page uses this to avoid offering a no-op "Clear timeframe" link on it.
   const windowIsDefault = windowRaw === "" && selectedEvent === null;
   const windowInput = windowIsDefault ? DEFAULT_WINDOW : windowRaw;
-  // The input accepts two forms: a relative duration ("20min", "0.5d") ending
-  // now, or a prefixed Unix-timestamp range ("t:1784109600-1784282400").
   const parsedWindow = windowInput ? parseDuration(windowInput) : null;
   const rangeResult = windowInput && !parsedWindow ? parseTimestampRange(windowInput, now) : null;
   const parsedRange = rangeResult && "range" in rangeResult ? rangeResult.range : null;
-  // A `t:` range that can't be served carries its own message (e.g. before 2020).
   const rangeError = rangeResult && "error" in rangeResult ? rangeResult.error : null;
-  // Only an explicitly typed value that neither form accepts is flagged - never
-  // the implicit default.
   const windowInvalid = windowRaw !== "" && parsedWindow === null && parsedRange === null;
 
-  // Raid filter for the timeframe board: a known raid name, or null for "all".
   const raidParam = url.searchParams.get("raid");
   const selectedRaid =
     raidParam && KNOWN_RAIDS.some((raid) => raid.key === raidParam) ? raidParam : null;
@@ -151,14 +109,9 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
     };
   }
 
-  // The raid filter only means something where completions are attributed per
-  // raid: any mod-tracked window, unless the event already fixes its own raid.
-  // API counter diffs cannot be split by raid, so the chips stay hidden there.
   const raidFilterAvailable =
     customWindow !== null || (selectedEvent?.tracking === "mod" && !selectedEvent.raid);
 
-  // Administrators are authorized independently and may filter the board from                                                                               
-  // stale roster data; everyone else needs the fresh roster.                                                                                                  
   const leaderboardRoster =                                                                                                                                    
     freshRoster ?? (viewer?.websiteAdmin && stats !== null ? stats.members : null); 
   let leaderboard: RaidLeaderboardEntry[] = [];
@@ -182,8 +135,6 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
           ? unavailableLeaderboard()
           : await loadModLeaderboard(
               fetch,
-              // An event that scopes its own raid keeps it; the chip filter only
-              // applies where the event counts every raid.
               { ...selectedEvent, raid: selectedEvent.raid ?? selectedRaid },
               leaderboardRoster,
             )
@@ -192,8 +143,6 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
     leaderboardError = result.error;
   }
 
-  // Attach insignia artwork to each row. Enrichment only - a cold or slow rank
-  // cache forfeits the images after a short grace rather than holding the board.
   if (leaderboard.length > 0) {
     const ranks = await Promise.race([
       ranksPromise,

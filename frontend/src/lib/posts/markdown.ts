@@ -1,8 +1,4 @@
 /**
- * Light markdown for post bodies. Parses to a token tree that PostBody renders
- * as elements - nothing here produces HTML, so an author cannot inject markup,
- * and a link only becomes a link when its target is http(s) or site-relative.
- *
  * Supported: blank-line paragraphs (a single newline is a line break), `#`/`##`
  * and `###` headings, `-`/`*` and `1.` lists, `>` quotes, **bold**, *italic* or
  * _italic_, `code`, [text](url), :emoji: from the Sequoia catalog, and backslash
@@ -39,7 +35,6 @@ export function parseMarkdown(source: string): Block[] {
   let quote: string[] = [];
   let list: { ordered: boolean; items: string[] } | null = null;
 
-  // At most one of the three is open at a time; flushing closes whichever it is.
   const flush = () => {
     if (paragraph.length > 0) blocks.push({ type: "paragraph", children: parseLines(paragraph) });
     if (quote.length > 0) blocks.push({ type: "quote", children: parseLines(quote) });
@@ -174,14 +169,12 @@ export function parseInline(text: string): Inline[] {
   return nodes;
 }
 
-/** Emphasis opens before a non-space; `_` additionally never mid-word (snake_case). */
 function opensEmphasis(text: string, index: number): boolean {
   const next = text[index + 1];
   if (next === undefined || /\s/.test(next)) return false;
   return text[index] === "*" || !WORD_CHAR.test(text[index - 1] ?? "");
 }
 
-/** The closing marker after at least one character: a lone `*` (not half of `**`) or a word-final `_`. */
 function closingEmphasis(text: string, marker: string, contentStart: number): number {
   for (let index = contentStart + 1; index < text.length; index += 1) {
     if (text[index] !== marker) continue;

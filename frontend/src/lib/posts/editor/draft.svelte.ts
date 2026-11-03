@@ -46,10 +46,6 @@ function toggled<T>(list: T[], value: T): T[] {
   return list.includes(value) ? list.filter((entry) => entry !== value) : [...list, value];
 }
 
-/**
- * Editor state for one post. Seeded once from the stored post; the parent
- * remounts the editor via {#key} when the slug changes.
- */
 export class PostDraft {
   readonly mode: "create" | "edit";
 
@@ -63,14 +59,12 @@ export class PostDraft {
   pinned = $state(false);
 
   tier = $state<PostTier>("everyone");
-  // Kept while the tier is switched away, so flipping back restores the picks.
   guildRanks = $state<GuildRankName[]>([]);
   seqRanks = $state<string[]>([]);
   branches = $state<ManageBranchKey[]>([]);
 
   publishAt = $state("");
   expiresAt = $state("");
-  // The stored instants, so an untouched minute-level input keeps its seconds.
   seedPublishAt = $state("");
   seedExpiresAt = $state("");
 
@@ -80,7 +74,6 @@ export class PostDraft {
   accentSecondary = $state(SKY_PRESETS[0].theme.accentSecondary);
   star = $state(SKY_PRESETS[0].theme.star);
 
-  /** The stored version this draft is based on; sent back so a stale save is rejected. */
   knownUpdatedAt = $state<number | null>(null);
   saving = $state(false);
   showValidation = $state(false);
@@ -97,7 +90,6 @@ export class PostDraft {
     const post = seed.initial;
     if (!post) {
       this.feed = seed.initialFeed;
-      // Announcements are guild business more often than not.
       this.tier = seed.initialFeed === "announcements" ? "members" : "everyone";
       return;
     }
@@ -151,7 +143,6 @@ export class PostDraft {
 
   readonly payload = $derived(JSON.stringify({ post: this.post, published: this.published }));
 
-  /** The same validator the server runs, so problems surface before submitting. */
   readonly liveError = $derived.by(() => {
     const parsed = parseGuildPost(this.post);
     return parsed.ok ? null : parsed.error;
@@ -193,10 +184,7 @@ export class PostDraft {
       this.saving = false;
       if (result.type === "success") {
         const data = result.data as { newUpdatedAt?: number; publishAt?: string | null } | undefined;
-        // Adopt exactly the version this save wrote - not the reloaded page
-        // data, which may already contain someone else's later save.
         this.knownUpdatedAt = data?.newUpdatedAt ?? this.knownUpdatedAt;
-        // Show the date the server stamped, so the next save keeps it.
         if (data?.publishAt && !this.publishAt) {
           this.seedPublishAt = data.publishAt;
           this.publishAt = toInput(data.publishAt);

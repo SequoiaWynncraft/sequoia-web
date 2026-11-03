@@ -8,25 +8,14 @@
     entries,
     now,
   }: {
-    /** Queue name as the reader knows it, e.g. "Aspects". */
     title: string;
-    /** The whole pending queue, front first, with the viewer's own row flagged. */
     entries: RewardQueueEntry[];
-    /** Render-time clock, passed in so every row on the page agrees. */
     now: number;
   } = $props();
 
   const standing = $derived(queueStanding(entries));
   const ahead = $derived(entriesAhead(entries));
 
-  // One disclosure serves both readings of the same list: the people you are waiting
-  // behind, or - when you aren't queued - who is waiting at all, so the count above is
-  // never an unexplained number.
-  //
-  // The label names the list rather than the action ("2 ahead of you", not "Show the 2
-  // ahead of you"): a <summary> keeps its text once the disclosure is open, and an
-  // open list still offering to show itself reads as a broken control. The triangle
-  // already says which way this toggles.
   const disclosureLabel = $derived(
     standing ? (ahead.length === 1 ? "The 1 ahead of you" : `The ${ahead.length} ahead of you`) : "Everyone waiting",
   );
@@ -61,8 +50,6 @@
   {#if ahead.length > 0}
     <details class="qp-details">
       <summary class="qp-summary focus-ring">{disclosureLabel}</summary>
-      <!-- An ordered list, not a sortable table: the order is the whole point, so a
-           column header offering to resort it would be lying about what this is. -->
       <ol class="qp-list">
         {#each ahead as entry, index (entry.requestId)}
           <li class="qp-row">
@@ -71,9 +58,6 @@
             {#if entry.guildRank}
               <RankBadge rank={entry.guildRank.toLowerCase()} />
             {/if}
-            <!-- "ago" is carried in the visible text rather than hidden for screen readers:
-                 an unlabelled column of durations beside a queue reads as time remaining to
-                 everyone, not just to assistive tech. -->
             <span class="qp-wait">{requestedAgoLabel(entry.createdAtMs, now)}</span>
           </li>
         {/each}
@@ -111,7 +95,6 @@
     justify-self: end;
   }
 
-  /* The one live fact on the page, so it is the one place gold is spent here. */
   .qp-position {
     color: var(--color-gold);
     font-family: var(--font-display);

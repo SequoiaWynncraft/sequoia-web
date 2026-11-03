@@ -22,17 +22,10 @@ import type {
 
 export type ParseResult = { ok: true; event: GuildEvent } | { ok: false; error: string };
 
-/** Route segments under /events that an event slug must never shadow. */
 const RESERVED_SLUGS = new Set(["manage", "new", "audit"]);
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
 
-/**
- * Strict parser for event data crossing a trust boundary: management form
- * submissions and database rows. Unknown fields are dropped, strings are
- * trimmed, colors lowercased, instants normalized to UTC ISO strings, and
- * empty optional sections omitted entirely.
- */
 export function parseGuildEvent(value: unknown): ParseResult {
   try {
     return { ok: true, event: parseEvent(value) };
@@ -86,8 +79,6 @@ function parseEvent(value: unknown): GuildEvent {
   const raffles = parseRaffles(raw);
   if (raffles) {
     event.raffles = raffles;
-    // A raffle gate must point at a real personal milestone: a dangling id would
-    // silently never let anyone in. Checked here, where both lists are resolved.
     const milestoneIds = new Set((personalMilestones ?? []).map((milestone) => milestone.id));
     for (const raffle of raffles) {
       if (raffle.requiresMilestone !== undefined && !milestoneIds.has(raffle.requiresMilestone)) {
@@ -103,9 +94,6 @@ function parseEvent(value: unknown): GuildEvent {
   if (raw.raffleHideWheel === true) event.raffleHideWheel = true;
   if (raw.raffleExcludeWinners === true) {
     event.raffleExcludeWinners = true;
-    // With exclusion on, every raffle shares one winner pool - a member may hold
-    // at most one winning slot across the whole event. Reject a uuid that already
-    // won another raffle so a stale form or hand-edited preset can't slip past.
     const across = new Set<string>();
     for (const raffle of raffles ?? []) {
       for (const winner of raffle.winners ?? []) {
@@ -136,10 +124,6 @@ function parseEvent(value: unknown): GuildEvent {
         );
       }
     }
-    // Per-raffle counts miss OVERLAP: two undrawn one-slot whitelists sharing
-    // their only member both pass above, yet whichever rolls second must
-    // fail. Joint feasibility is a bipartite matching question - every
-    // remaining whitelist slot must be fillable by a distinct member.
     const jointRaffles = (raffles ?? []).filter((raffle) => raffle.eligibility?.whitelistOnly);
     const wonAnywhere = new Set(
       (raffles ?? [])
@@ -160,8 +144,6 @@ function parseEvent(value: unknown): GuildEvent {
           .filter((uuid) => !excluded.has(uuid) && !wonAnywhere.has(uuid)),
       };
     });
-    // Augmenting-path matching, member -> slot. Sizes are bounded by the
-    // manual-entrant and winner caps, so the quadratic walk stays tiny.
     const slotOwners: (string | null)[] = [];
     const slotPool: number[] = [];
     pools.forEach((pool, poolIndex) => {
@@ -225,7 +207,6 @@ function parseTheme(value: unknown): EventTheme {
   };
 }
 
-/** The sky theme alone, for other content that borrows the event look (posts). */
 export function parseEventTheme(
   value: unknown,
 ): { ok: true; theme: EventTheme } | { ok: false; error: string } {
@@ -246,7 +227,6 @@ function parseColor(value: unknown, label: string): string {
 
 export const ICON_PLACEMENTS: EventIconPlacement[] = ["hero", "band", "meta", "manage"];
 
-/** Placements are normalized to catalog order with duplicates dropped. */
 function parseIcon(value: unknown): EventIcon {
   const raw = asRecord(value, "icon");
   const file = requiredText(raw.file, "icon file", 80);
@@ -256,7 +236,6 @@ function parseIcon(value: unknown): EventIcon {
   const entries = raw.placements;
   if (!Array.isArray(entries)) fail("icon placements must be a list");
   for (const entry of entries) {
-    // Derived from the list - a hand-written enum here already drifted once.
     if (!ICON_PLACEMENTS.includes(entry as EventIconPlacement)) {
       fail("icon placements must be hero, band, meta, or manage");
     }
@@ -276,11 +255,6 @@ function requireInstant(value: unknown, label: string): string {
 const MAX_GOALS = 5;
 const MAX_MILESTONES = 8;
 
-/**
- * Reads the goals list; a legacy single `goal` with `target`/`unlock` is
- * accepted and normalized to one goal with one milestone, so stored rows
- * written before milestones keep validating.
- */
 function parseGoals(raw: Record<string, unknown>): EventGoal[] | undefined {
   if (present(raw.goals)) {
     const entries = raw.goals;
@@ -335,11 +309,9 @@ function parseGoal(value: unknown, label: string): EventGoal {
   return goal;
 }
 
-/** Markers sit inside the meter's width; long text would collide with neighbors. */
 const MAX_MILESTONE_LABEL = 24;
 
 function parseMilestones(raw: Record<string, unknown>, label: string): EventGoal["milestones"] {
-  // Legacy shape: one target, one unlock.
   if (!present(raw.milestones)) {
     return [
       {
@@ -376,11 +348,6 @@ function parseMilestones(raw: Record<string, unknown>, label: string): EventGoal
 
 const MAX_PERSONAL_MILESTONES = 64;
 
-/**
- * Reads the optional personal-milestones list: per-member raid thresholds with
- * stable ids (targeted by raffle gates), strictly ascending targets, and unique
- * ids. An empty or absent list yields undefined.
- */
 function parsePersonalMilestones(raw: Record<string, unknown>): PersonalMilestone[] | undefined {
   if (!present(raw.personalMilestones)) return undefined;
   const entries = raw.personalMilestones;
@@ -473,7 +440,6 @@ function parseTracker(value: unknown): NonNullable<GuildEvent["tracker"]> {
 const MAX_RAFFLES = 50;
 const MAX_RAFFLE_WINNERS = 50;
 
-/** Reads the optional raffles list, capped and each strictly validated. */
 function parseRaffles(raw: Record<string, unknown>): EventRaffle[] | undefined {
   if (!present(raw.raffles)) return undefined;
   const entries = raw.raffles;
@@ -482,8 +448,6 @@ function parseRaffles(raw: Record<string, unknown>): EventRaffle[] | undefined {
   const raffles = entries.map((entry, index) =>
     parseRaffle(entry, entries.length === 1 ? "raffle" : `raffle ${index + 1}`),
   );
-  // Ids target rolls and re-rolls, so a collision would make one raffle
-  // unreachable behind the other.
   const ids = new Set<string>();
   for (const raffle of raffles) {
     if (ids.has(raffle.id)) fail("raffle ids must be unique");
@@ -503,11 +467,7 @@ function parseRaffle(value: unknown, label: string): EventRaffle {
   if (raffle.winnerCount > MAX_RAFFLE_WINNERS) {
     fail(`${label} has too many winners (max ${MAX_RAFFLE_WINNERS})`);
   }
-  // Cosmetic and tolerant on purpose: an icon outside the current catalog is
-  // dropped, never a reason to invalidate a stored event row.
   if (typeof raw.icon === "string" && isPrizeIconFile(raw.icon)) raffle.icon = raw.icon;
-  // Display-only and tolerant, like the icon: unknown values fall back to
-  // the default rather than invalidating a stored row.
   if (raw.wheelStyle === "heads" || raw.wheelStyle === "names") raffle.wheelStyle = raw.wheelStyle;
   if (present(raw.window)) raffle.window = parseRaffleWindow(raw.window, label);
   if (present(raw.winners)) {
@@ -515,9 +475,6 @@ function parseRaffle(value: unknown, label: string): EventRaffle {
       parseRaffleWinner(entry, label),
     );
     if (winners) {
-      // One winner per slot, every slot inside the declared count - keeps the
-      // public board (which renders one row per slot) from hiding a persisted
-      // winner or double-booking a slot.
       const slots = new Set<number>();
       const players = new Set<string>();
       for (const winner of winners) {
@@ -532,7 +489,6 @@ function parseRaffle(value: unknown, label: string): EventRaffle {
   }
   if (present(raw.drawnAt)) raffle.drawnAt = requireInstant(raw.drawnAt, `${label} draw time`);
   const requiresMilestone = optionalText(raw.requiresMilestone, `${label} milestone gate`, 64);
-  // The referenced id is cross-checked against personalMilestones in parseEvent.
   if (requiresMilestone) raffle.requiresMilestone = requiresMilestone;
   if (present(raw.eligibility)) {
     raffle.eligibility = parseEligibility(
@@ -557,9 +513,6 @@ function parseEligibility(value: unknown, label: string, winnerCount: number): R
   if (include) eligibility.include = include;
   const exclude = parseManualEntrants(raw.exclude, `${label} exclude list`);
   if (exclude) eligibility.exclude = exclude;
-  // A whitelist raffle without enough distinct entrants left after exclusions
-  // can only ever roll into an error. Catch the mistake at save time, where the
-  // manager can fix it.
   if (eligibility.whitelistOnly) {
     const excluded = new Set(
       (eligibility.exclude ?? []).map((entry) => entry.player_uuid.replaceAll("-", "").toLowerCase()),
@@ -603,8 +556,6 @@ function parseManualEntrants(value: unknown, label: string): ManualEntrant[] | u
     seen.add(key);
     if (present(raw.tickets)) {
       entrant.tickets = parseCount(raw.tickets, `${label} entry tickets`, 1);
-      // Huge floors pass Number.isInteger (1e308 is "an integer") and would
-      // overflow the draw's ticket sum to Infinity, breaking the weighting.
       if (entrant.tickets > MAX_MANUAL_TICKETS) {
         fail(`${label} entry tickets must be at most ${MAX_MANUAL_TICKETS}`);
       }
@@ -636,8 +587,6 @@ function parseEligibilityRule(value: unknown, label: string): EligibilityRule {
         fail(`${label} stat rule has an unknown source`);
       }
       const source = raw.source === "tracker" ? "tracker" : undefined;
-      // Only raids have a sub-day feed (the mod raid log); playtime and wars
-      // exist solely as daily rollups, so the tracker cannot answer for them.
       if (source === "tracker" && stat !== "raids") {
         fail(`${label} stat rule can only read the tracker when it counts raids`);
       }
@@ -654,7 +603,6 @@ function parseEligibilityRule(value: unknown, label: string): EligibilityRule {
       return rule;
     }
     case "milestone":
-      // The referenced id is cross-checked against personalMilestones in parseEvent.
       return { type: "milestone", milestoneId: requiredText(raw.milestoneId, `${label} milestone rule`, 64) };
     default:
       fail(`${label} has a rule of unknown type`);
@@ -706,19 +654,8 @@ function parseTicketWeight(value: unknown, label: string): TicketWeight {
   }
 }
 
-/**
- * Longest span a stat window may cover. Set by the member-progress backend,
- * which serves at most this many days per request; the tracker path reuses it
- * so a rule means the same thing whichever source counts it.
- */
 const MAX_WINDOW_DAYS = 400;
 
-/**
- * Stat windows read the daily rollups, which only exist in whole UTC days: a
- * partial-day bound would silently expand to the full days it touches, so
- * both bounds must sit exactly on UTC midnight. The member-progress backend
- * serves at most 400 inclusive days, so longer windows must fail before save.
- */
 function parseDayWindow(value: unknown, label: string): NonNullable<EventRaffle["window"]> {
   const window = parseRaffleWindow(value, label, true);
   for (const bound of [window.from, window.to]) {
@@ -733,12 +670,6 @@ function parseDayWindow(value: unknown, label: string): NonNullable<EventRaffle[
   return window;
 }
 
-/**
- * A tracker-backed stat window: the mod raid log counts an exact instant range,
- * so any time of day is allowed. The span is still capped - a rule reaching
- * arbitrarily far back is a mistake, not a feature, and the cap matches the
- * rollup path so the two sources stay comparable.
- */
 function parseTrackerWindow(value: unknown, label: string): NonNullable<EventRaffle["window"]> {
   const window = parseRaffleWindow(value, label);
   if (Date.parse(window.to) - Date.parse(window.from) > MAX_WINDOW_DAYS * 86_400_000) {
@@ -772,9 +703,6 @@ function parseRaffleWinner(value: unknown, label: string): RaffleWinner {
     slot: parseCount(raw.slot, `${label} winner slot`, 0),
     username: requiredText(raw.username, `${label} winner name`, 40),
     player_uuid: requiredText(raw.player_uuid, `${label} winner uuid`, 64),
-    // A drawn winner came from the ticket-weighted pool, where zero-ticket
-    // entrants never win - so it holds at least one. A hand-picked winner
-    // may hold zero, since no draw produced it.
     tickets: parseCount(raw.tickets, `${label} winner tickets`, source === "manual" ? 0 : 1),
   };
   if (source) winner.source = source;

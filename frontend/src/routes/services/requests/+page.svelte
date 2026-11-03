@@ -22,25 +22,16 @@
 
   const view = pageView("/services/requests");
 
-  // Which request is mid-flight, so the matching button can show a pending label.
   let submitting = $state<RewardRequestType | null>(null);
   let reason = $state("");
-  // One focus target per card, so a submit lands on its own result rather than the other's.
   let statusRegions = $state<Record<RewardRequestType, HTMLElement | null>>({ aspect: null, tome: null });
 
-  // One clock for the whole render, so two rows never disagree about "2d ago", re-read
-  // whenever the queues themselves are refetched. Still not a ticking timer: the labels
-  // only gain new information when the queue does, and a second-by-second rewrite of every
-  // row would be motion without meaning. But it can't be a constant either - re-running
-  // load leaves this component mounted, so a page left open would keep measuring waits
-  // against the clock it was first opened at.
   let now = $state(Date.now());
 
   const REQUEST_LABEL: Record<RewardRequestType, string> = { aspect: "aspect", tome: "tome" };
 
   const queues = $derived(data.access === "member" && data.queues.status === "ok" ? data.queues.queues : null);
 
-  /** The viewer's own place in one queue, or null when the queue couldn't be read. */
   function standingFor(type: RewardRequestType) {
     return queues ? queueStanding(queues[type]) : null;
   }
@@ -48,14 +39,12 @@
   const aspectStanding = $derived(standingFor("aspect"));
   const tomeStanding = $derived(standingFor("tome"));
 
-  /** "11 waiting" for a queue we could read, or nothing when we couldn't. */
   function queueMeta(type: RewardRequestType): string | undefined {
     if (!queues) return undefined;
     const count = queues[type].length;
     return count === 1 ? "1 waiting" : `${count} waiting`;
   }
 
-  /** Feedback for one request card, derived from the last action result for that `type`. */
   function noticeFor(type: RewardRequestType): { kind: "success" | "error"; text: string } | null {
     if (!form || form.type !== type) return null;
     if ("submitted" in form && form.submitted) {
@@ -66,7 +55,6 @@
     return { kind: "error", text: errorText(type, "error" in form ? form.error : undefined, form) };
   }
 
-  /** Maps an action error code to member-facing copy, preferring the backend message when present. */
   function errorText(type: RewardRequestType, code: string | undefined, result: NonNullable<ActionData>): string {
     const label = REQUEST_LABEL[type];
     switch (code) {
@@ -90,11 +78,6 @@
   const aspectNotice = $derived(noticeFor("aspect"));
   const tomeNotice = $derived(noticeFor("tome"));
 
-  /**
-   * Spells out an eligibility failure with the viewer's own numbers. The backend's own
-   * sentence states the rule but not how far off you are, which is the part that tells you
-   * whether to wait a day or raid tonight.
-   */
   function ineligibleText(eligibility: RewardQueueEligibility): string {
     const missing: string[] = [];
     if (eligibility.inGuildTimeInDays < eligibility.requiredDays) {
@@ -109,13 +92,6 @@
     return `You need ${missing.join(" and ")}.`;
   }
 
-  // The one sentence standing between the viewer and a request, or null when nothing is.
-  //
-  // This is state rather than an {#await} around the forms, and the distinction matters: the
-  // check streams in after the page, so gating the markup on it would mean no forms until it
-  // landed, and on a client with no JS to resolve the streamed promise, no forms at all. The
-  // forms are server-rendered up front; this only ever turns the buttons off afterwards, and
-  // a slow or failed check leaves them live with the submission as the authority.
   let gate = $state<string | null>(null);
   const blocked = $derived(gate !== null);
 
@@ -130,10 +106,6 @@
       .then((result) => {
         if (!current) return;
         if (result.status === "notLinked" || result.status === "refused") {
-          // A refusal that names the fix (link your account) or the reason (not a member of
-          // the guild the backend checks). Worth surfacing rather than folding into the
-          // soft-failure path: this viewer is refused on every attempt, so a live button
-          // would only ever tell them the same thing one click later.
           gate = result.message;
         } else if (result.status === "ok" && !result.eligibility.eligible) {
           gate = ineligibleText(result.eligibility);
@@ -150,12 +122,6 @@
     };
   });
 
-  /**
-   * Re-runs this route's load, which is what the queues live in. The membership check runs
-   * again with it - `depends` can't scope a refresh to part of one load - but its roster read
-   * is served from the server's cache. Reports finishing, so a refresh that changes nothing
-   * still looks like it did something.
-   */
   let refreshed = $state(false);
   let refreshing = $state(false);
   let refreshedTimer: ReturnType<typeof setTimeout> | undefined;
@@ -169,8 +135,6 @@
       await invalidate("app:reward-queue");
       now = Date.now();
       refreshed = true;
-      // Clears itself: a confirmation that never leaves stops reading as a confirmation
-      // and starts reading as a claim that the data is still current, which it won't be.
       refreshedTimer = setTimeout(() => (refreshed = false), 4000);
     } finally {
       refreshing = false;
@@ -179,18 +143,8 @@
 
   $effect(() => () => clearTimeout(refreshedTimer));
 
-  /**
-   * Shared enhance handler: flags the in-flight type, then moves focus to the result so the
-   * outcome is where the next keystroke lands rather than somewhere below the button.
-   * `invalidateAll: false` keeps the refetch to this route's own load rather than every
-   * load above it; that load still re-runs whole, which is where the fresh queues come from.
-   */
   function submitHandler(type: RewardRequestType) {
     return ({ cancel }: { cancel: () => void }) => {
-      // The buttons are aria-disabled rather than disabled, so they stay focusable and can
-      // still be described to a screen reader; that means the guard against actually
-      // submitting has to live here. Without JS neither runs and the backend refuses, which
-      // is the same answer by a slower route.
       if (blocked || submitting !== null) {
         cancel();
         return;
@@ -201,15 +155,8 @@
         try {
           await update({ invalidateAll: false });
           await invalidate("app:reward-queue");
-          // The queues just came back, so wait labels measure against a fresh clock rather
-          // than the one this page was opened at.
           now = Date.now();
-          // An accepted reason is no longer editable copy. Leaving it in the box invites a
-          // second identical request in the one case where the form stays on screen after a
-          // success: a queue read that came back unavailable, so the standing can't replace it.
           if (type === "tome" && form && "submitted" in form && form.submitted) reason = "";
-          // Only move focus where there is something to read: an empty region would take
-          // focus and announce nothing, leaving the caret somewhere with no explanation.
           if (noticeFor(type)) statusRegions[type]?.focus();
         } finally {
           submitting = null;
@@ -233,8 +180,6 @@
         <p class="req-notice req-notice-error">
           We couldn't verify your guild membership. Nothing was submitted.
         </p>
-        <!-- Full invalidation, deliberately: this state is a failed roster check, and the
-             targeted key isn't even registered on this branch - load returns before it. -->
         <Button variant="secondary" onclick={() => invalidateAll()}>Try again</Button>
       </Card>
     {:else if data.access === "notMember"}
@@ -253,9 +198,6 @@
           <SectionLabel>
             Your standing
             {#snippet actions()}
-              <!-- The confirmation sits beside the control rather than replacing its label:
-                   the button is always "Refresh", and a button that renames itself to
-                   "Updated" is a different control as far as a screen reader is concerned. -->
               <span class="req-refresh-status" role="status">
                 {refreshing ? "Refreshing" : refreshed ? "Updated" : ""}
               </span>
@@ -270,17 +212,12 @@
         </section>
       {/if}
 
-      <!-- The eligibility check streams in behind the page and only ever turns the buttons
-           off; it never gates this markup. The forms are server-rendered whether or not the
-           check ever lands, so a slow Discord lookup - or a client with no JS to resolve the
-           streamed promise - still gets a working page, with the submission as the authority. -->
       {#if gate}
         <p class="req-gate" id="req-gate" role="status">{gate}</p>
       {/if}
 
       <section class="req-block" aria-label="Make a request">
         <div class="req-grid">
-          <!-- ─── Aspects ─────────────────────────────────────────────────── -->
           <Card hoverEffect={false}>
             <SectionLabel meta={queueMeta("aspect")}>Aspects</SectionLabel>
 
@@ -292,11 +229,6 @@
             {:else}
               <p class="req-card-lead">Join the aspect queue. No reason needed.</p>
               <form method="POST" action="?/aspect" use:enhance={submitHandler("aspect")}>
-                <!-- aria-disabled, not disabled: a disabled button leaves the tab order, so
-                     a keyboard or screen-reader user would never reach it and never hear the
-                     reason it can't be used. use:enhance cancels the submit instead, and it
-                     cancels on any request in flight - so both buttons read as unavailable
-                     while either one is submitting, which is what the guard does. -->
                 <Button
                   type="submit"
                   aria-disabled={submitting !== null || blocked}
@@ -307,9 +239,6 @@
               </form>
             {/if}
 
-            <!-- Focusable so a submit lands on its own outcome. Focus is what announces the
-                 result here, so the status line drops its live role rather than saying the
-                 same sentence a second time. -->
             <div class="req-status" bind:this={statusRegions.aspect} tabindex="-1">
               {#if aspectNotice}
                 <FormStatus
@@ -322,7 +251,6 @@
             </div>
           </Card>
 
-          <!-- ─── Tomes ───────────────────────────────────────────────────── -->
           <Card hoverEffect={false}>
             <SectionLabel meta={queueMeta("tome")}>Tome</SectionLabel>
 
@@ -407,7 +335,6 @@
     margin-top: 1rem;
   }
 
-  /* The requirement, stated before the request rather than after the refusal. */
   .req-gate {
     max-width: 60ch;
     margin: 0 0 1.5rem;

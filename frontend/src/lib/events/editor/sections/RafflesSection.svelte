@@ -26,7 +26,6 @@
 
   const STAT_LABELS = { raids: "raids", playtime: "hours played", wars: "wars" } as const;
 
-  // Manual picker drafts, keyed per raffle+list so typing stays local.
   let manualDrafts = $state<Record<string, string>>({});
 
   function manualKey(row: RaffleRow, list: "include" | "exclude") {
@@ -63,16 +62,9 @@
     if (index >= 0) list.splice(index, 1);
   }
 
-  // Re-rolls replace a drawn winner - those go through a confirm dialog. The
-  // click is intercepted before the submit; confirming re-dispatches it via
-  // requestSubmit with the same button as submitter, so enhance still sees a
-  // normal ?/rollRaffle submission.
   let confirmReroll = $state<ConfirmDialog | null>(null);
   let pendingReroll: HTMLButtonElement | null = null;
 
-  /** The server's winner decides whether this is a re-roll: an undo can
-   * clear the local row's copy while the stored slot is still won, and a
-   * roll click must not silently replace that winner unconfirmed. */
   function slotHasStoredWinner(raffleId: string, slot: number): boolean {
     return (draft.liveInitial?.raffles ?? []).some(
       (raffle) =>
@@ -257,9 +249,6 @@
                 {/each}
               </div>
             {:else if rule.type === "seqRank"}
-              <!-- Stored selections still filter the draw even when the ladder
-                   fetch failed or a rank left the catalog - they must stay
-                   visible and removable, never silently active. -->
               {@const choices = [...new Set([...draft.seqRankChoices, ...rule.ranks])]}
               {#if choices.length > 0}
                 <div class="seq-chips" role="group" aria-label="Sequoia ranks that may enter">
@@ -282,8 +271,6 @@
                   bind:value={rule.stat}
                   aria-label="Stat to threshold"
                   onchange={() => {
-                    // Only raids have a sub-day feed; leaving the tracker
-                    // selected on playtime/wars would fail on save.
                     if (rule.stat !== "raids") rule.statSource = "rollups";
                   }}
                 >

@@ -1,7 +1,6 @@
 import { isNonNegativeInteger, isRecord } from "#lib/api/guards.js";
 import { GROUP_LABELS } from "./progress";
 
-/** One saved step. A new milestone carries an empty id until Rust assigns one. */
 export interface CatalogMilestone {
   id: string;
   at: number;
@@ -27,7 +26,6 @@ export interface CatalogLimits {
 
 export interface CatalogResponse {
   catalog: { version: number; categories: CatalogCategory[] };
-  /** The seeded catalog, used for per-category resets. */
   defaults: CatalogCategory[];
   tiers: { id: string; label: string }[];
   limits: CatalogLimits;
@@ -71,7 +69,6 @@ function parseCategories(value: unknown): CatalogCategory[] | null {
   return categories.some((item) => item === null) ? null : categories as CatalogCategory[];
 }
 
-/** The catalog view from Rust, or null when the response is unusable. */
 export function parseCatalogResponse(value: unknown): CatalogResponse | null {
   if (!isRecord(value) || !isRecord(value.catalog) || !isNonNegativeInteger(value.catalog.version) || !isRecord(value.limits)) return null;
   const categories = parseCategories(value.catalog.categories);
@@ -99,7 +96,6 @@ export function parseCatalogResponse(value: unknown): CatalogResponse | null {
   };
 }
 
-/** Categories grouped by kind in server order. */
 export function catalogGroups(categories: CatalogCategory[]): CatalogGroup[] {
   const groups: CatalogGroup[] = [];
   for (const category of categories) {
@@ -113,7 +109,6 @@ export function catalogGroups(categories: CatalogCategory[]): CatalogGroup[] {
   return groups;
 }
 
-/** Which fields staff may edit. Role milestones follow Discord roles; badge names are fixed. */
 export function catalogEditable(kind: string): { label: boolean; milestones: boolean } {
   return { label: LADDER_KINDS.has(kind) || kind === "role", milestones: LADDER_KINDS.has(kind) };
 }
@@ -126,7 +121,6 @@ function characters(value: string): number {
   return [...value].length;
 }
 
-/** First local hint for one category. Rust stays the validation authority. */
 export function categoryIssue(category: CatalogCategory, limits: CatalogLimits, tiers: CatalogResponse["tiers"]): string | null {
   const editable = catalogEditable(category.kind);
   if (editable.label && (!category.label.trim() || characters(category.label) > limits.name_max)) {
@@ -148,7 +142,6 @@ export function categoryIssue(category: CatalogCategory, limits: CatalogLimits, 
   return null;
 }
 
-/** First local hint across the catalog, named by category. */
 export function catalogIssue(categories: CatalogCategory[], limits: CatalogLimits, tiers: CatalogResponse["tiers"]): string | null {
   for (const category of categories) {
     const issue = categoryIssue(category, limits, tiers);
@@ -157,21 +150,15 @@ export function catalogIssue(categories: CatalogCategory[], limits: CatalogLimit
   return null;
 }
 
-/** True when the thresholds are whole numbers that only need reordering. */
 export function canSortMilestones(milestones: CatalogMilestone[]): boolean {
   return milestones.every(({ at }) => Number.isInteger(at))
     && milestones.some((item, index) => index > 0 && item.at < milestones[index - 1].at);
 }
 
-/** A copy ordered by threshold. Equal thresholds keep their order. */
 export function sortMilestones(milestones: CatalogMilestone[]): CatalogMilestone[] {
   return milestones.map((item) => ({ ...item })).sort((a, b) => a.at - b.at);
 }
 
-/**
- * The draft for "Add milestone": one past the last threshold, in the last row's style.
- * Profession milestones are labelled by level, which ceremonies show as "Lv. N".
- */
 export function nextMilestone(category: CatalogCategory, limits: CatalogLimits, tiers: CatalogResponse["tiers"]): CatalogMilestone {
   const last = category.milestones.at(-1);
   const max = catalogThresholdMax(category.kind, limits);
@@ -181,7 +168,6 @@ export function nextMilestone(category: CatalogCategory, limits: CatalogLimits, 
   return { id: "", at, label, tier: tier?.id ?? "" };
 }
 
-/** The seeded category with default ids, keeping the draft's enabled state. Null without a default. */
 export function resetCategory(category: CatalogCategory, defaults: CatalogCategory[]): CatalogCategory | null {
   const seeded = defaults.find(({ key }) => key === category.key);
   return seeded ? { ...structuredClone(seeded), enabled: category.enabled } : null;
@@ -191,17 +177,12 @@ export function sameCategory(a: CatalogCategory | undefined, b: CatalogCategory 
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
-/**
- * Previews render what Rust saved, so only a milestone identical to its saved row
- * in a category with an unchanged name can be previewed.
- */
 export function milestonePreviewable(saved: CatalogCategory | undefined, category: CatalogCategory, milestone: CatalogMilestone): boolean {
   if (!milestone.id || !saved || saved.label !== category.label) return false;
   const stored = saved.milestones.find(({ id }) => id === milestone.id);
   return !!stored && JSON.stringify(stored) === JSON.stringify(milestone);
 }
 
-/** The PUT body: every category with the loaded version. */
 export function catalogBody(version: number, categories: CatalogCategory[]): { version: number; categories: CatalogCategory[] } {
   return { version, categories };
 }

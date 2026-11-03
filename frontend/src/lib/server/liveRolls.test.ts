@@ -69,7 +69,6 @@ describe("room epochs", () => {
     endRoom("event-f");
     expect(subscribe("event-f", listener, undefined, epoch)).toBeNull();
     expect(subscriberCount("event-f")).toBe(0);
-    // A fresh capture after the teardown subscribes normally.
     const unsubscribe = subscribe("event-f", listener, undefined, roomEpoch("event-f"));
     expect(unsubscribe).not.toBeNull();
     unsubscribe?.();
@@ -83,7 +82,6 @@ describe("teardown races", () => {
     endRoom("event-g");
     const replacement = vi.fn();
     const newUnsub = subscribe("event-g", replacement, undefined, roomEpoch("event-g"))!;
-    // The old stream's cleanup fires after the reconnect already registered.
     oldUnsub();
     publish("event-g", MESSAGE);
     expect(replacement).toHaveBeenCalledWith(MESSAGE);

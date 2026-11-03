@@ -9,8 +9,6 @@ export const prerender = false;
 
 export const load: PageServerLoad = async ({ fetch, parent, url }) => {
   const { viewer } = await parent();
-  // Re-resolved per page load: the console layout's capabilities are cached
-  // across child navigations, so they must not gate protected data here.
   const access = await pageAreaAccess(fetch, viewer, "community");
   const feed: PostFeed = url.searchParams.get("feed") === "announcements" ? "announcements" : "news";
   if (access !== "granted") return { access, feed, context: null };

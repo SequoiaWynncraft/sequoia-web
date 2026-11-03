@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tick } from "svelte";
+  import { tick, untrack } from "svelte";
   import { requestDiscord } from "#lib/api/discordManagement.js";
   import { beforeNavigate, pushState, replaceState } from "$app/navigation";
   import { page } from "$app/state";
@@ -20,15 +20,11 @@
   import type { Definition, DiscordContext, ManagedMessage, RoleButton, AttachmentRef } from "./types";
 
   let { initial, context: initialContext, problem }: { initial: ManagedMessage[]; context: DiscordContext; problem: string | null } = $props();
-  // svelte-ignore state_referenced_locally
-  let context = $state(structuredClone($state.snapshot(initialContext)));
-  // Initial server data seeds an editable workspace, not a second persistence owner.
-  // svelte-ignore state_referenced_locally
-  let messages = $state<ManagedMessage[]>(initial);
+  let context = $state(untrack(() => structuredClone($state.snapshot(initialContext))));
+  let messages = $state<ManagedMessage[]>(untrack(() => initial));
   let selected = $state<ManagedMessage | null>(null);
   let draft = $state<Definition | null>(null);
   let baseline = $state("");
-  /** Bumped when another message opens, so per-embed UI state starts fresh. */
   let session = $state(0);
   type Tab = "message" | "buttons" | "emoji" | "roles";
   const TABS: { id: Tab; label: string }[] = [
@@ -63,11 +59,8 @@
 
   const layout = $derived(!!draft?.components_v2?.length);
   const visibleTabs = $derived(TABS.filter((item) => !layout || item.id !== "buttons"));
-  /** Side-by-side preview needs room for both; below that, staff switch views. */
   const narrow = $derived(width > 0 && width < 780);
-  /** Without room for the browser beside both, staff pick a message, then work on it alone. */
   const compact = $derived(width > 0 && width < 1040);
-  // A shallow history entry, so the device's back gesture returns to the list, not off the page.
   const showDetail = $derived(!!draft && (!compact || page.state.discordDetail === true));
   const guildId = $derived(context.guild_id ?? MAIN_GUILD);
   const guilds = $derived(context.guilds ?? [{ id: MAIN_GUILD, name: "Sequoia" }]);
@@ -80,9 +73,7 @@
   const selfServiceRoleIds = $derived(new Set(eligibleRoles.map((role) => role.id)));
   const channelIds = $derived(new Set(context.channels.map((channel) => channel.id)));
   const emojiNameIssue = $derived(emojiFile && !/^[a-zA-Z0-9_]{2,32}$/.test(emojiName) ? "Use 2–32 letters, numbers or underscores." : undefined);
-  // @everyone is the guild's own id and never a panel role.
   const roleChoices = $derived(context.roles.filter((r) => r.name !== "@everyone" && r.name.toLowerCase().includes(roleSearch.toLowerCase())));
-  // Roles staff can act on come first; permanently protected ones stay out of the way.
   const actionableRoles = $derived(roleChoices.filter((r) => r.eligible).sort((a, b) => Number(b.approved) - Number(a.approved)));
   const protectedRoles = $derived(roleChoices.filter((r) => !r.eligible));
   const emojiChoices = $derived(context.emojis.filter((e) => e.available && e.name.toLowerCase().includes(emojiSearch.toLowerCase())));
@@ -110,7 +101,6 @@
 
   beforeNavigate(({ cancel, shallow }) => { if (dirty && !shallow) { cancel(); error = "Save your draft before leaving, or select Discard changes."; } });
 
-  // Returning to the list lands on the open message's row, not at the top of the page.
   let detailEntry = false;
   $effect(() => {
     const entry = page.state.discordDetail === true;
@@ -133,7 +123,6 @@
   }
 
   function select(message: ManagedMessage | null) {
-    // The open message only comes back into view; it never reloads over unsaved work.
     if (message && message.id === selected?.id) { void showMessage(); return; }
     if (dirty) { pendingSelection = message; discardDialog?.open(); return; }
     open(message);
@@ -160,7 +149,6 @@
     selected = null; draft = null; baseline = ""; pickerButtonId = null;
     if (page.state.discordDetail) history.back();
   }
-  /** On compact screens the open message replaces the list, with its own history entry. */
   async function showMessage() {
     if (!compact) return;
     if (page.state.discordDetail !== true) {
@@ -284,7 +272,6 @@
     emojiFile = file;
     emojiName = file.name.replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9_]/g, "_").slice(0, 32);
     const image = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = reject; reader.readAsDataURL(file); });
-    // A replacement selection can arrive before the previous FileReader settles.
     if (emojiFile === file) emojiImage = image;
   }
   async function upload() {
@@ -525,7 +512,6 @@
   .problem, .inline-issue { margin: 0 0 16px; color: var(--status-error); font-size: var(--text-sm); }
   .inline-issue { margin: 0; font-size: var(--text-xs); }
 
-  /* Compact: the message browser, or the open message with an Edit/Preview switch. */
   .workspace-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; align-items: start; }
   .editor-main[hidden], .discord-preview[hidden] { display: none; }
   .import { border-top: 1px solid var(--border-default); padding-top: 10px; display: grid; gap: 10px; justify-items: start; }
@@ -590,23 +576,19 @@
   .preview-open { margin-left: auto; color: var(--color-gold); font-size: var(--text-xs); }
   .preview-note { margin-top: 10px; }
   .discord-preview { min-width: 0; }
-  /* Only beside the browser; compact screens start at the list itself. */
   .choose-message { display: none; padding: 24px 0; }
   .choose-message p { color: var(--text-body); }
 
   button:focus-visible, summary:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid var(--color-gold); outline-offset: 2px; }
-  /* Inset where a scrolling strip would clip an outer ring. */
   .editor-tabs button:focus-visible, .view-switch button:focus-visible { outline-offset: -2px; }
   h2:focus-visible { outline: 2px solid var(--color-gold); outline-offset: 4px; }
   button:disabled { opacity: 0.5; cursor: default; }
 
-  /* Medium: the open message's editor and preview side by side. */
   @container discord-workspace (min-width: 780px) {
     .workspace-grid.has-detail { grid-template-columns: minmax(0, 1fr) minmax(300px, 0.8fr); }
     .discord-preview { position: sticky; top: 4.5rem; max-height: calc(100vh - 5.5rem); overflow-y: auto; }
   }
 
-  /* Wide: message browser, editor and preview as three columns. Matches `compact`. */
   @container discord-workspace (min-width: 1040px) {
     .workspace-grid, .workspace-grid.has-detail { grid-template-columns: 232px minmax(0, 1.2fr) minmax(320px, 1fr); }
     .discord-preview { max-width: 580px; }
@@ -620,7 +602,6 @@
     .two-fields { grid-template-columns: minmax(0, 1fr); }
     .tools button, .button-tools > button { min-height: 44px; }
     .editor-actions :global(.seq-button) { min-height: 44px; }
-    /* Phones: both actions share one row so the sticky bar stays short. */
     .action-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     .action-buttons :global(.seq-button) { min-width: 0; padding-inline: 0.5rem; white-space: normal; text-align: center; line-height: 1.25; }
     .publish-hint { grid-column: 1 / -1; }

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { setContext } from "svelte";
+  import { setContext, untrack } from "svelte";
   import { enhance } from "$app/forms";
 
   import "./editor.css";
@@ -48,35 +48,22 @@
     mode: "create" | "edit";
     initial?: GuildEvent | null;
     initialPublished?: boolean;
-    /** Stored version the form loaded from; sent back so the save can reject a
-     * stale draft that would clobber a concurrent edit or roll. */
     initialUpdatedAt?: number | null;
-    /** Picker data (roster, tracker events); the form degrades without it. */
     context?: EventFormContext | null;
-    /** Persisted draw records for the raffle history, newest first. */
     rollHistory?: RaffleRollRecord[] | null;
-    /** Rejection from the last server submission. */
     error?: string | null;
     saved?: boolean;
-    /** Result of the last ?/createTracker submission. */
     trackerCreated?: TrackerOption | null;
-    /** Result of the last ?/updateTracker submission. */
     trackerUpdated?: TrackerOption | null;
     trackerError?: string | null;
     presetError?: string | null;
-    /** The last action succeeded but its audit row did not land. */
     auditWarning?: boolean;
-    /** The last roll landed but its stage replay record did not. */
     rollWarning?: boolean;
   } = $props();
 
   const FORM_ID = "event-editor-form";
 
-  // The draft deliberately seeds from the props once - the parent remounts
-  // the editor via {#key} when the event changes. Live props (initial,
-  // trackerCreated/Updated, trackerError) are synced by the effects below.
-  // svelte-ignore state_referenced_locally
-  const draft = new EventDraft({ mode, initial, initialPublished, initialUpdatedAt, context });
+  const draft = untrack(() => new EventDraft({ mode, initial, initialPublished, initialUpdatedAt, context }));
   setContext(EDITOR_KEY, draft);
 
   let presetDeleteForm = $state<HTMLFormElement>();
@@ -103,8 +90,6 @@
     eventDeleteForm?.requestSubmit();
   }
 
-  // A save that adds a raffle unlocks its roll button without a full reload -
-  // the rollability checks read the live stored event, never the mount seed.
   $effect.pre(() => {
     draft.liveInitial = initial ?? null;
   });
@@ -124,17 +109,12 @@
     draft.rollHistory = rollHistory ?? [];
   });
 
-  // History capture after a quiet period. Replayed snapshots need no
-  // suppression flag: applySnapshot re-points lastCaptured at the applied
-  // state, so the debounced capture no-ops on equality, while a real edit
-  // in the quiet window still differs and lands.
   $effect(() => {
     const current = draft.payload;
     draft.scheduleCapture(current);
     return () => draft.cancelCapture();
   });
 
-  // Adopt a tracker the server just created: list it and select it.
   $effect(() => {
     const created = trackerCreated;
     if (created && !draft.trackerChoices.some((option) => option.id === created.id)) {
@@ -146,9 +126,6 @@
     }
   });
 
-  // Reflect a server-side tracker update into the picker list. The editor
-  // closes on any update response - a no-op save is still a successful save.
-  // Only the list mutation is guarded by equality, so the effect settles.
   $effect(() => {
     const updated = trackerUpdated;
     if (!updated) return;
@@ -160,10 +137,6 @@
     }
   });
 
-  // Removing or emptying a personal milestone drops it from milestoneOptions;
-  // clear any milestone rule that pointed at it so the picker visibly resets
-  // and no stale id lingers until serialization. Setting "" is stable (falsy,
-  // so the effect no-ops on its own re-run).
   $effect(() => {
     const valid = new Set(draft.milestoneOptions.map((option) => option.id));
     for (const raffle of draft.raffles) {
@@ -248,9 +221,6 @@
 
     <form id={FORM_ID} class="evf-form" method="POST" action="?/save" use:enhance={draft.submit}>
       <input type="hidden" name="payload" value={draft.payload} />
-      <!-- The version the visible draft is based on (see knownUpdatedAt): own
-           saves and rolls advance it so follow-up saves aren't rejected as
-           stale, but a change this tab never displayed is. -->
       <input type="hidden" name="baseUpdatedAt" value={draft.knownUpdatedAt ?? ""} />
       <input type="hidden" name="trackerPayload" value={draft.trackerPayload} />
 
@@ -289,8 +259,6 @@
 
     {#if mode === "edit"}
       <form bind:this={eventDeleteForm} class="evf-danger" method="POST" action="?/delete" use:enhance>
-        <!-- Same draft-pinned version token as the save form: deleting is only
-             safe against the version the manager actually reviewed. -->
         <input type="hidden" name="baseUpdatedAt" value={draft.knownUpdatedAt ?? ""} />
         <Button size="sm" variant="ghost" onclick={() => confirmEventDelete?.open()}>
           Delete event

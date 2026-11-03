@@ -8,10 +8,6 @@ export function serverIsRetiring() {
 }
 
 /**
- * SIGUSR2 first makes the dedicated health endpoint fail so Traefik removes
- * this container from its service. The server remains available for a short
- * provider-propagation window, then retires at the first request-free point.
- *
  * @param {import("node:http").Server} httpServer
  * @param {NodeJS.Process} signals
  * @param {() => void} retire

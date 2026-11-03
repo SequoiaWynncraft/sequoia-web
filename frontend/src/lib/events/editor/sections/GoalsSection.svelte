@@ -23,8 +23,6 @@
     bind:checked={draft.goalEnabled}
     label="Track goals"
     onchange={(event) => {
-      // The explicit handler can run before bind:checked applies -
-      // read the DOM state, not the bound one.
       if (event.currentTarget.checked && draft.goals.length === 0) {
         draft.goals.push(draft.newGoalRow());
       }

@@ -198,8 +198,6 @@ describe("resolveEligibility", () => {
       ROSTER,
     );
     expect(result.entrants.map((entrant) => entrant.username)).toEqual(["Alice"]);
-    // The whole point: the times survive to the board read untruncated, and
-    // the day-granular rollup API is never consulted.
     expect(mockBoard).toHaveBeenCalledWith(fetch, event().tracker, ROSTER, { window: subDay }, undefined);
     expect(mockProgress).not.toHaveBeenCalled();
   });
@@ -294,8 +292,6 @@ describe("resolveEligibility", () => {
       }),
       ROSTER,
     );
-    // Alice via the rule; Xavier via include with his floor; Cara included
-    // then excluded - exclude wins.
     expect(result.entrants).toEqual([
       { player_uuid: "uuid-a", username: "Alice", tickets: 1, source: "roster" },
       { player_uuid: "uuid-x", username: "Xavier", tickets: 3, source: "include" },
@@ -327,7 +323,6 @@ describe("resolveEligibility", () => {
     expect(rule.error).toContain("2026-07-05");
     expect(rule.entrants).toEqual([]);
 
-    // Wars and playtime read the activity rollups' start, not the raid feed's.
     progressWith([["uuid-a", { playtime: 9 }]], { activity: "2026-07-03" });
     const weight = await resolveEligibility(
       fetch,
@@ -339,7 +334,6 @@ describe("resolveEligibility", () => {
     );
     expect(weight.error).toContain("2026-07-03");
 
-    // A window starting on or after the history start resolves normally.
     progressWith([["uuid-a", { raids: 12 }]], { raids: "2026-07-01" });
     const fine = await resolveEligibility(
       fetch,
@@ -510,7 +504,6 @@ describe("whitelist-only raffles", () => {
       raffle({
         eligibility: {
           whitelistOnly: true,
-          // A rule that would exclude everyone must have no effect.
           rules: [{ type: "guildRank", ranks: [] }],
           include: [
             { player_uuid: "uuid-b", username: "Bob" },

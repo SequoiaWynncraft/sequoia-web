@@ -22,7 +22,6 @@
     label?: string;
   } = $props();
 
-  /** Staircase arrangement: winner centered, then flanks outward. */
   const arranged = $derived.by(() => {
     const top = entries.slice(0, max);
     if (top.length < 3) return [];
@@ -60,7 +59,6 @@
 <style>
   .podium {
     display: flex;
-    /* The staircase is symmetric - center it when the caps leave slack. */
     justify-content: center;
     align-items: flex-end;
     gap: 12px;
@@ -69,8 +67,6 @@
 
   .podium-slot {
     display: grid;
-    /* Slots share whatever width sits above the ledger - three entries get
-       roomy cards, five divide the same span. Renders scale with the slot. */
     flex: 1 1 0;
     min-width: 0;
     max-width: 340px;
@@ -99,17 +95,12 @@
   }
 
   .podium-render {
-    /* Front-bust renders are square; reserving the box before the skin loads
-       keeps slot heights stable, so reloads and re-sorts never jitter. */
     aspect-ratio: 1;
     height: auto;
-    /* The clamp minimums can exceed a very narrow slot - never overflow it. */
     max-width: 100%;
     image-rendering: pixelated;
   }
 
-  /* A real staircase: every place gets its own step so the hierarchy reads
-     at a glance. Slots bottom-align, so render size and headroom set height. */
   .podium-place-1 {
     padding-top: 30px;
   }
@@ -167,14 +158,12 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* Fourth and fifth places only earn a slot when there is room. */
   @media (max-width: 980px) {
     .podium-extra {
       display: none;
     }
   }
 
-  /* Narrow viewports: the clamps bottom out, only the padding needs trimming. */
   @media (max-width: 640px) {
     .podium-slot {
       padding-right: 8px;

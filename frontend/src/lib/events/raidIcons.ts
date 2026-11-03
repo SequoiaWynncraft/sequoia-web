@@ -1,19 +1,10 @@
-/**
- * Catalog of the raid icons hosted by the backend's static assets. The
- * validator only accepts files listed here, so this is the single source of
- * truth - keep it in sync with the backend's assets/raid-icons directory.
- */
-
 export const RAID_ICON_BASE = "https://api.seqwawa.com/assets/raid-icons/";
 
 export interface RaidIcon {
-  /** File name under the raid-icons asset directory. */
   file: string;
-  /** Terse picker label. */
   label: string;
 }
 
-/** Transparent cutouts first per raid, then the framed tile variants. */
 export const RAID_ICONS: RaidIcon[] = [
   { file: "raid_icon_tcc_transparent.png", label: "TCC" },
   { file: "raid_icon_tcc_bg.png", label: "TCC tile" },

@@ -8,16 +8,13 @@ import { nonNegativeInteger, nonNegativeNumber, booleanValue, stringValue } from
 const FRESH_MS = 2 * 60 * 1000;
 const STALE_MS = 60 * 60 * 1000;
 
-/** Bounds in-memory resources now that any public UUID lookup can create one. */
 const MAX_PLAYER_RESOURCES = 128;
 const UUID_PATTERN = /^([0-9a-f]{8})-?([0-9a-f]{4})-?([0-9a-f]{4})-?([0-9a-f]{4})-?([0-9a-f]{12})$/;
 
-/** Wynncraft's public full-result player payload, as stored; parsed per use. */
 export type WynnPlayerPayload = Record<string, unknown> & { username: string; uuid: string };
 
 const resources = new Map<string, CachedResource<WynnPlayerPayload>>();
 
-/** No Wynncraft player has this UUID. */
 export class UnknownPlayerError extends Error {}
 
 export class PlayerNotFoundError extends Error {
@@ -33,7 +30,6 @@ export async function getPlayerCard(
   name: string,
   options: PlayerCardOptions = {},
 ): Promise<PlayerCardResponse> {
-  // Fresh roster for the member gate; stale data is only used if the refresh fails.
   const guild = await getWynncraftGuild(fetchImpl);
   const member = findMember(guild.data.members, name);
   if (!member) throw new PlayerNotFoundError(name);
@@ -45,9 +41,6 @@ export async function getPlayerCard(
     throw new Error("Unable to load the player profile.");
   }
 
-  // The guild roster is the only Wynncraft source for the in-guild raid counter and the
-  // guild join date, so both ride along from the gate lookup above instead of costing a
-  // second request.
   const card = parsePlayerCard(value.data, new Date(value.updatedAt).toISOString(), {
     currentGuildRaids: member.currentGuildRaids,
     guildJoined: member.joined,
@@ -61,19 +54,11 @@ function playerResource(uuid: string): CachedResource<WynnPlayerPayload> {
   return wynnPlayerResource(canonical);
 }
 
-/** A UUID in its canonical lowercase, hyphenated form, or null when `value` is not one. */
 export function canonicalUuid(value: string): string | null {
   const match = UUID_PATTERN.exec(value.trim().toLowerCase());
   return match ? match.slice(1).join("-") : null;
 }
 
-/**
- * The single cache entry for one player. Every lookup path, by roster name
- * or by any public name/UUID, stores Wynncraft's public full-result payload
- * under the canonical UUID, so aliases never persist duplicate copies.
- *
- * `canonical` must come from {@link canonicalUuid}.
- */
 export function wynnPlayerResource(canonical: string): CachedResource<WynnPlayerPayload> {
   let resource = resources.get(canonical);
   if (!resource) {
@@ -133,17 +118,12 @@ function findMember(members: Record<string, unknown>, name: string): RosterMembe
   return null;
 }
 
-/**
- * Reads a roster member's raid count for their current guild. Profiles that restrict
- * main access omit `globalData` entirely, so this is null more often than not for them.
- */
 function memberCurrentGuildRaids(member: Record<string, unknown>): number | null {
   const globalData = isRecord(member.globalData) ? member.globalData : {};
   const raids = isRecord(globalData.currentGuildRaids) ? globalData.currentGuildRaids : {};
   return nonNegativeInteger(raids.total) ?? null;
 }
 
-/** Fields the player endpoint does not report, supplied by the caller when it has them. */
 type PlayerCardExtras = { currentGuildRaids?: number | null; guildJoined?: string | null };
 
 export function parsePlayerCard(

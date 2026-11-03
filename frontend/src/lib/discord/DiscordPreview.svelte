@@ -18,7 +18,6 @@
     roles: new Map(context.roles.map((role) => [role.id, role.name])),
     channels: new Map(context.channels.map((channel) => [channel.id, channel.name])),
   });
-  /** Images that failed to load, so staff see a broken link instead of a gap. */
   const failed = new SvelteSet<string>();
   const standalone = $derived(standaloneAttachments(draft));
   const groups = $derived(embedGroups(draft.embeds));
@@ -170,7 +169,6 @@
 </div>
 
 <style>
-  /* Discord's dark theme, approximated with the site's own text face. */
   .dp {
     padding: 16px 16px 16px 0;
     border-radius: 8px;

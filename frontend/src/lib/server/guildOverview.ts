@@ -91,20 +91,6 @@ export function parseWynncraftGuildOverview(
   };
 }
 
-/**
- * Branch leadership, or none when the profile snapshot cannot be read.
- *
- * The shared validator guarantees only the shallow response shape - a
- * version-skewed snapshot holding null or keyless catalog roles, or a profile
- * without `role_keys`, passes it and throws on first dereference. Leadership is
- * optional decoration; the guild stats beside it are not, so a skewed snapshot
- * costs the leadership list rather than turning the whole overview into a 503.
- *
- * This also absorbs a malformed *member* entry, the one other throw reachable
- * from here. The stats above are read first and still reject a guild payload
- * that is broken at the top level, so what survives is a response whose totals
- * are sound and whose leadership could not be named.
- */
 function branchLeadershipOrNone(
   members: Record<string, unknown>,
   profiles: RankProfilesResponse,

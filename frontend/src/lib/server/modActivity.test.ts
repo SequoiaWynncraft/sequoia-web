@@ -38,7 +38,6 @@ describe("loadModRunCounts", () => {
     expect(
       await loadModRunCounts(fetchReturning({ days: [{ day: "2026-07-02", runs: 1.5 }] }), RANGE),
     ).toBeNull();
-    // Overflow days normalize under Date.parse; they must still be rejected.
     expect(
       await loadModRunCounts(fetchReturning({ days: [{ day: "2026-07-32", runs: 1 }] }), RANGE),
     ).toBeNull();

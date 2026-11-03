@@ -10,7 +10,6 @@
     ...rest
   }: {
     value?: string | undefined;
-    /** The underlying textarea, e.g. to insert at the caret. */
     element?: HTMLTextAreaElement | undefined;
     invalid?: boolean;
   } & Omit<HTMLTextareaAttributes, "value"> = $props();

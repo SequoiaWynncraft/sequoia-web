@@ -9,9 +9,7 @@ const H = vi.hoisted(() => ({
     { username: "Dris", uuid: "44444444-4444-4444-4444-444444444444", count: 70 },
     { username: "Eir", uuid: "55555555-5555-5555-5555-555555555555", count: 70 },
   ],
-  /** Linked profiles the gate reads; individual tests swap this in. */
   profiles: { profiles: [] } as { profiles: unknown[] },
-  /** Staleness the two gate reads report back; the fail-closed cases set these. */
   rosterStale: false,
   profilesStale: false,
   db: null as Client | null,
@@ -44,8 +42,6 @@ vi.mock("#lib/server/rankProfiles.js", () => ({
     updatedAt: Date.now(),
   }),
 }));
-// The announcement cache persists through the shared libsql client; an in-memory
-// one keeps the cached-build tests off the developer's .data database file.
 vi.mock("#lib/server/db.js", () => ({
   database: async () => {
     const { createClient } = await import("@libsql/client");
@@ -54,7 +50,6 @@ vi.mock("#lib/server/db.js", () => ({
   },
 }));
 
-// Imported after the mocks so the module binds the stubbed backends.
 const {
   buildWeeklyRaidAnnouncement,
   isAnnouncementViewer,
@@ -66,9 +61,6 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-/** Routes the mod leaderboard: NOTG (and the unfiltered total) carry the sample
- * roster; every other raid comes back empty. Returns the spy so callers can
- * assert how much of the tracker a request actually touched. */
 function stubModLeaderboard() {
   const spy = vi.fn(async (input: string | URL) => {
     const url = new URL(input.toString());
@@ -86,8 +78,6 @@ function stubModLeaderboard() {
   return spy;
 }
 
-/** As above, but over an explicit player list, so a case can move the roster
- * without moving what the tracker recorded in the window. */
 function stubModLeaderboardFor(players: typeof H.players) {
   const spy = vi.fn(async (input: string | URL) => {
     const url = new URL(input.toString());
@@ -105,8 +95,6 @@ function stubModLeaderboardFor(players: typeof H.players) {
   return spy;
 }
 
-/** Routes the mod leaderboard as above, but fails every read in the previous
- * week's window - the two weeks must degrade independently. */
 function stubModLeaderboardCurrentWeekOnly(previousStart: string) {
   vi.stubGlobal(
     "fetch",
@@ -143,16 +131,10 @@ describe("weekWindows", () => {
   });
 });
 
-/**
- * Fixed windows, so a build never depends on the wall clock. Each case that
- * builds a *previous* week picks its own pair: a closed week is memoized once
- * built, so cases sharing a window would stop issuing the reads they assert on.
- */
 const WEEKS = weekWindows(Date.parse("2026-07-25T12:27:18Z"));
 const FAILING_WEEKS = weekWindows(Date.parse("2026-06-25T12:27:18Z"));
 const REUSE_WEEKS = weekWindows(Date.parse("2026-05-25T12:27:18Z"));
 const ROSTER_MOVE_WEEKS = weekWindows(Date.parse("2026-04-25T12:27:18Z"));
-/** NOTG, NOL, TCC, TNA, TWP - each read once per week, plus the total. */
 const ANNOUNCED_RAID_COUNT = 5;
 
 describe("buildWeeklyRaidAnnouncement", () => {
@@ -211,10 +193,8 @@ describe("buildWeeklyRaidAnnouncement", () => {
       (call) =>
         new URL(call[0].toString()).searchParams.get("from") === REUSE_WEEKS.previous.start,
     );
-    // One unfiltered total plus one read per announced raid.
     expect(previousReads).toHaveLength(ANNOUNCED_RAID_COUNT + 1);
 
-    // The window is closed, so a rebuild must not touch it again.
     const second = stubModLeaderboard();
     const announcement = await buildWeeklyRaidAnnouncement(fetch, REUSE_WEEKS);
     expect(announcement!.previous).not.toBeNull();
@@ -228,9 +208,6 @@ describe("buildWeeklyRaidAnnouncement", () => {
   });
 
   it("re-applies the current roster to a previous week it is reusing", async () => {
-    // What the tracker recorded in a closed window is settled; who is on the
-    // roster and what they are called is not. A departure or a rename after the
-    // week was first read must reach the reused board and its Discord text.
     const tracked = H.players.map((player) => ({ ...player }));
     stubModLeaderboardFor(tracked);
     const before = await buildWeeklyRaidAnnouncement(fetch, ROSTER_MOVE_WEEKS);
@@ -240,12 +217,10 @@ describe("buildWeeklyRaidAnnouncement", () => {
     });
 
     const roster = H.players;
-    // Boreas leaves the guild; Aylin is renamed.
     H.players = [{ ...roster[0], username: "Aylin2" }, ...roster.slice(2)];
     try {
       const spy = stubModLeaderboardFor(tracked);
       const after = await buildWeeklyRaidAnnouncement(fetch, ROSTER_MOVE_WEEKS);
-      // Still served from the memo - this is the reuse path, not a re-read.
       expect(
         spy.mock.calls.filter(
           (call) =>
@@ -267,7 +242,6 @@ describe("buildWeeklyRaidAnnouncement", () => {
   });
 });
 
-/** Builds a linked-profiles response carrying one profile's branch standings. */
 function profilesWith(
   uuid: string,
   branches: { key: string; branch: string; level: "member" | "trainee" }[],
@@ -277,7 +251,6 @@ function profilesWith(
   } as unknown as Parameters<typeof isAnnouncementViewer>[0];
 }
 
-/** The guild roster the gate checks membership against. */
 function rosterWith(...uuids: string[]) {
   return uuids.map((uuid) => ({
     username: "Aylin",
@@ -339,7 +312,6 @@ describe("isAnnouncementViewer", () => {
   });
 });
 
-/** One linked profile for the sample viewer, standing in one branch. */
 function linkedProfile(branch: string, level: "member" | "trainee") {
   return {
     profiles: [
@@ -351,13 +323,6 @@ function linkedProfile(branch: string, level: "member" | "trainee") {
   };
 }
 
-/**
- * The activity page's entry point, over the real announcement cache: the gate
- * must deny before any tracker read, and one build must serve every later
- * viewer. The module-level announcement cache is shared across these cases, so
- * each warms what it needs; only the unavailable-tracker case depends on running
- * before any build, since a warm cache would stand in for the failed read.
- */
 describe("loadWeeklyRaidAnnouncement", () => {
   const VIEWER = {
     discordId: "1",
@@ -391,8 +356,6 @@ describe("loadWeeklyRaidAnnouncement", () => {
     expect(spy).not.toHaveBeenCalled();
   });
 
-  // A revoked membership or branch role outlives its revocation in either cache,
-  // so an otherwise-eligible viewer must be denied while a gate read is stale.
   it("denies an eligible viewer while the roster is stale", async () => {
     H.rosterStale = true;
     const spy = stubModLeaderboard();
@@ -442,8 +405,6 @@ describe("loadWeeklyRaidAnnouncement", () => {
 
   it("serves the fresh cached build to the next viewer without re-reading the tracker", async () => {
     const spy = stubModLeaderboard();
-    // Warm the cache in-test: whether or not an earlier case already built this
-    // week, one load leaves it fresh, so the next must add no tracker reads.
     expect(await loadWeeklyRaidAnnouncement(fetch, VIEWER)).not.toBeNull();
     const reads = spy.mock.calls.length;
     const announcement = await loadWeeklyRaidAnnouncement(fetch, VIEWER);

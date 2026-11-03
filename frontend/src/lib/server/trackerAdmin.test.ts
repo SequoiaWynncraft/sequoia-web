@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const viewer = vi.hoisted(() => ({ discordId: "1", minecraftUuid: "", discordUsername: "manager" }));
 vi.mock("./eventManagers", () => ({ requireEventManager: vi.fn(async () => viewer) }));
 vi.mock("./auditLog", () => ({ recordAudit: vi.fn(async () => true) }));
-// A configured backend, so a rejected instant is the only reason fetch would not run.
 vi.mock("$app/env/private", () => ({
   SEQUOIA_WEB_BACKEND_URL: "http://tracker.test",
   SEQUOIA_WEB_BACKEND_INTERNAL_TOKEN: "test-token",

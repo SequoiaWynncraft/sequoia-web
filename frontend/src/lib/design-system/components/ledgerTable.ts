@@ -5,7 +5,7 @@ export interface LedgerColumn<Row> {
   label: string;
   numeric?: boolean;
   sortable?: boolean;
-  /** Render cell text in the pixel display face — for player/guild names. */
+  /** Render cell text in the pixel display face, for player and guild names. */
   nameStyle?: boolean;
   /** Small color square in the column header (chart series identity). */
   headerColor?: string;
@@ -16,7 +16,7 @@ export interface LedgerColumn<Row> {
   valueColor?: (row: Row) => string | null;
   color?: (row: Row) => string | null;
   secondary?: (row: Row) => string | null;
-  /** CSS color for the secondary text - rank-aware labels pass rankColor(). */
+  /** CSS color for the secondary text. */
   secondaryColor?: (row: Row) => string | null;
   href?: (row: Row) => string | null;
   /** Image URL rendered as a small avatar before the cell text. */

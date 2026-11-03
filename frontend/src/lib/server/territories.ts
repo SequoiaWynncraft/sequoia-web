@@ -49,7 +49,6 @@ function parseHeldTerritories(value: unknown): HeldTerritory[] {
     return [{ name, acquired: entry.acquired }];
   });
 
-  // Longest-held first.
   held.sort((a, b) => Date.parse(a.acquired) - Date.parse(b.acquired) || a.name.localeCompare(b.name));
   return held;
 }

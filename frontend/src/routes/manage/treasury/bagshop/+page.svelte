@@ -30,8 +30,6 @@
     index: number;
   }
 
-  // Flat rows in raid-group + rarity order; `index` pins the ledger's
-  // ordering since none of the editable columns is sortable.
   const inventoryRows = $derived.by<InventoryRow[]>(() => {
     const rows: InventoryRow[] = [];
     for (const group of groups) {
@@ -51,13 +49,10 @@
     return rows;
   });
 
-  // Message/inventory IDs with an action in flight — a Set so concurrent Fill/Decline/Save
-  // actions keep independent pending state rather than clobbering one another.
   const busy = new SvelteSet<string>();
   let actionError = $state<string | null>(null);
   let declineReasons = $state<Record<string, string>>({});
 
-  // Inventory editor drafts, keyed by inventory key.
   let drafts = $state<Record<string, { stock: string; price: string; cap: string }>>({});
   let savedKey = $state<string | null>(null);
 
@@ -65,11 +60,9 @@
     return drafts[key] ?? { stock: String(stock), price: String(price), cap: String(cap) };
   }
 
-  /** A per-order lock so a claim/fill/decline can't race another mutation on the same order. */
   const orderLock = (order: Order) => `order:${order.messageId}`;
 
   async function run(lockId: string, fn: () => Promise<{ ok: boolean; error?: { code: string; message: string } }>) {
-    // Serialize by resource: ignore a second action while one on the same order/row is in flight.
     if (busy.has(lockId)) return;
     busy.add(lockId);
     actionError = null;
@@ -102,11 +95,9 @@
     return run(orderLock(order), () => client.declineOrder(order.messageId, reason));
   }
 
-  /** Parses an inventory field: "" → unchanged (null), a non-negative integer → its value, anything else → invalid. */
   function parseInventoryField(raw: string): number | null | "invalid" {
     const trimmed = raw.trim();
     if (trimmed === "") return null;
-    // Reject decimals, negatives and other malformed input rather than truncating with parseInt.
     if (!/^\d+$/.test(trimmed)) return "invalid";
     return Number(trimmed);
   }
@@ -162,7 +153,6 @@
   {:else}
     <FormStatus error={actionError} />
 
-    <!-- ─── Open orders ───────────────────────────────────────────────── -->
     <section class="mg-section">
       <SectionLabel>
         {#snippet children()}Open orders{/snippet}
@@ -239,7 +229,6 @@
       {/if}
     </section>
 
-    <!-- ─── Inventory editor ──────────────────────────────────────────── -->
     <section class="mg-section">
       <SectionLabel>
         {#snippet children()}Stock, prices &amp; caps{/snippet}
@@ -263,8 +252,6 @@
         <input class="seq-input seq-input-mono mg-num-input" type="number" min="0" aria-label="Cap for {row.bag}" bind:value={draft.cap} oninput={(e) => (drafts[row.key] = { ...draft, cap: e.currentTarget.value })} />
       {/snippet}
       {#snippet saveCell(row: InventoryRow)}
-        <!-- The bag label is a plain cell in the ledger, so the button names
-             its own row for screen readers. -->
         <Button
           size="sm"
           variant="secondary"

@@ -1,40 +1,27 @@
-/* ═══════════════════════════════════════════════════════════════════
-   SEQUOIA — EFFECTS: shadows, glows, transitions, keyframes
-   The brand leans on warm gold/enchant glows, inset bevels (Minecraft
-   inventory slots), and a single signature easing curve.
-   ═══════════════════════════════════════════════════════════════════ */
-
 :root {
-  /* ── Easing — used almost everywhere ── */
-  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);  /* @kind other */
-  --ease-in-out-soft: cubic-bezier(0.4, 0, 0.15, 1); /* @kind other */
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out-soft: cubic-bezier(0.4, 0, 0.15, 1);
 
-  /* ── Durations ── */
-  --dur-fast: 0.15s;   /* @kind other */
-  --dur-base: 0.25s;   /* @kind other */
-  --dur-slow: 0.35s;   /* @kind other */
-  --dur-slower: 0.6s;  /* @kind other */
+  --dur-fast: 0.15s;
+  --dur-base: 0.25s;
+  --dur-slow: 0.35s;
+  --dur-slower: 0.6s;
 
-  /* ── Elevation shadows (cool, near-black — sits over abyss) ── */
   --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.25);
   --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.45);
   --shadow-modal: 0 24px 80px rgba(0, 0, 0, 0.6), 0 0 40px rgba(0, 0, 0, 0.3);
 
-  /* ── Inventory-slot bevel (inset) ── */
-  --bevel-slot: inset 1px 1px 0 rgba(255, 255, 255, 0.06), inset -1px -1px 0 rgba(0, 0, 0, 0.3); /* @kind shadow */
+  --bevel-slot: inset 1px 1px 0 rgba(255, 255, 255, 0.06), inset -1px -1px 0 rgba(0, 0, 0, 0.3);
 
-  /* ── Accent glows ── */
   --glow-gold: 0 0 24px color-mix(in srgb, var(--color-gold) 35%, transparent), 0 0 8px color-mix(in srgb, var(--color-gold) 20%, transparent);
   --glow-gold-soft: 0 0 12px color-mix(in srgb, var(--color-gold) 20%, transparent);
   --glow-enchant: 0 0 28px color-mix(in srgb, var(--color-enchant) 18%, transparent);
   --glow-diamond: 0 0 20px color-mix(in srgb, var(--color-diamond) 15%, transparent);
 
-  /* ── Card hover composite ── */
   --shadow-card-hover: 0 16px 48px rgba(0, 0, 0, 0.45), 0 0 28px color-mix(in srgb, var(--color-enchant) 18%, transparent);
 }
 
-/* ── Signature keyframes (subset shipped to consumers) ── */
 @keyframes seq-fade-in-up {
   from { opacity: 0; transform: translateY(24px); }
   to { opacity: 1; transform: translateY(0); }

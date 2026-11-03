@@ -15,11 +15,6 @@ import { requestError } from "#lib/server/requestError.js";
 
 export const prerender = false;
 
-/**
- * Exports a tracker's full standings as CSV: every board row with identity,
- * ranks, and raid count (or war points), ordered as the standings show them. Manager-gated
- * like every manage surface - endpoints don't inherit the layout's guard.
- */
 export const GET: RequestHandler = async ({ params, url, cookies, fetch, locals }) => {
   await requireEventManager({ cookies, fetch, locals });
   if (!(await eventStore.get(params.slug))) requestError(locals, 404, "No such event");
@@ -28,9 +23,6 @@ export const GET: RequestHandler = async ({ params, url, cookies, fetch, locals 
   const tracked = (await loadRaidEvents(fetch)).find((entry) => entry.id === trackerId);
   if (!tracked) requestError(locals, 404, "No such tracker");
 
-  // Mirrors the standings board: the tracker record decides how it is
-  // tracked; mod-tracked boards count inside the tracker's own window and
-  // include the whole verified roster (zero-raid members included).
   const tracking = tracked.tracking ?? "api";
   let result: { leaderboard: RaidLeaderboardEntry[]; error: string | null };
   if (tracking !== "api") {
@@ -46,8 +38,6 @@ export const GET: RequestHandler = async ({ params, url, cookies, fetch, locals 
     result = await loadTrackerLeaderboard(fetch, trackerId);
   }
   if (result.error) requestError(locals, 503, result.error);
-  // Places follow the count, as on the standings board - no feed promises an
-  // order. The sort is stable, so ties keep the order the backend sent.
   const leaderboard = [...result.leaderboard].sort((a, b) => b.raids - a.raids);
 
   const wars = tracking === "wars";

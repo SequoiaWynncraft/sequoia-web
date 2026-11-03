@@ -14,7 +14,6 @@
     body?: string;
     confirmLabel?: string;
     cancelLabel?: string;
-    /** Destructive styling on the confirm button. */
     danger?: boolean;
     onconfirm: () => void;
     children?: Snippet;

@@ -8,11 +8,6 @@ import { SEQUOIA_API_BASE_URL } from "#lib/config/public.js";
 const TTL_MS = 60 * 1000;
 const MAX_CACHED_PAGES = 128;
 
-/**
- * Page/filter combinations are attacker controlled, so directory pages stay in
- * a capped in-memory TTL map instead of the persistent cache - the backend
- * precomputes the directory anyway, so a miss is one cheap request.
- */
 const pageCache = new Map<string, { expires: number; page: GlobalDirectoryPage }>();
 
 export async function getGlobalGuildDirectory(
@@ -58,7 +53,6 @@ export async function getGlobalGuildDirectory(
       : [],
   };
   if (!isGlobalDirectoryPage(normalized)) throw new Error("Unexpected guild directory response.");
-  // Refreshing an existing key overwrites in place - only new keys need room.
   if (!pageCache.has(key)) evictOldest();
   pageCache.set(key, { expires: Date.now() + TTL_MS, page: normalized });
   return normalized;

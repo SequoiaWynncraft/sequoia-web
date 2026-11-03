@@ -11,7 +11,6 @@
     event: GuildEvent;
     status: EventStatus;
     align?: "start" | "center" | "end";
-    /** Hub shelves already group by status - the chip would repeat them. */
     showStatus?: boolean;
   } = $props();
 

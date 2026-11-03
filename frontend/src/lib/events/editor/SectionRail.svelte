@@ -25,7 +25,6 @@
   );
 
   let active = $state<SectionId>(EDITOR_SECTIONS[0].id);
-  /** Click target whose smooth scroll is still traveling; observer holds. */
   let navigatingTo: SectionId | null = null;
   let navigationTimer: ReturnType<typeof setTimeout> | undefined;
   const visible = new Set<string>();
@@ -35,8 +34,6 @@
     if (next !== null) active = next;
   }
 
-  // Scrollspy: the topmost section intersecting the upper viewport band wins.
-  // One observer over the stable section anchors; sections never unmount.
   $effect(() => {
     const anchors = EDITOR_SECTIONS.map((section) => document.getElementById(section.id)).filter(
       (element): element is HTMLElement => element !== null,
@@ -48,9 +45,6 @@
           if (entry.isIntersecting) visible.add(entry.target.id);
           else visible.delete(entry.target.id);
         }
-        // A click's smooth scroll crosses every section between here and the
-        // target - the observer must not fight the explicit choice while the
-        // scroll is still traveling.
         if (navigatingTo !== null) return;
         reconcileActive();
       },
@@ -64,9 +58,6 @@
     event.preventDefault();
     const target = document.getElementById(id);
     if (!target) return;
-    // Explicit intent beats the observer: side-by-side sections can share a
-    // scroll interval, and the click must win the tie. The suppression lifts
-    // when the scroll settles (scrollend where supported, a timer where not).
     active = id;
     navigatingTo = id;
     clearTimeout(navigationTimer);
@@ -120,8 +111,6 @@
     >
       {draft.mode === "create" ? "Create event" : "Save changes"}
     </Button>
-    <!-- The footer renders the same outcome, but it sits below thirteen
-         sections - a rejected save must be visible where the button is. -->
     {#if statusError || statusWarning || draft.serverSaved}
       <div class="rail-status">
         <FormStatus error={statusError} warning={statusWarning} saved={draft.serverSaved} compact size="xs" />
@@ -219,8 +208,6 @@
   }
 
   @media (max-width: 1000px) {
-    /* The side column moves above the form: the rail becomes a wrap of
-       jump chips and the sticky save moves back into the page flow. */
     .rail-list {
       display: flex;
       flex-wrap: wrap;

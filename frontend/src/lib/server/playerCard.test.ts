@@ -62,7 +62,6 @@ describe("parsePlayerCard", () => {
       total_level: 5328,
       raids_total: 19_694,
       raids: { "The Canyon Colossus": 5580 },
-      // The player endpoint never reports the in-guild counter; the roster supplies it.
       current_guild_raids: null,
       pvp_kills: 0,
       pvp_deaths: 0,

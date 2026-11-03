@@ -157,9 +157,6 @@ describe("parseWynncraftGuildOverview", () => {
   });
 
   it("keeps the guild stats when a version-skewed profile snapshot cannot be read", () => {
-    // The shared validator checks only that `catalog.roles` and `profiles` are
-    // arrays, so a skewed snapshot reaches the parser and throws on the first
-    // dereference. The stats do not depend on profiles at all and must survive.
     const guild = {
       level: 240,
       territories: 60,

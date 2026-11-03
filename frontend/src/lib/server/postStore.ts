@@ -7,29 +7,19 @@ import { database } from "./db";
 
 export interface StoredPost {
   post: GuildPost;
-  /** Unpublished posts are drafts: only managers see them. */
   published: boolean;
   createdAt: number;
   updatedAt: number;
 }
 
 export interface PostStore {
-  /** Every post, drafts included, newest first. */
   list(): Promise<StoredPost[]>;
   get(slug: string): Promise<StoredPost | null>;
-  /** Atomic create - false when the slug is taken. Slugs are unique across both feeds. */
   insert(post: GuildPost, options: { published: boolean }): Promise<boolean>;
-  /**
-   * Atomic update with the same contract as `EventStore.update`: the row's new
-   * `updatedAt`, or null when no post has the slug or - given `ifUpdatedAt` -
-   * the row moved on since that version was read.
-   */
   update(post: GuildPost, options: { published: boolean; ifUpdatedAt?: number }): Promise<number | null>;
-  /** False when nothing was removed; `ifUpdatedAt` guards against a stale tab. */
   remove(slug: string, options?: { ifUpdatedAt?: number }): Promise<boolean>;
 }
 
-/** Posts live as validated JSON rows, like events; parseGuildPost guards both directions. */
 export function createPostStore(getClient: () => Promise<Client>): PostStore {
   let readyPromise: Promise<Client> | undefined;
 
@@ -95,8 +85,6 @@ export function createPostStore(getClient: () => Promise<Client>): PostStore {
       const sql = guarded
         ? "UPDATE guild_posts SET feed = ?, data = ?, published = ?, updated_at = ? WHERE slug = ? AND updated_at = ?"
         : "UPDATE guild_posts SET feed = ?, data = ?, published = ?, updated_at = ? WHERE slug = ?";
-      // A guarded write advances the token strictly, so two saves in the same
-      // millisecond can never leave a later CAS on the old value matching.
       const now = guarded ? Math.max(Date.now(), (options.ifUpdatedAt as number) + 1) : Date.now();
       const args: (string | number)[] = [post.feed, JSON.stringify(post), options.published ? 1 : 0, now, post.slug];
       if (guarded) args.push(options.ifUpdatedAt as number);
@@ -118,7 +106,6 @@ export function createPostStore(getClient: () => Promise<Client>): PostStore {
   };
 }
 
-/** Rows that fail validation are dropped rather than crashing the page. */
 function rowToStored(row: Row): StoredPost | null {
   if (typeof row.data !== "string") return null;
   let json: unknown;

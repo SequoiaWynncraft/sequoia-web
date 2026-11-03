@@ -15,7 +15,6 @@
     points: { day: string; value: number }[];
     from: string;
     to: string;
-    /** Row label in the hover card and table header, e.g. "Playtime". */
     metricLabel: string;
     /** Suffix appended to formatted values, e.g. " h". */
     unit?: string;
@@ -26,7 +25,6 @@
 
   const GAP = 2;
   const AXIS = 18;
-  /** Beyond this many days the chart buckets by week to keep bars readable. */
   const WEEKLY_THRESHOLD = 112;
   const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -34,7 +32,6 @@
   const plotHeight = $derived(height - AXIS);
 
   interface Bucket {
-    /** First day of the bucket. */
     day: string;
     days: number;
     value: number;
@@ -121,8 +118,6 @@
     return `${value.toLocaleString(undefined, { maximumFractionDigits: decimals })}${unit}`;
   }
 
-  // The table is the chart's complete accessible form, so zero buckets stay:
-  // a quiet day is data, not an absence of it.
   const newestFirst = $derived([...buckets].reverse());
   const period = $derived(weekly ? "week" : "day");
 </script>

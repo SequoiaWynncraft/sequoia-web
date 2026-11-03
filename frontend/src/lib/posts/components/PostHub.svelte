@@ -20,8 +20,6 @@
     [
       { key: "pinned", label: "Pinned", cards: hub.pinned },
       { key: "latest", label: "Latest", cards: hub.latest },
-      // Only managers are ever sent these two, so the shelves double as the cue
-      // that the page is showing more than the guild can see.
       { key: "upcoming", label: "Drafts and scheduled", cards: hub.upcoming },
       { key: "expired", label: "Expired", cards: hub.expired },
     ].filter((shelf) => shelf.cards.length > 0),

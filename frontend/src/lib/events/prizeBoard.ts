@@ -1,9 +1,3 @@
-/**
- * Groups winner slots into prize cards: identical prizes (same text + art)
- * collapse into one card holding all their slots, in first-appearance
- * order. Pure so both the public page and the stage board group alike.
- */
-
 export interface PrizeSlotRow {
   key: string;
   prize: string;
@@ -22,8 +16,6 @@ export interface PrizeGroup {
 export function groupPrizeRows(rows: PrizeSlotRow[]): PrizeGroup[] {
   const groups = new Map<string, PrizeGroup>();
   for (const row of rows) {
-    // The separator cannot occur in an icon file name, so distinct
-    // prize/icon pairs can never collide into one key.
     const key = `${row.icon ?? ""}\0${row.prize.trim().toLowerCase()}`;
     const group = groups.get(key);
     if (group) group.slots.push(row);

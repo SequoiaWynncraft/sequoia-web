@@ -18,7 +18,6 @@ export interface CachedResourceOptions<T> {
 
 export interface CachedResource<T> {
   get(fetchImpl: typeof fetch, options?: { allowStale?: boolean }): Promise<CachedValue<T>>;
-  /** Adopts data the caller already loaded and validated, persisting it like a refresh. */
   put(data: T): Promise<CachedValue<T>>;
 }
 
@@ -117,17 +116,8 @@ async function readCache(key: string): Promise<{ value: string; updatedAt: numbe
   return { value: row.value, updatedAt: row.updated_at };
 }
 
-/**
- * Hard bounds on the persisted cache, enforced by the database write itself
- * so every process sharing the file stays inside them. Most recently written
- * rows survive: hot keys refresh every few minutes, so they stay newest.
- */
 export const CACHE_MAX_ROWS = 2048;
 export const CACHE_MAX_BYTES = 64 * 1024 * 1024;
-/**
- * Larger values are served from memory only. The largest shared payloads
- * (rank profiles, the guild roster) are a few hundred KB.
- */
 export const CACHE_MAX_VALUE_BYTES = 1024 * 1024;
 
 const EVICT_BEYOND_BUDGET = `
@@ -147,7 +137,6 @@ async function writeCache(key: string, value: string, updatedAt: number) {
   const bytes = Buffer.byteLength(value);
   if (bytes > CACHE_MAX_VALUE_BYTES) {
     console.warn(`api_cache skipped ${key}: ${bytes} bytes exceeds the ${CACHE_MAX_VALUE_BYTES}-byte limit`);
-    // An older copy must not keep serving as the persisted fallback.
     await db.execute({ sql: "DELETE FROM api_cache WHERE key = ?", args: [key] });
     return;
   }
@@ -171,11 +160,6 @@ function cacheDb(): Promise<Client> {
   return cacheDbPromise;
 }
 
-/**
- * Persisted rows outlive every staleMs (max 3 days today). The write budget
- * bounds how many rows and bytes exist; the sweep also drops rows too old to
- * serve, such as those orphaned by a version-bumped key.
- */
 const SWEEP_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const SWEEP_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
@@ -190,9 +174,7 @@ async function initCacheDb(): Promise<Client> {
     )
   `);
   await addByteAccounting(db);
-  // Covers the eviction query, so budget scans never read the large values.
   await db.execute("CREATE INDEX IF NOT EXISTS api_cache_newest ON api_cache (updated_at DESC, key, bytes)");
-  // Rows written before the per-value limit existed follow it too.
   await db.execute({ sql: "DELETE FROM api_cache WHERE bytes > ?", args: [CACHE_MAX_VALUE_BYTES] });
   await db.execute({ sql: EVICT_BEYOND_BUDGET, args: [CACHE_MAX_BYTES, CACHE_MAX_ROWS] });
   const sweep = () =>
@@ -202,21 +184,14 @@ async function initCacheDb(): Promise<Client> {
         args: [Date.now() - SWEEP_MAX_AGE_MS],
       })
       .catch((error: unknown) => {
-        // Once a day at most - a persistent failure must be visible, or the
-        // retention guarantee dies silently.
         console.warn("api_cache sweep failed:", error);
       });
   void sweep();
   const timer = setInterval(sweep, SWEEP_INTERVAL_MS);
-  // A held timer must not keep a short-lived process (tests, prerender) alive.
   if (typeof timer === "object" && "unref" in timer) timer.unref();
   return db;
 }
 
-/**
- * Upgrades a table created before byte accounting in place, so existing rows
- * keep serving as stale fallbacks and count against the budget immediately.
- */
 async function addByteAccounting(db: Client): Promise<void> {
   const columns = await db.execute("SELECT name FROM pragma_table_info('api_cache')");
   if (columns.rows.some((row) => row.name === "bytes")) return;

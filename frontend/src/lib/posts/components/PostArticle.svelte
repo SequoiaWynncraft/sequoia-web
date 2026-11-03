@@ -67,7 +67,6 @@
     inset: 0;
     z-index: -1;
     overflow: hidden;
-    /* Whatever the page height, the sky never ends on a hard edge. */
     mask-image: linear-gradient(to bottom, black calc(100% - 320px), transparent);
     -webkit-mask-image: linear-gradient(to bottom, black calc(100% - 320px), transparent);
     background:
@@ -98,8 +97,6 @@
     -webkit-mask-image: linear-gradient(to bottom, black 0, black 600px, transparent 1200px);
   }
 
-  /* The sky runs under the fixed translucent navbar (the layout drops its top
-     padding for post pages), so the hero clears it with its own. */
   .ps-hero {
     display: grid;
     justify-items: center;

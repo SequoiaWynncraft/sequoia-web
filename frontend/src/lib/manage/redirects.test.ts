@@ -13,8 +13,6 @@ describe("legacyManageRedirect", () => {
   });
 
   it("maps every audit generation to its development home in one hop", () => {
-    // Single hop is the point: bouncing through /manage/events/audit's own
-    // stub would 308 twice.
     expect(legacyManageRedirect("/events/manage/audit")).toBe("/manage/development/audit");
     expect(legacyManageRedirect("/manage/events/audit")).toBe("/manage/development/audit");
   });

@@ -2,7 +2,6 @@ export const GUILD_RANKS = ["owner", "chief", "strategist", "captain", "recruite
 
 export type GuildRankName = (typeof GUILD_RANKS)[number];
 
-/** Display names for the in-game guild ranks. */
 export const GUILD_RANK_LABELS: Record<GuildRankName, string> = {
   owner: "Owner",
   chief: "Chief",
@@ -12,7 +11,6 @@ export const GUILD_RANK_LABELS: Record<GuildRankName, string> = {
   recruit: "Recruit",
 };
 
-/** Display name for an in-game rank, echoing anything unrecognized back unchanged. */
 export function guildRankLabel(rank: string): string {
   return GUILD_RANK_LABELS[rank as GuildRankName] ?? rank;
 }

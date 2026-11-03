@@ -69,8 +69,6 @@ async fn main() -> anyhow::Result<()> {
     .context("HTTP server failed")
 }
 
-/// `retention` reports what the policy would remove; `retention --apply` removes it.
-/// Returns whether to apply, or None to run the server.
 fn retention_command(mut args: impl Iterator<Item = String>) -> anyhow::Result<Option<bool>> {
     let Some(command) = args.next() else {
         return Ok(None);
@@ -82,8 +80,6 @@ fn retention_command(mut args: impl Iterator<Item = String>) -> anyhow::Result<O
     }
 }
 
-/// Prints what one retention pass removes. A preview changes nothing, so it
-/// doesn't migrate either; applying migrates first, like starting the server.
 async fn run_retention(config: &config::Config, apply: bool) -> anyhow::Result<()> {
     let db = if apply {
         db::Database::connect(&config.database_url).await?
@@ -101,7 +97,6 @@ async fn run_retention(config: &config::Config, apply: bool) -> anyhow::Result<(
 ///
 /// As PID 1 in a container the process has no default SIGTERM action, so
 /// without a handler `docker stop` waits out its grace period and kills it.
-/// The poll loop is dropped with the runtime; an interrupted ingest rolls back.
 async fn shutdown_signal() {
     let interrupt = async {
         if let Err(error) = tokio::signal::ctrl_c().await {

@@ -8,12 +8,6 @@ function isRealIsoDay(value: string): boolean {
   return !Number.isNaN(time) && new Date(time).toISOString().slice(0, 10) === value;
 }
 
-/**
- * Daily unique raid completions from the guild mod's log - one per run, so
- * party size never inflates the count. Aggregate counts only; member-level
- * mod data stays behind the membership-gated standings path. Null when the
- * backend is unavailable.
- */
 export async function loadModRunCounts(
   fetchImpl: typeof fetch,
   options: { from: string; to: string; raid?: string },
@@ -31,9 +25,6 @@ export async function loadModRunCounts(
     if (!response.ok) return null;
     const body = (await response.json()) as { days?: unknown };
     if (!Array.isArray(body.days)) return null;
-    // Validate every row, not just the envelope: a malformed entry must read
-    // as an outage, not flow blank values into charts and exports. Bounds
-    // are normalized to days because event callers pass full timestamps.
     const fromDay = options.from.slice(0, 10);
     const toDay = options.to.slice(0, 10);
     const days: EventDayCount[] = [];
@@ -42,8 +33,6 @@ export async function loadModRunCounts(
       if (!entry || typeof entry.day !== "string" || typeof entry.runs !== "number") return null;
       if (!isRealIsoDay(entry.day) || entry.day < fromDay || entry.day > toDay) return null;
       if (!Number.isInteger(entry.runs) || entry.runs < 0) return null;
-      // One aggregate per day is the endpoint's contract; a duplicate would
-      // double-count in goal progress and the export alike.
       if (seen.has(entry.day)) return null;
       seen.add(entry.day);
       days.push({ day: entry.day, value: entry.runs });

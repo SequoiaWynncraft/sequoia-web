@@ -1,6 +1,5 @@
 import { isRecord } from "#lib/api/guards.js";
 
-/** Metrics the player rankings boards cover; keys match the backend grammar. */
 export const PLAYER_METRICS = [
   { key: "playtime", label: "Playtime" },
   { key: "wars", label: "Wars" },
@@ -13,7 +12,6 @@ export function isPlayerMetric(value: string | null): value is PlayerMetric {
   return PLAYER_METRICS.some((metric) => metric.key === value);
 }
 
-/** Windows the player rankings boards cover; day-granular UTC rollups. */
 export const PLAYER_WINDOWS = [
   { key: "1d", label: "1d" },
   { key: "7d", label: "7 days" },
@@ -42,7 +40,6 @@ export interface GlobalPlayerRankings {
   /** Inclusive UTC day window; null on lifetime boards. */
   from: string | null;
   to: string | null;
-  /** Earliest rollup day - lifetime raids only cover the tracked span. */
   data_since: string | null;
   warming_up: boolean;
   entries: GlobalPlayerRankingEntry[];

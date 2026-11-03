@@ -27,10 +27,6 @@ type ManageRequest = {
   locals: App.Locals;
 };
 
-/**
- * Shared ?/createTracker form action for the event editor: creates a raid
- * tracker event in the backend and returns it as a picker option.
- */
 export async function createTrackerAction(event: ManageRequest) {
   const authorized = await authorizeAndParse(event);
   if (typeof authorized.parsed === "string") return fail(400, { trackerError: authorized.parsed });
@@ -48,7 +44,6 @@ export async function createTrackerAction(event: ManageRequest) {
   return { trackerCreated: result, auditWarning: !audited };
 }
 
-/** Shared ?/updateTracker form action: full update of an existing tracker. */
 export async function updateTrackerAction(event: ManageRequest) {
   const authorized = await authorizeAndParse(event);
   if (typeof authorized.parsed === "string") return fail(400, { trackerError: authorized.parsed });
@@ -138,7 +133,5 @@ function trackerSlug(name: string): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 48);
-  // The backend requires unique slugs; a time suffix keeps retries and
-  // same-named events from colliding.
   return `${base || "tracker"}-${Date.now().toString(36)}`;
 }

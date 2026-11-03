@@ -5,7 +5,6 @@ import { discordManagement } from "#lib/server/discordManagement.js";
 
 export const prerender = false;
 export const load: PageServerLoad = async ({ fetch, cookies }) => {
-  // The console's cached capabilities are display hints, never authorization.
   const token = cookies.get("seq_session");
   const response = await discordManagement(fetch, token, "ceremonies");
   if (!response.ok) {

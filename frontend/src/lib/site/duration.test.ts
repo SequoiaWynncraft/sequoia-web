@@ -65,8 +65,7 @@ describe("raidWindowPreset", () => {
 });
 
 describe("parseTimestampRange", () => {
-  // A fixed "now" well after the sample timestamps, for deterministic clamping.
-  const now = new Date(1_800_000_000_000); // 2027-01-15T08:00:00Z
+  const now = new Date(1_800_000_000_000);
 
   it("parses a t:-prefixed start-end range into epoch milliseconds", () => {
     expect(parseTimestampRange("t:1784109600-1784282400", now)).toEqual({
@@ -94,7 +93,6 @@ describe("parseTimestampRange", () => {
   });
 
   it("errors, naming the year, when the start is before raid tracking began", () => {
-    // 2019-06-01T00:00:00Z, before the 2020 tracking floor.
     const result = parseTimestampRange("t:1559347200-1784282400", now);
     expect(result).toEqual({ error: "Outside of tracked time, you tried to query year 2019." });
   });
@@ -124,7 +122,6 @@ describe("parseTimestampRange", () => {
   });
 
   it("allows spans longer than a year, since the 2020 floor bounds the query", () => {
-    // ~2020-01-02 to now (2027): well over a year, but both after the floor.
     expect(parseTimestampRange("t:1577923200-1784282400", now)).toEqual({
       range: { fromMs: 1577923200_000, toMs: 1784282400_000 },
     });

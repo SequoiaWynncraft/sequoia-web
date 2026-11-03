@@ -31,7 +31,6 @@ describe("event store", () => {
 
   it("keeps the events an existing database already holds", async () => {
     const client = createClient({ url: ":memory:" });
-    // Schema and seed marker as written by earlier releases.
     await client.execute(
       "CREATE TABLE guild_events (slug TEXT PRIMARY KEY, data TEXT NOT NULL, published INTEGER NOT NULL DEFAULT 1, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)",
     );
@@ -69,7 +68,6 @@ describe("event store", () => {
     const { store } = memoryStore();
     expect(await store.insert(DRAFT, { published: false })).toBe(true);
 
-    // A losing concurrent create must not overwrite the stored event.
     expect(await store.insert({ ...DRAFT, name: "Impostor" }, { published: true })).toBe(false);
     expect((await store.get("draft-event"))?.event.name).toBe("Draft Event");
 
@@ -82,15 +80,12 @@ describe("event store", () => {
     const first = await store.get("draft-event");
     expect(first).not.toBeNull();
 
-    // Another manager improves the event (guarded, as the save action does, so
-    // the version token strictly advances); the stale tab's delete must lose.
     expect(
       await store.update({ ...DRAFT, name: "Improved" }, { published: true, ifUpdatedAt: first!.updatedAt }),
     ).not.toBeNull();
     expect(await store.remove("draft-event", { ifUpdatedAt: first!.updatedAt })).toBe(false);
     expect((await store.get("draft-event"))?.event.name).toBe("Improved");
 
-    // Deleting the current version succeeds exactly once.
     const current = await store.get("draft-event");
     expect(await store.remove("draft-event", { ifUpdatedAt: current!.updatedAt })).toBe(true);
     expect(await store.remove("draft-event", { ifUpdatedAt: current!.updatedAt })).toBe(false);

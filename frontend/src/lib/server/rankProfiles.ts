@@ -15,22 +15,15 @@ const FRESH_MS = 30 * 1000;
 const STALE_MS = 30 * 60 * 1000;
 const CSS_HEX_COLOR = /^#[0-9a-f]{6}$/i;
 
-/** Retired ladder ranks read as their modern equivalent; only Verdant stands as-is. */
 const LEGACY_RANK_EQUIVALENTS: Record<string, string> = {
   "rank.spriggan": "rank.treant",
   "rank.alseid": "rank.druid",
 };
 
-/**
- * In-game rank -> the lowest org rank it can stand for. Members whose Minecraft
- * account is not linked to a rank profile sort at this position, so they land at
- * the bottom of the org rank their in-game rank maps to instead of dropping out
- * of the ladder entirely.
- */
 const IN_GAME_RANK_EQUIVALENTS: Record<GuildRankName, string> = {
   owner: "rank.yggdrasil",
-  chief: "rank.treant", // Spriggan is legacy and folds into Treant.
-  strategist: "rank.dryad", // Dryad < Upper Strategist < Druid - take the lowest.
+  chief: "rank.treant",
+  strategist: "rank.dryad",
   captain: "rank.sprite",
   recruiter: "rank.sapling",
   recruit: "rank.leafkin",
@@ -50,12 +43,6 @@ export async function getLinkedRankProfiles(
   return (await linkedProfiles.get(fetchImpl, { allowStale: true })).data;
 }
 
-/**
- * The linked profiles with their staleness attached. Callers that authorize on a
- * profile's roles - rather than merely displaying them - must ask with
- * `allowStale: false` and refuse a result that still comes back `stale`, since a
- * revoked role lives on in the cache for up to `STALE_MS` after the revocation.
- */
 export async function getLinkedRankProfilesResult(
   fetchImpl: typeof fetch,
   options: { allowStale?: boolean } = {},
@@ -91,16 +78,12 @@ export function honoursForMinecraft(
   };
 }
 
-/** Rank standing per member, keyed by lowercased Minecraft UUID — one entry per linked profile. */
 export interface MemberRankEntry {
   rank: string | null;
-  /** Primary color of the authoritative Discord rank role, when configured. */
   rankColor: string | null;
-  /** Ladder position from the role catalog — higher is more senior. */
   rankOrder: number | null;
   insignia: BadgeTier | null;
   insigniaUrl: string | null;
-  /** War honours plus event badges held. */
   honours: number;
 }
 
@@ -131,10 +114,6 @@ export function memberRanksByUuid(
   return entries;
 }
 
-/**
- * The org rank ladder's labels, most senior first, for eligibility pickers.
- * Legacy ranks fold into their modern equivalents, so each label appears once.
- */
 export function progressionRankLabels(response: RankProfilesResponse): string[] {
   const legacy = new Set(Object.keys(LEGACY_RANK_EQUIVALENTS));
   const labels = response.catalog.roles
@@ -144,22 +123,13 @@ export function progressionRankLabels(response: RankProfilesResponse): string[] 
   return [...new Set(labels)];
 }
 
-/** Ladder position each in-game rank sorts at; null when the catalog lacks its org equivalent. */
 export type InGameRankLadder = Record<GuildRankName, number | null>;
 
-/**
- * The ladder positions unlinked members sort at, so their in-game rank interleaves
- * with the org ranks of members who do have a profile. Half a step below the org
- * rank itself, so a bare "Chief" sits under the Treants rather than among them.
- */
 export function inGameRankLadder(response: RankProfilesResponse): InGameRankLadder {
   const roles = new Map(response.catalog.roles.map((role) => [role.key, role]));
   const ladder = {} as InGameRankLadder;
   for (const rank of GUILD_RANKS) {
     const key = IN_GAME_RANK_EQUIVALENTS[rank];
-    // `?? null` rather than a bare `?.position`: the response validator checks
-    // only that `catalog.roles` is an array, and a null position would otherwise
-    // become -0.5 and sort those members above everyone in ascending order.
     const position = resolveRankRole(roles, key)?.position ?? null;
     if (position === null) warnUnresolvedRankKey(rank, key);
     ladder[rank] = position === null ? null : position - 0.5;
@@ -167,14 +137,8 @@ export function inGameRankLadder(response: RankProfilesResponse): InGameRankLadd
   return ladder;
 }
 
-/** Rank keys already reported, so a per-request lookup does not spam the log. */
 const warnedRankKeys = new Set<string>();
 
-/**
- * Reports an in-game rank whose org equivalent the catalog does not resolve.
- * Worth a line: the only other symptom is every unlinked member of that rank
- * quietly sorting to the bottom of the Rank column.
- */
 function warnUnresolvedRankKey(rank: GuildRankName, key: string): void {
   if (warnedRankKeys.has(key)) return;
   warnedRankKeys.add(key);
@@ -215,7 +179,6 @@ function leadershipLabel(
   rank: string | null,
 ): string | null {
   const label = key ? (roles.get(key)?.label ?? null) : null;
-  // The guild leader's leadership role repeats their rank - show it once.
   return label === rank ? null : label;
 }
 

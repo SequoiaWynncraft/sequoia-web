@@ -8,7 +8,6 @@ afterEach(() => {
 
 describe("bagshopUrl", () => {
   it("joins the configured base with the path", () => {
-    // No BAGSHOP_API_URL set in tests → falls back to the local default.
     expect(bagshopUrl("/inventory")).toBe("http://localhost:8090/inventory");
     expect(bagshopUrl("me")).toBe("http://localhost:8090/me");
   });

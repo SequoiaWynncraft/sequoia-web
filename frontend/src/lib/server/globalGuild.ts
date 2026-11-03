@@ -20,27 +20,16 @@ export interface GuildSearchHit {
 }
 
 export interface ActivityDay {
-  /** UTC calendar day, e.g. "2026-07-05". */
   day: string;
   raid_counts: { raid_name: string; count: number }[];
 }
 
-/**
- * Only real guilds reach the persistent cache: arbitrary slugs are attacker
- * controlled, and every persisted key becomes an api_cache row that eviction
- * here cannot delete. Misses and searches live in capped in-memory TTL maps -
- * enough to shield the Wynncraft API, nothing on disk.
- */
 const guildResources = new Map<string, CachedResource<GuildPayload>>();
 const missesUntil = new Map<string, number>();
 const searchCache = new Map<string, { expires: number; hits: GuildSearchHit[] }>();
 
 class GuildNotFoundError extends Error {}
 
-/**
- * Stats for any Wynncraft guild by exact name. Null when no such guild
- * exists; throws when the API is unavailable.
- */
 export async function getGuildStatsByName(
   fetchImpl: typeof fetch,
   name: string,
@@ -72,7 +61,6 @@ export async function getGuildStatsByName(
   return { ...stats, stale: value.stale };
 }
 
-/** Guilds matching a name/prefix query, via the Wynncraft search API. */
 export async function searchGuilds(fetchImpl: typeof fetch, query: string): Promise<GuildSearchHit[]> {
   const key = query.trim().toLowerCase();
   if (key.length < 3) return [];
@@ -84,10 +72,6 @@ export async function searchGuilds(fetchImpl: typeof fetch, query: string): Prom
   return hits;
 }
 
-/**
- * Daily per-raid completion counts for any guild over the trailing window.
- * Null when the feed is unavailable.
- */
 export async function loadGuildRaidActivity(
   fetchImpl: typeof fetch,
   guildName: string,
@@ -161,10 +145,6 @@ function evictOldest(pool: Map<string, unknown>, cap: number): void {
   if (oldest !== undefined) pool.delete(oldest as string);
 }
 
-/**
- * Checks every field parseGuildStats requires, so a malformed payload can
- * never be cached and then throw on each render.
- */
 function isGuildPayload(value: unknown): value is GuildPayload {
   if (typeof value !== "object" || value === null) return false;
   const record = value as Record<string, unknown>;

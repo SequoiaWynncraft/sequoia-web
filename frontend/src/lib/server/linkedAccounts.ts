@@ -2,7 +2,6 @@ import { redirect } from "@sveltejs/kit";
 
 import { SEQUOIA_API_BASE_URL } from "#lib/config/public.js";
 
-/** One Minecraft account the signed-in member owns; exactly one is their primary. */
 export interface LinkedAccount {
   uuid: string;
   username: string;
@@ -71,20 +70,14 @@ export function removeAccount(token: string, uuid: string, fetchImpl: typeof fet
   return changeAccounts(`${ACCOUNTS_PATH}/${encodeURIComponent(uuid)}`, { method: "DELETE" }, token, fetchImpl);
 }
 
-/**
- * Where the browser goes after a change, so the backend can reissue the session cookie for the
- * member's current primary before returning to the website.
- */
 export function sessionRefreshUrl(returnTo: string): string {
   return `${SEQUOIA_API_BASE_URL}${ACCOUNTS_PATH}/session?return_to=${encodeURIComponent(returnTo)}`;
 }
 
-/** The only external origin the refresh may leave for; none when the API is same-origin. */
 const SESSION_REFRESH_ORIGINS = URL.canParse(SEQUOIA_API_BASE_URL)
   ? [new URL(SEQUOIA_API_BASE_URL).origin]
   : [];
 
-/** Sends the browser through the backend so its session cookie follows the new primary account. */
 export function redirectToSessionRefresh(returnTo: string): never {
   redirect(303, sessionRefreshUrl(returnTo), { external: SESSION_REFRESH_ORIGINS });
 }

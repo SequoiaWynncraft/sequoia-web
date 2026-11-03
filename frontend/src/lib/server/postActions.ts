@@ -17,7 +17,6 @@ function requirePostManager(event: RequestEvent): Promise<Viewer> {
   return requireBranchArea(event, "community", DENIED);
 }
 
-/** The editor's JSON payload: the post plus whether it is published. */
 function parsePostPayload(form: FormData): { post: GuildPost; published: boolean } | { error: string } {
   const raw = form.get("payload");
   if (typeof raw !== "string" || raw.length > 65536) return { error: "Malformed submission." };
@@ -40,13 +39,6 @@ function baseUpdatedAt(form: FormData): number {
   return typeof raw === "string" && raw.trim() !== "" ? Number(raw) : Number.NaN;
 }
 
-/**
- * Server-owned fields, applied before the final validation:
- * - the author stays whoever created the post;
- * - a published post without a date is dated now, so the feed order is stable.
- *   A cleared date that had already passed is kept, but a cleared *future*
- *   date publishes now instead of silently staying scheduled.
- */
 export function withServerFields(
   post: GuildPost,
   published: boolean,
@@ -80,7 +72,6 @@ export async function createPostAction(event: RequestEvent) {
     return fail(400, { error: `a post already uses the slug "${post.slug}"` });
   }
   const audited = await recordAudit(manager, "post.create", post.slug, auditDetail(post, payload.published));
-  // The post exists either way; an unrecorded creation must not pass silently.
   redirect(303, `${POSTS_CONSOLE}/${post.slug}${audited ? "" : "?audit=unrecorded"}`);
 }
 
@@ -94,8 +85,6 @@ export async function updatePostAction(event: RequestEvent) {
 
   const stored = await postStore.get(slug);
   if (!stored) requestError(event.locals, 404, "No such post");
-  // Optimistic concurrency against the version the form loaded from, as for
-  // events: another manager's save must not be silently clobbered.
   if (baseUpdatedAt(form) !== stored.updatedAt) {
     return fail(409, { error: "Someone else changed this post. Reload, then save again." });
   }
@@ -111,7 +100,6 @@ export async function updatePostAction(event: RequestEvent) {
     return fail(409, { error: "Someone else changed this post. Reload, then save again." });
   }
   const audited = await recordAudit(manager, "post.update", slug, auditDetail(parsed.post, payload.published));
-  // The editor adopts the stamped publish date so the next save doesn't re-stamp it.
   return { saved: true, newUpdatedAt, publishAt: parsed.post.publishAt ?? null, auditWarning: !audited };
 }
 
@@ -120,7 +108,6 @@ export async function deletePostAction(event: RequestEvent) {
   const slug = event.params.slug ?? "";
   const base = baseUpdatedAt(await event.request.formData());
   if (!Number.isSafeInteger(base)) return fail(400, { error: "Reload the page before deleting." });
-  // Guarded on the version the manager reviewed; an already-gone post is done, not a conflict.
   if (!(await postStore.remove(slug, { ifUpdatedAt: base }))) {
     if (!(await postStore.get(slug))) redirect(303, POSTS_CONSOLE);
     return fail(409, { error: "Someone else changed this post. Reload before deleting." });

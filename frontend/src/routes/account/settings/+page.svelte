@@ -17,14 +17,11 @@
   const navSections = navToggles();
   const hiddenNav = $derived(new Set(data.navHidden));
 
-  // Both panels post to the same page, so each one only reads the result that
-  // came back from its own action.
   const notifications = $derived(form?.section === "notifications" ? form : null);
   const navigation = $derived(form?.section === "navigation" ? form : null);
   const themePanel = $derived(form?.section === "theme" ? form : null);
   const accountsPanel = $derived(form?.section === "accounts" ? form : null);
 
-  // Removal is a plain form post; with scripts it waits for the confirm dialog first.
   let removalDialog = $state<ConfirmDialog>();
   let pendingRemoval = $state<{ account: Account; form: HTMLFormElement } | null>(null);
   let confirmedRemoval: HTMLFormElement | null = null;
@@ -45,8 +42,6 @@
     pendingRemoval.form.requestSubmit();
   }
 
-  // The saved theme lives in root layout data, so it survives this page's own
-  // access gate and is right on the first render.
   const activeTheme = $derived(themePanel?.theme ?? page.data.theme);
 
   const options = [
@@ -508,8 +503,6 @@
     cursor: pointer;
   }
 
-  /* A section that is switched off takes its whole menu with it, so its
-     entries read as inactive rather than silently doing nothing. */
   .nav-section:has(> .nav-option-lead input:not(:checked)) .nav-subhead,
   .nav-section:has(> .nav-option-lead input:not(:checked)) .nav-option:not(.nav-option-lead) {
     opacity: 0.45;
@@ -578,8 +571,6 @@
     border-bottom: 1px solid var(--color-border-subtle);
   }
 
-  /* Carries an explanation, so it is a display choice rather than a
-     destination - it sits apart from the list of pages below it. */
   .nav-option-hinted {
     align-items: start;
     margin-bottom: 4px;

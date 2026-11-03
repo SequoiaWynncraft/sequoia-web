@@ -7,7 +7,6 @@
   import { webAuthLogoutUrl, webAuthStartUrl } from "#lib/site/webAuth.js";
   import type { Viewer } from "#lib/site/viewer.js";
 
-  // Sentinel for `open`; section keys are route paths, so this can't collide.
   const ACCOUNT = "#account";
 
   let {
@@ -16,8 +15,6 @@
     navHidden = [...DEFAULT_HIDDEN_NAV],
   }: { viewer?: Viewer | null; manage?: boolean; navHidden?: string[] } = $props();
 
-  // The menu the viewer chose in account settings. Hidden pages keep their
-  // routes, tabs, and breadcrumbs - they just are not listed up here.
   const sections = $derived(visibleSections(navHidden));
 
   const signInUrl = $derived(webAuthStartUrl());
@@ -35,7 +32,6 @@
     return page.url.pathname === to || page.url.pathname.startsWith(to + "/");
   }
 
-  // Hover or keyboard focus opens a menu; focus leaving it or Escape closes it.
   function menuHandlers(key: string) {
     return {
       onmouseenter: () => (open = key),
@@ -45,7 +41,6 @@
       },
       onkeydown: (event: KeyboardEvent & { currentTarget: HTMLElement }) => {
         if (event.key !== "Escape" || open !== key) return;
-        // Refocusing the trigger reopens the menu through focusin, so close after.
         event.currentTarget.querySelector<HTMLElement>(".seq-nav-link")?.focus();
         open = null;
       },
@@ -61,7 +56,6 @@
 
 <svelte:window onscroll={() => { if (mobileOpen) mobileOpen = false; }} />
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
 <nav class="seq-top-nav" onmouseleave={() => open = null}>
   <div class="seq-top-nav-shell">
     <a href="/" class="seq-nav-brand" onclick={() => mobileOpen = false}>
@@ -73,7 +67,6 @@
         {@const hasMenu = !!(s.groups || s.items)}
         {@const active = isActive(s.to)}
         {@const isOpen = open === s.to}
-        <!-- svelte-ignore a11y_no_static_element_interactions -->
         <span class="seq-nav-item" {...menuHandlers(s.to)} style="position:relative">
           <a
             href={s.to}
@@ -135,7 +128,6 @@
         </a>
       {/if}
       {#if viewer}
-        <!-- svelte-ignore a11y_no_static_element_interactions -->
         <span class="seq-nav-item" {...menuHandlers(ACCOUNT)} style="position:relative">
           <a href={viewerCardUrl ?? signOutUrl} class="seq-nav-link seq-nav-viewer" aria-expanded={open === ACCOUNT}>
             <img class="seq-nav-face" src={nmsrFace(viewer.minecraftUuid, 18)} alt="" width="18" height="18" />

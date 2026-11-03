@@ -43,7 +43,6 @@ export function isPlayerSeriesResponse(value: unknown): value is PlayerSeriesRes
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** Inclusive UTC days the profile pages fetch: the backend clamps series spans to 400 days. */
 export const SERIES_DAYS = 400;
 
 /** Inclusive day count behind each tracking-chart range chip; `all` is the whole fetched series. */

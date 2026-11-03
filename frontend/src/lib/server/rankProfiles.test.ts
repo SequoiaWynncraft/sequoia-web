@@ -217,8 +217,6 @@ describe("honoursForMinecraft", () => {
   });
 
   it("sorts in-game ranks just below the lowest org rank they can stand for", () => {
-    // Every in-game rank resolves, and the ladder descends owner -> recruit so
-    // an unlinked member sorts among the org ranks rather than beneath them.
     expect(inGameRankLadder(response)).toEqual({
       owner: 143.5,
       chief: 104.5,
@@ -230,9 +228,6 @@ describe("honoursForMinecraft", () => {
   });
 
   it("leaves a rank whose org equivalent is missing unplaced, so it sorts last", () => {
-    // A null is not a 0: LedgerTable pins nulls to the bottom in *both* sort
-    // directions, whereas a placeholder position would float Owner to the top
-    // of an ascending sort.
     const withoutOwnerRank: RankProfilesResponse = {
       ...response,
       catalog: {

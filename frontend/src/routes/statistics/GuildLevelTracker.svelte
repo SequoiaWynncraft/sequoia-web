@@ -5,16 +5,11 @@
 
   let { tracker }: { tracker: GuildLevelTracker } = $props();
 
-  /** Past this age the current level is old enough to say so, as the reference does. */
   const STALE_AFTER_MS = 15 * 60 * 1000;
   const DAY_MS = 86_400_000;
 
-  // Server and client must format the same instant identically: the zone is
-  // explicit, UTC while rendering and the viewer's own once mounted.
   let timeZone = $state("UTC");
 
-  // Anything measured against "now" is client-only - rendering it on the server
-  // would bake in the SSR clock and hydrate to a different string.
   let now = $state<number | null>(null);
   let ageTimer: ReturnType<typeof setInterval> | undefined;
 
@@ -34,13 +29,9 @@
 
   const observedAtMs = $derived(Date.parse(tracker.current.observedAt));
   const stale = $derived(now !== null && now - observedAtMs > STALE_AFTER_MS);
-  // The bar is a share of one level, so a payload over 100 cannot overflow it.
   const xpWidth = $derived(Math.min(100, Math.max(0, tracker.current.xpPercent)));
-  // Two level-ups bound one window, which is all either button needs - the same
-  // rule the reference tracker applies.
   const canCopyCommand = $derived(tracker.history.length >= 2);
   const canCopyPayout = $derived(tracker.payoutText !== null);
-  /** Formats an ISO instant as "dd/MM/yyyy, HH:mm:ss" in the resolved timezone. */
   function stamp(iso: string): string {
     return new Intl.DateTimeFormat("en-GB", {
       day: "2-digit",
@@ -54,7 +45,6 @@
     }).format(new Date(iso));
   }
 
-  /** Coarse "time since" for the last observation, e.g. "3h 12m ago". */
   function relativeAge(ms: number): string {
     const seconds = Math.max(0, Math.floor(ms / 1000));
     if (seconds < 60) return `${seconds}s ago`;
@@ -68,10 +58,6 @@
     return restHours ? `${days}d ${restHours}h ago` : `${days}d ago`;
   }
 
-  /**
-   * Days from a level-up until now, to four decimals - the window bound the
-   * raid bot expects. Relative to the clock, so it is read at click time.
-   */
   function daysAgo(iso: string): string {
     return ((Date.now() - Date.parse(iso)) / DAY_MS).toFixed(4);
   }
@@ -83,7 +69,6 @@
       clearTimeout(copyTimer);
       copyTimer = setTimeout(() => (copied = null), 2000);
     } catch {
-      // Clipboard access can be denied; leave the button label unchanged.
     }
   }
 

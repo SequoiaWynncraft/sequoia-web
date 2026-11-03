@@ -3,17 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { GuildEvent } from "#lib/events/types.js";
 import type { Viewer } from "#lib/site/viewer.js";
 
-/**
- * The roster the standings board is filtered against.
- *
- * A website administrator manages events without ever being on the roster, so
- * they are the one viewer who reaches the board when the fresh roster read
- * fails. These cases pin what they are shown then: the stale roster if there is
- * one, and an explicit outage otherwise - never a board filtered against
- * nothing, which reads as "nobody raided".
- */
 const H = vi.hoisted(() => ({
-  /** null makes the guild-stats read reject, as an upstream outage does. */
   stats: null as { stale: boolean; members: { username: string; uuid: string }[] } | null,
   rosterSeenByBoard: undefined as unknown,
   boardCalls: 0,
@@ -34,7 +24,6 @@ const EVENT: GuildEvent = {
     accentSecondary: "#eeeeee",
     star: "#dddddd",
   },
-  // Live as of any real clock, so the standings block runs.
   startsAt: "2020-01-01T00:00:00Z",
   endsAt: "2099-01-01T00:00:00Z",
   tracker: { eventId: TRACKER_ID, tracking: "mod" },
@@ -71,8 +60,6 @@ vi.mock("#lib/server/raidEventBoards.js", async (importOriginal) => {
         raid: null,
       },
     ],
-    // Records the roster it is handed; the filtering itself is covered by
-    // `rosterLeaderboard`'s own tests.
     loadModLeaderboard: async (_fetch: unknown, _window: unknown, roster: unknown) => {
       H.boardCalls += 1;
       H.rosterSeenByBoard = roster;
@@ -112,8 +99,6 @@ function loadPage(viewer: Viewer) {
 
 describe("event page standings roster", () => {
   it("falls back to the stale roster for an administrator", async () => {
-    // The fresh read is refused (stale), but an administrator's access never
-    // came from the roster, so the board still has something to filter against.
     H.stats = { stale: true, members: [{ username: "Member", uuid: MEMBER_UUID }] };
     H.boardCalls = 0;
     H.rosterSeenByBoard = undefined;
@@ -127,9 +112,6 @@ describe("event page standings roster", () => {
   });
 
   it("reports an outage rather than an empty board when no roster can be read", async () => {
-    // The regression: substituting `[]` here filtered every row away and
-    // reported success, so an administrator saw an empty board and their own
-    // progress as 0 during an upstream outage.
     H.stats = null;
     H.boardCalls = 0;
     H.rosterSeenByBoard = undefined;

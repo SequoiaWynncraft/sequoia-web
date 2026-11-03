@@ -1,6 +1,5 @@
 import { isNonNegativeInteger, isRecord } from "#lib/api/guards.js";
 
-/** One step on a category ladder, e.g. Gold at 100 wars or level 110. */
 export interface AchievementStep {
   label: string;
   at: number;
@@ -89,7 +88,7 @@ function parseAward(value: unknown): AchievementAward | null {
   };
 }
 
-/** Validates the Sierra response. Malformed rows are dropped; a malformed envelope is null. */
+/** Malformed rows are dropped; a malformed envelope is null. */
 export function parseAchievementProgress(value: unknown): AchievementProgress | null {
   if (!isRecord(value) || !isRecord(value.player) || !isString(value.player.uuid) || !isString(value.player.username)) return null;
   if (!Array.isArray(value.categories) || !Array.isArray(value.history)) return null;
@@ -101,7 +100,6 @@ export function parseAchievementProgress(value: unknown): AchievementProgress | 
   };
 }
 
-/** Groups rows by kind in server order. */
 export function achievementGroups(categories: AchievementCategory[]): AchievementGroup[] {
   const groups = new Map<string, AchievementGroup>();
   for (const category of categories) {
@@ -129,21 +127,18 @@ export function achievementFraction(category: AchievementCategory): number | nul
 
 const number = new Intl.NumberFormat("en");
 
-/** Current reading: a count, a profession level or Unknown. */
 export function achievementValue(category: AchievementCategory): string {
   if (category.unknown || category.value === null) return "Unknown";
   if (category.kind === "profession") return `Level ${category.value}`;
   return number.format(category.value);
 }
 
-/** Current tier, or the profession milestone reached. */
 export function achievementCurrent(category: AchievementCategory): string {
   if (category.tier_label) return category.tier_label;
   return category.kind === "profession" ? "No milestone" : "No tier";
 }
 
 export function achievementNext(category: AchievementCategory): string {
-  // Without an observation nothing is known about the next step, so it is never "Complete".
   if (category.unknown) return "";
   if (!category.next) return category.ladder.length > 0 ? "Complete" : "";
   if (category.kind === "profession") return `Next: level ${category.next.at}`;

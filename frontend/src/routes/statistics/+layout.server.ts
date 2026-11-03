@@ -9,15 +9,10 @@ export interface ShellStats {
   members_total: number;
 }
 
-/** Sidebar chrome may briefly render without numbers, pages must not stall. */
 const SHELL_GRACE_MS = 800;
 
 export const load: LayoutServerLoad = async ({ fetch }) => {
   return {
-    // Awaited: a streamed layout promise commits the response as 200 before a
-    // child route can 404. The stale-tolerant cache answers instantly when
-    // warm; a cold cache with a slow upstream forfeits the sidebar numbers
-    // after a short grace instead of holding every child route.
     shell: await loadShellStats(fetch),
   };
 };

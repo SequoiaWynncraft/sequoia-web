@@ -18,11 +18,9 @@ export interface ExportDataset {
   id: ExportDatasetId;
   label: string;
   description: string;
-  /** Which filter controls the export page renders for this dataset. */
   filters: { dateRange: boolean; raid: boolean; rosterOnly: boolean };
 }
 
-/** Every dataset the community export page offers, in display order. */
 export const EXPORT_DATASETS: readonly ExportDataset[] = [
   {
     id: "roster",
@@ -69,12 +67,6 @@ function parseDay(value: string): number | null {
   return new Date(time).toISOString().slice(0, 10) === value ? time : null;
 }
 
-/**
- * Pure request validation, so the endpoint rejects before touching any
- * upstream: dates must be real ISO days in a bounded window, the raid must
- * come from the known catalog - CSV columns derive from it, so a free-text
- * raid would shape the file.
- */
 export function parseExportParams(dataset: ExportDataset, search: URLSearchParams): ParsedParams {
   const params: ExportParams = { from: null, to: null, raid: null, rosterOnly: false };
 
@@ -131,17 +123,12 @@ export async function buildExport(
 }
 
 async function loadRoster(fetchImpl: typeof fetch): Promise<GuildMemberStats[] | null> {
-  // Fresh only: these exports advertise the CURRENT roster, and a stale
-  // snapshot survives an outage for days - it would export departed members
-  // in a successful-looking file. Matches the strict roster consumers.
   return getGuildStats(fetchImpl, { allowStale: false })
     .then((stats) => (stats.stale ? null : stats.members))
     .catch(() => null);
 }
 
 async function loadFreshProfiles(fetchImpl: typeof fetch): Promise<RankProfilesResponse | null> {
-  // Both staleness flags rejected, as the authorization path does: our
-  // cache's and the backend's own Discord snapshot.
   return getLinkedRankProfilesResult(fetchImpl, { allowStale: false })
     .then((result) => (result.stale || result.data.source.stale ? null : result.data))
     .catch(() => null);
@@ -165,13 +152,9 @@ async function buildRoster(fetchImpl: typeof fetch): Promise<ExportRows> {
   if (members === null) {
     return { ok: false, status: 503, message: "Member data is temporarily unavailable" };
   }
-  // The dataset advertises org ranks and branches; exporting them silently
-  // blank would be indistinguishable from members having none.
   if (profiles === null) {
     return { ok: false, status: 503, message: "Rank data is temporarily unavailable" };
   }
-  // The rank API and the roster disagree on uuid dashes; strip them on both
-  // sides so linked profiles actually join.
   const normalize = (uuid: string) => uuid.toLowerCase().replaceAll("-", "");
   const orgRankByUuid = new Map<string, string>();
   const branchesByUuid = new Map<string, string>();
@@ -184,11 +167,6 @@ async function buildRoster(fetchImpl: typeof fetch): Promise<ExportRows> {
       const uuid = profile.minecraft?.uuid;
       if (!uuid) continue;
       const entry = ranks[uuid.toLowerCase()];
-      // A declared progression rank must resolve to a real catalog label - a
-      // blank org_rank cell is indistinguishable from a member genuinely
-      // holding none, and a shallow-valid catalog can carry a non-string one.
-      // It must also actually BE a progression role: a key pointing at, say,
-      // a branch role would export that branch's label as an org rank.
       const declared = profile.summary?.progression_rank;
       const label = typeof entry?.rank === "string" && entry.rank !== "" ? entry.rank : null;
       if (declared != null) {
@@ -206,9 +184,6 @@ async function buildRoster(fetchImpl: typeof fetch): Promise<ExportRows> {
         normalize(uuid),
         profile.summary.branches
           .map((entry) => {
-            // The shallow validator lets `{}` entries through; those must
-            // read as unavailable, not export as "undefined:undefined" - and
-            // the level is a closed enum, not any string.
             if (
               typeof entry.branch !== "string" ||
               (entry.level !== "member" && entry.level !== "trainee")
@@ -221,8 +196,6 @@ async function buildRoster(fetchImpl: typeof fetch): Promise<ExportRows> {
       );
     }
   } catch {
-    // The shared rank-profiles validator only guarantees the shallow shape;
-    // a version-skewed profile must read as unavailable, not 500 mid-export.
     return { ok: false, status: 503, message: "Rank data is temporarily unavailable" };
   }
 
@@ -284,8 +257,6 @@ async function buildProgress(fetchImpl: typeof fetch, params: ExportParams): Pro
     );
   }
 
-  // One column per known raid keeps files stable across exports; a raid
-  // filter narrows to that raid's column alone.
   const raidColumns = params.raid
     ? KNOWN_RAIDS.filter((raid) => raid.key === params.raid)
     : KNOWN_RAIDS;

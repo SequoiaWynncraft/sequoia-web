@@ -9,7 +9,6 @@ import { postStore, type StoredPost } from "./postStore";
 import { resolvePostViewer } from "./postVisibility";
 import { requestError } from "./requestError";
 
-/** Only what a feed band renders crosses the load boundary - never the body. */
 export interface PostCard {
   slug: string;
   feed: PostFeed;
@@ -18,10 +17,8 @@ export interface PostCard {
   theme: EventTheme;
   pinned: boolean;
   status: PostStatus;
-  /** When the post went (or goes) live; the last edit for an undated draft. */
   date: string;
   author: string | null;
-  /** Audience badge - only ever sent to managers. */
   audience: string | null;
 }
 
@@ -32,9 +29,7 @@ export interface PostView extends PostCard {
 export interface PostHub {
   pinned: PostCard[];
   latest: PostCard[];
-  /** Drafts and scheduled posts; only managers receive any. */
   upcoming: PostCard[];
-  /** Expired posts; only managers receive any. */
   expired: PostCard[];
   manager: boolean;
   signedIn: boolean;
@@ -57,10 +52,8 @@ function postCard({ post, published, updatedAt }: StoredPost, now: Date, manager
 
 const newestFirst = (a: PostCard, b: PostCard) => Date.parse(b.date) - Date.parse(a.date);
 
-/** How long a post stays on the homepage strip after it goes live. */
 const HOMEPAGE_POST_MAX_AGE_MS = 3 * 24 * 60 * 60 * 1000;
 
-/** One feed, bucketed into the shelves the viewer may see. */
 export async function loadPostHub(
   fetchImpl: typeof fetch,
   viewer: Viewer | null,
@@ -85,11 +78,6 @@ export async function loadPostHub(
   return hub;
 }
 
-/**
- * The homepage strip: the freshest live post from either feed, pinned first,
- * and nothing older than three days. Managers get their wider audience here but
- * never drafts - the homepage is not a preview.
- */
 export async function loadLatestPosts(
   fetchImpl: typeof fetch,
   viewer: Viewer | null,
@@ -112,7 +100,6 @@ export async function loadLatestPosts(
     .slice(0, limit);
 }
 
-/** One post page; 404 unless the viewer's feed would have listed it. */
 export async function loadPostPage(
   fetchImpl: typeof fetch,
   locals: App.Locals,
@@ -125,9 +112,6 @@ export async function loadPostPage(
     resolvePostViewer(fetchImpl, viewer),
     postStore.get(slug),
   ]);
-  // Asked exactly as the feed asks it: a guessed or forwarded link must not
-  // reveal a post the feed would never have listed - so the 404 comes before
-  // the wrong-feed redirect, which would otherwise confirm the slug exists.
   if (!stored || !canSeePost(stored.post, stored.published, postViewer, now)) {
     requestError(locals, 404, "No such post");
   }

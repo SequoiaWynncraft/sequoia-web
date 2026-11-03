@@ -1,6 +1,5 @@
 import { isNonNegativeInteger, isNonNegativeNumber } from "./guards";
 
-/** Per-member gains over a UTC date range, summed from the backend's daily rollups. */
 export interface MemberProgressResponse {
   generated_at: string;
   from: string;
@@ -45,16 +44,11 @@ export function isMemberProgressResponse(value: unknown): value is MemberProgres
         member !== null &&
         typeof (member as Record<string, unknown>).player_uuid === "string" &&
         typeof (member as Record<string, unknown>).player_name === "string" &&
-        // Playtime and war points are fractional amounts; the rest are counts.
         isNonNegativeNumber((member as Record<string, unknown>).playtime_hours) &&
         isNonNegativeNumber((member as Record<string, unknown>).war_points) &&
         isNonNegativeInteger((member as Record<string, unknown>).raids) &&
-        // Raffle eligibility thresholds and weights read this directly - a
-        // missing count must fail validation, not read as zero wars.
         isNonNegativeInteger((member as Record<string, unknown>).wars) &&
         isNonNegativeInteger((member as Record<string, unknown>).wars_participated) &&
-        // The progress export dereferences the per-raid breakdown; a payload
-        // without it must fail validation, not 500 the download.
         isCountRecord((member as Record<string, unknown>).raids_by_type),
     )
   );

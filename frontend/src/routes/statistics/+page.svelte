@@ -14,7 +14,6 @@
 
   const page = pageView("/statistics");
   const stats = $derived(data.stats);
-  // Outage fallback grid, filtered like the navbar and the other overviews.
   const cards = $derived(visibleCards(page.cards, data.navHidden));
 
   const currentSeason = $derived(stats?.season_ranks.at(-1) ?? null);
@@ -181,9 +180,6 @@
   <p class="stale-note">Live statistics are temporarily unavailable.</p>
 {/if}
 
-<!-- Outside the `stats` branch on purpose: the loader returns `levelTracker` even
-     when the guild read fails, and the tracker reads none of `stats`, so an
-     eligible member still gets their section during a Wynncraft outage. -->
 {#await data.levelTracker then tracker}
   {#if tracker}
     <section class="level-tracker" aria-label="Level tracker">

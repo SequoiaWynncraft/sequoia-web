@@ -1,9 +1,5 @@
 import { allowsAnyHttpsImage } from "#lib/config/csp.js";
 
-/**
- * Baseline browser protections for every response the app renders. Static
- * assets served before the app's handler rely on the reverse proxy instead.
- */
 const BASELINE_HEADERS: Readonly<Record<string, string>> = {
   "x-content-type-options": "nosniff",
   "referrer-policy": "strict-origin-when-cross-origin",
@@ -12,16 +8,8 @@ const BASELINE_HEADERS: Readonly<Record<string, string>> = {
   "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
 };
 
-/**
- * One year, for this host only. includeSubDomains and preload would commit
- * every *.seqwawa.com service to HTTPS, which is an owner decision.
- */
 const HSTS = "max-age=31536000";
 
-/**
- * Adds the baseline security headers to an app response, keeping any value a
- * route already chose. HSTS is sent only over HTTPS, where browsers honor it.
- */
 export function applySecurityHeaders(headers: Headers, url: URL): void {
   for (const [name, value] of Object.entries(BASELINE_HEADERS)) {
     if (!headers.has(name)) headers.set(name, value);

@@ -2,7 +2,6 @@ import { BAGSHOP_API_URL } from "$app/env/private";
 
 const DEFAULT_BAGSHOP_URL = "http://localhost:8090";
 
-/** Absolute URL for a bag shop API path against the configured internal origin. */
 export function bagshopUrl(path: string): string {
   const base = (BAGSHOP_API_URL || DEFAULT_BAGSHOP_URL).replace(/\/+$/, "");
   return `${base}${path.startsWith("/") ? path : `/${path}`}`;
@@ -10,23 +9,12 @@ export function bagshopUrl(path: string): string {
 
 interface ProxyOptions {
   method: string;
-  /** The viewer's seq_session cookie value; forwarded as a bearer token. */
   token: string | undefined;
-  /** Query string including the leading "?", when present. */
   search?: string;
-  /** Raw request body for POST/PATCH. */
   body?: string;
 }
 
-/**
- * Forwards a request to the internal bag shop API, attaching the viewer's session JWT
- * as a bearer token. The token and the bag shop origin never reach the browser. Returns a
- * JSON `503` when the bag shop is unreachable, otherwise passes the upstream status/body
- * through unchanged. The bag shop itself enforces auth (customer vs. allowlisted staff).
- */
 export async function proxyToBagshop(path: string, opts: ProxyOptions): Promise<Response> {
-  // Treat an empty-string body as absent: a bodyless POST/PATCH forwards no body and no
-  // Content-Type, so the bag shop never sees a spurious `application/json` on an empty request.
   const body = opts.body ? opts.body : undefined;
   const headers: Record<string, string> = { accept: "application/json" };
   if (opts.token) headers.authorization = `Bearer ${opts.token}`;
@@ -39,7 +27,6 @@ export async function proxyToBagshop(path: string, opts: ProxyOptions): Promise<
       body,
       signal: AbortSignal.timeout(5000),
     });
-    // Read the body inside the try so a mid-stream read failure also degrades to the 503.
     const text = await upstream.text();
     return new Response(text, {
       status: upstream.status,
