@@ -47,7 +47,7 @@ const escapeHtml = (value: string) => value.replace(/[&<>"]/g, (char) => HTML_ES
 /** Fills the brand placeholders in `app.html`. */
 export function fillBrandPlaceholders(html: string): string {
   return html
-    .replace("%site.title%", escapeHtml(`${BRAND.name} - ${BRAND.tagline}`))
-    .replace("%site.description%", escapeHtml(`${BRAND.name} - ${BRAND.description}`))
-    .replace("%site.logo%", escapeHtml(BRAND.logo));
+    .replace("%site.title%", () => escapeHtml(`${BRAND.name} - ${BRAND.tagline}`))
+    .replace("%site.description%", () => escapeHtml(`${BRAND.name} - ${BRAND.description}`))
+    .replace("%site.logo%", () => escapeHtml(BRAND.logo));
 }

@@ -46,4 +46,10 @@ describe("brand", () => {
     expect(BRAND.discordUrl).toBe("https://discord.gg/oak");
     expect(BRAND.mapUrl).toBe("https://map.seqwawa.com");
   });
+
+  it("keeps dollar signs in configured text literal", async () => {
+    const { fillBrandPlaceholders } = await brandWith({ PUBLIC_SITE_DESCRIPTION: "Earn $$ prizes; use $& as the tag" });
+
+    expect(fillBrandPlaceholders(APP_HTML)).toContain('<meta content="Sequoia - Earn $$ prizes; use $&amp; as the tag" />');
+  });
 });
