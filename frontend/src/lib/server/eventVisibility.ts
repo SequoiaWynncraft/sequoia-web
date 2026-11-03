@@ -15,6 +15,9 @@ import type { Viewer } from "#lib/site/viewer.js";
  */
 export type EventAudience = "anonymous" | "signedIn" | "member" | "manager";
 
+/** Why a viewer can or cannot see a member event's gated sections. */
+export type Membership = "member" | "signin" | "unverified" | "notMember";
+
 /** The audience of a request, with the roster the decision was made against. */
 export interface AudienceResult {
   audience: EventAudience;

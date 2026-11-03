@@ -1,9 +1,7 @@
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
-
-import { createClient, type Client } from "@libsql/client";
+import { type Client } from "@libsql/client";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { disposableDatabase } from "./disposableDatabase.fixture";
 
 const store = vi.hoisted(() => ({ client: null as Client | null }));
 vi.mock("./db", () => ({
@@ -15,21 +13,7 @@ vi.mock("./db", () => ({
 
 type CacheModule = typeof import("./serverCache");
 
-const dir = await mkdtemp(path.join(tmpdir(), "sequoia-cache-"));
-const clients: Client[] = [];
-
-/**
- * A separate connection to a disposable test file. WAL with synchronous=OFF
- * only skips this fixture's fsyncs; every cache write still runs in a real
- * SQLite write transaction, and production connections keep their defaults.
- */
-async function connect(file: string): Promise<Client> {
-  const client = createClient({ url: `file:${file}`, timeout: 5000 });
-  await client.execute("PRAGMA journal_mode = WAL");
-  await client.execute("PRAGMA synchronous = OFF");
-  clients.push(client);
-  return client;
-}
+const db = await disposableDatabase();
 
 /** A fresh cache module whose memoised database is bound to `client`. */
 async function cacheBoundTo(client: Client): Promise<CacheModule> {
@@ -45,7 +29,6 @@ const unused = async (): Promise<string> => {
   throw new Error("load should not run");
 };
 
-let file: string;
 let reader: Client;
 let cache: CacheModule;
 let warn: ReturnType<typeof vi.spyOn>;
@@ -65,9 +48,8 @@ function resource(key: string, load: (fetchImpl: typeof fetch) => Promise<string
 }
 
 beforeAll(async () => {
-  file = path.join(dir, "cache.db");
-  cache = await cacheBoundTo(await connect(file));
-  reader = await connect(file);
+  cache = await cacheBoundTo(await db.connect("cache.db"));
+  reader = await db.connect("cache.db");
 });
 
 beforeEach(async () => {
@@ -81,10 +63,7 @@ afterEach(() => {
   warn.mockRestore();
 });
 
-afterAll(async () => {
-  for (const client of clients) client.close();
-  await rm(dir, { recursive: true, force: true });
-});
+afterAll(() => db.dispose());
 
 describe("persisted cache budget", () => {
   it("keeps only the newest rows when more entries are written than the row budget", { timeout: 60_000 }, async () => {
@@ -124,7 +103,7 @@ describe("persisted cache budget", () => {
   });
 
   it("stays inside both budgets with two connections writing one file concurrently", { timeout: 60_000 }, async () => {
-    const other = await cacheBoundTo(await connect(file));
+    const other = await cacheBoundTo(await db.connect("cache.db"));
     const perWriter = Math.ceil(cache.CACHE_MAX_ROWS / 2) + 50;
     const put = (module: CacheModule, key: string) =>
       module.createCachedResource({ key, freshMs: 1, staleMs: 1, load: unused, validate: isString }).put(key);
@@ -173,8 +152,7 @@ describe("cached resource reads", () => {
 
 describe("legacy table upgrade", () => {
   it("adds byte accounting in place, drops oversized rows, trims to budget and keeps stale fallbacks", { timeout: 60_000 }, async () => {
-    const legacyFile = path.join(dir, "legacy.db");
-    const legacy = await connect(legacyFile);
+    const legacy = await db.connect("legacy.db");
     await legacy.execute("CREATE TABLE api_cache (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at INTEGER NOT NULL)");
     const now = Date.now();
     const total = cache.CACHE_MAX_ROWS + 10;

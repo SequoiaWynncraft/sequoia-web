@@ -2,8 +2,7 @@ import type { PageServerLoad } from "./$types";
 
 import { eventChart, eventStatus } from "#lib/events/helpers.js";
 import { standingsUnit, type GuildEvent, type StandingsUnit } from "#lib/events/types.js";
-import type { Membership } from "#lib/server/eventMembership.js";
-import { canSeeEvent, resolveEventAudience } from "#lib/server/eventVisibility.js";
+import { canSeeEvent, resolveEventAudience, type Membership } from "#lib/server/eventVisibility.js";
 import { eventStore } from "#lib/server/eventStore.js";
 import { loadEventRaidCounts, sumCounts, type EventDayCount } from "#lib/server/eventActivity.js";
 import { loadGoalProgress } from "#lib/server/goalProgress.js";

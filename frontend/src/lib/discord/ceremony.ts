@@ -24,7 +24,7 @@ export interface ScreenSettings { film: FilmPolicy; error: CrashText }
 export interface CeremonyFilm { id: string; label: string }
 export interface CrashTextLimits { title: number; body: number; code: number }
 /** The server's defaults: the original storm film and a crash screen with no words. Never sent to servers without screen settings. */
-export const DEFAULT_FILM = "storm";
+const DEFAULT_FILM = "storm";
 export const SCREEN_DEFAULT: Readonly<ScreenSettings> = {
   film: { mode: "fixed", film: DEFAULT_FILM },
   error: { title: "", body: "", code: "" },
@@ -281,7 +281,7 @@ export const CEREMONY_SCENES: readonly { id: CeremonySceneChoice; label: string 
 ];
 /** The compiled base loops are 32 seconds. Playback returns to the still after one loop. */
 export const CEREMONY_LOOP_MS = 32_000;
-export const CEREMONY_COUNT_MAX = 1_000_000;
+const CEREMONY_COUNT_MAX = 1_000_000;
 
 /** Readable scene, e.g. "Snow night". */
 export function ceremonySceneLabel(scene: CeremonyScene): string {
@@ -295,7 +295,7 @@ export function ceremonyPreviewScene(choice: CeremonySceneChoice, scheduled: Cer
   return { season, ambiance };
 }
 
-export function ceremonyWeightIssue(stories: CeremonySettings["stories"]): string | null {
+function ceremonyWeightIssue(stories: CeremonySettings["stories"]): string | null {
   if (stories.some(({ weight }) => !Number.isInteger(weight) || weight < 0 || weight > 1000)) return "Use whole-number weights from 0 to 1000.";
   return null;
 }
@@ -424,7 +424,7 @@ export function ceremonyAchievementBody(achievement: CeremonyAchievement, legacy
 
 /** What a screen story's preview plays and shows: a film, unsaved crash words and the payload. */
 export interface CeremonyScreening { film: string | null; error: CrashText | null; payload: "award" | "welcome" }
-export const NO_SCREENING: Readonly<CeremonyScreening> = { film: null, error: null, payload: "award" };
+const NO_SCREENING: Readonly<CeremonyScreening> = { film: null, error: null, payload: "award" };
 
 /** What a preview shows. A story without films always previews the sample award; a screen story plays the chosen film (else the draft policy's) and shows the chosen payload. */
 export function ceremonyPreviewScreening(offered: readonly string[], policy: FilmPolicy, previewFilm: string, payload: CeremonyScreening["payload"], error: CrashText | null): CeremonyScreening {

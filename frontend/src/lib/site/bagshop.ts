@@ -1,7 +1,7 @@
 import { splitInventoryKey, type InventoryItem, type Order, type OrderType } from "#lib/api/bagshop.js";
 import type { CurrencyUnit } from "#lib/site/currency.js";
 
-export const EB_PER_LE = 64;
+const EB_PER_LE = 64;
 
 export interface CurrencyPart {
   amount: number;

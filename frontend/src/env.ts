@@ -27,6 +27,12 @@ export const variables = defineEnvVars({
     ...buildTimePublic,
     description: "Theme id for visitors who have not picked one.",
   },
+  PUBLIC_SITE_NAME: { ...buildTimePublic, description: "Site name shown in titles, navigation and footer." },
+  PUBLIC_SITE_TAGLINE: { ...buildTimePublic, description: "Short tagline for the default page title." },
+  PUBLIC_SITE_DESCRIPTION: { ...buildTimePublic, description: "Default meta description and footer summary." },
+  PUBLIC_SITE_LOGO: { ...buildTimePublic, description: "Logo and favicon path or data: URL." },
+  PUBLIC_SITE_DISCORD_URL: { ...buildTimePublic, description: "Community Discord invite." },
+  PUBLIC_SITE_MAP_URL: { ...buildTimePublic, description: "Territory map link." },
   SEQUOIA_WEB_BACKEND_URL: { schema: optional, description: "Rust web backend origin." },
   SEQUOIA_WEB_BACKEND_INTERNAL_TOKEN: {
     schema: optional,

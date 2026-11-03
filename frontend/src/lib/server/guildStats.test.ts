@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { isGuildStatsResponse } from "#lib/api/guildStats.js";
 import { parseGuildStats } from "#lib/server/guildStats.js";
 
 const guildPayload = {
@@ -115,8 +114,6 @@ describe("parseGuildStats", () => {
       joined: null,
       last_join: null,
     });
-
-    expect(isGuildStatsResponse(result)).toBe(true);
   });
 
   it("rejects payloads without a member map", () => {

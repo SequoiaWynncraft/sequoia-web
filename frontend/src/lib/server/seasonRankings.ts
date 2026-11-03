@@ -1,5 +1,5 @@
 import { type SeasonRankingEntry, type SeasonRankingsResponse } from "#lib/api/seasonRankings.js";
-import { isRecord } from "#lib/server/guards.js";
+import { isRecord } from "#lib/api/guards.js";
 import { createCachedResource, type CachedResource } from "#lib/server/serverCache.js";
 import { fetchWynncraftJson } from "#lib/server/wynncraft.js";
 

@@ -1,5 +1,5 @@
 import { createSequoiaApiClient, type RankProfilesResponse } from "#lib/api/client.js";
-import { isRecord } from "#lib/server/guards.js";
+import { isRecord } from "#lib/api/guards.js";
 import { GUILD_RANKS, type GuildRankName } from "#lib/api/guildStats.js";
 import { SEQUOIA_API_BASE_URL } from "#lib/config/public.js";
 import { createCachedResource, type CachedValue } from "#lib/server/serverCache.js";

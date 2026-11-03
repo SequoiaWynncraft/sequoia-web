@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { BRAND, pageTitle } from "#lib/site/brand.js";
   import PageHeader from "#lib/components/PageHeader.svelte";
   import SectionLabel from "#lib/design-system/components/SectionLabel.svelte";
   import EventSky from "#lib/events/components/EventSky.svelte";
@@ -24,12 +25,12 @@
 </script>
 
 <svelte:head>
-  <title>Events - Sequoia</title>
-  <meta name="description" content="Sequoia guild events - live, upcoming, and past." />
+  <title>{pageTitle("Events")}</title>
+  <meta name="description" content={`${BRAND.name} guild events - live, upcoming, and past.`} />
 </svelte:head>
 
 <div class="ev-hub">
-  <PageHeader kicker="Sequoia" title="Events" />
+  <PageHeader kicker={BRAND.name} title="Events" />
   {#if data.manager}
     <a class="ev-manage-link focus-ring" href="/manage/events">◆ Manage</a>
   {/if}

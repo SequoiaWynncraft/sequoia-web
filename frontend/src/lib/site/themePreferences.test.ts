@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   DEFAULT_THEME_ID,
@@ -52,10 +52,19 @@ describe("THEMES", () => {
     expect(THEMES.some((theme) => theme.id === FALLBACK_THEME_ID)).toBe(true);
   });
 
-  it("defaults to Tna purple when PUBLIC_DEFAULT_THEME is unset", () => {
-    if (!import.meta.env.PUBLIC_DEFAULT_THEME) {
-      expect(DEFAULT_THEME_ID).toBe("gaz-purple");
-    }
+  it.each([
+    ["", "gaz-purple"],
+    ["autumn", "autumn"],
+    ["no-such-theme", "gaz-purple"],
+  ])("resolves a configured default of %j to %s and offers it", async (configured, expected) => {
+    vi.resetModules();
+    vi.doMock("#lib/config/public.js", () => ({ CONFIGURED_DEFAULT_THEME: configured }));
+    const themes = await import("#lib/site/themePreferences.js");
+    vi.doUnmock("#lib/config/public.js");
+
+    expect(themes.DEFAULT_THEME_ID).toBe(expected);
+    expect(themes.parseThemeId(undefined)).toBe(expected);
+    expect(themes.SELECTABLE_THEMES.some((theme) => theme.id === expected)).toBe(true);
   });
 
   it("offers the default, and no hidden theme besides it", () => {

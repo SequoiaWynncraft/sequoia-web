@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { BRAND, pageTitle } from "#lib/site/brand.js";
   import ManageGate from "#lib/manage/ManageGate.svelte";
   import { landingAccess } from "#lib/manage/registry.js";
 
@@ -6,7 +7,7 @@
 </script>
 
 <svelte:head>
-  <title>Manage - Sequoia</title>
+  <title>{pageTitle("Manage")}</title>
   <meta name="robots" content="noindex" />
 </svelte:head>
 
@@ -14,7 +15,7 @@
   access={landingAccess(data.capabilities)}
   returnTo="/manage"
   title="Management console"
-  signinText="Sign in to manage Sequoia."
+  signinText={`Sign in to manage ${BRAND.name}.`}
   deniedText="Management is restricted to branch members and guild leadership."
   backHref="/"
   backLabel="Back to home"

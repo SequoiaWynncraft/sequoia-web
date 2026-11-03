@@ -1,8 +1,3 @@
-/** True if the value is a non-null object usable as a keyed record. */
-export function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
 /** Coalesces to `undefined` unless the value is a whole number that is zero or greater. */
 export function nonNegativeInteger(value: unknown): number | undefined {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : undefined;

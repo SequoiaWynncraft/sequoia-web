@@ -42,7 +42,7 @@ export function charCount(text: string | undefined): number {
  * Embed text as Sierra stores it: Unicode White_Space trimmed from both ends, like Rust's
  * `str::trim`. `String.trim` differs at U+0085 (kept) and U+FEFF (removed).
  */
-export function trimEmbedText(text: string | undefined): string {
+function trimEmbedText(text: string | undefined): string {
   return (text ?? "").replace(/^\p{White_Space}+|\p{White_Space}+$/gu, "");
 }
 

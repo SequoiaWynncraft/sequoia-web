@@ -169,7 +169,7 @@ export async function loadWarPointEntries(
 }
 
 /** The mod-fed read a tracker kind uses: war points, or raid completions. */
-export function loadModFeedEntries(
+function loadModFeedEntries(
   fetchImpl: typeof fetch,
   tracking: TrackerKind | undefined,
   window: { starts_at: string; ends_at: string; raid?: string | null },

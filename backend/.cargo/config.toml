@@ -1,5 +1,0 @@
-[alias]
-check-all = "check --workspace --all-targets --all-features"
-clippy-all = "clippy --workspace --all-targets --all-features -- -D warnings"
-fmt-check = "fmt --all --check"
-test-all = "test --workspace --all-features"

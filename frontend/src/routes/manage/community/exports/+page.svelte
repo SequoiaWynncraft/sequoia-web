@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { pageTitle } from "#lib/site/brand.js";
   import AreaGate from "#lib/manage/AreaGate.svelte";
   import ManageHeader from "#lib/manage/ManageHeader.svelte";
   import Button from "#lib/design-system/components/Button.svelte";
@@ -10,7 +11,7 @@
 </script>
 
 <svelte:head>
-  <title>Stats exports - Sequoia</title>
+  <title>{pageTitle("Stats exports")}</title>
   <meta name="robots" content="noindex" />
 </svelte:head>
 

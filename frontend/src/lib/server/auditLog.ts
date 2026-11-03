@@ -124,7 +124,7 @@ export function createAuditLog(getClient: () => Promise<Client>): AuditLog {
 const auditLog = createAuditLog(database);
 
 export const recordAudit = auditLog.record;
-export const listAudit = auditLog.list;
+const listAudit = auditLog.list;
 
 /** One bounded audit view over the existing website and Rust-owned manager trails. */
 export async function listManagementAudit(fetchImpl: typeof fetch, token: string | undefined): Promise<AuditEntry[]> {

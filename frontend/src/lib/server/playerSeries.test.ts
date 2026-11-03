@@ -1,9 +1,7 @@
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
-
-import { createClient, type Client } from "@libsql/client";
+import { type Client } from "@libsql/client";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+
+import { disposableDatabase } from "./disposableDatabase.fixture";
 
 const store = vi.hoisted(() => ({ client: null as Client | null }));
 vi.mock("./db", () => ({
@@ -16,21 +14,15 @@ vi.mock("./db", () => ({
 import { getPlayerSeries } from "./playerSeries";
 
 const PLAYER = "66efb975-31b4-499e-9b46-a34980edd8ee";
-const dir = await mkdtemp(path.join(tmpdir(), "sequoia-series-"));
+const db = await disposableDatabase();
 let client: Client;
 
-/** Disposable test file: synchronous=OFF only skips this fixture's fsyncs. */
 beforeAll(async () => {
-  client = createClient({ url: `file:${path.join(dir, "series.db")}`, timeout: 5000 });
-  await client.execute("PRAGMA journal_mode = WAL");
-  await client.execute("PRAGMA synchronous = OFF");
+  client = await db.connect();
   store.client = client;
 });
 
-afterAll(async () => {
-  client.close();
-  await rm(dir, { recursive: true, force: true });
-});
+afterAll(() => db.dispose());
 
 function backend() {
   return vi.fn<typeof fetch>(async (input) => {

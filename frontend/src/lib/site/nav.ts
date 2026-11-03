@@ -1,4 +1,5 @@
 import type { IconName } from "#lib/icons.js";
+import { BRAND } from "#lib/site/brand.js";
 
 export interface NavLeaf {
   label: string;
@@ -63,7 +64,7 @@ export const SECTIONS: NavSection[] = [
     label: "News",
     to: "/news",
     icon: "document",
-    kicker: "Sequoia",
+    kicker: BRAND.name,
     title: "News",
     lead: "News and updates from the guild.",
     placeholder: "News",
@@ -73,7 +74,7 @@ export const SECTIONS: NavSection[] = [
     to: "/events",
     icon: "trophy",
     description: "Guild events - live, upcoming, and past.",
-    kicker: "Sequoia",
+    kicker: BRAND.name,
     title: "Events",
   },
   {
@@ -205,7 +206,7 @@ export const SECTIONS: NavSection[] = [
     icon: "bag",
     kicker: "Services",
     title: "Community",
-    lead: "Sequoia services: bagshop, announcements, requests, and tools.",
+    lead: `${BRAND.name} services: bagshop, announcements, requests, and tools.`,
     items: [
       {
         label: "Bagshop",
@@ -281,7 +282,7 @@ export function leavesOf(section: NavSection): NavLeaf[] {
   return [];
 }
 
-export function tabsFor(path: string): NavLeaf[] {
+function tabsFor(path: string): NavLeaf[] {
   for (const s of SECTIONS) {
     if (s.items && (s.to === path || s.items.some((item) => item.to === path))) return s.items;
     if (s.groups) {

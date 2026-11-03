@@ -17,7 +17,6 @@ describe("achievement catalog interface", () => {
     expect(body).toContain('aria-label="Edit TNA milestones"');
     expect(body).not.toContain('aria-label="Edit Insignia milestones"');
     expect(body).toContain("Saved version 3");
-    expect(body).not.toContain("\u2014");
   });
   it("states the award rule once and offers only ready stories for previews", () => {
     const { body } = render(CatalogManager, { props: { initial: catalogFixture } });

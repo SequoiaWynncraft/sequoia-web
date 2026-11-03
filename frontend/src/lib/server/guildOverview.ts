@@ -6,7 +6,8 @@ import {
 } from "#lib/api/guildOverview.js";
 import { getLinkedRankProfilesResult, resolveRankRole } from "#lib/server/rankProfiles.js";
 import { getWynncraftGuild } from "#lib/server/wynncraftGuild.js";
-import { isRecord, nonNegativeInteger, booleanValue, stringValue } from "#lib/server/guards.js";
+import { isRecord } from "#lib/api/guards.js";
+import { nonNegativeInteger, booleanValue, stringValue } from "#lib/server/guards.js";
 
 const GUILD_RANKS = ["owner", "chief", "strategist", "captain", "recruiter", "recruit"] as const;
 const CSS_HEX_COLOR = /^#[0-9a-f]{6}$/i;
