@@ -133,7 +133,7 @@ interface RaffleSeed {
 
 // Placements serialize in this fixed order, so click order never churns
 // the payload (and with it the undo history).
-export const ICON_PLACEMENT_ORDER: EventIconPlacement[] = ["hero", "band", "meta", "manage"];
+const ICON_PLACEMENT_ORDER: EventIconPlacement[] = ["hero", "band", "meta", "manage"];
 
 export const RAFFLE_MAX_WINNERS = 50;
 
@@ -159,12 +159,12 @@ export function keepInstant(value: string, original: string): string {
  * "T00:00:00Z" must not read as different from the saved "T00:00:00.000Z".
  * Invalid strings pass through so the validator can still name them.
  */
-export function canonInstant(value: string): string {
+function canonInstant(value: string): string {
   const parsed = Date.parse(value);
   return Number.isNaN(parsed) ? value : new Date(parsed).toISOString();
 }
 
-export function slugify(value: string): string {
+function slugify(value: string): string {
   return value
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")

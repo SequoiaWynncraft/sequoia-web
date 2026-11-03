@@ -281,7 +281,7 @@ export function leavesOf(section: NavSection): NavLeaf[] {
   return [];
 }
 
-export function tabsFor(path: string): NavLeaf[] {
+function tabsFor(path: string): NavLeaf[] {
   for (const s of SECTIONS) {
     if (s.items && (s.to === path || s.items.some((item) => item.to === path))) return s.items;
     if (s.groups) {

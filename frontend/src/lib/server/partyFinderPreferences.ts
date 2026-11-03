@@ -1,6 +1,6 @@
 import { SEQUOIA_API_BASE_URL } from "#lib/config/public.js";
 
-export const PARTY_FINDER_DM_LEVELS = ["important_only", "all", "none"] as const;
+const PARTY_FINDER_DM_LEVELS = ["important_only", "all", "none"] as const;
 export type PartyFinderDmLevel = (typeof PARTY_FINDER_DM_LEVELS)[number];
 export type PartyFinderDmLevelResult =
   | { status: "ok"; level: PartyFinderDmLevel }

@@ -1,5 +1,3 @@
-import { isRecord, isNonNegativeInteger } from "#lib/api/guards.js";
-
 export interface PlayerCharacterSummary {
   type: string;
   reskin: string | null;
@@ -50,71 +48,4 @@ export interface PlayerCardResponse {
   pvp_deaths: number | null;
   rankings: Record<string, number>;
   characters: PlayerCharacterSummary[];
-}
-
-export function isPlayerCardResponse(value: unknown): value is PlayerCardResponse {
-  return (
-    isRecord(value) &&
-    typeof value.generated_at === "string" &&
-    typeof value.stale === "boolean" &&
-    typeof value.username === "string" &&
-    typeof value.uuid === "string" &&
-    (typeof value.online === "boolean" || value.online === null) &&
-    isNullableString(value.server) &&
-    isNullableString(value.support_rank) &&
-    typeof value.veteran === "boolean" &&
-    isNullableString(value.first_join) &&
-    isNullableString(value.last_join) &&
-    isNullableNonNegativeNumber(value.playtime) &&
-    isNullableString(value.guild_name) &&
-    isNullableString(value.guild_prefix) &&
-    isNullableString(value.guild_rank) &&
-    isNullableString(value.guild_rank_stars) &&
-    isNullableNonNegativeInteger(value.wars) &&
-    isNullableNonNegativeInteger(value.total_level) &&
-    isNullableNonNegativeInteger(value.mobs_killed) &&
-    isNullableNonNegativeInteger(value.chests_found) &&
-    isNullableNonNegativeInteger(value.content_completion) &&
-    isNullableNonNegativeInteger(value.quests) &&
-    isNullableNonNegativeInteger(value.dungeons_total) &&
-    isNumberRecord(value.dungeons) &&
-    isNullableNonNegativeInteger(value.raids_total) &&
-    isNumberRecord(value.raids) &&
-    isNullableNonNegativeInteger(value.current_guild_raids) &&
-    isNullableString(value.guild_joined) &&
-    isNullableNonNegativeInteger(value.pvp_kills) &&
-    isNullableNonNegativeInteger(value.pvp_deaths) &&
-    isNumberRecord(value.rankings) &&
-    Array.isArray(value.characters) &&
-    value.characters.every(isPlayerCharacterSummary)
-  );
-}
-
-function isPlayerCharacterSummary(value: unknown): value is PlayerCharacterSummary {
-  return (
-    isRecord(value) &&
-    typeof value.type === "string" &&
-    isNullableString(value.reskin) &&
-    isNullableString(value.nickname) &&
-    isNonNegativeInteger(value.level) &&
-    isNonNegativeInteger(value.total_level) &&
-    Array.isArray(value.gamemodes) &&
-    value.gamemodes.every((mode) => typeof mode === "string")
-  );
-}
-
-function isNumberRecord(value: unknown): value is Record<string, number> {
-  return isRecord(value) && Object.values(value).every((entry) => typeof entry === "number" && Number.isFinite(entry));
-}
-
-function isNullableString(value: unknown): value is string | null {
-  return value === null || typeof value === "string";
-}
-
-function isNullableNonNegativeInteger(value: unknown): value is number | null {
-  return value === null || isNonNegativeInteger(value);
-}
-
-function isNullableNonNegativeNumber(value: unknown): value is number | null {
-  return value === null || (typeof value === "number" && Number.isFinite(value) && value >= 0);
 }

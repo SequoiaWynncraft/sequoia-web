@@ -2,11 +2,9 @@ import type { Cookies } from "@sveltejs/kit";
 
 import type { Viewer } from "#lib/site/viewer.js";
 
-import { checkBranchArea, MANAGER_RANKS } from "./branchAccess";
+import { checkBranchArea } from "./branchAccess";
 import { requestError } from "./requestError";
 import { loadViewer } from "./viewerSession";
-
-export { MANAGER_RANKS };
 
 export type ManagerAccess = "manager" | "signin" | "unverified" | "denied";
 
@@ -15,7 +13,7 @@ export type ManagerAccess = "manager" | "signin" | "unverified" | "denied";
  * leadership, and website admins. Authorized against fresh data only - a
  * stale roster or profile snapshot fails closed.
  */
-export async function checkEventManager(
+async function checkEventManager(
   fetchImpl: typeof fetch,
   viewer: Viewer | null,
 ): Promise<ManagerAccess> {

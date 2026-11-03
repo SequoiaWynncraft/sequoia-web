@@ -5,7 +5,8 @@ import {
   type GuildStatsResponse,
 } from "#lib/api/guildStats.js";
 import { getWynncraftGuild } from "#lib/server/wynncraftGuild.js";
-import { isRecord, nonNegativeInteger, nonNegativeNumber, booleanValue, stringValue } from "#lib/server/guards.js";
+import { isRecord } from "#lib/api/guards.js";
+import { nonNegativeInteger, nonNegativeNumber, booleanValue, stringValue } from "#lib/server/guards.js";
 
 type GuildStatsOptions = { allowStale?: boolean };
 

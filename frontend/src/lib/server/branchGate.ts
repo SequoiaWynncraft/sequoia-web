@@ -7,7 +7,7 @@ import type { Viewer } from "#lib/site/viewer.js";
  * gated management sections. These are stable backend ids, not Discord display
  * labels, so renaming a role cannot open or close the gate. Trainees are
  * excluded. */
-export const GATED_BRANCHES = ["development", "community"];
+const GATED_BRANCHES = ["development", "community"];
 
 /**
  * Returns whether the viewer is a website administrator, or a full member

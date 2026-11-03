@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { isPlayerCardResponse } from "#lib/api/playerCard.js";
 import { parsePlayerCard } from "#lib/server/playerCard.js";
 
 const playerPayload = {
@@ -70,7 +69,6 @@ describe("parsePlayerCard", () => {
       rankings: { colossusSrGPlayers: 1 },
     });
     expect(result.characters.map((character) => character.type)).toEqual(["MAGE", "WARRIOR"]);
-    expect(isPlayerCardResponse(result)).toBe(true);
   });
 
   it("hides presence when the profile restricts online status", () => {
@@ -91,14 +89,12 @@ describe("parsePlayerCard", () => {
 
     expect(result.current_guild_raids).toBe(17_041);
     expect(result.guild_joined).toBe("2023-03-14T19:21:11.556000Z");
-    expect(isPlayerCardResponse(result)).toBe(true);
   });
 
   it("leaves the guild join date null without roster extras", () => {
     const result = parsePlayerCard(playerPayload, "2026-07-09T20:00:00.000Z");
 
     expect(result.guild_joined).toBeNull();
-    expect(isPlayerCardResponse(result)).toBe(true);
   });
 
   it("rejects payloads without identity fields", () => {

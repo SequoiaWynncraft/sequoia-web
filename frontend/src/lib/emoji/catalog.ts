@@ -45,7 +45,7 @@ export function emojiUrl(name: string): string {
   return `/assets/emoji/${name}.webp`;
 }
 
-export function isEmoji(name: string): boolean {
+function isEmoji(name: string): boolean {
   return NAMES.has(name);
 }
 
