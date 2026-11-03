@@ -1,0 +1,1 @@
+{{ range . }}{{ printf "%q:%d: suspected secret (%s) in %.12s\n" .File .StartLine .RuleID .Commit }}{{ end }}
