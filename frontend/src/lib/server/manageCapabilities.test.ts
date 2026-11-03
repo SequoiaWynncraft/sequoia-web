@@ -25,8 +25,6 @@ const mockDiscord = vi.mocked(requestDiscord);
 const UUID = "11111111-2222-3333-4444-555555555555";
 const UNDASHED = UUID.replaceAll("-", "");
 
-// The staff flag is memoized per discordId at module level, so every case
-// mints a fresh id to stay independent of its neighbours.
 let nextId = 0;
 function viewer(overrides: Partial<Viewer> = {}): Viewer {
   nextId += 1;
@@ -116,7 +114,6 @@ describe("peekManageCapabilities", () => {
   });
 
   it("takes Discord access only from Sierra, not from web branch data", async () => {
-    // A Senior Moderator is off the roster and in no branch; Sierra admits them.
     mockStats.mockResolvedValue({ stale: false, members: [] } as never);
     sierraSays(200);
     const moderator = await peekManageCapabilities(fetch, viewer());
@@ -124,7 +121,6 @@ describe("peekManageCapabilities", () => {
     expect(moderator.community).toBe("denied");
     expect(mockDiscord).toHaveBeenCalledWith(fetch, "access");
 
-    // Sierra's denial stands even for a web-side branch member.
     branchesWith([{ branch: "community", level: "member" }]);
     rosterWith("recruit");
     sierraSays(403);
@@ -160,7 +156,6 @@ describe("peekManageCapabilities", () => {
     expect(capabilities.treasury).toBe("granted");
     expect(capabilities.events).toBe("denied");
 
-    // Even when the roster is down, a settled staff answer stands.
     mockStats.mockRejectedValue(new Error("wynn down"));
     bagshopMe({ ok: true, staff: true });
     const outage = await peekManageCapabilities(fetch, viewer());
@@ -178,7 +173,6 @@ describe("peekManageCapabilities", () => {
     bagshopMe({ ok: false });
     const who = viewer();
     expect((await peekManageCapabilities(fetch, who)).treasury).toBe("unverified");
-    // Failure evicted: the next resolution asks the bot again.
     bagshopMe({ ok: true, staff: true });
     expect((await peekManageCapabilities(fetch, who)).treasury).toBe("granted");
   });
@@ -189,8 +183,6 @@ describe("peekManageCapabilities", () => {
     const startedAt = Date.now();
     const capabilities = await peekManageCapabilities(fetch, viewer());
     expect(Date.now() - startedAt).toBeLessThan(1000);
-    // Leadership reads from the roster alone; the lost profiles half must
-    // not cost owners their Manage navigation for the render.
     expect(capabilities.events).toBe("granted");
     expect(capabilities.development).toBe("granted");
   });
@@ -223,7 +215,6 @@ describe("Discord admission", () => {
     const who = viewer();
     sierraSays(200);
     expect((await peekManageCapabilities(fetch, who)).discord).toBe("granted");
-    // Revocation applies to the strict check immediately.
     sierraSays(403);
     expect(await pageAreaAccess(fetch, who, "discord")).toBe("denied");
     expect((await peekManageCapabilities(fetch, who)).discord).toBe("denied");
@@ -236,7 +227,6 @@ describe("Discord admission", () => {
     let startedAt = Date.now();
     expect(await navManageVisible(fetch, who)).toBe(false);
     expect(Date.now() - startedAt).toBeLessThan(1000);
-    // The second render shares the in-flight check and spends no further wait.
     startedAt = Date.now();
     expect((await peekManageCapabilities(fetch, who)).discord).toBe("unverified");
     expect(Date.now() - startedAt).toBeLessThan(100);
@@ -253,12 +243,9 @@ describe("Discord admission", () => {
 describe("pageAreaAccess", () => {
   it("asks the bot fresh for treasury gates while the sidebar rides the memo", async () => {
     const who = viewer();
-    // Strict resolutions never reuse a cached staff answer - an allowlist
-    // change applies on the next navigation, not after a TTL.
     await pageAreaAccess(fetch, who, "treasury");
     await pageAreaAccess(fetch, who, "treasury");
     expect(mockClient).toHaveBeenCalledTimes(2);
-    // The display-only peek reuses the settled answer.
     mockClient.mockClear();
     await peekManageCapabilities(fetch, who);
     expect(mockClient).not.toHaveBeenCalled();
@@ -351,8 +338,6 @@ describe("navManageVisible", () => {
     bagshopMe({ ok: true, staff: false });
     expect(await navManageVisible(fetch, viewer())).toBe(false);
 
-    // A hung bot costs the bounded peek, not STAFF_TIMEOUT_MS, and reads as
-    // not-staff for this render.
     mockClient.mockReturnValue({ getMe: () => new Promise(() => undefined) } as never);
     const startedAt = Date.now();
     expect(await navManageVisible(fetch, viewer())).toBe(false);

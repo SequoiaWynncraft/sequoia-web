@@ -5,7 +5,6 @@ import type { WelcomeResponse, WelcomeState } from "./welcome";
 
 vi.mock("$app/navigation", () => ({ beforeNavigate: vi.fn() }));
 
-// A deliberately unavailable UI state, never a substitute for real API or renderer acceptance.
 const unavailable: WelcomeState = {
   settings: {
     version: 0, guild_id: "1", enabled: false, channel_id: "2", season_mode: "automatic",
@@ -28,7 +27,6 @@ const unavailable: WelcomeState = {
   effective_night: { active: false, scheduled: false, local_time: "14:05", timezone: "UTC", ready: false, timezones: ["UTC", "Europe/Stockholm"] },
 };
 
-// Ids and copy as the server would return them. The view must not assume a count.
 const fifteen: WelcomeState["catalog"] = [
   "quiet", "lantern_panda", "fox", "deer", "owl", "rabbit", "hedgehog", "fireflies", "gnomes", "badger",
   "gnome_party", "duck_parade", "squirrel_chase", "owl_visit", "bunny_hop",
@@ -100,11 +98,9 @@ describe("welcome unavailable interface", () => {
     expect(body).toMatch(/<input[^>]*list="welcome-timezones"[^>]*value="UTC"/);
     expect(body).toMatch(/<datalist id="welcome-timezones">.*value="Europe\/Stockholm"/s);
     expect(body).toContain("Show the moon");
-    // Not ready: night cannot be switched on, and night previews are unavailable.
     expect(body).toContain("Night artwork is not installed yet, so night stays off.");
     expect(body).toMatch(/<input[^>]*disabled[^>]*type="checkbox"[^>]*>\s*<span>Use night scenes on a schedule/);
     expect(body).toMatch(/<button[^>]*aria-pressed="false"[^>]*disabled[^>]*>Night<\/button>/);
-    // No device suggestion is rendered on the server, so the browser zone is never a default.
     expect(body).not.toContain("this device");
   });
   it("lets a text-only welcome schedule night without night artwork", () => {
@@ -174,7 +170,6 @@ describe("welcome unavailable interface", () => {
     expect(legacy).not.toHaveProperty("effective_night");
     expect(legacy.settings).not.toHaveProperty("night");
     const { body } = render(WelcomeManager, { props: { initial: legacy, channels: [] } });
-    // Repeat shows its default for display only, locked, with next odds equal to base.
     expect(body).toContain("Repeat penalty is not available on this server yet.");
     expect(body).toMatch(/<input[^>]*min="0"[^>]*max="100"[^>]*disabled[^>]*value="50"|<input[^>]*disabled[^>]*min="0"[^>]*max="100"[^>]*value="50"/);
     expect(body).not.toContain(">recent<");
@@ -183,7 +178,6 @@ describe("welcome unavailable interface", () => {
     for (const absent of ["Night starts", "welcome-timezones", "Show the moon", "Preview time of day", "As scheduled", "Night only", "stays off", "Night:"]) {
       expect(body).not.toContain(absent);
     }
-    // Everything else is unchanged.
     expect(body).toContain("Enabled welcomes need normal and winter artwork");
     expect(body).toContain('aria-label="Preview season"');
     expect(body).toContain("No sky effect chance: 100%");

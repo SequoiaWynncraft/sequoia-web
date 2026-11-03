@@ -8,7 +8,6 @@ const POOL: RaffleEntrant[] = [
   { player_uuid: "c", username: "Cara", tickets: 6 },
 ];
 
-/** Feeds a fixed sequence of [0, 1) values so each draw is deterministic. */
 function sequenceRng(values: number[]): () => number {
   let index = 0;
   return () => values[index++ % values.length];
@@ -16,15 +15,12 @@ function sequenceRng(values: number[]): () => number {
 
 describe("drawWinners", () => {
   it("picks by weighted position within the running ticket total", () => {
-    // Total 10; threshold 0 lands on the first entrant (Alice, 3 tickets).
     const first = drawWinners(POOL, 1, { rng: sequenceRng([0]) });
     expect(first).toEqual([{ username: "Alice", player_uuid: "a", tickets: 3 }]);
 
-    // Threshold 0.35 * 10 = 3.5: past Alice's 3, into Bob's slot.
     const second = drawWinners(POOL, 1, { rng: sequenceRng([0.35]) });
     expect(second[0].username).toBe("Bob");
 
-    // Threshold near the top lands on the last entrant (Cara).
     const third = drawWinners(POOL, 1, { rng: sequenceRng([0.99]) });
     expect(third[0].username).toBe("Cara");
   });
@@ -88,8 +84,6 @@ describe("drawWinners", () => {
   });
 
   it("drains a full 150-member guild pool without truncating", () => {
-    // Every guild member enters (>=1 ticket); the draw must handle the whole
-    // roster - both a partial draw and one that empties the pool.
     const pool: RaffleEntrant[] = Array.from({ length: 150 }, (_, index) => ({
       player_uuid: `p${index}`,
       username: `Member${index}`,
@@ -118,8 +112,6 @@ describe("uuid spelling tolerance", () => {
       { player_uuid: "aabbcc", username: "Alice2", tickets: 2 },
       { player_uuid: "dd-ee", username: "Dana", tickets: 1 },
     ];
-    // Exclusion spelled differently still bars the entrant; the duplicate
-    // spelling of the same uuid never re-enters the pool.
     const barred = drawWinners(pool, 3, { exclude: ["aabbcc"], rng: () => 0 });
     expect(barred.map((winner) => winner.username)).toEqual(["Dana"]);
     const deduped = drawWinners(pool, 3, { rng: () => 0 });

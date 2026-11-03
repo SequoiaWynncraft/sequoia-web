@@ -9,24 +9,18 @@
   const PLACES = ["1st place", "2nd place", "3rd place"];
 
   let requested = $state<"current" | "previous">("current");
-  // The previous week is absent when its read failed, and can vanish under a
-  // selection an announcement refresh ago. Deriving the shown week collapses the
-  // selection back to "current" so the tabs never claim a week that isn't shown.
   const view = $derived(requested === "previous" && announcement.previous ? "previous" : "current");
   const week = $derived(view === "previous" ? announcement.previous! : announcement.current);
 
   let copied = $state(false);
   let copyTimer: ReturnType<typeof setTimeout> | undefined;
 
-  // Server and client must format the same instant identically: the zone is
-  // explicit, UTC while rendering and the viewer's own once mounted.
   let timeZone = $state("UTC");
   onMount(() => {
     timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   });
   onDestroy(() => clearTimeout(copyTimer));
 
-  /** Formats an ISO instant as "dd/MM, HH:mm" in the resolved timezone. */
   function stamp(iso: string): string {
     return new Intl.DateTimeFormat("en-GB", {
       day: "2-digit",
@@ -38,7 +32,6 @@
     }).format(new Date(iso));
   }
 
-  /** Switches weeks, dropping any "Copied" state left from the other week. */
   function show(next: "current" | "previous") {
     requested = next;
     copied = false;
@@ -52,7 +45,6 @@
       clearTimeout(copyTimer);
       copyTimer = setTimeout(() => (copied = false), 2000);
     } catch {
-      // Clipboard access can be denied; leave the button label unchanged.
     }
   }
 </script>

@@ -11,8 +11,6 @@ export const prerender = false;
 
 export const load: PageServerLoad = async ({ fetch, parent }) => {
   const { viewer } = await parent();
-  // Streamed: the strip fills in after first paint, so a slow roster or rank
-  // read never holds the hero back. A failure just leaves the strip out.
   const latest = Promise.all([
     loadLatestPosts(fetch, viewer).catch(() => []),
     loadHomepageEvents(fetch, viewer).catch(() => []),
@@ -28,7 +26,6 @@ export const load: PageServerLoad = async ({ fetch, parent }) => {
   }
 };
 
-/** Running or imminent events the viewer may know about; none for anonymous viewers. */
 async function loadHomepageEvents(fetchImpl: typeof fetch, viewer: Viewer | null): Promise<HubEvent[]> {
   const now = new Date();
   const { audience } = await resolveEventAudience(fetchImpl, viewer);

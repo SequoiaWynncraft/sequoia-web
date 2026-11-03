@@ -1,11 +1,5 @@
-/**
- * Curated prize art for raffles - a hard allowlist, like the raid icons.
- * Assets ship with the frontend under static/assets/prizes; adding art is
- * dropping a pixel-grid SVG there and listing it here.
- */
 export interface PrizeIcon {
   file: string;
-  /** Terse picker caption. */
   label: string;
 }
 

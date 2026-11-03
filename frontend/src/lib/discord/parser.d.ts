@@ -1,4 +1,3 @@
-/** The simple-markdown AST node shape: a rule name plus rule-specific data. */
 export interface SingleASTNode {
   type: string;
   [key: string]: unknown;

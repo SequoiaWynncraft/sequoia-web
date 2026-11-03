@@ -28,7 +28,6 @@ const THEME = {
 
 const VIEWER = { discordId: "1", minecraftUuid: VIEWER_UUID } as Viewer;
 
-/** A dated, public event - visible to the widest audience the rules allow. */
 function makeEvent(overrides: Partial<GuildEvent> = {}): GuildEvent {
   return {
     slug: "test-event",
@@ -61,21 +60,15 @@ describe("eventAudience", () => {
   });
 
   it("promotes whoever the event-manager rule granted, whatever their rank", () => {
-    // The rule is broader than guild leadership: an Events-branch member or a
-    // website admin manages events on an ordinary rank, and demoting them here
-    // would hide the drafts their management actions still authorize.
     expect(eventAudience(VIEWER, [rosterEntry("recruit")], true)).toBe("manager");
     expect(eventAudience(VIEWER, [rosterEntry("captain")], false)).toBe("member");
   });
 
   it("keeps a manager whose roster could not be verified", () => {
-    // Their grant never came from the roster, so losing it changes nothing.
     expect(eventAudience(VIEWER, null, true)).toBe("manager");
   });
 
   it("degrades to signedIn when the roster could not be verified", () => {
-    // A null roster is the caller reporting a stale or failed refresh. Keeping
-    // the membership would let a departure survive in cache as access.
     expect(eventAudience(VIEWER, null, false)).toBe("signedIn");
   });
 
@@ -96,8 +89,6 @@ describe("resolveEventAudience", () => {
   });
 
   it("asks the events branch, so its answer matches the management gate", async () => {
-    // A full Events-branch member on an ordinary guild rank manages events;
-    // reading ranks alone would have called them a plain member.
     mockBranchArea.mockResolvedValue({ access: "granted", roster: [rosterEntry("recruit")] });
 
     await expect(resolveEventAudience(fetch, VIEWER)).resolves.toEqual({
@@ -146,8 +137,6 @@ describe("canSeeEvent", () => {
   });
 
   it("keeps an undated event with the managers until it is announced", () => {
-    // No dates is `eventStatus` "tba": the structure exists, the announcement
-    // has not happened, and the name alone would give it away.
     const tba = makeEvent({ startsAt: undefined, endsAt: undefined });
 
     expect(canSeeEvent(tba, true, "member", NOW)).toBe(false);
@@ -161,7 +150,6 @@ describe("canSeeEvent", () => {
   });
 
   it("still shows a public event that has already ended", () => {
-    // Past events stay on the hub; only "tba" is withheld by status.
     const ended = makeEvent({ startsAt: "2026-01-01T00:00:00Z", endsAt: "2026-01-02T00:00:00Z" });
 
     expect(canSeeEvent(ended, true, "signedIn", NOW)).toBe(true);
@@ -190,9 +178,6 @@ describe("visibilityTightened", () => {
   });
 
   it("catches a dated event whose dates are cleared back to tba", () => {
-    // The transition a transition-by-transition predicate misses: the event
-    // stays published and public, but "tba" makes it manager-only, so a
-    // connected non-manager stage has to lose its feed here too.
     const cleared = makeEvent({ startsAt: undefined, endsAt: undefined });
 
     expect(visibilityTightened(live(makeEvent()), live(cleared), NOW)).toBe(true);
@@ -225,7 +210,6 @@ describe("visibilityTightened", () => {
   });
 
   it("does not call an edit between two drafts a tightening", () => {
-    // Nobody but a manager could see either side, so there is no stream to cut.
     const draft = (event: GuildEvent) => ({ event, published: false });
 
     expect(visibilityTightened(draft(makeEvent()), draft(makeEvent({ access: "members" })), NOW)).toBe(
@@ -234,7 +218,6 @@ describe("visibilityTightened", () => {
   });
 
   it("judges both versions against the same now", () => {
-    // An event that merely ended between saves is not a visibility change.
     const ended = makeEvent({ startsAt: "2026-01-01T00:00:00Z", endsAt: "2026-01-02T00:00:00Z" });
 
     expect(visibilityTightened(live(ended), live(ended), NOW)).toBe(false);

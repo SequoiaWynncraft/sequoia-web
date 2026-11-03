@@ -8,8 +8,6 @@ export const prerender = false;
 
 export const load: PageServerLoad = async ({ fetch, parent }) => {
   const { viewer } = await parent();
-  // Re-resolved per page load: the console layout's capabilities are cached
-  // across child navigations, so they must not gate protected data here.
   const access = await pageAreaAccess(fetch, viewer, "community");
   if (access !== "granted") {
     return { access, datasets: null, raids: null, defaultFrom: null, defaultTo: null };

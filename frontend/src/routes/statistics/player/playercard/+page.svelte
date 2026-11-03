@@ -15,13 +15,11 @@
 
   let { data } = $props();
 
-  // svelte-ignore state_referenced_locally — seeded here, kept in sync by the effect below
   let query = $state(data.player);
   $effect(() => {
     query = data.player;
   });
 
-  /** How many names the dropdown offers — enough to be useful, never the whole roster. */
   const MAX_SUGGESTIONS = 10;
 
   const suggestions = $derived.by(() => {
@@ -47,7 +45,6 @@
     }));
   }
 
-  /** Meta line for the Raids section: lifetime total, plus the Sequoia share when known. */
   function raidsMeta(card: PlayerCardResponse): string {
     const total = `${(card.raids_total ?? 0).toLocaleString()} total`;
     if (card.current_guild_raids === null) return total;
@@ -100,7 +97,6 @@
     }
   }
 
-  // Tracking chart: one full-history series, sliced client-side per metric and range.
   const METRICS = [
     { key: "playtime", label: "playtime" },
     { key: "wars", label: "wars" },
@@ -308,7 +304,6 @@
               <SectionLabel meta="{honours.badges.length + honours.warHonours.length} awarded">
                 {#snippet children()}Honours{/snippet}
               </SectionLabel>
-              <!-- One row per honour category — future awards slot in as rows. -->
               {#if honours.warHonours.length > 0}
                 <div class="honour-row">
                   <span class="honour-label">War honours</span>

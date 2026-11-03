@@ -1,9 +1,3 @@
-/**
- * Pure helpers behind the editor and preview: Discord's message limits,
- * timestamp wording and inline-field grid. Rust remains the validation
- * authority; these give staff the same answer before they press Save.
- */
-
 import emojiRegex from "emoji-regex";
 import type { TimestampFormat } from "./markdown";
 import type { Definition, Embed } from "./types";
@@ -26,14 +20,12 @@ export const LIMITS = {
   buttonUrl: 512,
 } as const;
 
-/** Discord hides attachments consumed by the embed's four typed media slots. */
 export function standaloneAttachments(draft: Definition) {
   const consumed = new Set(draft.embeds.flatMap((embed) => [embed.image?.url, embed.thumbnail?.url, embed.author?.icon_url, embed.footer?.icon_url])
     .filter((url): url is string => !!url?.startsWith("attachment://")).map((url) => url.slice(13)));
   return (draft.attachments ?? []).filter((attachment) => !consumed.has(attachment.filename));
 }
 
-/** Discord counts characters, not UTF-16 units: an emoji is one. */
 export function charCount(text: string | undefined): number {
   return text ? [...text].length : 0;
 }
@@ -52,7 +44,6 @@ function galleryImage(embed: Embed): boolean {
     !embed.thumbnail && !embed.timestamp;
 }
 
-/** Shared-link image continuations belong to their lead card, not separate text embeds. */
 export function embedGroups(embeds: Embed[]) {
   const groups: { index: number; embed: Embed; indices: number[] }[] = [];
   embeds.forEach((embed, index) => {
@@ -65,12 +56,10 @@ export function embedGroups(embeds: Embed[]) {
   return groups;
 }
 
-/** Discord trims surrounding whitespace from embed text before measuring limits. */
 export function embedCount(text: string | undefined): number {
   return charCount(trimEmbedText(text));
 }
 
-/** Shortens by characters, never splitting an emoji's surrogate pair. */
 export function truncateChars(text: string, limit: number): string {
   return [...text].slice(0, limit).join("");
 }
@@ -94,7 +83,6 @@ export function isWebUrl(raw: string | undefined): boolean {
   }
 }
 
-/** Problems keyed by the draft path they belong to, e.g. `embeds.0.fields.1.value`. */
 export type Issues = Record<string, string>;
 
 function tooLong(issues: Issues, key: string, label: string, text: string | undefined, limit: number, measure = charCount) {
@@ -108,16 +96,12 @@ function url(issues: Issues, key: string, raw: string | undefined) {
 
 function unicodeEmoji(name: string): boolean {
   const value = name.replaceAll("\uFE0F", "");
-  // Match Rust's Unicode 17 lookup; components alone are not complete emoji.
   return !/^\p{Emoji_Component}$/u.test(value) && emojiRegex().exec(value)?.[0] === value;
 }
 
-/** What the current context offers; an omitted set is not checked. */
 export interface Availability {
-  /** Eligible, approved self-service roles. */
   roles?: ReadonlySet<string>;
   channels?: ReadonlySet<string>;
-  /** Server emoji Discord currently marks available. */
   emojis?: ReadonlySet<string>;
 }
 
@@ -206,18 +190,12 @@ export function definitionIssues(draft: Definition, available: Availability = {}
   return issues;
 }
 
-/** Issue lookups for one subtree, e.g. everything under `embeds.0`. */
 export function issuesUnder(issues: Issues, prefix: string): string[] {
   return Object.entries(issues)
     .filter(([key]) => key === prefix || key.startsWith(`${prefix}.`))
     .map(([, message]) => message);
 }
 
-/**
- * Discord's embed field grid: consecutive inline fields share a row of up to
- * three (two beside a thumbnail) and split twelve columns evenly; a non-inline
- * field takes a full row.
- */
 export function fieldColumns(fields: { inline: boolean }[], hasThumbnail: boolean): string[] {
   const perRow = hasThumbnail ? 2 : 3;
   const columns: string[] = [];
@@ -253,7 +231,6 @@ const RELATIVE_UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
   ["second", 1],
 ];
 
-/** Discord's `<t:…:style>` wording, in the reader's locale and time zone. */
 export function formatTimestamp(
   seconds: number,
   format: TimestampFormat,
@@ -278,7 +255,6 @@ export function formatTimestamp(
   return new Intl.DateTimeFormat(locale, options[format]).format(date);
 }
 
-/** "Today at 12:00", "Yesterday at 12:00" or a short date, like Discord's message and footer times. */
 export function calendarTime(at: Date, now = new Date(), locale?: string): string {
   if (Number.isNaN(at.getTime())) return "";
   const time = new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit" }).format(at);
@@ -290,7 +266,6 @@ export function calendarTime(at: Date, now = new Date(), locale?: string): strin
   return `${date} ${time}`;
 }
 
-/** `<input type="datetime-local">` value for an ISO timestamp, in local time. */
 export function toLocalInput(iso: string | undefined): string {
   if (!iso) return "";
   const at = new Date(iso);
@@ -299,7 +274,6 @@ export function toLocalInput(iso: string | undefined): string {
   return `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}T${pad(at.getHours())}:${pad(at.getMinutes())}`;
 }
 
-/** ISO timestamp (with zone) for a local `datetime-local` value. */
 export function fromLocalInput(value: string): string | undefined {
   if (!value) return undefined;
   const at = new Date(value);

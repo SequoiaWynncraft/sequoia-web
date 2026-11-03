@@ -56,8 +56,6 @@ describe("sectionIssues", () => {
     const raidsOnly = "Only raids can be counted from the mod tracker";
     expect(sectionIssues(draft).raffles ?? []).not.toContain(raidsOnly);
 
-    // The picker hides itself off raids, so only this check catches a preset
-    // that arrived with the pairing already set.
     rule.stat = "playtime";
     expect(sectionIssues(draft).raffles).toContain(raidsOnly);
   });
@@ -77,12 +75,10 @@ describe("sectionIssues", () => {
     const needsTracker = "A tracker-counted stat rule needs a mod tracker (set under Standings)";
     expect(sectionIssues(draft).raffles).toContain(needsTracker);
 
-    // An API tracker is not enough: only the mod raid log counts a sub-day window.
     draft.trackerEnabled = true;
     draft.trackerTracking = "api";
     expect(sectionIssues(draft).raffles).toContain(needsTracker);
 
-    // A war tracker is mod-fed, but its board counts war points, not raids.
     draft.trackerTracking = "wars";
     expect(sectionIssues(draft).raffles).toContain(
       "A tracker-counted raid rule needs a raid tracker - this one counts war points",

@@ -11,7 +11,6 @@ import {
 } from "./ceremony";
 import { repeatChances } from "./repeat";
 
-// Fictional guild, channel and story ids.
 const settings: CeremonySettings = {
   version: 2, guild_id: "1111111111111111111", enabled: false, channel_id: "2222222222222222222",
   stories: [{ id: "sample_story", enabled: true, weight: 30 }, { id: "other_story", enabled: true, weight: 10 }, { id: "quiet_story", enabled: false, weight: 50 }],
@@ -62,7 +61,6 @@ describe("ceremony settings logic", () => {
     expect(ceremonyReadinessIssue(textOnly, false)).toBeNull();
     expect(ceremonyReadinessIssue({ ...textOnly, channel_id: "" }, false)).toContain("valid channel");
     expect(ceremonyReadinessIssue({ ...textOnly, stories: settings.stories.map((story) => ({ ...story, enabled: false })) }, false)).toBe("Enable at least one story with a positive weight.");
-    // An older server always sends images, so the caller passes true.
     expect(ceremonyReadinessIssue(textOnly, false, true)).toContain("not installed yet");
   });
   it("reports local input issues without blocking a disabled draft without a channel", () => {
@@ -100,7 +98,6 @@ describe("ceremony settings logic", () => {
     ];
     for (const other of others) expect(other).not.toBe(base);
     expect(new Set(others).size).toBe(others.length);
-    // A trimmed badge title renders the same image.
     expect(ceremonyPreviewKey("sample_story", { kind: "badge", title: " Founder " }, scene)).toBe(others.at(-1));
   });
   it("accepts a well-formed catalog in order and falls back to raid-only without one", () => {
@@ -249,7 +246,6 @@ describe("ceremony image tiers setting", () => {
     expect(ceremonyImagesInUse(settings, true, true)).toBe(true);
     expect(ceremonyImagesInUse({ ...settings, send_images: false }, true, true)).toBe(false);
     expect(ceremonyImagesInUse({ ...settings, image_tiers: none }, true, true)).toBe(false);
-    // Unsupported fields read as on, so an older server keeps the artwork rule.
     expect(ceremonyImagesInUse({ ...settings, image_tiers: none }, true, false)).toBe(true);
     expect(ceremonyImagesInUse({ ...settings, send_images: false }, false, true)).toBe(true);
     expect(ceremonyReadinessIssue({ ...settings, image_tiers: none }, false)).toBeNull();
@@ -325,7 +321,6 @@ describe("tier animation policy", () => {
 });
 
 describe("twelve-story catalog", () => {
-  // Five fictional original stories, then the seven a newer server appends in catalog order: disabled at weight 0.
   const original = [
     { id: "sample_story", enabled: true, weight: 30 }, { id: "other_story", enabled: true, weight: 10 },
     { id: "meadow_story", enabled: true, weight: 20 }, { id: "harbor_story", enabled: true, weight: 20 }, { id: "summit_story", enabled: true, weight: 20 },
@@ -341,7 +336,6 @@ describe("twelve-story catalog", () => {
     expect(shares?.size).toBe(12);
     expect(original.map(({ id }) => shares?.get(id))).toEqual([30, 10, 20, 20, 20]);
     for (const id of added) expect(shares?.get(id)).toBe(0);
-    // Enabled at weight 0 or weighted while disabled, a story still never wins.
     const edited = twelve.stories.map(story => story.id === "still_pool" ? { ...story, enabled: true } : story.id === "golden_acorn" ? { ...story, weight: 40 } : story);
     expect(ceremonyProposedChances(edited)).toEqual(shares);
     const next = repeatChances(twelve.stories, { percent: 50, recent: 1 }, ["sample_story"]);
@@ -353,11 +347,9 @@ describe("twelve-story catalog", () => {
   it("lists new stories for every tier and accepts them in a tier's allowed list", () => {
     expect(ceremonyTierStories(twelve, "diamond").map(story => story.id)).toEqual(ids);
     const fiveEra = { ...twelve, story_tiers: { gold: original.map(({ id }) => id) } };
-    // A list saved before the catalog grew stays explicit, so new stories are not allowed until chosen.
     expect(ceremonyTierStories({ ...fiveEra, stories: fiveEra.stories.map(story => ({ ...story, enabled: true })) }, "gold").filter(story => story.enabled).map(story => story.id)).toEqual(original.map(({ id }) => id));
     const allowed = ceremonyToggleTierStory(fiveEra, fiveEra, "gold", "great_sequoia_wakes", true);
     expect(allowed.gold).toEqual([...original.map(({ id }) => id), "great_sequoia_wakes"]);
-    // Narrowing a default-all tier pins today's twelve stories minus the unchecked one.
     expect(ceremonyToggleTierStory(twelve, twelve, "diamond", "sample_story", false).diamond).toEqual(ids.slice(1));
     expect(ceremonyInputIssue({ ...twelve, story_tiers: { diamond: ["parliament_of_owls", "great_sequoia_wakes"], silver: [] } })).toBeNull();
     expect(ceremonyInputIssue({ ...twelve, story_tiers: { diamond: ["missing_story"] } })).toContain("installed animations");
@@ -394,7 +386,6 @@ describe("twelve-story catalog", () => {
 });
 
 describe("ceremony screen films and crash words", () => {
-  // Fictional film ids and labels.
   const films: CeremonyFilm[] = [{ id: "storm", label: "Stormy sea" }, { id: "comedy", label: "Silent comedy" }, { id: "meadow", label: "Meadow" }];
   const response = (screen?: CeremonySettings["screen"]): CeremonyResponse => {
     const { screen: _screen, ...older } = settings;
@@ -441,7 +432,6 @@ describe("ceremony screen films and crash words", () => {
     expect(ceremonyScreenIssue({ ...SCREEN_DEFAULT, film: { mode: "random", weights: { cartoon: 2 } } }, films)).toContain("no longer installed");
     const words = (title: string, body: string, code: string) => ({ title, body, code });
     expect(ceremonyCrashTextIssues(words("Oops", "Popcorn in the projector", ""))).toBeNull();
-    // Every field is optional: no words is the clean default, and a stop code may stand alone.
     expect(ceremonyCrashTextIssues(words("", "", ""))).toBeNull();
     expect(ceremonyCrashTextIssues(words("", "", "STOP CODE: BUTTER"))).toBeNull();
     expect(ceremonyCrashTextIssues(words(" Oops", "Popcorn", ""))).toHaveProperty("title");
@@ -472,7 +462,6 @@ describe("ceremony screen films and crash words", () => {
 });
 
 describe("ceremony preview readiness", () => {
-  // Fictional films. Invalid sample award inputs: a cleared raid count and a blank badge title.
   const policy = { mode: "fixed" as const, film: "comedy" };
   const invalid: CeremonyAchievement[] = [{ kind: "raid", raid: "TNA", tier: "gold", count: 0 }, { kind: "badge", title: "   " }];
 
@@ -487,7 +476,6 @@ describe("ceremony preview readiness", () => {
 
   it("still blocks an award preview on invalid award inputs, also for a story without films", () => {
     const award = ceremonyPreviewScreening(["storm", "comedy"], policy, "storm", "award", null);
-    // A story without a screen always previews the award, whatever payload was chosen.
     const fallback = ceremonyPreviewScreening([], policy, "draft", "welcome", null);
     expect(fallback).toEqual({ film: null, error: null, payload: "award" });
     for (const screening of [award, fallback]) {

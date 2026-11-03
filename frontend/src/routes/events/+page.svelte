@@ -150,7 +150,6 @@
     display: grid;
     gap: 6px;
     min-width: 0;
-    /* The icon marks the row; the name keeps the remaining width. */
     flex-grow: 1;
   }
 
@@ -161,8 +160,6 @@
     min-width: 0;
   }
 
-  /* Only managers are ever sent a draft, so the badge doubles as the cue that
-     this shelf is showing more than the guild can see. */
   .ev-band-draft {
     flex-shrink: 0;
     padding: 2px 7px;

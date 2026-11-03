@@ -20,7 +20,6 @@ const mockProfiles = vi.mocked(getLinkedRankProfilesResult);
 const mockLoadViewer = vi.mocked(loadViewer);
 
 const UUID = "11111111-2222-3333-4444-555555555555";
-// The rank API strips dashes; sameUuid must bridge the two formats.
 const UNDASHED = UUID.replaceAll("-", "");
 
 function viewer(overrides: Partial<Viewer> = {}): Viewer {
@@ -81,7 +80,6 @@ describe("checkBranchArea", () => {
 
   it("grants every branch to guild leadership without waiting on profiles", async () => {
     rosterWith("strategist");
-    // A hung profile service must not delay a decision the roster settles.
     mockProfiles.mockReturnValue(new Promise(() => undefined) as never);
     expect(await checkBranchArea(fetch, viewer(), "treasury")).toBe("granted");
     expect(await checkBranchArea(fetch, viewer(), "military")).toBe("granted");
@@ -111,9 +109,6 @@ describe("checkBranchArea", () => {
   });
 
   it("fails closed to unverified on a structurally skewed profile", async () => {
-    // The shared validator only checks the shallow shape; summary.branches
-    // can be missing on a version-skewed payload and must not throw a 500
-    // out of the access check.
     mockProfiles.mockResolvedValue({
       stale: false,
       updatedAt: 0,
@@ -134,7 +129,6 @@ describe("checkBranchArea", () => {
         profiles: [
           {
             minecraft: { uuid: UNDASHED },
-            // A null neighbour must not throw past an otherwise valid grant.
             summary: { branches: [null, { key: "b", branch: "treasury", level: "member" }] },
           },
         ],
@@ -159,8 +153,6 @@ describe("checkBranchArea", () => {
   });
 
   it("fails closed when the backend's own Discord snapshot is stale", async () => {
-    // `result.stale` covers our cache; `data.source.stale` is the authority's
-    // reconciliation. A revoked role survives in a fresh-looking response.
     profilesWith([{ branch: "treasury", level: "member" }], { sourceStale: true });
     expect(await checkBranchArea(fetch, viewer(), "treasury")).toBe("unverified");
   });
@@ -178,12 +170,10 @@ describe("checkBranchAreaWithRoster", () => {
     const result = await checkBranchAreaWithRoster(fetch, viewer(), "events");
     expect(result.access).toBe("granted");
     expect(result.roster).toEqual([{ uuid: UUID, rank: "recruit" }]);
-    // One roster read serves both halves of the answer.
     expect(mockStats).toHaveBeenCalledTimes(1);
   });
 
   it("reads the roster for an admin but never their profiles", async () => {
-    // Their access is settled by the session; the roster is the caller's data.
     const result = await checkBranchAreaWithRoster(fetch, viewer({ websiteAdmin: true }), "events");
     expect(result.access).toBe("granted");
     expect(result.roster).toEqual([{ uuid: UUID, rank: "recruit" }]);

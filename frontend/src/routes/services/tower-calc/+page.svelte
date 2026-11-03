@@ -27,7 +27,6 @@
 
   const view = pageView("/services/tower-calc");
 
-  /** Upper bounds on the network inputs, matching the map's counters. */
   const MAX_CONNECTIONS = 20;
   const MAX_EXTERNALS = 50;
 
@@ -39,15 +38,8 @@
   let volleyLvl = $state(0);
   let isHq = $state(false);
   let connections = $state(0);
-  /** Externals the user set, before Conn is folded in. See {@link externals}. */
   let externalsBase = $state(0);
 
-  /**
-   * An owned connection is also an external, so moving Conn carries Ext with it
-   * by the same amount - the coupling the map's counter has. Deriving the total
-   * from a base rather than accumulating clamped deltas keeps a Conn round trip
-   * lossless: the clamp no longer eats a step on the way out and back.
-   */
   const externals = $derived(Math.min(Math.max(externalsBase + connections, 0), MAX_EXTERNALS));
 
   interface LevelSnapshot {
@@ -57,7 +49,6 @@
     defenseLvl: number;
   }
 
-  /** Levels stashed by the 11x4 preset, so pressing it again restores them. */
   let presetSnapshot = $state<LevelSnapshot | null>(null);
 
   function toggleMaxPreset() {
@@ -74,11 +65,6 @@
     defenseLvl = MAX_STAT_LEVEL;
   }
 
-  /**
-   * Editing one of the four stats the preset writes drops the stash: the button
-   * would otherwise keep reading as pressed and discard that edit on the next
-   * press, restoring levels the user has since moved on from.
-   */
   const setPresetStat = (assign: (next: number) => void) => (next: number) => {
     assign(next);
     presetSnapshot = null;
@@ -89,7 +75,6 @@
   const setHealthLvl = setPresetStat((next) => (healthLvl = next));
   const setDefenseLvl = setPresetStat((next) => (defenseLvl = next));
 
-  /** StatRow has already clamped `next`; store it relative to the current Conn. */
   const setExternals = (next: number) => (externalsBase = next - connections);
 
   function resetAll() {
@@ -112,7 +97,6 @@
   });
   const attackDetail = $derived(`${ATTACK_RATES[attackLvl].toFixed(2)}x`);
   const healthDetail = $derived(formatStat(calcStat(HEALTHS[healthLvl], isHq, connections, externals)));
-  // Not toFixed(0): level 3 is 62.5, and the label has to agree with calcEhp.
   const defenseDetail = $derived(`${DEFENSES[defenseLvl]}%`);
 
   const dpsRange = $derived(calcDpsRange(damageLvl, attackLvl, isHq, connections, externals));
@@ -261,7 +245,6 @@
 <style>
   .tc-grid {
     display: grid;
-    /* min() keeps the column from forcing overflow on a narrow phone. */
     grid-template-columns: repeat(auto-fit, minmax(min(20rem, 100%), 1fr));
     gap: 1.25rem;
     margin-bottom: 3rem;

@@ -23,12 +23,9 @@ const STATUS_ORDER: Record<PostStatus, number> = { live: 0, scheduled: 1, draft:
 
 export const load: PageServerLoad = async ({ fetch, parent, url }) => {
   const { viewer } = await parent();
-  // Re-resolved per page load: the console layout's capabilities are cached
-  // across child navigations, so they must not gate protected data here.
   const access = await pageAreaAccess(fetch, viewer, "community");
   const feedParam = url.searchParams.get("feed");
   const feed: PostFeed | "all" = feedParam === "news" || feedParam === "announcements" ? feedParam : "all";
-  // Set by the delete redirect when the audit row for it did not land.
   const auditWarning = url.searchParams.get("audit") === "unrecorded";
   if (access !== "granted") return { access, feed, entries: null, auditWarning };
 
@@ -45,7 +42,6 @@ export const load: PageServerLoad = async ({ fetch, parent, url }) => {
       audience: audienceChip(post.audience) ?? "Everyone",
       publishAt: post.publishAt ?? null,
     }));
-  // Stable sort: newest first within each status, as the store returns them.
   entries.sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]);
   return { access, feed, entries, auditWarning };
 };

@@ -8,10 +8,6 @@ import { createClient, type Client } from "@libsql/client";
 let dbPromise: Promise<Client> | undefined;
 let dbClient: Client | undefined;
 
-/**
- * Shared libsql client for all server-side storage. Each consumer owns its
- * tables: run CREATE TABLE IF NOT EXISTS once behind a module-level memo.
- */
 export function database(): Promise<Client> {
   dbPromise ??= createDatabase().catch((error: unknown) => {
     dbPromise = undefined;
@@ -20,7 +16,6 @@ export function database(): Promise<Client> {
   return dbPromise;
 }
 
-/** Flushes and releases the local database before the process exits. */
 export function closeDatabase(): void {
   dbPromise = undefined;
   dbClient?.close();

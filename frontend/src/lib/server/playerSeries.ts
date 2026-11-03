@@ -8,7 +8,6 @@ const MAX_PLAYERS = 64;
 
 const resources = new Map<string, CachedResource<PlayerSeriesResponse>>();
 
-/** Full-history series for one player; callers slice ranges client-side. */
 export async function getPlayerSeries(
   fetchImpl: typeof fetch,
   playerUuid: string,
@@ -24,9 +23,6 @@ export async function getPlayerSeries(
       if (oldest !== undefined) resources.delete(oldest);
     }
     resource = createCachedResource<PlayerSeriesResponse>({
-      // One durable row per player: the window ends today, so keying on it
-      // minted a new row for every player every day. A stored series for
-      // another window fails validation and is replaced.
       key: `player-series:${uuid}:v2`,
       freshMs: FRESH_MS,
       staleMs: STALE_MS,

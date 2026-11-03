@@ -49,7 +49,6 @@
   const territorySeries = [
     { key: "territories", label: "Final territories", color: "var(--chart-amber)" },
   ];
-  // The live season has no final count yet — only completed seasons chart.
   const territoryColumns = $derived(
     stats
       ? stats.season_ranks.slice(0, -1).map((entry) => ({

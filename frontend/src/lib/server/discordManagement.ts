@@ -1,6 +1,5 @@
 import { SEQUOIA_DISCORD_MANAGEMENT_URL } from "$app/env/private";
 
-/** Thin server-only adapter. Rust owns authorization, validation and persistence. */
 export async function discordManagement(
   fetchImpl: typeof fetch,
   token: string | undefined,

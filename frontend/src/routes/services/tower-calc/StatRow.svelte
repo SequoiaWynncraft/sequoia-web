@@ -9,10 +9,7 @@
     label: string;
     level: number;
     max: number;
-    /** Derived text shown to the right, e.g. the damage band at this level. */
     detail: string;
-    /** Called with the requested level instead of writing `level` directly.
-     * Used by Conn, where a change also has to move Ext. */
     onchange?: (next: number) => void;
   } = $props();
 
@@ -28,19 +25,10 @@
   function onInput(event: Event) {
     const field = event.currentTarget as HTMLInputElement;
     const parsed = Number.parseInt(field.value, 10);
-    // Let the box sit empty mid-edit; onBlur puts the level back if nothing lands.
     if (Number.isNaN(parsed)) return;
-    // Re-sync the field: clamping may have rejected what was typed.
     field.value = String(set(parsed));
   }
 
-  /**
-   * Settle the box once editing ends. A field left blank means 0 - `onInput`
-   * skipped it to allow the empty state mid-edit, so nothing has committed it
-   * yet. Anything else already went through `onInput`, and only needs the
-   * display re-synced: a cleared field leaves `level` untouched, so the
-   * `value={level}` effect never re-runs and the input would stay blank.
-   */
   function onBlur(event: FocusEvent) {
     const field = event.currentTarget as HTMLInputElement;
     const parsed = Number.parseInt(field.value, 10);
@@ -163,8 +151,6 @@
     white-space: nowrap;
   }
 
-  /* On a phone the fixed label and 2.75rem targets no longer leave room for
-     the detail column, so trim the chrome rather than let the row overflow. */
   @media (max-width: 26rem) {
     .tc-row {
       gap: 0.5rem;

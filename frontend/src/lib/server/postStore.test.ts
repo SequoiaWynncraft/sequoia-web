@@ -56,7 +56,6 @@ describe("post store", () => {
       ifUpdatedAt: stored.updatedAt,
     });
     expect(next).toBeGreaterThan(stored.updatedAt);
-    // The old token lost: a stale tab can neither save nor delete.
     expect(await store.update(post("guarded"), { published: true, ifUpdatedAt: stored.updatedAt })).toBeNull();
     expect(await store.remove("guarded", { ifUpdatedAt: stored.updatedAt })).toBe(false);
 

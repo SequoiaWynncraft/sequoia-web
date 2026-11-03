@@ -26,17 +26,8 @@
     "url",
   ]);
 
-  /**
-   * The rail's form-associated save button precedes the whole form in DOM
-   * order and is therefore the form's default submitter - a bare Enter
-   * inside the tracker editor would fire ?/save instead of the tracker
-   * action. Route Enter to the tracker's own submit explicitly.
-   */
   function submitTrackerOnEnter(event: KeyboardEvent) {
     if (event.key !== "Enter") return;
-    // Only text-style inputs shortcut to the tracker action: a select's
-    // or date picker's Enter confirms its highlighted value, and hijacking
-    // it would submit the tracker with the PREVIOUS selection still applied.
     if (
       !(event.target instanceof HTMLInputElement) ||
       !trackerSubmitInputTypes.has(event.target.type)
@@ -83,8 +74,6 @@
           Enter an id manually
         </button>
         {#if draft.mode === "edit" && draft.trackerEventId}
-          <!-- Server endpoint streams the full board - every roster member for
-               mod-tracked windows - so managers get the raw numbers. -->
           <a
             class="seq-inline-link focus-ring"
             href={`/manage/events/${draft.liveInitial?.slug ?? draft.slug}/export?tracker=${encodeURIComponent(draft.trackerEventId)}`}
@@ -117,7 +106,6 @@
     {/if}
 
     {#if draft.trackerEditor !== "closed"}
-      <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div class="evf-tracker-new" onkeydown={submitTrackerOnEnter}>
         <span class="seq-field-label">
           {draft.trackerEditor === "edit" ? `Edit tracker: ${draft.newTrackerName}` : "New tracker event"}
@@ -128,8 +116,6 @@
           </Field>
           <Field label="Tracking source">
             <Select bind:value={draft.newTrackerTracking}>
-              <!-- Linked events read the board in the tracker's unit, so an
-                   edit stays on its side of raids vs war points. -->
               {#if draft.trackerEditor !== "edit" || draft.trackerEditTracking !== "wars"}
                 <option value="mod">Guild mod</option>
                 <option value="api">Wynncraft API</option>

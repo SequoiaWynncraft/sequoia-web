@@ -11,7 +11,6 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-/** Stubs global fetch with a single JSON response and records what the caller sent. */
 function stubFetch(status: number, body: unknown) {
   const seen: { url: string; method: string; auth: string | null; body: string } = {
     url: "",
@@ -94,7 +93,6 @@ describe("createRewardQueueRequest", () => {
   });
 });
 
-/** One backend queue entry, with the fields a test doesn't care about filled in. */
 function rawEntry(overrides: Record<string, unknown> = {}) {
   return {
     request_id: 7,
@@ -152,8 +150,6 @@ describe("fetchRewardQueues", () => {
   });
 
   it("fails the whole read when one entry is unrenderable, rather than shifting the queue", async () => {
-    // Dropping the middle entry would silently move everyone behind it one place up, and
-    // position is the single number this page exists to state. A partial queue is not a queue.
     stubFetch(200, { aspect: [rawEntry(), { request_id: 9 }, rawEntry({ request_id: 10 })], tome: [] });
 
     expect(await fetchRewardQueues("t", fetch)).toEqual({ status: "unavailable" });
@@ -229,9 +225,6 @@ describe("fetchRewardQueueEligibility", () => {
   });
 
   it("names the unlinked account instead of hiding it behind unavailable", async () => {
-    // This viewer is refused on every read and every submit, so folding the 403 into the
-    // soft-failure path would leave live buttons in front of the one member who can never
-    // use them - the exact "find out after the refusal" this page exists to prevent.
     stubFetch(403, { message: "This queue requires a linked Minecraft account." });
 
     expect(await fetchRewardQueueEligibility("t", fetch)).toEqual({
@@ -241,9 +234,6 @@ describe("fetchRewardQueueEligibility", () => {
   });
 
   it("falls back to its own wording when the 403 carries no message", async () => {
-    // What a real unlinked member gets: the handler refuses through Spring, whose error body
-    // carries neither a code nor (at the backend's settings) a message, so this wording is
-    // the one that reaches the page.
     stubFetch(403, { timestamp: "2026-08-04T00:00:00Z", status: 403, error: "Forbidden" });
 
     expect(await fetchRewardQueueEligibility("t", fetch)).toEqual({
@@ -253,9 +243,6 @@ describe("fetchRewardQueueEligibility", () => {
   });
 
   it("tells an auth refusal apart from an unlinked account by the body's code", async () => {
-    // The interceptor refuses before the handler and writes its own code, so a viewer who
-    // isn't in the guild - a website admin, say, who reaches this call without the roster
-    // gate - is told that, not to link an account they already linked.
     stubFetch(403, { code: "token_invalid", message: "You must be a Sequoia guild member" });
 
     expect(await fetchRewardQueueEligibility("t", fetch)).toEqual({

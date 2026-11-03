@@ -35,8 +35,6 @@
 
   const groups = $derived(groupInventoryByRaid(data.inventory));
 
-  // Order builder state. Number inputs bind as `number | null` (Svelte coerces them and
-  // reports an empty field as null), so `amounts` is keyed to that, not strings.
   let orderType = $state<OrderType>("buy");
   let amounts = $state<Record<string, number | null>>({});
   let minecraftIgn = $state(untrack(() => data.viewer?.minecraftUsername ?? ""));
@@ -46,11 +44,8 @@
   let submitError = $state<string | null>(null);
   let confirmation = $state<PlacedOrder | null>(null);
 
-  // Message IDs with a cancel in flight — a Set so cancelling one order doesn't drop the
-  // pending state of another the customer cancelled concurrently.
   const cancelling = new SvelteSet<string>();
   let cancelError = $state<string | null>(null);
-  // Message ID whose Cancel button is awaiting an "Are you sure?" confirmation, or null.
   let confirmingCancel = $state<string | null>(null);
 
   const signedIn = $derived(data.viewer !== null);
@@ -68,7 +63,6 @@
     const lines: DraftLine[] = [];
     for (const item of data.inventory) {
       const amount = amounts[item.key];
-      // Only whole positive quantities count — empty (null) and decimals are skipped.
       if (amount == null || !Number.isInteger(amount) || amount <= 0) continue;
       const { raid, rarity } = splitInventoryKey(item.key);
       const unit = orderType === "buy" ? item.buyPrice : item.sellPrice;
@@ -81,10 +75,6 @@
   const roundedTotal = $derived(roundToLe(rawTotal, orderType));
   const MIN_LE = 32;
 
-  // The most the shop could actually pay out for this draft. For buy orders the bot clamps
-  // each line to current stock before checking the minimum, so a request for more bags than
-  // exist is worth only what's in stock — mirror that so we can warn precisely instead of
-  // telling the customer to "add more bags" they can't obtain. Sell offers aren't stock-capped.
   const achievableTotal = $derived.by(() => {
     if (orderType !== "buy") return roundedTotal;
     const stockByKey = new Map(data.inventory.map((item) => [item.key, item.stock]));
@@ -96,8 +86,6 @@
     return roundToLe(sum, orderType);
   });
 
-  // True when stock limits shrink the order below what the customer asked for — i.e. the shop
-  // can't fully fill it. Used to explain a below-minimum draft the customer can't fix by adding more.
   const stockLimited = $derived(orderType === "buy" && achievableTotal < roundedTotal);
   const meetsMinimum = $derived(achievableTotal >= MIN_LE * 64);
   const canSubmit = $derived(
@@ -198,7 +186,6 @@
       </Card>
     {/if}
 
-    <!-- ─── Inventory ─────────────────────────────────────────────────── -->
     <section class="bag-section">
       <SectionHeading kicker="Marketplace" align="left">Current stock &amp; prices</SectionHeading>
       <p class="bag-section-lead">
@@ -263,7 +250,6 @@
       </div>
     </section>
 
-    <!-- ─── Order builder ─────────────────────────────────────────────── -->
     <section class="bag-section">
       <SectionHeading kicker="Place an order" align="left">Build your order</SectionHeading>
 
@@ -398,7 +384,6 @@
       {/if}
     </section>
 
-    <!-- ─── Your orders ───────────────────────────────────────────────── -->
     {#if signedIn}
       <section class="bag-section">
         <SectionHeading kicker="Your activity" align="left">Your orders</SectionHeading>

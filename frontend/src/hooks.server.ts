@@ -8,7 +8,6 @@ import { fillBrandPlaceholders } from "#lib/site/brand.js";
 import { parseThemeId, THEME_COOKIE } from "#lib/site/themePreferences.js";
 import { REQUEST_FINISHED, REQUEST_STARTED } from "../retirement.js";
 
-/** Docker uses a signal adapter-node does not consume so its listener stays live during the drain. */
 export const init: ServerInit = () => {
   process.once("SIGUSR2", retireAllRooms);
   process.once("sveltekit:shutdown", closeDatabase);
@@ -29,12 +28,6 @@ const handleRequest: Handle = async ({ event, resolve }) => {
   event.locals.requestId = requestId;
   let response: Response | undefined;
 
-  // A stale tab's form POST to a legacy management path must reach the real
-  // action with its body intact. A redirect can't deliver that: actions
-  // dispatch before `load`, and `use:enhance` clients turn a redirect action
-  // result into a GET navigation, dropping the submission. Re-dispatch the
-  // request at its console home instead - both native and enhanced forms
-  // then get the destination action's genuine result.
   if (event.request.method === "POST") {
     const target = legacyManageRedirect(event.url.pathname, event.url.search);
     if (target) {
@@ -44,18 +37,12 @@ const handleRequest: Handle = async ({ event, resolve }) => {
           method: "POST",
           headers: event.request.headers,
           body,
-          // A redirecting action (create's 303, delete's 303) must reach the
-          // BROWSER - following it here would return the destination's HTML
-          // while the address bar stays on the legacy URL.
           redirect: "manual",
         }),
       );
     }
   }
 
-  // The chosen palette has to be on <html> before any CSS applies, so it is
-  // stamped into the shell rather than set from the client - no flash of the
-  // wrong theme, and no client JS involved.
   response ??= await resolve(event, {
     transformPageChunk: ({ html }) =>
       fillBrandPlaceholders(html.replace("%seq.theme%", parseThemeId(event.cookies.get(THEME_COOKIE)))),
@@ -65,8 +52,6 @@ const handleRequest: Handle = async ({ event, resolve }) => {
 
   const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
   if (contentType.startsWith("text/html") || event.url.pathname.endsWith("/__data.json")) {
-    // Every page includes session-aware layout data. Never reuse its HTML or
-    // SvelteKit data response after logout or across a deployment.
     response.headers.set("cache-control", "private, no-store");
   }
 
@@ -83,11 +68,6 @@ const handleRequest: Handle = async ({ event, resolve }) => {
   return response;
 };
 
-/**
- * Every error reaches this hook, including expected `error(...)` responses and
- * framework 404s. Only server failures are logged; the returned fields are
- * merged over SvelteKit's own safe status and message.
- */
 export const handleError: HandleServerError = (caught) => {
   const { event } = caught;
   const requestId = event.locals.requestId ?? crypto.randomUUID();
@@ -104,7 +84,6 @@ export const handleError: HandleServerError = (caught) => {
   return { requestId };
 };
 
-/** The 5xx status of a failure the app did not raise itself, or null for anything else. */
 function serverFailureStatus(caught: Parameters<HandleServerError>[0]): number | null {
   switch (caught.kind) {
     case "unknown":

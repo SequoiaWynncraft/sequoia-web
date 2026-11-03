@@ -1,15 +1,10 @@
 import { createSequoiaApiClient } from "#lib/api/client.js";
 
 export interface EventDayCount {
-  /** UTC calendar day, e.g. "2026-07-05". */
   day: string;
   value: number;
 }
 
-/**
- * Daily guild-raid counts for an event window from the public activity feed,
- * optionally narrowed to a single raid. Null when the feed is unavailable.
- */
 export async function loadEventRaidCounts(
   fetchImpl: typeof fetch,
   options: { from: string; to: string; countRaid?: string },

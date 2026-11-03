@@ -8,11 +8,9 @@ import { discordManagement } from "./discordManagement";
 export interface AuditEntry {
   id: number | string;
   source?: "website" | "discord";
-  /** Epoch milliseconds. */
   at: number;
   actor: string;
   actorDiscordId: string;
-  /** Stable profile link target; empty when the session lacked one. */
   actorMinecraftUuid: string;
   action: string;
   subject: string;
@@ -22,17 +20,7 @@ export interface AuditEntry {
 const LIST_LIMIT = 200;
 
 export interface AuditLog {
-  /**
-   * Appends one row to the manager audit trail. Never throws - an audit
-   * hiccup must not fail the action it describes - but returns false so the
-   * caller can tell the manager the action went unrecorded.
-   */
   record(viewer: Viewer, action: string, subject: string, detail?: string): Promise<boolean>;
-  /**
-   * Newest entries first. Failures throw: the caller must render the log as
-   * unavailable, never as empty - "no activity" is a claim this module cannot
-   * back when its storage is unhealthy.
-   */
   list(limit?: number): Promise<AuditEntry[]>;
 }
 
@@ -126,7 +114,6 @@ const auditLog = createAuditLog(database);
 export const recordAudit = auditLog.record;
 const listAudit = auditLog.list;
 
-/** One bounded audit view over the existing website and Rust-owned manager trails. */
 export async function listManagementAudit(fetchImpl: typeof fetch, token: string | undefined): Promise<AuditEntry[]> {
   const [website, response] = await Promise.all([listAudit(), discordManagement(fetchImpl, token, "audit")]);
   if (!response.ok) throw new Error("Discord audit log unavailable");
@@ -144,7 +131,6 @@ function isDiscordAuditEntry(entry: unknown): entry is AuditEntry {
     && (e.detail === null || typeof e.detail === "string");
 }
 
-/** Source-qualified IDs prevent collisions; equal timestamps have a stable numeric tie-break. */
 export function mergeAuditEntries(website: AuditEntry[], discord: AuditEntry[]): AuditEntry[] {
   return [...website.map((entry): AuditEntry => ({ ...entry, id: `website:${entry.id}`, source: "website" })), ...discord]
     .sort((a, b) => {

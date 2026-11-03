@@ -13,12 +13,6 @@ import {
 import { getLinkedRankProfilesResult, memberRanksByUuid } from "./rankProfiles";
 
 export interface ResolveOptions {
-  /**
-   * A draw is irreversible, so a roll must resolve against fresh data: with
-   * `strict`, cached-but-stale rank profiles or stat rollups fail the
-   * resolution instead of silently deciding who can win. The preview stays
-   * lenient - it is display-only and marked as such.
-   */
   strict?: boolean;
 }
 
@@ -26,14 +20,12 @@ export interface ResolvedEntrant {
   player_uuid: string;
   username: string;
   tickets: number;
-  /** Where the entry came from: the filtered roster, or the include list. */
   source: "roster" | "include";
 }
 
 export interface EligibilityResult {
   entrants: ResolvedEntrant[];
   totalTickets: number;
-  /** Fail-closed: any unavailable data source empties the pool with a reason. */
   error: string | null;
 }
 
@@ -51,15 +43,6 @@ function settled(entrants: ResolvedEntrant[]): EligibilityResult {
   };
 }
 
-/**
- * Resolves a raffle's entrant pool - one code path for both generations of
- * config. Raffles without `eligibility` keep the exact legacy semantics
- * (tracker board tickets via perTicket/window/requiresMilestone). Raffles
- * with it start from the fresh roster, AND-apply the rules, restore included
- * roster members before weighting, union non-roster includes at their ticket
- * floor, then subtract excludes. Zero-ticket entrants drop, mirroring the
- * draw's invariant that every entrant can win.
- */
 export async function resolveEligibility(
   fetchImpl: typeof fetch,
   event: GuildEvent,
@@ -71,14 +54,9 @@ export async function resolveEligibility(
   if (!raffle.eligibility) return resolveLegacy(fetchImpl, event, raffle, roster, strict);
   const eligibility = raffle.eligibility;
 
-  // Only identified members can hold tickets - identity (exclusion, faces,
-  // audit) is uuid-keyed everywhere.
   const identifiedRoster = roster.filter((member): member is GuildMemberStats & { uuid: string } =>
     Boolean(member.uuid),
   );
-  // Whitelist mode: nobody qualifies via the roster - the include union
-  // below IS the pool (weighted as usual). Rules are ignored outright, so
-  // none of their data sources are consulted either.
   let pool = eligibility.whitelistOnly ? [] : identifiedRoster;
 
   const boards = new TrackerBoards(fetchImpl, event, roster, strict);
@@ -96,9 +74,6 @@ export async function resolveEligibility(
           const profiles = await getLinkedRankProfilesResult(fetchImpl, {
             allowStale: !strict,
           });
-          // A demotion lives on in a stale cache; a draw must not use it.
-          // (The cache serves a stale value on refresh failure even when
-          // stale was disallowed, so the flag needs checking either way.)
           if (strict && profiles.stale) return failed(RESULT_UNAVAILABLE);
           ranks = memberRanksByUuid(profiles.data);
         } catch {
@@ -112,10 +87,6 @@ export async function resolveEligibility(
         break;
       }
       case "stat": {
-        // A tracker-sourced rule counts the mod raid log over the exact instant
-        // window; the rollup path can only see whole UTC days. Sharing
-        // `boards` means a stat rule and a perRaid weight over the same window
-        // fetch the board once.
         const gains =
           rule.source === "tracker"
             ? await boards.trackedRaidGains(rule.window)
@@ -130,7 +101,6 @@ export async function resolveEligibility(
         const target = event.personalMilestones?.find(
           (milestone) => milestone.id === rule.milestoneId,
         )?.at;
-        // A dangling id cannot happen through the validator; fail closed anyway.
         if (target === undefined) return failed("The milestone this raffle filters on is gone.");
         const board = await boards.fullWindow();
         if (board.error) return failed(board.error);
@@ -140,7 +110,6 @@ export async function resolveEligibility(
     }
   }
 
-  // A current member restored by include bypasses rules, not weighting.
   const rosterByUuid = new Map(
     identifiedRoster.map((member) => [normalizeUuid(member.uuid), member]),
   );
@@ -154,7 +123,6 @@ export async function resolveEligibility(
     }
   }
 
-  // Weigh the rule survivors and restored roster members into tickets.
   const weight: TicketWeight = eligibility.weight ?? { mode: "flat" };
   const weighted = new Map<string, ResolvedEntrant>();
   if (weight.mode === "flat") {
@@ -185,8 +153,6 @@ export async function resolveEligibility(
     }
   }
 
-  // Includes are pinned past the rules: present regardless, never below their
-  // floor (default 1), and never *reduced* below what they earned.
   for (const entry of eligibility.include ?? []) {
     const key = normalizeUuid(entry.player_uuid);
     const existing = weighted.get(key);
@@ -203,8 +169,6 @@ export async function resolveEligibility(
     }
   }
 
-  // Source tracks why an entrant was admitted, independently of how their
-  // tickets were weighted. Includes retain that provenance even on the roster.
   for (const entry of eligibility.include ?? []) {
     const included = weighted.get(normalizeUuid(entry.player_uuid));
     if (included) included.source = "include";
@@ -217,7 +181,6 @@ export async function resolveEligibility(
   return settled([...weighted.values()]);
 }
 
-/** The pre-eligibility semantics, converted onto the shared result shape. */
 async function resolveLegacy(
   fetchImpl: typeof fetch,
   event: GuildEvent,
@@ -246,10 +209,6 @@ async function resolveLegacy(
   );
 }
 
-/**
- * Tracker board reads for milestone rules and per-raid weights, deduplicated:
- * the tracked event resolves once, and each distinct window is fetched once.
- */
 class TrackerBoards {
   private tracked: Promise<RaidEvent | undefined> | undefined;
   private readonly byWindow = new Map<
@@ -261,7 +220,6 @@ class TrackerBoards {
     private readonly fetchImpl: typeof fetch,
     private readonly event: GuildEvent,
     private readonly roster: GuildMemberStats[],
-    /** Strict reads fail while a war-point board still has pending wars. */
     private readonly strict: boolean,
   ) {}
 
@@ -269,7 +227,6 @@ class TrackerBoards {
     return this.board(undefined);
   }
 
-  /** Board units per member: raids, or war points on a war tracker. */
   async raidGains(
     window: { from: string; to: string } | undefined,
   ): Promise<{ counts: Map<string, number> } | { error: string }> {
@@ -277,11 +234,6 @@ class TrackerBoards {
     return board.error === null ? { counts: board.raids } : { error: board.error };
   }
 
-  /**
-   * Raid completions specifically, for a stat rule counting raids from the
-   * tracker. A war tracker's board holds war points, so it fails closed
-   * rather than reading points as raids.
-   */
   async trackedRaidGains(
     window: { from: string; to: string },
   ): Promise<{ counts: Map<string, number> } | { error: string }> {
@@ -336,13 +288,6 @@ class TrackerBoards {
 
 const DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
-/**
- * Per-member gains for one stat over a window, keyed by normalized uuid.
- * Backed by the daily rollups, so the window counts whole UTC days - and
- * only as far back as the rollups reach: a window starting before the
- * metric's `data_since` would return partial totals that silently exclude
- * or underweight legitimate entrants, so it fails closed instead.
- */
 async function statGains(
   fetchImpl: typeof fetch,
   stat: "raids" | "playtime" | "wars",
@@ -358,21 +303,14 @@ async function statGains(
       requestedTo,
       { allowStale: !strict },
     );
-    // Rolls must not draw from cached totals that may already have moved -
-    // and the cache serves a stale value on refresh failure even when stale
-    // was disallowed, so the flag needs checking either way.
     if (strict && result.stale) return { error: RESULT_UNAVAILABLE };
     const progress = result.data;
-    // The backend resolves and caps the requested span. A roll must never use
-    // a truncated response as though it covered the raffle's full window.
     if (
       strict &&
       (progress.from.slice(0, 10) !== requestedFrom || progress.to.slice(0, 10) !== requestedTo)
     ) {
       return { error: RESULT_UNAVAILABLE };
     }
-    // Raids have their own rollup feed; wars and playtime come from the
-    // activity rollups.
     const since = (
       stat === "raids" ? progress.data_since.raids : progress.data_since.activity
     ).slice(0, 10);

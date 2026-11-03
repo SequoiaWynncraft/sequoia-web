@@ -9,8 +9,6 @@ import { branchAccessFrom, checkBranchArea, loadBranchSnapshot } from "./branchA
 const SERVICE_TTL_MS = 5 * 60_000;
 const SERVICE_TIMEOUT_MS = 2_500;
 
-/** How long display callers wait for a cold authority before rendering
- * without it; the settled answer shows on the next load. */
 const PEEK_WAIT_MS = 150;
 
 interface ServiceEntry {
@@ -19,18 +17,9 @@ interface ServiceEntry {
   settled?: AreaAccess;
 }
 
-/**
- * Per-viewer memo over a service that answers access for itself (the bag-shop
- * bot's staff flag, Sierra's Discord admission), because the navbar asks on
- * every page. Only "granted" and "denied" settle: a restart or outage must not
- * lock staff out for a TTL, so any other answer evicts and the next request
- * retries.
- */
 function serviceAuthority(ask: (fetchImpl: typeof fetch) => Promise<AreaAccess>) {
   const cache = new Map<string, ServiceEntry>();
 
-  /** Drops entries past their TTL so the map tracks active viewers, not the
-   * lifetime population of everyone who ever signed in. */
   function sweep(now: number) {
     for (const [key, entry] of cache) {
       if (now - entry.at >= SERVICE_TTL_MS) cache.delete(key);
@@ -45,13 +34,7 @@ function serviceAuthority(ask: (fetchImpl: typeof fetch) => Promise<AreaAccess>)
     const now = Date.now();
     sweep(now);
     const cached = cache.get(viewer.discordId);
-    // Display callers (navbar, sidebar) ride the memo; a protected page gate
-    // asks fresh, so an allowlist change applies on the next navigation rather
-    // than after the TTL. The fresh answer still lands in the cache.
     if (cached && now - cached.at < SERVICE_TTL_MS) {
-      // A strict page gate must revalidate a settled display answer, but it can
-      // share a request already in flight. This prevents the /manage layout's
-      // bounded peek and a protected child from starting duplicate calls.
       if (!cached.settled || !options.fresh) return cached.check;
     }
 
@@ -62,9 +45,6 @@ function serviceAuthority(ask: (fetchImpl: typeof fetch) => Promise<AreaAccess>)
       at: Date.now(),
       check: Promise.race([ask(fetchImpl).catch((): AreaAccess => "unverified"), timeout]).then(
         (result) => {
-          // Evict only our own entry: a fresh page-gate check can replace it
-          // while an older peek is still in flight, and that older failure must
-          // not blow away the newer settled answer.
           if (result === "granted" || result === "denied") entry.settled = result;
           else if (cache.get(viewer.discordId) === entry) cache.delete(viewer.discordId);
           return result;
@@ -75,12 +55,6 @@ function serviceAuthority(ask: (fetchImpl: typeof fetch) => Promise<AreaAccess>)
     return entry.check;
   }
 
-  /**
-   * Bounded read for display-only callers: a settled cached answer returns
-   * instantly; otherwise wait for the shared check only until PEEK_WAIT_MS
-   * after it started. A hung service therefore costs one short wait per
-   * check, not one per page, and never the full timeout.
-   */
   async function peek(fetchImpl: typeof fetch, viewer: Viewer): Promise<AreaAccess | null> {
     const cached = cache.get(viewer.discordId);
     if (cached && Date.now() - cached.at < SERVICE_TTL_MS && cached.settled) return cached.settled;
@@ -102,8 +76,6 @@ const bagshopStaff = serviceAuthority(async (fetchImpl) => {
   return me.data.staff ? "granted" : "denied";
 });
 
-/** Sierra decides Discord admission (staff roles, leadership, branches) fresh
- * from Discord; the website only asks it, through the same-origin adapter. */
 const discordStaff = serviceAuthority(async (fetchImpl) => {
   const result = await requestDiscord<unknown>(fetchImpl, "access");
   if (result.ok) return "granted";
@@ -112,11 +84,6 @@ const discordStaff = serviceAuthority(async (fetchImpl) => {
   return "unverified";
 });
 
-/**
- * The better of two authorities' answers, for areas that accept either: a
- * grant from one side stands regardless of the other, and a retryable
- * unknown beats a definite denial.
- */
 export function combineAccess(a: AreaAccess, b: AreaAccess): AreaAccess {
   if (a === "granted" || b === "granted") return "granted";
   if (a === "unverified" || b === "unverified") return "unverified";
@@ -130,14 +97,6 @@ function areaBranch(area: ManageAreaId): ManageBranchKey {
   return entry.branch;
 }
 
-/**
- * Resolves the sidebar's area list with bounded display-only peeks. Every
- * branch area computes from ONE stale-tolerant roster + profiles snapshot,
- * so the peek budget does not scale with the number of areas; the bag-shop
- * staff flag and Sierra's Discord admission ride their own memos in parallel.
- * Protected pages still resolve only their own authority strictly before
- * consuming data.
- */
 export async function peekManageCapabilities(
   fetchImpl: typeof fetch,
   viewer: Viewer | null,
@@ -150,7 +109,6 @@ export async function peekManageCapabilities(
   const [snapshot, staff, discord] = await Promise.all([
     loadBranchSnapshot(fetchImpl, { allowStale: true, waitMs: PEEK_WAIT_MS }),
     bagshopStaff.peek(fetchImpl, viewer),
-    // Website admins are Sierra's first admission rule, read from the same session.
     viewer.websiteAdmin ? ("granted" as const) : discordStaff.peek(fetchImpl, viewer),
   ]);
   const capabilities = {} as ManageCapabilities;
@@ -183,10 +141,6 @@ export async function pageAreaAccess(
     return viewer.websiteAdmin ? "granted" : discordStaff.check(fetchImpl, viewer, { fresh: true });
   }
   if (area !== "treasury") return checkBranchArea(fetchImpl, viewer, areaBranch(area));
-  // Treasury accepts either authority: the branch role or the bot's staff
-  // allowlist. A grant from one is conclusive and must not wait out the
-  // other's timeout; only a non-grant waits for both answers to combine.
-  // The bot still re-rejects non-staff mutations itself.
   const checks = [
     checkBranchArea(fetchImpl, viewer, "treasury"),
     bagshopStaff.check(fetchImpl, viewer, { fresh: true }),
@@ -204,13 +158,6 @@ export async function pageAreaAccess(
   });
 }
 
-/**
- * Cheap check for the navbar's Manage entry: the same bounded peeks as the
- * sidebar, true only when some area with console content is granted - a
- * branch with no pages yet should not dangle a dead link. Display-only: the
- * /manage routes re-check strictly, so a stale "true" costs a click into a
- * gate, never access.
- */
 export async function navManageVisible(
   fetchImpl: typeof fetch,
   viewer: Viewer | null,

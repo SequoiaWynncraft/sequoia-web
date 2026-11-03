@@ -40,7 +40,6 @@ describe("Discord management server boundary", () => {
     expect(arbitrary.fetch).not.toHaveBeenCalled();
   });
   it("preserves welcome renderer transport bytes privately without treating them as JSON", async () => {
-    // Transport sentinels only, not a successful renderer or accepted artwork fixture.
     for (const type of ["image/png", "image/gif"]) {
       const request = event("POST", "https://seqwawa.com", "cookie-session", "welcome/preview");
       const bytes = new Uint8Array([0, 19, 255, 7]);
@@ -121,7 +120,6 @@ describe("Discord management server boundary", () => {
     }
   });
   it("preserves ceremony renderer bytes privately without treating them as JSON", async () => {
-    // Transport sentinels only, not a rendered ceremony.
     for (const type of ["image/png", "image/gif"]) {
       const request = event("POST", "https://seqwawa.com", "cookie-session", "ceremonies/preview");
       const bytes = new Uint8Array([7, 0, 255, 19]);

@@ -21,7 +21,6 @@ function makeEvent(overrides: Partial<GuildEvent>): GuildEvent {
   };
 }
 
-/** Wraps bare events as announced store entries - the common case. */
 function published(events: GuildEvent[]): { event: GuildEvent; published: boolean }[] {
   return events.map((event) => ({ event, published: true }));
 }

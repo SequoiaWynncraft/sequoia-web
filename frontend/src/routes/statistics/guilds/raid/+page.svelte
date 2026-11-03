@@ -18,32 +18,26 @@
   const customWindow = $derived(data.customWindow);
   const signInUrl = $derived(webAuthStartUrl());
 
-  /** The window a bare URL resolves to, so its chip link can stay clean. */
   const DEFAULT_WINDOW = "7d";
 
   const windowScopes = RAID_WINDOWS.map((window) => ({ key: window.key, label: window.label }));
-  /** Preset the current timeframe names, or null when it is custom or an event. */
   const activePreset = $derived(
     data.selectedEvent ? null : raidWindowPreset(data.windowInput ?? ""),
   );
   const activeWindow = $derived(activePreset?.key ?? "");
-  /** A typed window that is not one of the presets, so the disclosure opens on it. */
   const customActive = $derived(
     !data.selectedEvent && data.windowInput !== "" && activePreset === null,
   );
 
-  /** Raid filter chips for the timeframe board: "all" plus each known raid. */
   const raidScopes = [
     { key: "all", label: "All" },
     ...KNOWN_RAIDS.map((raid) => ({ key: raid.key, label: raid.short })),
   ];
   const activeRaid = $derived(data.selectedRaid ?? "all");
-  /** Short label of the active raid, for empty-state copy. */
   const activeRaidShort = $derived(
     KNOWN_RAIDS.find((raid) => raid.key === data.selectedRaid)?.short ?? null,
   );
 
-  /** Link for a timeframe chip, keeping the raid filter and dropping any event. */
   function windowHref(key: string): string {
     const params = new URLSearchParams();
     if (key !== DEFAULT_WINDOW) params.set("window", key);
@@ -52,7 +46,6 @@
     return query ? `?${query}` : "?";
   }
 
-  /** Link for a raid chip, preserving whichever timeframe currently drives the board. */
   function raidHref(key: string): string {
     const params = new URLSearchParams();
     if (data.selectedEvent) {
@@ -65,7 +58,6 @@
     return query ? `?${query}` : "?";
   }
 
-  /** Guild-wide totals per raid, summed from every member's per-raid counts. */
   const raidTotals = $derived.by(() => {
     if (!stats) return [];
     const totals = new Map<string, number>();
@@ -151,7 +143,6 @@
     }).format(new Date(value));
   }
 
-  /** What the board is scoped to: an explicit range, a duration, or an event. */
   const boardTitle = $derived.by(() => {
     if (customWindow?.kind === "range") {
       return `${formatDate(customWindow.from)} – ${formatDate(customWindow.to)}`;
@@ -160,7 +151,6 @@
     return data.selectedEvent?.name ?? "Contributions";
   });
 
-  /** The resolved dates behind that scope, plus how it was tracked. */
   const boardMeta = $derived.by(() => {
     if (customWindow?.kind === "range") return "in-game tracked";
     if (customWindow) {
@@ -493,8 +483,6 @@
     margin-top: 12px;
   }
 
-  /* Label and field share one row while they fit; the field's flex-basis makes
-     it wrap underneath the label as a unit once space runs out. */
   .timeframe-row {
     display: flex;
     align-items: center;
@@ -573,7 +561,6 @@
 
   .event-stack {
     display: grid;
-    /* min() so a 320px viewport shrinks the track instead of overflowing. */
     grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
     gap: 8px;
   }

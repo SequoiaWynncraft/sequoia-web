@@ -2,27 +2,16 @@ import { invalidateAll } from "$app/navigation";
 
 import type { StageMessage, StageRoll } from "#lib/events/stageProtocol.js";
 
-/**
- * The stage's live connection: an EventSource over the event's roll stream,
- * mirrored into reactive state. Reconnects are the browser's own; every
- * (re)connect starts with a snapshot, which is the whole catch-up story.
- */
 export class StageFeed {
-  /** Latest roll per `${raffleId}:${slot}`. */
   rolls = $state<Record<string, StageRoll>>({});
   connected = $state(false);
-  /** Local epoch minus server epoch, refreshed by every timed SSE message. */
   clockOffset = $state<number | null>(null);
 
   private source: EventSource | undefined;
-  /** Client-side settle timers per roll key - the server's own settle timer
-   * dies with its process, and a snapshot can replay a "spinning" roll whose
-   * settle broadcast will never come. Wall clock is the durable authority. */
   private settleTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   constructor(private readonly slug: string) {}
 
-  /** Server-rendered snapshot, shown until the stream's own arrives. */
   seed(rolls: StageRoll[]) {
     if (Object.keys(this.rolls).length > 0) return;
     const seeded: Record<string, StageRoll> = {};
@@ -56,8 +45,6 @@ export class StageFeed {
     this.settleTimers.clear();
   }
 
-  /** Marks the roll settled once its own settle time passes, whether or not
-   * the server's broadcast ever arrives. */
   private scheduleSettle(roll: StageRoll) {
     const key = `${roll.raffleId}:${roll.slot}`;
     const pending = this.settleTimers.get(key);
@@ -97,9 +84,6 @@ export class StageFeed {
       }
       case "roll": {
         const key = `${message.roll.raffleId}:${message.roll.slot}`;
-        // A delayed publish must never roll the slot backward: when two
-        // draws race, the one that started later is the one that won the
-        // event's version guard.
         const existing = this.rolls[key];
         if (existing && existing.startedAt > message.roll.startedAt) {
           this.rescheduleSettles();
@@ -122,8 +106,6 @@ export class StageFeed {
             if (pending) clearTimeout(pending);
             this.settleTimers.delete(key);
           } else {
-            // Even an unexpectedly early server broadcast must not unmask
-            // the committed winner before the shared settle epoch.
             this.scheduleSettle(roll);
           }
         }
@@ -131,8 +113,6 @@ export class StageFeed {
       }
       case "retired": {
         const key = `${message.raffleId}:${message.slot}`;
-        // Only the named roll retires - a newer roll occupying the slot by
-        // now is exactly the thing this message must not destroy.
         if (this.rolls[key]?.rollId !== message.rollId) break;
         const pending = this.settleTimers.get(key);
         if (pending) clearTimeout(pending);
@@ -141,7 +121,6 @@ export class StageFeed {
         break;
       }
       case "event-updated":
-        // Raffle config changed - refetch the page data underneath the feed.
         void invalidateAll();
         break;
     }

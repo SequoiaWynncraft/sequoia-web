@@ -11,7 +11,6 @@ import { createCachedResource, type CachedResource } from "#lib/server/serverCac
 const FRESH_MS = 2 * 60 * 1000;
 const STALE_MS = 60 * 60 * 1000;
 
-// One resource per (metric, window) pair - a small fixed set (3 x 4).
 const resources = new Map<string, CachedResource<GlobalPlayerRankings>>();
 
 export async function getGlobalPlayerRankings(

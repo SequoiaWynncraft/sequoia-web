@@ -7,11 +7,6 @@ export function sequoiaWebBackendUrl(path: string): string {
   return `${baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
-/**
- * Authorization headers for the tracker's internal-token endpoints, or null
- * when no token is configured. Member-only data must stay behind a viewer
- * membership check before these headers are used.
- */
 export function sequoiaWebBackendInternalHeaders(): Record<string, string> | null {
   const token = SEQUOIA_WEB_BACKEND_INTERNAL_TOKEN?.trim();
   return token ? { authorization: `Bearer ${token}` } : null;

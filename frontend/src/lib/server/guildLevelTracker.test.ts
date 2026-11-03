@@ -4,7 +4,6 @@ import type { GuildLevelHistoryResponse } from "#lib/api/guildLevel.js";
 
 const VIEWER_UUID = "11111111-1111-1111-1111-111111111111";
 
-/** The backend history the tracker reads, oldest entry first as it is sent. */
 function historyResponse(entries: { level: number; observed_at: string; baseline?: boolean }[]) {
   return {
     guild_uuid: "ee860b7c-9a1d-49cf-9f19-ab673ba0f23b",
@@ -21,30 +20,19 @@ const TWO_LEVEL_UPS = [
   { level: 245, observed_at: "2026-07-29T01:45:24.811Z" },
 ];
 
-/**
- * Three entries, the shape a payout message actually needs: the oldest row only
- * marks when tracking started, so the two rows above it are the first pair whose
- * gap is a real level-up window.
- */
 const RECORDED_LEVEL_UPS = [
   { level: 243, observed_at: "2026-07-24T12:00:00.000Z", baseline: true },
   ...TWO_LEVEL_UPS,
 ];
 
 const H = vi.hoisted(() => ({
-  /** The guild payload the page (and the tracker) reads. */
   guild: { level: 245, xp_percent: 12 },
   generatedAt: "2026-07-29T13:10:26.765Z",
-  /** Linked profiles the gate reads; individual tests swap this in. */
   profiles: { profiles: [] } as { profiles: unknown[] },
-  /** Staleness the two gate reads report back; the fail-closed cases set these. */
   rosterStale: false,
   profilesStale: false,
-  /** Roster the gate checks the viewer against. */
   roster: [{ username: "Aylin", uuid: "11111111-1111-1111-1111-111111111111", rank: "recruit" }],
-  /** Backend history, or null when the backend could not be read. */
   history: null as GuildLevelHistoryResponse | null,
-  /** Counts reads, so the gate can be shown to run before the history fetch. */
   historyReads: 0,
 }));
 
@@ -66,8 +54,6 @@ vi.mock("#lib/server/rankProfiles.js", () => ({
   }),
 }));
 
-// Stubbing the fetcher keeps the tracker's tests about the tracker: the request,
-// its caching and its failure modes are covered in guildLevelHistory.test.ts.
 vi.mock("#lib/server/guildLevelHistory.js", () => ({
   getGuildLevelHistory: async () => {
     H.historyReads += 1;
@@ -75,10 +61,8 @@ vi.mock("#lib/server/guildLevelHistory.js", () => ({
   },
 }));
 
-// Imported after the mocks so the module binds the stubbed reads.
 const { buildPayoutText, loadGuildLevelTracker } = await import("#lib/server/guildLevelTracker.js");
 
-/** A profile granting the viewer a branch role at the given level. */
 function profileWith(branch: string, level: string) {
   return {
     minecraft: { uuid: VIEWER_UUID },
@@ -220,7 +204,6 @@ describe("loadGuildLevelTracker", () => {
 
   it("takes the current level and XP from the guild stats, not the history payload", async () => {
     H.guild = { level: 246, xp_percent: 37 };
-    // Current level and XP still come from the guild stats response.
     H.history = historyResponse(TWO_LEVEL_UPS);
 
     const tracker = await loadGuildLevelTracker(fetch, VIEWER);

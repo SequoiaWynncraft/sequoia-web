@@ -17,7 +17,6 @@ export interface PlayerCardResult {
   card: PlayerCardResponse | null;
   honours: PlayerHonours;
   error: string | null;
-  /** Full-history daily series for the tracking chart; null when unavailable. */
   series: Promise<PlayerSeriesResponse | null>;
 }
 
@@ -25,8 +24,6 @@ export interface PlayerCardResult {
 export const load: PageServerLoad = async ({ fetch, url, parent }) => {
   const player = url.searchParams.get("player")?.trim() ?? "";
 
-  // With no player specified, default to the signed-in member's own card.
-  // Other params are carried over so shared links keep their state.
   if (!player) {
     const { viewer } = await parent();
     if (viewer?.minecraftUsername) {
@@ -41,17 +38,13 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
   return {
     player,
     memberNames: stats?.members.map((member) => member.username) ?? [],
-    // The promise streams: the card renders as soon as it resolves.
     result: player ? loadCard(fetch, player) : Promise.resolve(null),
   };
 };
 
-/** How long honours may keep a resolved card waiting before the card ships without them. */
 const HONOURS_GRACE_MS = 1500;
 
 async function loadCard(fetchImpl: typeof fetch, player: string): Promise<PlayerCardResult> {
-  // Rank profiles come from the local server cache, so awaiting them alongside
-  // the card normally costs nothing and lets the identity row render in one pass.
   const profilesPromise = getLinkedRankProfiles(fetchImpl);
   profilesPromise.catch(() => {});
   try {
@@ -62,7 +55,6 @@ async function loadCard(fetchImpl: typeof fetch, player: string): Promise<Player
         setTimeout(resolve, HONOURS_GRACE_MS, EMPTY_HONOURS);
       }),
     ]).catch(() => EMPTY_HONOURS);
-    // The series streams after the card: one full-history fetch, ranges slice client-side.
     const to = new Date().toISOString().slice(0, 10);
     const from = windowStart(to, SERIES_DAYS);
     const series = getPlayerSeries(fetchImpl, card.uuid, from, to).catch(() => null);

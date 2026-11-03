@@ -12,14 +12,11 @@
   }: {
     source: string;
     surface?: MarkdownSurface;
-    /** Display names the preview can resolve; unknown ids fall back like Discord. */
     names: { roles: Map<string, string>; channels: Map<string, string> };
     now: number;
-    /** Allow Discord's enlarged emoji-only message rendering (message text only). */
     jumbo?: boolean;
   } = $props();
 
-  // Rendered from the typed AST, never {@html}: authored markup stays text.
   const nodes = $derived(parseDiscordMarkdown(source, surface));
   const large = $derived(jumbo && isJumboEmoji(nodes));
 
@@ -209,7 +206,6 @@
     background: rgb(255 255 255 / 0.06);
   }
 
-  /* Titles and field names take inline styling only, on one wrapped block. */
   .dm-title {
     display: inline;
   }

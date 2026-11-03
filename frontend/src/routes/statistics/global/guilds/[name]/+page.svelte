@@ -20,8 +20,6 @@
 
   const currentSeason = $derived(stats.season_ranks.at(-1) ?? null);
   const bestFinish = $derived.by(() => {
-    // The globally live season is a standing, not a finish - keep it out.
-    // A guild's own last recorded season may be a long-finished one.
     const liveSeasonSlug = `guildSeason${data.liveSeason ?? -1}`;
     const finishes = Object.entries(stats.rankings)
       .filter(([slug]) => /^guildSeason\d+$/.test(slug) && slug !== liveSeasonSlug)
@@ -50,7 +48,6 @@
     }));
   }
 
-  /** Top raiders, best first - hidden and zero raid counts sit out. */
   const podium = $derived(
     stats.members
       .filter((member) => (member.raids_total ?? 0) > 0)
@@ -64,7 +61,6 @@
       })),
   );
 
-  /** The member's org standing, when their Minecraft account is linked to a rank profile. */
   function orgRankOf(member: GuildMemberStats) {
     return member.uuid ? (data.ranks?.[member.uuid.toLowerCase()] ?? null) : null;
   }
@@ -87,8 +83,6 @@
       nameStyle: true,
       value: (member) => orgRankOf(member)?.rank ?? guildRankLabel(member.rank),
       valueColor: (member) => orgRankOf(member)?.rankColor ?? null,
-      // Org positions and in-game equivalents share one scale; without the
-      // catalog every row falls back to the plain in-game ladder.
       sortValue: (member) =>
         data.rankLadder
           ? (orgRankOf(member)?.rankOrder ?? data.rankLadder[member.rank])

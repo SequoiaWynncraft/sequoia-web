@@ -12,10 +12,6 @@ export const load: PageServerLoad = async ({ fetch, parent }) => {
   const now = new Date();
   const { viewer } = await parent();
 
-  // Membership decides which events may even be listed, so it is authorized
-  // against a fresh roster and fails closed - a stale one outlives the
-  // departure that should have closed access. Anonymous viewers are turned away
-  // before the roster costs anything, since they see no events either way.
   const { audience } = await resolveEventAudience(fetch, viewer);
 
   const stored = audience === "anonymous" ? [] : await eventStore.list();
@@ -27,9 +23,6 @@ export const load: PageServerLoad = async ({ fetch, parent }) => {
   return {
     groups,
     manager: audience === "manager",
-    // Optional live progress streams after the hub instead of delaying its
-    // first response when the activity feed is slow or unavailable. A draft is
-    // only ever a manager's preview, so it is not worth a feed request.
     progress: loadProgress(
       fetch,
       groups.live.filter((event) => !event.draft),

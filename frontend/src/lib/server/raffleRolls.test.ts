@@ -80,8 +80,6 @@ describe("raffle roll store", () => {
     await store.markSettled(live.rollId);
     expect((await store.latestForEvent("test-event"))[0]?.state).toBe("settled");
 
-    // A roll whose settle timer died with its process still reads settled
-    // once the wall clock passes settlesAt.
     const orphan = roll({ slot: 1, startedAt: 10, settlesAt: Date.now() - 1000 });
     await store.insert(orphan);
     const read = (await store.latestForEvent("test-event")).find((entry) => entry.slot === 1);

@@ -1,9 +1,7 @@
 import { defineEnvVars } from "@sveltejs/kit/env";
 
-/** Every variable here is optional; consumers apply their own defaults. */
 const optional = (value: string | undefined) => value;
 
-/** Inlined at build time and visible to the browser. */
 const buildTimePublic = { public: true, static: true, schema: optional };
 
 export const variables = defineEnvVars({

@@ -5,9 +5,6 @@ import { SEQUOIA_API_BASE_URL, SEQUOIA_GUILD_UUID } from "#lib/config/public.js"
 
 const H = vi.hoisted(() => ({ db: null as Client | null }));
 
-// The cached resource persists through the shared libsql client; a fresh
-// in-memory one per test keeps these off the developer's .data database file and
-// stops one test's cached copy from answering the next test's request.
 vi.mock("#lib/server/db.js", () => ({
   database: async () => {
     const { createClient } = await import("@libsql/client");
@@ -25,17 +22,11 @@ const RESPONSE = {
   entries: [{ level: 245, observed_at: "2026-07-29T15:59:15.913142Z", baseline: true }],
 };
 
-/**
- * A fresh module instance, so the resource starts with an empty in-memory cache.
- * The module builds its cached resource once at import time, which would
- * otherwise leak a warm entry from test to test.
- */
 async function freshFetcher() {
   vi.resetModules();
   return (await import("#lib/server/guildLevelHistory.js")).getGuildLevelHistory;
 }
 
-/** A stub fetch answering with one canned response, recording its calls. */
 function stubFetch(body: string, status = 200) {
   return vi.fn(async () =>
     new Response(body, { status, headers: { "content-type": "application/json" } }),
@@ -62,7 +53,6 @@ describe("getGuildLevelHistory", () => {
     expect(url).toBe(
       `${SEQUOIA_API_BASE_URL}/public/global/guilds/${SEQUOIA_GUILD_UUID}/level-history`,
     );
-    // The route is unauthenticated - no bearer token, no mod-version gate.
     expect(init.headers).toBeUndefined();
   });
 

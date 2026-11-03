@@ -68,8 +68,6 @@ describe("EventDraft raffle saved state", () => {
       ],
     });
 
-    // A rule saved before the tracker source existed must serialize back
-    // identically, or raffleConfigUnchanged locks the roll buttons forever.
     const rollups = new EventDraft({ mode: "edit", initial: statEvent() });
     expect(rollups.raffles[0].rules[0].statSource).toBe("rollups");
     expect(rollups.raffleConfigUnchanged(rollups.raffles[0])).toBe(true);
@@ -78,7 +76,6 @@ describe("EventDraft raffle saved state", () => {
     expect(tracker.raffles[0].rules[0].statSource).toBe("tracker");
     expect(tracker.raffleConfigUnchanged(tracker.raffles[0])).toBe(true);
 
-    // Flipping the source is a real config change and must be saved first.
     tracker.raffles[0].rules[0].statSource = "rollups";
     expect(tracker.raffleConfigUnchanged(tracker.raffles[0])).toBe(false);
   });

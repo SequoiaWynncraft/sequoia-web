@@ -20,11 +20,8 @@
     limit: number;
     rows?: number;
     issue?: string;
-    /** Mentions and server emoji offered by the insert menu. */
     context: DiscordContext;
-    /** Inline styling tools only, for short repeated fields. */
     compact?: boolean;
-    /** Embed text: Discord trims surrounding whitespace before counting it. */
     embedText?: boolean;
   } = $props();
 
@@ -46,7 +43,6 @@
     return { start, end, text: value.slice(start, end) };
   }
 
-  /** Wraps the selection (or a placeholder) and keeps it selected for typing. */
   function wrap(before: string, after: string, placeholder: string) {
     const { start, end, text } = selection();
     const inner = text || placeholder;
@@ -54,7 +50,6 @@
     void select(start + before.length, start + before.length + inner.length);
   }
 
-  /** Prefixes every selected line, e.g. headings, quotes and lists. */
   function prefix(marker: (index: number) => string) {
     const { start, end } = selection();
     const from = value.lastIndexOf("\n", start - 1) + 1;
@@ -102,8 +97,6 @@
     { label: "Code block", glyph: "{ }", apply: () => wrap("```\n", "\n```", "code") },
   ];
   const INLINE_TOOLS = new Set(["Bold", "Italic", "Underline", "Strikethrough", "Spoiler", "Inline code", "Link"]);
-  // Always visible, never revealed on focus: a toolbar that appears or collapses
-  // with focus moves the controls below it out from under the pointer.
   const tools = $derived(compact ? TOOLS.filter((tool) => INLINE_TOOLS.has(tool.label)) : TOOLS);
 </script>
 
@@ -249,7 +242,6 @@
     outline-offset: 1px;
   }
 
-  /* Phones: one scrollable row instead of several wrapped rows above every field. */
   @container discord-editor (max-width: 520px) {
     .md-tools {
       flex-wrap: nowrap;

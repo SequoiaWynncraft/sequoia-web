@@ -80,12 +80,6 @@ export const actions: Actions = {
     return { section: "notifications", saved: true, dmLevel };
   },
 
-  /**
-   * Store this browser's theme. Like the navbar choice it is a display
-   * preference with no backend record, so it works signed out. An unknown id
-   * lands on the default rather than failing - there is nothing for the viewer
-   * to correct, and a bad value would otherwise stick in the cookie.
-   */
   theme: async ({ request, cookies }) => {
     const formData = await request.formData();
     const theme = parseThemeId(String(formData.get("theme") ?? ""));
@@ -98,12 +92,6 @@ export const actions: Actions = {
     return { section: "theme", saved: true, theme };
   },
 
-  /**
-   * Store which navbar entries this browser shows. The form submits the entries
-   * to keep, because unchecked boxes send nothing - hiding is therefore the
-   * absence of a value, which works with JavaScript off. Deleting the cookie
-   * restores the trimmed default menu.
-   */
   navigation: async ({ request, cookies }) => {
     const formData = await request.formData();
     if (formData.has("reset")) {

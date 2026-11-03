@@ -24,7 +24,6 @@ const mockProgressResult = vi.mocked(getMemberProgressResult);
 const mockRuns = vi.mocked(loadModRunCounts);
 const mockProfilesResult = vi.mocked(getLinkedRankProfilesResult);
 
-/** Wraps profile data in a fresh CachedValue, as the strict loader expects. */
 function mockProfiles(data: unknown, options: { stale?: boolean; sourceStale?: boolean } = {}) {
   mockProfilesResult.mockResolvedValue({
     stale: options.stale ?? false,
@@ -73,8 +72,6 @@ describe("parseExportParams", () => {
     expect(
       parseExportParams(dataset("progress"), search({ from: "2026-03-01", to: "2026-02-01" })).ok,
     ).toBe(false);
-    // A nonexistent calendar day must 400, not normalize: Date.parse reads
-    // 2026-02-30 as March 2, which would silently shift the range.
     const overflow = parseExportParams(
       dataset("progress"),
       search({ from: "2026-02-30", to: "2026-03-15" }),
@@ -187,7 +184,6 @@ describe("buildExport", () => {
     mockStats.mockResolvedValue({ stale: false, members: [{ uuid: UUID, rank: "recruit" }] } as never);
     mockProfiles({
       catalog: {
-        // Resolvable label, wrong category - must not export as an org rank.
         roles: [{ key: "branch.community", label: "Community", category: "branch", position: 1 }],
         assets: [],
         awards: [],
@@ -245,7 +241,6 @@ describe("buildExport", () => {
   it("fails the export when a declared org rank cannot resolve to a label", async () => {
     mockStats.mockResolvedValue({ stale: false, members: [{ uuid: UUID, rank: "recruit" }] } as never);
     mockProfiles({
-      // The declared rank has no catalog role, so no label can resolve.
       catalog: { roles: [], assets: [], awards: [] },
       profiles: [
         {
@@ -301,8 +296,6 @@ describe("buildExport", () => {
     mockStats.mockResolvedValue({ stale: false, members: [{ uuid: UUID, rank: "recruit" }] } as never);
     mockProfiles({
       catalog: { roles: [], assets: [], awards: [] },
-      // summary.branches missing entirely - the shared validator only checks
-      // the shallow response shape.
       profiles: [{ minecraft: { uuid: UNDASHED }, award_keys: [], summary: {} }],
     });
     const result = await buildExport(fetch, "roster", {
@@ -416,7 +409,6 @@ describe("buildExport", () => {
       ...entry,
       raids_by_type: {},
     };
-    // Every exported column must be validated - wars_participated included.
     expect(
       (await import("#lib/api/memberProgress.js")).isMemberProgressResponse({
         generated_at: "now",
@@ -439,7 +431,6 @@ describe("buildExport", () => {
     expect(
       isMemberProgressResponse({ ...base, members: [{ ...entry, raids_by_type: { TNA: "2" } }] }),
     ).toBe(false);
-    // Counts are nonnegative integers - corruption must not export as data.
     expect(
       isMemberProgressResponse({ ...base, members: [{ ...entry, raids_by_type: { TNA: -1 } }] }),
     ).toBe(false);
@@ -454,7 +445,6 @@ describe("buildExport", () => {
     expect(
       isMemberProgressResponse({ ...base, members: [{ ...valid, playtime_hours: -2 }] }),
     ).toBe(false);
-    // Playtime stays fractional - only counts require integers.
     expect(
       isMemberProgressResponse({ ...base, members: [{ ...valid, playtime_hours: 2.5 }] }),
     ).toBe(true);

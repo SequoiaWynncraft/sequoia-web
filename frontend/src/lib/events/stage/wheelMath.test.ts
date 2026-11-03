@@ -17,8 +17,6 @@ describe("wheel math", () => {
     const wedges = wheelWedges(entrants);
     for (const [index, wedge] of wedges.entries()) {
       const rotation = finalRotationDeg(wedges, index, 5);
-      // After rotating clockwise by `rotation`, the wedge center's final
-      // angle must sit at the pointer (0° mod 360).
       const landed = (wedge.midDeg + rotation) % 360;
       expect(Math.min(landed, 360 - landed)).toBeCloseTo(0, 6);
       expect(rotation).toBeGreaterThanOrEqual(5 * 360);
@@ -30,7 +28,6 @@ describe("wheel math", () => {
     const entrants = [{ tickets: 149 }, { tickets: 1 }];
     const wedges = wheelWedges(entrants);
     const rotation = finalRotationDeg(wedges, 1, 4);
-    // The tiny wedge spans [358.8°, 360°); its center must land at the pointer.
     const finalMid = (wedges[1].midDeg + rotation) % 360;
     expect(Math.min(finalMid, 360 - finalMid)).toBeLessThan(wedges[1].endDeg - wedges[1].startDeg);
   });
@@ -46,10 +43,7 @@ describe("wheel math", () => {
 describe("wedgeAtPointer", () => {
   it("tracks the wedge under the pointer through a spin", () => {
     const wedges = wheelWedges([{ tickets: 1 }, { tickets: 1 }, { tickets: 2 }]);
-    // Unrotated, the pointer sits at the first wedge's start.
     expect(wedgeAtPointer(wedges, 0)).toBe(0);
-    // Rotating clockwise brings EARLIER angles under the pointer from the
-    // seam side: 10deg of rotation parks 350deg under it (the last wedge).
     expect(wedgeAtPointer(wedges, 10)).toBe(2);
     expect(wedgeAtPointer(wedges, 300)).toBe(0);
     expect(wedgeAtPointer(wedges, 10 + 720)).toBe(2);

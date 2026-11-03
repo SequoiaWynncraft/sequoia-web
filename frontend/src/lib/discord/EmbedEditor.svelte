@@ -44,13 +44,8 @@
   const at = $derived(`embeds.${index}`);
   const headingId = $props.id();
   let hexDraft = $state<string | null>(null);
-  // Optional groups start open when they hold content, then stay as staff leave them:
-  // clearing a value while typing must not collapse the group under the cursor.
-  // svelte-ignore state_referenced_locally
   let authorOpen = $state(!!embed.author);
-  // svelte-ignore state_referenced_locally
   let imagesOpen = $state(!!(embed.image || embed.thumbnail));
-  // svelte-ignore state_referenced_locally
   let footerOpen = $state(!!(embed.footer || embed.timestamp));
 
   function setAuthor(patch: Partial<NonNullable<Embed["author"]>>) {

@@ -15,7 +15,6 @@ type CacheModule = typeof import("./serverCache");
 
 const db = await disposableDatabase();
 
-/** A fresh cache module whose memoised database is bound to `client`. */
 async function cacheBoundTo(client: Client): Promise<CacheModule> {
   vi.resetModules();
   store.client = client;
@@ -58,7 +57,6 @@ beforeEach(async () => {
 });
 
 afterEach(() => {
-  // Every cache write must have landed: a failed write would make a bound vacuous.
   expect(warn.mock.calls.filter(([message]: unknown[]) => String(message).startsWith("api_cache write failed"))).toEqual([]);
   warn.mockRestore();
 });

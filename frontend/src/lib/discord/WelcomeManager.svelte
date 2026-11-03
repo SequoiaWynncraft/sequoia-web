@@ -17,8 +17,6 @@
   import type { DiscordContext } from "./types";
 
   let { initial, channels }: { initial: WelcomeResponse; channels: DiscordContext["channels"] } = $props();
-  // The saved response seeds one local draft; Rust owns persistence and normalization.
-  // svelte-ignore state_referenced_locally
   const seeded = welcomeStateWithNight(structuredClone(initial));
   let saved = $state<WelcomeState>(seeded.state);
   let nightSupported = $state(seeded.nightSupported);
@@ -26,17 +24,12 @@
   let imagesSupported = $state(seeded.imagesSupported);
   let repeatSupported = $state(seeded.repeatSupported);
   let draft = $state(structuredClone(seeded.state.settings));
-  // svelte-ignore state_referenced_locally
   let selectedId = $state(initial.catalog[0]?.id ?? "");
-  // svelte-ignore state_referenced_locally
   let season = $state<WelcomeSeason>(initial.effective_season);
   let previewEffect = $state<WelcomePreviewEffect>("none");
-  // Preview-only scene choices. As scheduled pins the scene in the last server settings response.
   let previewTime = $state<"scheduled" | "day" | "night">("scheduled");
   let previewMoon = $state<"saved" | "shown" | "hidden">("saved");
-  // Only an explicit suggestion. The schedule never defaults to the browser's zone or clock.
   let deviceZone = $state("");
-  // svelte-ignore state_referenced_locally
   let sampleName = $state(initial.viewer.display_name);
   let busy = $state(false);
   let error = $state<string | null>(null);
@@ -58,7 +51,6 @@
   let serial = 0;
 
   const dirty = $derived(welcomeSettingsDirty(draft, saved.settings));
-  // Older servers always send images, so their artwork rules still apply.
   const sendImages = $derived(!imagesSupported || draft.send_images);
   const issue = $derived(welcomeInputIssue(draft, nightSupported ? saved.effective_night.timezones : null) ?? welcomeNightReadinessIssue(draft.night, saved.settings.night, saved.effective_night.ready, sendImages, !imagesSupported || saved.settings.send_images));
   const nightIssue = $derived(welcomeNightIssue(draft.night, saved.effective_night.timezones));
@@ -78,7 +70,6 @@
   const skyCatalogById = $derived(new Map(saved.effects.sky.map((effect) => [effect.id, effect])));
   const displayedSkyChances = $derived(dirty ? welcomeSkyChances(draft.effects.sky, saved.effects.sky) : new Map(saved.effective_effect_chances.sky.map((effect) => [effect.id, effect.percent])));
   const chanceById = $derived(new Map(saved.effective_chances.map((item) => [item.id, item.percent])));
-  // Display-only normalization matches Rust Settings::chances. Asset readiness is a separate enable guard.
   const proposedChances = $derived.by(() => {
     if (draft.variants.some(({ weight }) => !Number.isInteger(weight) || weight < 0 || weight > 1000)) return null;
     const total = draft.variants.reduce((sum, item) => sum + (item.enabled ? item.weight : 0), 0);
@@ -86,11 +77,9 @@
     return new Map(draft.variants.map((item) => [item.id, item.enabled ? item.weight * 100 / total : 0]));
   });
   const displayedChances = $derived(dirty ? proposedChances : chanceById);
-  // Next pick odds: the server's while clean, otherwise the same penalty rule over the draft.
   const history = $derived(repeatHistory(saved));
   const recentIds = $derived(repeatSupported ? repeatRecentIds(history.recent, draft.repeat.recent) : new Set<string>());
   const repeatIssues = $derived(repeatFieldIssue(draft.repeat));
-  // Older servers have no penalty, so their next pick uses the base odds.
   const nextChances = $derived(!dirty ? history.current ?? (repeatSupported ? repeatChances(draft.variants, draft.repeat, history.recent) : chanceById) : repeatChances(draft.variants, draft.repeat, repeatSupported ? history.recent : []));
   const catalogById = $derived(new Map(saved.catalog.map((item) => [item.id, item])));
   const destinationChannels = $derived(channels.filter((channel) => channel.archived === undefined));
@@ -140,7 +129,6 @@
     cancelPreview();
     previewError = null;
     if (format === "png" && pngCache?.key === input.key) { showCachedStill(); return; }
-    // Animation always has an exact-identity still to return to without another render.
     if (format === "gif" && pngCache?.key !== input.key) return;
     previewBusy = true;
     pendingFormat = format;
@@ -161,7 +149,6 @@
       previewUrl = nextUrl;
       previewIdentity = { key: input.key, description: input.description, message: input.message };
       animated = format === "gif";
-      // Authored loops are 16 seconds. Return to a still after one requested playback.
       if (animated) playbackTimer = setTimeout(showCachedStill, 16_000);
     } catch (cause) {
       if (requestSerial === serial && !(cause instanceof DOMException && cause.name === "AbortError")) {
@@ -176,7 +163,6 @@
     const input = previewRequest;
     const ready = previewReady;
     const invalid = messageIssue;
-    // New copy must not display the old text. Other replacements retain a labeled still.
     untrack(() => {
       if (previewIdentity && welcomePreviewMessageChanged(previewIdentity.message, input.message)) clearPreview();
       else { cancelPreview(); if (animated) showCachedStill(); }
@@ -215,7 +201,6 @@
   async function save() {
     if (busy || !dirty || issue || conflict || (draft.enabled && !draftReady)) return;
     busy = true; error = null; notice = null; navigationBlocked = false;
-    // Freeze the sent draft. Controls stay disabled until normalization returns.
     const result = await requestDiscord<WelcomeResponse>(globalThis.fetch.bind(globalThis), "welcome", "PUT", welcomeSaveBody($state.snapshot(draft), nightSupported, mentionSupported, repeatSupported, imagesSupported));
     busy = false;
     if (!result.ok) {

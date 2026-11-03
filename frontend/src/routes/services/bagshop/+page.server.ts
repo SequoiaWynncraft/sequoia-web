@@ -4,11 +4,6 @@ import { createBagshopClient, type BagshopMe, type InventoryItem, type Order } f
 
 export const prerender = false;
 
-/**
- * Loads the public bag shop page: inventory for everyone, plus the signed-in viewer's
- * bag shop identity and their own orders. All bag shop calls fail soft so a bot outage
- * degrades to an empty listing with an error message rather than a 500.
- */
 export const load: PageServerLoad = async ({ fetch, parent }) => {
   const { viewer } = await parent();
   const client = createBagshopClient({ fetch });

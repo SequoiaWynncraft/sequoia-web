@@ -9,7 +9,6 @@ vi.mock("#lib/api/client.js", () => ({
 vi.mock("#lib/server/eventStore.js", () => ({ eventStore: { list: async () => [] } }));
 vi.mock("#lib/server/eventVisibility.js", () => ({
   canSeeEvent: () => true,
-  // A manager sees every tracker, which keeps these cases about the query string.
   resolveEventAudience: async () => ({ audience: "manager", roster: [] }),
 }));
 vi.mock("#lib/server/guildStats.js", () => ({ getGuildStats: async () => ({ members: [], stale: false }) }));
@@ -23,7 +22,6 @@ vi.mock("#lib/server/raidEventBoards.js", () => ({
   loadTrackerLeaderboard: vi.fn(async () => ({ leaderboard: [], error: null })),
 }));
 
-/** Runs the raid page load for one query string, as a signed-in viewer. */
 function loadFor(query: string) {
   return load({
     fetch,
@@ -43,9 +41,6 @@ describe("raid board timeframe selection", () => {
   });
 
   it("lets an explicit window outrank an event named alongside it", async () => {
-    // The board below is built from the window whenever there is one, so leaving the event
-    // selected too would light up its chip and its "an event is driving the board" note over
-    // numbers that are the window's. Reachable from a hand-edited or bookmarked URL.
     const data = await loadFor("?event=summer-slam&window=3d");
 
     expect(data.selectedEvent).toBeNull();

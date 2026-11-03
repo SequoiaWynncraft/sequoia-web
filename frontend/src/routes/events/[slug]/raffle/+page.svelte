@@ -11,9 +11,6 @@
 
   let { data } = $props();
 
-  // One feed per event: keyed on the slug alone, so an invalidate (fresh
-  // `data.rolls`) never tears the live connection down, while navigating to
-  // another event's stage does.
   let feed = $state<StageFeed | null>(null);
   $effect(() => {
     const connected = new StageFeed(data.event.slug);
@@ -23,9 +20,6 @@
     return () => connected.close();
   });
 
-  // The wheel shows the newest VALID roll: rolls whose raffle or slot a save
-  // removed are filtered before selection, so retiring the newest roll falls
-  // back to the next surviving one instead of an empty stage.
   const current = $derived.by(() => {
     if (!feed) return null;
     const valid = Object.values(feed.rolls).filter((roll) => {
@@ -40,11 +34,6 @@
     return valid.sort((left, right) => right.startedAt - left.startedAt)[0];
   });
 
-  // One row per declared winner slot: a settled live roll wins over the
-  // winner stored in the event JSON (which only refreshes on reload) - and
-  // while a slot's roll is still SPINNING, the stored winner stays hidden:
-  // the commit precedes the animation, and the table must not spoil the
-  // wheel's landing for anyone who opens or reloads mid-spin.
   const results = $derived(
     (data.event.raffles ?? []).flatMap((raffle) =>
       Array.from({ length: raffle.winnerCount }, (_unused, slot) => {

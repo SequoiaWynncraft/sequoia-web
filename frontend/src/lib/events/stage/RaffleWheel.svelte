@@ -14,9 +14,7 @@
   }: {
     roll: StageRoll;
     clockOffset: number | null;
-    /** Rim identity: pixel heads (crowd-proof) or classic rotated names. */
     wheelStyle?: "heads" | "names";
-    /** The signed-in viewer - their own slice glows a touch warmer. */
     viewerUuid?: string | null;
   } = $props();
 
@@ -24,9 +22,6 @@
   const CENTER = SIZE / 2;
   const RADIUS = CENTER - 16;
   const HEAD_RADIUS = RADIUS * 0.84;
-  // Heads mode: names only where an arc can hold one, heads carry the rest.
-  // Names mode: labels reach further out and down to slimmer wedges - they
-  // are the only identity on the wheel.
   const showHeads = $derived(wheelStyle === "heads");
   const labelRadius = $derived(RADIUS * (wheelStyle === "heads" ? 0.55 : 0.68));
   const labelMinDeg = $derived(wheelStyle === "heads" ? 14 : 4);
@@ -41,9 +36,6 @@
   );
   const rotation = $derived(finalRotationDeg(wedges, roll.winnerIndex, roll.spin.turns));
 
-  // A head earns its rim spot only when its wedge can actually hold it -
-  // crowded wheels stay quiet instead of shingling. Hover (or winning)
-  // overrides, so every entrant is still reachable.
   const headSize = $derived(
     Math.max(18, Math.min(30, ((2 * Math.PI * HEAD_RADIUS) / Math.max(1, roll.entrants.length)) * 0.9)),
   );
@@ -56,12 +48,8 @@
 
   let wheel: SVGGElement | undefined = $state();
   let landed = $state(false);
-  /** Wedge currently under the pointer - the hub's live ticker. */
   let liveIndex = $state(-1);
-  /** Wedge under the mouse - reveals its head even when it doesn't fit. */
   let hoveredIndex = $state(-1);
-  /** The disc's current angle - heads live OUTSIDE the rotating group and
-   * position themselves from this, so they are always upright. */
   let rotationNow = $state(0);
 
   function setStatic(element: SVGGElement, deg: number) {
@@ -69,9 +57,6 @@
     rotationNow = ((deg % 360) + 360) % 360;
   }
 
-  // One rotation to the precomputed landing. The feed converts the server's
-  // epochs to this viewer's clock, so skew cannot start or finish the reveal
-  // early. Reduced-motion viewers hold a neutral wheel, then land discretely.
   $effect(() => {
     const element = wheel;
     if (!element) return;
@@ -118,10 +103,6 @@
       timing,
     );
 
-    // The hub ticker reads the disc's actual rendered angle each frame, so
-    // it can never drift from what the viewer sees. It lives exactly as long
-    // as the spin: once landed, the hub shows the winner and polling a
-    // static page would only burn battery.
     const tick = () => {
       if (landed) return;
       const matrix = new DOMMatrixReadOnly(getComputedStyle(element).transform);
@@ -150,8 +131,6 @@
         {#each roll.entrants as entrant, index (entrant.player_uuid)}
           {@const wedge = wedges[index]}
           {@const span = wedge.endDeg - wedge.startDeg}
-          <!-- svelte-ignore a11y_no_static_element_interactions — hover is a
-               visual affordance only; the entrant list carries the names. -->
           <path
             d={wedgePath(CENTER, CENTER, RADIUS, wedge.startDeg, wedge.endDeg)}
             class="wheel-wedge"
@@ -200,7 +179,6 @@
       />
     </svg>
 
-    <!-- Live hub: whoever is passing the pointer, then the winner. -->
     <div class="wheel-center" aria-hidden="true">
       {#if hubEntrant}
         <img
@@ -257,11 +235,6 @@
     will-change: transform;
   }
 
-  /* The seam is a whisper: a one-pixel trace of gold, there when you look
-     for it - on EVERY slice, however slim. At 11% the old fan-melt problem
-     can't happen; a dense sliver cluster reads as faint texture, and an
-     unseamed dark mass reads as a rendering hole. Tonal alternation still
-     does the real separating. */
   .wheel-wedge {
     fill: color-mix(in srgb, var(--ev-sky-1, #251b38) 72%, #000000);
     stroke: color-mix(in srgb, var(--color-gold) 11%, transparent);
@@ -272,7 +245,6 @@
     fill: color-mix(in srgb, var(--ev-sky-0, #171120) 82%, #000000);
   }
 
-  /* Your own slice, a touch warmer - found at a glance, never shouting. */
   .wheel-wedge-mine {
     fill: color-mix(in srgb, var(--color-gold) 9%, color-mix(in srgb, var(--ev-sky-1, #251b38) 72%, #000000));
   }
@@ -390,7 +362,6 @@
     text-transform: uppercase;
   }
 
-  /* The banner adds its emphatic uppercase treatment to the shared player name. */
   .wheel-winner :global(.pn-name) {
     font-family: var(--font-display);
     letter-spacing: var(--tracking-wide);

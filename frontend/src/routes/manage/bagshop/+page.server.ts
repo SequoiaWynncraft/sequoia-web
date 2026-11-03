@@ -5,7 +5,6 @@ import { legacyManageRedirect } from "#lib/manage/redirects.js";
 
 export const prerender = false;
 
-/** The bag shop re-homed under Treasury; this stub keeps old links alive. */
 export const load: PageServerLoad = async ({ url }) => {
   redirect(308, legacyManageRedirect(url.pathname, url.search) ?? "/manage/treasury/bagshop");
 };

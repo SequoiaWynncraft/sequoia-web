@@ -1,22 +1,11 @@
-/**
- * RFC 3339 date-time: `YYYY-MM-DDTHH:MM:SS[.fraction]` with `Z` or a
- * `±HH:MM` offset. RFC 3339 permits lowercase `t` and `z`.
- */
+// RFC 3339 permits lowercase `t` and `z`.
 const RFC3339 = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(?:(Z)|([+-])(\d{2}):(\d{2}))$/i;
 
 const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
-/**
- * A management-supplied instant as canonical UTC (`toISOString`), or null
- * when it is not a real RFC 3339 date-time.
- *
- * `Date.parse` cannot serve as the gate: it rolls impossible dates forward
- * (Feb 30 becomes Mar 2), treats hour 24 as the next midnight, and accepts
- * slash or space separators and month names. Every field is checked against
- * the calendar here, and the instant is built from those fields, so the
- * stored value is exactly what the manager entered. Fractions beyond
- * milliseconds are truncated, as `Date` cannot hold them.
- */
+// `Date.parse` cannot serve as the gate: it rolls impossible dates forward
+// (Feb 30 becomes Mar 2), treats hour 24 as the next midnight, and accepts
+// slash or space separators and month names.
 export function parseInstant(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const match = RFC3339.exec(value.trim());

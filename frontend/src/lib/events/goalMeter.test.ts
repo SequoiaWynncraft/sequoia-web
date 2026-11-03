@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import { COMPACT_FROM, milestoneWindow } from "./goalMeter";
 import type { GoalMilestone } from "./types";
 
-/** A ladder of `count` tiers at 10, 20, 30, ... raids. */
 function ladder(count: number): GoalMilestone[] {
   return Array.from({ length: count }, (_, index) => ({
     at: (index + 1) * 10,
@@ -28,7 +27,6 @@ describe("milestoneWindow", () => {
     const result = milestoneWindow(ladder(COMPACT_FROM), at(50));
 
     expect(result.compact).toBe(true);
-    // Cleared through 50; the next locked tier is 60.
     expect(result.visible.map((tier) => tier.at)).toEqual([50, 60, 70]);
     expect(result.hiddenBefore).toBe(4);
     expect(result.hiddenAfter).toBe(COMPACT_FROM - 7);
@@ -45,7 +43,6 @@ describe("milestoneWindow", () => {
   it("slides to the top of the ladder once every tier is cleared", () => {
     const result = milestoneWindow(ladder(64), at(10_000));
 
-    // The window must not run off the end and report the whole ladder hidden.
     expect(result.visible.map((tier) => tier.at)).toEqual([620, 630, 640]);
     expect(result.hiddenBefore).toBe(61);
     expect(result.hiddenAfter).toBe(0);

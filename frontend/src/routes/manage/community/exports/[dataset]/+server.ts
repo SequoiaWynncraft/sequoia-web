@@ -11,11 +11,6 @@ import { requestError } from "#lib/server/requestError.js";
 
 export const prerender = false;
 
-/**
- * CSV download for one community dataset. Gated here as well as on the page:
- * endpoints don't inherit the layout's guard, and the download URL is
- * shareable.
- */
 export const GET: RequestHandler = async ({ params, url, cookies, fetch, locals }) => {
   await requireBranchArea(
     { cookies, fetch, locals },

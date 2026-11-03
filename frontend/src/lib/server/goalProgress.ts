@@ -6,10 +6,6 @@ import { getMemberProgress } from "./memberProgress";
 import { loadModRunCounts } from "./modActivity";
 import { loadWarPointEntries } from "./raidEventBoards";
 
-/**
- * Live total for a goal's feed over the event window so far. Null when the
- * goal is manual or its feed is unavailable.
- */
 export async function loadGoalProgress(
   fetchImpl: typeof fetch,
   goal: EventGoal,
@@ -36,14 +32,9 @@ export async function loadGoalProgress(
       starts_at: window.from,
       ends_at: window.to,
     });
-    // Board rows carry their war points in `raids` (see loadWarPointEntries).
     return error ? null : entries.reduce((sum, entry) => sum + entry.raids, 0);
   }
   if (goal.feed === "wars" || goal.feed === "playtime") {
-    // The rollups are day-granular and cannot split a partial first day, so
-    // counting starts at the first full UTC day unless the event begins at
-    // midnight. The live end side is exact by nature - rollups only contain
-    // what has already happened.
     const start = new Date(window.from);
     const startsAtMidnight =
       start.getUTCHours() === 0 && start.getUTCMinutes() === 0 && start.getUTCSeconds() === 0;

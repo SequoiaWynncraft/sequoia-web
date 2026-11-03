@@ -12,20 +12,15 @@
     messages: ManagedMessage[];
     context: DiscordContext;
     guildId: string;
-    /** The open saved message. */
     selectedId: string | null;
-    /** The name of an open message that has never been saved. */
     fresh: string | null;
     dirty: boolean;
     busy: boolean;
     hidden?: boolean;
     onselect: (message: ManagedMessage) => void;
-    /** Return to the message that is already open. */
     onresume: () => void;
     onguild: (id: string) => Promise<void>;
-    /** Outcomes shown while the list stands alone, such as a deletion. */
     status?: Snippet;
-    /** Import, below the list. */
     children?: Snippet;
   } = $props();
 
@@ -33,7 +28,6 @@
   let query = $state("");
   let disclosure = $state<Disclosure>({ remembered: {}, searching: {} });
   let list = $state<HTMLElement>();
-  // Follows the open server; a refused or failed switch resets it below.
   let server = $derived(guildId);
   const searching = $derived(query.trim() !== "");
   const browser = $derived(browse(messages, context, guildId, query));
@@ -42,11 +36,9 @@
   const guilds = $derived(context.guilds ?? [{ id: MAIN_GUILD, name: "Sequoia" }]);
   const counts = $derived(messages.reduce((totals, message) => totals.set(guildOf(message), (totals.get(guildOf(message)) ?? 0) + 1), new Map<string, number>()));
 
-  /** Keep an opened or saved message's group open, including after the current search. */
   export function reveal(message: ManagedMessage) {
     disclosure = revealGroup(disclosure, groupKey(message, messages, context.channels));
   }
-  /** After returning from the open message, land on its row, or on its closed group. */
   export async function focusCurrent() {
     await tick();
     const current = list?.querySelector<HTMLElement>('[aria-current="true"]');
@@ -78,7 +70,6 @@
       if (first) { event.preventDefault(); choose(first.message); }
     }
   }
-  /** Arrows move through visible rows and headers; Left and Right close and open a group. */
   function listKeys(event: KeyboardEvent, group?: BrowserGroup) {
     const all = items();
     const at = all.indexOf(event.currentTarget as HTMLElement);
@@ -171,9 +162,7 @@
   .browser[hidden] { display: none; }
   .browser-controls { display: grid; gap: 12px; }
   .browser-list { display: grid; align-content: start; gap: 2px; min-height: 0; }
-  /* As a full-width picker, the two controls share a row. */
   @container message-browser (min-width: 520px) { .browser-controls { grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); } }
-  /* Beside the editor, the browser stays in view and scrolls on its own (see DiscordEditor). */
   @container discord-workspace (min-width: 1040px) {
     .browser { position: sticky; top: 4.5rem; max-height: calc(100vh - 5.5rem); }
     .browser-list { flex: 0 1 auto; overflow-y: auto; overscroll-behavior: contain; }
@@ -212,7 +201,6 @@
   button:focus-visible { outline: 2px solid var(--color-gold); outline-offset: -2px; }
   button:disabled { opacity: 0.5; cursor: default; }
 
-  /* Touch screens would keep a tapped row tinted after returning to the list. */
   @media (hover: hover) { .group-toggle:hover, .row:hover:not(:disabled):not([aria-current="true"]) { background: color-mix(in srgb, var(--color-gold) 4%, transparent); } }
   @media (prefers-reduced-motion: reduce) { .chevron { transition: none; } }
   @media (pointer: coarse) { .group-toggle { min-height: 44px; } .elsewhere button { min-height: 44px; } }

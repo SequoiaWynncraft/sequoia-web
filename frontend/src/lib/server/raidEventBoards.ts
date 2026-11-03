@@ -14,27 +14,19 @@ export interface RaidEvent {
   name: string;
   starts_at: string;
   ends_at: string;
-  /** Contribution source: API counter diffs, or in-game mod scraping. */
   tracking?: TrackerKind;
-  /** Mod-tracked events may count a single raid; null counts all of them. */
   raid?: string | null;
 }
 
 export interface RaidLeaderboardEntry {
   player_uuid: string;
   username: string;
-  /** Board units: raids, or war points on a war tracker. */
   raids: number;
-  /** War trackers only: wars whose points are not calculated yet - `raids` is partial. */
   pendingWars?: number;
   rank: string;
-  /** Honour insignia artwork URL, when the member holds a graded insignia. */
   insigniaUrl?: string | null;
-  /** Insignia grade (e.g. "GOLD"), used for the image alt text. */
   insignia?: BadgeTier | null;
-  /** Sequoia internal/progression rank label (e.g. "Druid"), when known. */
   progressionRank?: string | null;
-  /** Primary color of the authoritative Discord progression role, when known. */
   progressionRankColor?: string | null;
 }
 
@@ -80,7 +72,6 @@ export async function loadTrackerLeaderboard(
   }
 }
 
-/** One row exactly as the mod tracker reported it, before any roster judgement. */
 export interface ModLeaderboardEntry {
   player_uuid: string | null;
   username: string;
@@ -94,14 +85,6 @@ interface ModLeaderboardResponse {
 
 export type ModLeaderboardResult = { entries: ModLeaderboardEntry[]; error: string | null };
 
-/**
- * Reads the mod tracker's raw counts for a window, with no roster applied.
- *
- * What the tracker recorded in a window is a fact about the past and never
- * changes; who is on the roster and what they are called is a fact about now.
- * Keeping the read separate from `rosterLeaderboard` lets a caller memoize the
- * former - the expensive half - without freezing the latter along with it.
- */
 export async function loadModLeaderboardEntries(
   fetchImpl: typeof fetch,
   window: { starts_at: string; ends_at: string; raid?: string | null },
@@ -134,11 +117,6 @@ interface WarPointLeaderboardResponse {
   }[];
 }
 
-/**
- * Reads the mod-fed war-point totals for a window, shaped like the raid read
- * so the same roster judgement applies. Wars whose points are not calculated
- * yet travel along as `pendingWars`: such a total is partial, not final.
- */
 export async function loadWarPointEntries(
   fetchImpl: typeof fetch,
   window: { starts_at: string; ends_at: string },
@@ -168,7 +146,6 @@ export async function loadWarPointEntries(
   }
 }
 
-/** The mod-fed read a tracker kind uses: war points, or raid completions. */
 function loadModFeedEntries(
   fetchImpl: typeof fetch,
   tracking: TrackerKind | undefined,
@@ -179,18 +156,6 @@ function loadModFeedEntries(
     : loadModLeaderboardEntries(fetchImpl, window);
 }
 
-/**
- * Judges raw tracker rows against a roster.
- *
- * Mod parties can include outsiders; the guild contribution board only shows
- * verified roster members. A resolved UUID is authoritative - the username
- * fallback applies only to entries the backend could not resolve, so a stale or
- * reused name can never impersonate a member.
- *
- * Pure and cheap, so callers holding a memoized read re-run it against the
- * current roster on every render rather than serving a departed member or a
- * pre-rename username out of a board built days ago.
- */
 export function rosterLeaderboard(
   entries: ModLeaderboardEntry[],
   roster: GuildMemberStats[],
@@ -211,11 +176,6 @@ export function rosterLeaderboard(
     if (!member) return [];
     return [
       {
-        // Prefer the roster member's own UUID: a name-matched entry has no
-        // player_uuid, and a username-as-uuid would break both nmsr faces
-        // and cross-raffle exclusion (which compares uuids). Carry the
-        // roster's own username too, so a stale or spoofed mod-reported name
-        // can never stand in for the member's identity on the board.
         player_uuid: member.uuid ?? entry.player_uuid ?? entry.username.toLowerCase(),
         username: member.username,
         raids: entry.raids,
@@ -226,10 +186,6 @@ export function rosterLeaderboard(
   });
 }
 
-/**
- * A mod-fed board (raid completions, or war points on a `wars` tracker)
- * restricted to the roster.
- */
 export async function loadModLeaderboard(
   fetchImpl: typeof fetch,
   window: { starts_at: string; ends_at: string; raid?: string | null },
@@ -246,20 +202,6 @@ export interface RaffleEligibility {
   error: string | null;
 }
 
-/**
- * Resolves the raffle's entrant pool from the event tracker's raid board and
- * converts each member's raids into weighted tickets (floor(raids / perTicket),
- * zero-ticket entrants dropped). Mirrors the standings resolution: both paths
- * count against the tracker's own raid scope (never the activity chart's), and
- * both are restricted to the supplied roster so someone who has left the guild
- * cannot win. Mod-tracked events honor the raffle `window`; API-tracked events
- * only expose whole-window totals, so a windowed raffle is rejected there.
- *
- * When `requiredRaids` is set (a personal-milestone gate), eligibility is
- * further restricted to members who reached that many raids over the tracker's
- * FULL standings window - not the raffle window - so the gate matches the
- * milestone progress shown on the public event page.
- */
 export async function loadRaffleEligible(
   fetchImpl: typeof fetch,
   tracker: NonNullable<GuildEvent["tracker"]>,
@@ -268,20 +210,14 @@ export async function loadRaffleEligible(
     perTicket: number;
     window?: { from: string; to: string };
     requiredRaids?: number;
-    /** A draw must not count partial war-point totals: fail while any are pending. */
     failOnPending?: boolean;
   },
 ): Promise<RaffleEligibility> {
-  // Resolve the tracked event once and reuse it for both board reads below, so a
-  // windowed gated raffle doesn't fetch the raid-events list twice.
   const tracked = await resolveTrackedEvent(fetchImpl, tracker.eventId);
   const board = await loadTrackerBoard(fetchImpl, tracker, roster, options, tracked);
   if (board.error) return { entrants: [], error: board.error };
   const pending = options.failOnPending ? pendingWarsError(board.leaderboard) : null;
   if (pending) return { entrants: [], error: pending };
-  // The milestone gate reads the full-window standings. Without a raffle window
-  // the ticket board already IS the full board, so reuse it; otherwise fetch the
-  // unwindowed board once and keep the uuids that cleared the threshold.
   let gate: Set<string> | null = null;
   if (options.requiredRaids !== undefined && options.requiredRaids > 0) {
     const fullBoard = options.window
@@ -306,17 +242,12 @@ export async function loadRaffleEligible(
   return { entrants, error: null };
 }
 
-/**
- * Why a war-point board can't decide a draw yet: wars still waiting for their
- * point values make every affected total partial. Null when the board is final.
- */
 export function pendingWarsError(leaderboard: RaidLeaderboardEntry[]): string | null {
   const pending = leaderboard.reduce((sum, entry) => sum + (entry.pendingWars ?? 0), 0);
   if (pending <= 0) return null;
   return `${pending} ${pending === 1 ? "war is" : "wars are"} still waiting for point values - roll once they're calculated.`;
 }
 
-/** Finds the backend raid event a tracker points at, for `loadTrackerBoard`. */
 export async function resolveTrackedEvent(
   fetchImpl: typeof fetch,
   eventId: string,
@@ -324,12 +255,6 @@ export async function resolveTrackedEvent(
   return (await loadRaidEvents(fetchImpl)).find((entry) => entry.id === eventId);
 }
 
-/**
- * The roster-restricted contribution board a raffle counts raids on,
- * optionally narrowed to a window (mod trackers only - API trackers expose
- * whole-window totals, so a window is rejected there). Pass `tracked` when
- * the caller already resolved it, to avoid refetching the raid-events list.
- */
 export async function loadTrackerBoard(
   fetchImpl: typeof fetch,
   tracker: NonNullable<GuildEvent["tracker"]>,
@@ -339,8 +264,6 @@ export async function loadTrackerBoard(
 ): Promise<LeaderboardResult> {
   const tracking = tracked?.tracking ?? tracker.tracking;
   if (tracking === "api") {
-    // API trackers only expose whole-window totals, so a raffle window would be
-    // silently ignored - reject it rather than draw against the wrong counts.
     if (options.window) {
       return {
         leaderboard: [],
@@ -350,9 +273,6 @@ export async function loadTrackerBoard(
     }
     const board = await loadTrackerLeaderboard(fetchImpl, tracker.eventId);
     if (board.error) return board;
-    // The API tracker aggregates historical event deltas with no membership
-    // join, so an ex-member stays on the board. Restrict eligibility to the
-    // fresh roster (uuid, name fallback) exactly as the mod path does.
     return { leaderboard: rosterMembersOnly(board.leaderboard, roster), error: null };
   }
   if (!tracked) return { leaderboard: [], error: LEADERBOARD_UNAVAILABLE };
@@ -368,7 +288,6 @@ export async function loadTrackerBoard(
   );
 }
 
-/** Keeps only leaderboard entries that match a current roster member. */
 function rosterMembersOnly(
   entries: RaidLeaderboardEntry[],
   roster: GuildMemberStats[],
@@ -380,10 +299,6 @@ function rosterMembersOnly(
   );
   const byName = new Map(roster.map((member) => [member.username.toLowerCase(), member] as const));
   return entries.flatMap((entry) => {
-    // An entry that carries a UUID must match by UUID - a stale or reused name
-    // must never stand in for a real identity. Name matching is only for the
-    // (unexpected) entry the tracker left without a UUID. On a UUID match, emit
-    // the roster member's own UUID so the raffle identity stays authoritative.
     const member = entry.player_uuid
       ? byUuid.get(normalizeUuid(entry.player_uuid))
       : byName.get(entry.username.toLowerCase());

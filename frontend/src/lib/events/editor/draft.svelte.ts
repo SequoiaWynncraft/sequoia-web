@@ -18,7 +18,6 @@ import { parseGuildEvent } from "#lib/events/validate.js";
 import type { EventFormContext, MemberOption, TrackerOption } from "#lib/server/eventFormContext.js";
 import type { RaffleRoll as RaffleRollRecord } from "#lib/server/raffleRolls.js";
 
-/** Context key the editor shell shares its EventDraft under. */
 export const EDITOR_KEY = Symbol("event-draft");
 
 export type GoalSource = "manual" | "raids" | "raidRuns" | "warPoints" | "wars" | "playtime";
@@ -26,10 +25,8 @@ export type MilestoneStyle = "list" | "markers" | "both" | "none";
 
 export interface MilestoneRow {
   id: number;
-  // Number inputs bind numbers (or null when cleared), not strings.
   at: string | number | null | undefined;
   unlock: string;
-  /** Short marker text under the meter; empty falls back to the target. */
   label: string;
 }
 
@@ -41,14 +38,11 @@ export interface GoalRow {
   finalTotal: string | number | null | undefined;
   milestones: MilestoneRow[];
   milestoneStyle: MilestoneStyle;
-  /** Preview slider position as a percentage of the last milestone. */
   previewPercent: number;
 }
 
 export interface PersonalMilestoneRow {
-  /** Stable id persisted in the event JSON and targeted by raffle gates. */
   id: string;
-  /** Local list key, distinct from the persisted id. */
   key: number;
   at: string | number | null | undefined;
   unlock: string;
@@ -57,28 +51,21 @@ export interface PersonalMilestoneRow {
 export type RuleType = "guildRank" | "seqRank" | "stat" | "milestone";
 export type StatKind = "raids" | "playtime" | "wars";
 
-/** One eligibility rule under construction; incomplete rows drop at serialize. */
 export interface RuleRow {
-  /** Local list key. */
   key: number;
   type: RuleType;
-  /** Selected rank names, for guildRank/seqRank rules. */
   ranks: string[];
   stat: StatKind;
-  /** Which feed counts the stat; "tracker" is the sub-day one (raids only). */
   statSource: "rollups" | "tracker";
   min: string | number | null | undefined;
   windowFrom: string;
   windowTo: string;
-  /** Original window instants, so an untouched field keeps its seconds. */
   seedWindowFrom: string;
   seedWindowTo: string;
   milestoneId: string;
 }
 
-/** A hand-picked include/exclude entry; tickets only matter on includes. */
 export interface ManualRow {
-  /** Local list key. */
   key: number;
   username: string;
   player_uuid: string;
@@ -86,37 +73,27 @@ export interface ManualRow {
 }
 
 export interface RaffleRow {
-  /** Stable id that persists in the event JSON and targets rolls. */
   id: string;
-  /** Local list key, distinct from the persisted id. */
   key: number;
   prize: string;
-  /** Curated prize art file, "" for none; display-only. */
   icon: string;
-  /** What identifies entrants on the stage wheel. */
   wheelStyle: "heads" | "names";
   winnerCount: string | number | null | undefined;
-  /** Ticket weighting; windowFrom/To below is the weight's counting window. */
   weightMode: "flat" | "perRaid" | "perStat";
   weightStat: StatKind;
-  /** perTicket (perRaid) or per (perStat). */
   weightPer: string | number | null | undefined;
   windowFrom: string;
   windowTo: string;
-  /** Original window instants, so an untouched field keeps its seconds. */
   seedWindowFrom: string;
   seedWindowTo: string;
-  /** Only the include list can enter; rules are ignored. */
   whitelistOnly: boolean;
   rules: RuleRow[];
   include: ManualRow[];
   exclude: ManualRow[];
-  /** Frozen roll results, edited only by rolling - passed through on save. */
   winners: RaffleWinner[];
   drawnAt: string;
 }
 
-/** The lenient raffle shape both seeding paths (typed event, snapshot) share. */
 interface RaffleSeed {
   id: string;
   prize: string;
@@ -131,34 +108,22 @@ interface RaffleSeed {
   eligibility?: RaffleEligibility;
 }
 
-// Placements serialize in this fixed order, so click order never churns
-// the payload (and with it the undo history).
 const ICON_PLACEMENT_ORDER: EventIconPlacement[] = ["hero", "band", "meta", "manage"];
 
 export const RAFFLE_MAX_WINNERS = 50;
-
-// ── Pure helpers ──────────────────────────────────────────────────────
 
 export function toInput(instant?: string): string {
   return instant ? instant.slice(0, 16) : "";
 }
 
-/** datetime-local values are read as UTC wall time. */
 export function toInstant(value: string): string {
   return value.length === 16 ? `${value}:00Z` : `${value}Z`;
 }
 
-/** An untouched input keeps its original instant, seconds and all. */
 export function keepInstant(value: string, original: string): string {
   return original && value === toInput(original) ? original : toInstant(value);
 }
 
-/**
- * The validator canonicalizes instants (".000Z" millis and all); emitting
- * the same spelling keeps serialized-vs-stored comparisons honest - a fresh
- * "T00:00:00Z" must not read as different from the saved "T00:00:00.000Z".
- * Invalid strings pass through so the validator can still name them.
- */
 function canonInstant(value: string): string {
   const parsed = Date.parse(value);
   return Number.isNaN(parsed) ? value : new Date(parsed).toISOString();
@@ -186,8 +151,6 @@ function splitLines(value: string): string[] {
     .filter(Boolean);
 }
 
-// Cleared or invalid number inputs bind null or undefined depending on the
-// browser path - treat both as empty.
 export function hasCount(value: string | number | null | undefined): boolean {
   if (value === null || value === undefined) return false;
   return typeof value === "number" ? Number.isFinite(value) : value.trim() !== "";
@@ -207,39 +170,16 @@ export interface EventDraftSeed {
   context?: EventFormContext | null;
 }
 
-/**
- * The whole editor state: every field, the serialized draft, the undo/redo
- * history, and the enhanced-submit handlers. One instance is created by
- * EventEditor and shared with the section components via context, so the
- * form stays a single unit (one payload, one history, one version token)
- * while its markup lives in per-section files.
- *
- * Effects cannot live here (class fields run outside component init), so
- * EventEditor owns them: history capture debouncing, tracker adoption,
- * milestone-gate clearing, and the live `initial` sync into `liveInitial`.
- */
 export class EventDraft {
   readonly mode: "create" | "edit";
 
-  // The live `initial` prop, synced by EventEditor: a save that adds a
-  // raffle unlocks its roll button without a full reload; undo never
-  // touches it, so replayed snapshots stay out of the picture.
   liveInitial = $state<GuildEvent | null>(null);
 
-  /**
-   * The version token the visible draft is based on. Every enhanced action
-   * reruns `load`, so adopting the live prop would take over a concurrent
-   * manager's version after e.g. a tracker or preset action - letting this
-   * editor save or delete over content it never displayed. Seeded at mount,
-   * advanced only by this tab's own successful saves and rolls.
-   */
   knownUpdatedAt = $state<number | null>(null);
 
   readonly memberChoices: MemberOption[];
-  /** Org ladder labels for the eligibility picker, most senior first. */
   readonly seqRankChoices: string[];
   trackerChoices = $state<TrackerOption[]>([]);
-  /** Persisted draw records, newest first, synced from the page data. */
   rollHistory = $state<RaffleRollRecord[]>([]);
 
   name = $state("");
@@ -248,10 +188,6 @@ export class EventDraft {
   tagline = $state("");
   access = $state<"public" | "members">("members");
   published = $state(false);
-  // Original instants survive untouched edits - datetime-local inputs carry
-  // minute precision, and rewriting an unchanged value would shift seconds.
-  // Reassigned by applyDraft so replayed snapshots keep THEIR exact seconds,
-  // not the originally loaded event's.
   seedStartsAt = $state("");
   seedEndsAt = $state("");
   startsAt = $state("");
@@ -267,17 +203,12 @@ export class EventDraft {
   iconPlacements = $state<EventIconPlacement[]>(["hero"]);
 
   about = $state("");
-  // Repeater rows carry a locally generated id so the each blocks are keyed -
-  // unkeyed lists with two-way bindings corrupt state when middle rows are
-  // removed.
   private nextRowId = 0;
 
   goalEnabled = $state(false);
   goals = $state<GoalRow[]>([]);
   personalMilestones = $state<PersonalMilestoneRow[]>([]);
 
-  // Chart source: "goal" follows the first raid-based goal, "raids"/"raidRuns"
-  // chart raids explicitly, "off" hides the chart; chartRaid narrows to one raid.
   chartSource = $state<"goal" | "raids" | "raidRuns" | "off">("goal");
   chartRaid = $state("");
   prizes = $state<(Required<PrizeEntry> & { id: number })[]>([]);
@@ -288,13 +219,9 @@ export class EventDraft {
   trackerEnabled = $state(false);
   trackerEventId = $state("");
   trackerTracking = $state<TrackerKind>("api");
-  // Manual id entry is the fallback when the backend list is unavailable or
-  // the stored id is not in it.
   trackerManual = $state(false);
 
   raffleExcludeWinners = $state(false);
-  // UI-positive ("show the wheel"); stored inverted as raffleHideWheel so
-  // existing events keep their wheel without a migration.
   raffleShowWheel = $state(true);
   raffles = $state<RaffleRow[]>([]);
   rollingId = $state<string | null>(null);
@@ -303,24 +230,17 @@ export class EventDraft {
   showValidation = $state(false);
   saving = $state(false);
 
-  // Inline tracker editor inside the standings section - creates new
-  // tracker events or edits the selected one.
   trackerEditor = $state<"closed" | "create" | "edit">("closed");
   trackerEditId = $state("");
   trackerEditStartsAt = $state("");
   trackerEditEndsAt = $state("");
-  /** The edited tracker's kind on open: an edit can't cross raids and war points. */
   trackerEditTracking = $state<TrackerKind>("mod");
   trackerBusy = $state(false);
   trackerAttempted = $state(false);
-  /** The last ?/createTracker or ?/updateTracker rejection, synced from props. */
   serverTrackerError = $state<string | null>(null);
-  // The last save's outcome, synced from props so the rail can show it next
-  // to its sticky save button - the footer alone scrolls out of view.
   serverSaved = $state(false);
   serverError = $state<string | null>(null);
   serverAuditWarning = $state(false);
-  /** The last roll landed but its stage replay record did not. */
   serverRollWarning = $state(false);
   newTrackerName = $state("");
   newTrackerStarts = $state("");
@@ -328,7 +248,6 @@ export class EventDraft {
   newTrackerTracking = $state<TrackerKind>("mod");
   newTrackerRaid = $state("");
 
-  // ── Presets ─────────────────────────────────────────────────────────
   presetChoices = $state<{ name: string; payload: string; updatedAt: number }[]>([]);
   selectedPreset = $state("");
   newPresetName = $state("");
@@ -422,8 +341,6 @@ export class EventDraft {
     this.lastCaptured = this.payload;
   }
 
-  // ── Row factories ───────────────────────────────────────────────────
-
   newMilestoneRow(): MilestoneRow {
     return { id: this.nextRowId++, at: "", unlock: "", label: "" };
   }
@@ -493,19 +410,12 @@ export class EventDraft {
     return this.nextRowId++;
   }
 
-  /** Builds a builder row from a stored raffle - or, absent an eligibility
-   * block, from the legacy fields, so opening any raffle lands in the same
-   * builder (the first save then writes the eligibility it shows). */
   private seedRaffleRow(seed: RaffleSeed): RaffleRow {
     const weight = seed.eligibility?.weight;
-    // An eligibility block without an explicit weight IS flat weighting (the
-    // resolver's default) - only a legacy raffle with no block at all reads
-    // its perTicket/window as an implicit per-raid weight.
     const mode = weight?.mode ?? (seed.eligibility ? "flat" : "perRaid");
     const window =
       weight && weight.mode !== "flat" ? weight.window : seed.eligibility ? undefined : seed.window;
     const rules = (seed.eligibility?.rules ?? []).map((rule) => this.seedRuleRow(rule));
-    // The legacy milestone gate reads as a milestone rule in the builder.
     if (!seed.eligibility && seed.requiresMilestone) {
       const rule = this.newRuleRow("milestone");
       rule.milestoneId = seed.requiresMilestone;
@@ -539,9 +449,6 @@ export class EventDraft {
         key: this.nextRowId++,
         username: entry.username,
         player_uuid: entry.player_uuid,
-        // An omitted floor stays omitted: seeding an explicit 1 would make
-        // the reloaded row serialize differently from the local one and
-        // wrongly lock every roll button on "Save first" after a save.
         tickets: entry.tickets ?? "",
       })),
       exclude: (seed.eligibility?.exclude ?? []).map((entry) => ({
@@ -578,11 +485,6 @@ export class EventDraft {
     return row;
   }
 
-  /**
-   * The eligibility block a row serializes to. Incomplete rule rows and
-   * unresolved manual picks drop, like every other empty repeater row; a
-   * milestone rule only survives while its milestone does.
-   */
   rowEligibility(row: RaffleRow): RaffleEligibility {
     const eligibility: RaffleEligibility = {};
     if (row.whitelistOnly) eligibility.whitelistOnly = true;
@@ -593,10 +495,6 @@ export class EventDraft {
           player_uuid: entry.player_uuid,
           username: entry.username,
         };
-        // Anything the manager typed reaches the validator: silently
-        // defaulting a 0, negative, or fractional floor to one ticket would
-        // draw with odds the builder never showed. Only an untouched field
-        // means "the default".
         if (hasCount(entry.tickets)) manual.tickets = toCount(entry.tickets);
         return manual;
       });
@@ -605,10 +503,6 @@ export class EventDraft {
       .filter((entry) => entry.player_uuid && entry.username)
       .map((entry) => ({ player_uuid: entry.player_uuid, username: entry.username }));
     if (exclude.length > 0) eligibility.exclude = exclude;
-    // Incomplete rule rows serialize AS-IS: the server validator then
-    // rejects the save with a named error. Silently dropping them would let
-    // a save (and a roll) proceed WITHOUT a restriction the builder visibly
-    // shows - drawing from a broader pool than the manager configured.
     const rules = row.rules.map((rule): EligibilityRule => {
       switch (rule.type) {
         case "guildRank":
@@ -624,17 +518,12 @@ export class EventDraft {
               from: canonInstant(keepInstant(rule.windowFrom, rule.seedWindowFrom)),
               to: canonInstant(keepInstant(rule.windowTo, rule.seedWindowTo)),
             },
-            // Omitted when it is the default, so a rule saved before the
-            // tracker source existed serializes byte-identically and does not
-            // trip `raffleConfigUnchanged` into locking the roll buttons.
             ...(rule.statSource === "tracker" ? { source: "tracker" as const } : {}),
           };
         case "milestone":
           return { type: "milestone", milestoneId: rule.milestoneId };
       }
     });
-    // Whitelist mode ignores rules outright - serializing hidden rule rows
-    // would let an invisible incomplete rule block the save.
     if (rules.length > 0 && !row.whitelistOnly) eligibility.rules = rules;
     if (row.weightMode === "flat") {
       eligibility.weight = { mode: "flat" };
@@ -654,8 +543,6 @@ export class EventDraft {
         mode: "perRaid",
         perTicket: toCount(row.weightPer),
       };
-      // Either bound present serializes, so a one-sided window reaches the
-      // validator instead of silently vanishing.
       if (row.windowFrom || row.windowTo) {
         weight.window = {
           from: canonInstant(keepInstant(row.windowFrom, row.seedWindowFrom)),
@@ -667,35 +554,18 @@ export class EventDraft {
     return eligibility;
   }
 
-  // ── Derived views ───────────────────────────────────────────────────
-
-  // Only raffles that already exist server-side can be rolled - a fresh row
-  // must be saved first.
   readonly seedRaffleIds = $derived(new Set((this.liveInitial?.raffles ?? []).map((raffle) => raffle.id)));
 
-  // A saved raffle is only rollable while its draw-affecting config matches what
-  // the server holds: the roll runs against the stored winnerCount/perTicket/
-  // window, so unsaved edits to those would silently draw against stale values.
   raffleConfigUnchanged(row: RaffleRow): boolean {
     const initial = this.liveInitial;
     const saved = initial?.raffles?.find((entry) => entry.id === row.id);
     if (!saved) return false;
-    // The roll also reads the *stored* tracker wiring and winner-exclusion flag,
-    // so unsaved edits to either would draw against stale config even when this
-    // row's own fields match. Gate on those too, and on the prize identity, so a
-    // roll only ever reflects exactly what the server holds.
     const eventConfigUnchanged =
       this.trackerEnabled === (initial?.tracker !== undefined) &&
       this.trackerEventId === (initial?.tracker?.eventId ?? "") &&
       this.trackerTracking === (initial?.tracker?.tracking ?? "api") &&
       this.raffleExcludeWinners === (initial?.raffleExcludeWinners ?? false) &&
-      // An unsaved wheel-visibility change must block rolling too: the roll
-      // publishes to streams authorized against the STORED visibility, and a
-      // manager who just hid the wheel expects no public spin.
       this.raffleShowWheel === (initial?.raffleHideWheel !== true);
-    // The roll resolves milestone rules to the *stored* targets, so every
-    // referenced milestone's target must match what the server holds - an
-    // unsaved edit to one would draw against a stale threshold.
     const milestoneTargetsUnchanged = row.rules.every((rule) => {
       if (rule.type !== "milestone" || !rule.milestoneId) return true;
       return (
@@ -703,18 +573,9 @@ export class EventDraft {
         initial?.personalMilestones?.find((entry) => entry.id === rule.milestoneId)?.at
       );
     });
-    // The whole pool definition is draw-affecting. Compare through the same
-    // serializer both sides, so a stored legacy raffle (no eligibility yet)
-    // compares against its own builder equivalent and stays rollable until
-    // actually edited.
     const eligibilityUnchanged =
       JSON.stringify(this.rowEligibility(row)) ===
       JSON.stringify(this.rowEligibility(this.seedRaffleRow(saved)));
-    // With winner exclusion on, every OTHER raffle's stored winners are part
-    // of this row's exclusions - and the roll reads them from the STORED
-    // event. Deleting such a raffle or shrinking it past a filled slot
-    // re-admits its winner in the preview only; gate the roll until the save
-    // makes that real.
     const crossExclusionsUnchanged =
       !this.raffleExcludeWinners ||
       (initial?.raffles ?? []).every((entry) => {
@@ -734,8 +595,6 @@ export class EventDraft {
     );
   }
 
-  // Flattens every raffle into one winner-slot per row for the results table:
-  // a raffle with three winners becomes three rows sharing its prize.
   readonly raffleSlots = $derived.by(() =>
     this.raffles.flatMap((row) => {
       const count = Math.max(
@@ -754,10 +613,6 @@ export class EventDraft {
     }),
   );
 
-  // Milestones a raffle gate can point at: only rows with a real target, since a
-  // gate is a raid threshold - an unlock-only row (no `at`) would serialize to a
-  // NaN target and fail the save-time validator. A raffle keeps a gate whose row
-  // was emptied but not removed.
   readonly milestoneOptions = $derived(
     this.personalMilestones
       .filter((row) => hasCount(row.at))
@@ -774,7 +629,6 @@ export class EventDraft {
     star: this.star,
   });
 
-  // The same validator the server runs, so problems surface before submitting.
   readonly draftEvent = $derived.by(() => {
     const event: Record<string, unknown> = {
       slug: this.slug.trim(),
@@ -785,8 +639,6 @@ export class EventDraft {
     };
     if (this.startsAt) event.startsAt = keepInstant(this.startsAt, this.seedStartsAt);
     if (this.endsAt) event.endsAt = keepInstant(this.endsAt, this.seedEndsAt);
-    // An icon shown nowhere is no icon - unchecking every placement clears
-    // it instead of leaving an unsubmittable draft.
     if (this.iconFile && this.iconPlacements.length > 0) {
       event.icon = {
         file: this.iconFile,
@@ -799,7 +651,6 @@ export class EventDraft {
       event.goals = this.goals.map((row) => {
         const goal: Record<string, unknown> = {
           metricLabel: row.metric,
-          // Rows added but left fully empty are noise, not intent.
           milestones: row.milestones
             .filter((milestone) => hasCount(milestone.at) || milestone.unlock.trim())
             .map((milestone) => {
@@ -822,8 +673,6 @@ export class EventDraft {
         return goal;
       });
     }
-    // Rows added but left fully empty are noise, not intent - drop them, and
-    // keep the stable id so a raffle gate keeps pointing at the same milestone.
     const filledMilestones = this.personalMilestones
       .filter((row) => hasCount(row.at) || row.unlock.trim())
       .map((row) => ({ id: row.id, at: toCount(row.at), unlock: row.unlock }));
@@ -834,9 +683,6 @@ export class EventDraft {
         ? { source: this.chartSource, countRaid: this.chartRaid }
         : { source: this.chartSource };
     }
-    // Rows added but left fully empty are noise, not intent - drop them,
-    // along with the local row ids. A picked player stands in for a missing
-    // display name.
     const filledPrizes = this.prizes
       .filter((entry) => entry.donor.trim() || entry.prize.trim() || entry.donorPlayer.trim())
       .map(({ donor, prize, donorPlayer }) => ({
@@ -859,12 +705,6 @@ export class EventDraft {
     if (this.trackerEnabled) {
       event.tracker = { eventId: this.trackerEventId, tracking: this.trackerTracking };
     }
-    // Rows added but left fully empty are noise; drop them so an untouched
-    // "+ Add raffle" click never fails the save on a missing prize. The
-    // winner-count/weight defaults are always present, so they can't signal
-    // intent - a row counts once it has a prize, a window, rules, manual
-    // picks, or frozen winners (the last keeps a save from ever wiping a
-    // rolled result).
     const filledRaffles = this.raffles
       .filter(
         (row) =>
@@ -884,9 +724,6 @@ export class EventDraft {
           winnerCount: toCount(row.winnerCount),
           ...(row.icon ? { icon: row.icon } : {}),
           ...(row.wheelStyle === "names" ? { wheelStyle: "names" } : {}),
-          // Rollback mirror: old code ignores `eligibility` and reads these
-          // legacy fields, so a per-raid raffle degrades to its exact legacy
-          // equivalent instead of vanishing or drawing everyone.
           perTicket: row.weightMode === "perRaid" ? toCount(row.weightPer) : 1,
         };
         if (row.weightMode === "perRaid" && (row.windowFrom || row.windowTo)) {
@@ -899,7 +736,6 @@ export class EventDraft {
         if (firstMilestoneRule && firstMilestoneRule.type === "milestone") {
           raffle.requiresMilestone = firstMilestoneRule.milestoneId;
         }
-        // Shrinking the winner count drops the now-orphaned slots' winners.
         const winnerCount = toCount(row.winnerCount);
         const keptWinners = row.winners.filter(
           (winner) => Number.isInteger(winner.slot) && winner.slot < winnerCount,
@@ -924,16 +760,10 @@ export class EventDraft {
     this.trackerChoices.find((option) => option.id === this.trackerEventId) ?? null,
   );
 
-  /**
-   * How the linked tracker counts. The tracker record is authoritative - the
-   * event's stored copy goes stale when the tracker is edited without
-   * re-saving the event - so a known tracker's own kind wins.
-   */
   readonly trackerKind = $derived<TrackerKind | undefined>(
     this.trackerEnabled ? (this.selectedTracker?.tracking ?? this.trackerTracking) : undefined,
   );
 
-  /** What the standings board counts, for milestone and ticket labels. */
   readonly trackerUnit = $derived(standingsUnit(this.trackerKind));
 
   readonly trackerDraftError = $derived.by(() => {
@@ -941,8 +771,6 @@ export class EventDraft {
     if (!this.newTrackerStarts || !this.newTrackerEnds) return "the tracker needs a start and an end";
     const starts = Date.parse(toInstant(this.newTrackerStarts));
     const ends = Date.parse(toInstant(this.newTrackerEnds));
-    // A malformed time (e.g. 25:00) parses to NaN, and NaN comparisons are
-    // silently false - reject it explicitly.
     if (Number.isNaN(starts) || Number.isNaN(ends)) return "tracker times must be valid HH:MM";
     if (starts >= ends) return "the tracker must end after it starts";
     return null;
@@ -961,9 +789,6 @@ export class EventDraft {
 
   readonly presetPayload = $derived(JSON.stringify(this.draftEvent));
 
-  // ── Tracker helpers ─────────────────────────────────────────────────
-
-  /** Seeds the tracker creator from what the event already knows. */
   openTrackerCreator() {
     this.newTrackerName = this.newTrackerName || this.name || "";
     this.newTrackerStarts = this.newTrackerStarts || this.startsAt;
@@ -976,7 +801,6 @@ export class EventDraft {
     this.trackerEditor = "create";
   }
 
-  /** Prefills the editor with the selected tracker for editing. */
   openTrackerEdit() {
     const option = this.selectedTracker;
     if (!option) return;
@@ -997,17 +821,11 @@ export class EventDraft {
     if (this.mode === "create" && !this.slugEdited) this.slug = slugify(this.name);
   }
 
-  /**
-   * Picking a tracker event also decides how it is tracked. Reads the id off
-   * the select itself - the change handler can run before bind:value has
-   * written the new selection back to state.
-   */
   syncTracking(id: string) {
     const option = this.trackerChoices.find((entry) => entry.id === id);
     if (option) this.trackerTracking = option.tracking;
   }
 
-  /** A manually typed id that the picker cannot show must not be submitted. */
   leaveManualMode() {
     if (this.trackerChoices.some((entry) => entry.id === this.trackerEventId)) {
       this.syncTracking(this.trackerEventId);
@@ -1017,10 +835,6 @@ export class EventDraft {
     this.trackerManual = false;
   }
 
-  // ── Undo / redo ─────────────────────────────────────────────────────
-  // Snapshots are the same draft JSON the form submits, captured after a
-  // short quiet period; undo replays one through applyDraft. No keyboard
-  // shortcuts - Ctrl+Z inside a text field must stay the native text undo.
   static readonly HISTORY_LIMIT = 60;
   static readonly CAPTURE_QUIET_MS = 600;
   undoStack = $state<string[]>([]);
@@ -1028,7 +842,6 @@ export class EventDraft {
   lastCaptured = $state("");
   private captureTimer: ReturnType<typeof setTimeout> | undefined;
 
-  /** Debounces a capture of `current`; EventEditor calls this from its effect. */
   scheduleCapture(current: string) {
     clearTimeout(this.captureTimer);
     this.captureTimer = setTimeout(() => this.capture(current), EventDraft.CAPTURE_QUIET_MS);
@@ -1051,8 +864,6 @@ export class EventDraft {
   undo() {
     this.cancelCapture();
     if (this.hasPendingEdit) {
-      // An in-progress edit undoes to the last settled draft and stays
-      // redoable - and, like any new edit, it abandons the old redo branch.
       this.redoStack.length = 0;
       this.redoStack.push(this.payload);
       this.applySnapshot(this.lastCaptured);
@@ -1067,7 +878,6 @@ export class EventDraft {
   redo() {
     this.cancelCapture();
     if (this.hasPendingEdit) {
-      // Typing after an undo invalidates the redo branch, like any editor.
       this.capture(this.payload);
       return;
     }
@@ -1084,15 +894,12 @@ export class EventDraft {
     this.lastCaptured = this.payload;
   }
 
-  /** Rehydrates every field from a draft event object; the inverse of draftEvent. */
   applyDraft(draft: Record<string, unknown>, keepSlug: boolean) {
     const text = (value: unknown) => (typeof value === "string" ? value : "");
     const count = (value: unknown): string | number =>
       typeof value === "number" && Number.isFinite(value) ? value : "";
     if (!keepSlug) {
       this.slug = text(draft.slug);
-      // A slug that still matches its name was never hand-edited - keep
-      // auto-slug mode alive across replays.
       this.slugEdited = this.slug !== "" && this.slug !== slugify(text(draft.name));
     }
     this.name = text(draft.name);
@@ -1109,7 +916,6 @@ export class EventDraft {
     this.iconFile = iconDraft ? text(iconDraft.file) : "";
     const placementsDraft =
       iconDraft && Array.isArray(iconDraft.placements) ? iconDraft.placements : null;
-    // No icon resets the placements, so the next pick defaults to hero.
     this.iconPlacements = placementsDraft
       ? ICON_PLACEMENT_ORDER.filter((placement) => placementsDraft.includes(placement))
       : ["hero"];
@@ -1159,7 +965,6 @@ export class EventDraft {
     this.personalMilestones = milestonesDraft.map((entry) => {
       const record = (entry ?? {}) as Record<string, unknown>;
       return {
-        // A snapshot missing an id (hand-edited preset) still needs a stable one.
         id: text(record.id) || crypto.randomUUID(),
         key: this.nextRowId++,
         at: count(record.at),
@@ -1217,7 +1022,6 @@ export class EventDraft {
       const windowRecord = (record.window ?? null) as Record<string, unknown> | null;
       const winnersDraft = Array.isArray(record.winners) ? record.winners : [];
       return this.seedRaffleRow({
-        // A snapshot missing an id (hand-edited preset) still needs a stable one.
         id: text(record.id) || crypto.randomUUID(),
         prize: text(record.prize),
         icon: text(record.icon),
@@ -1239,8 +1043,6 @@ export class EventDraft {
         }),
         drawnAt: text(record.drawnAt) || undefined,
         requiresMilestone: text(record.requiresMilestone) || undefined,
-        // Snapshots come from this editor's own serialization; a hand-edited
-        // preset still lands in the server validator on save.
         eligibility:
           record.eligibility && typeof record.eligibility === "object"
             ? (record.eligibility as RaffleEligibility)
@@ -1251,8 +1053,6 @@ export class EventDraft {
     this.raffleShowWheel = draft.raffleHideWheel !== true;
   }
 
-  // ── Presets ─────────────────────────────────────────────────────────
-
   loadPreset() {
     const preset = this.presetChoices.find((entry) => entry.name === this.selectedPreset);
     if (!preset) return;
@@ -1262,7 +1062,6 @@ export class EventDraft {
     } catch {
       return;
     }
-    // Loading is an edit like any other - one undo step returns here.
     this.cancelCapture();
     this.capture(this.payload);
     this.undoStack.push(this.lastCaptured);
@@ -1271,10 +1070,6 @@ export class EventDraft {
     this.applySnapshot(JSON.stringify({ event: draft, published: this.published }));
   }
 
-  /**
-   * Adoption happens once, in the submission's own result callback - a
-   * lingering form prop would replay it on every later toolbar interaction.
-   */
   readonly presetSubmit: SubmitFunction = () => {
     const payloadAtSubmit = this.presetPayload;
     return async ({ result, update }) => {
@@ -1309,8 +1104,6 @@ export class EventDraft {
     };
   };
 
-  // ── Form submission ─────────────────────────────────────────────────
-
   readonly submit: SubmitFunction = ({ action, cancel, formData }) => {
     if (action.search.includes("createTracker") || action.search.includes("updateTracker")) {
       this.trackerAttempted = true;
@@ -1332,8 +1125,6 @@ export class EventDraft {
       // it. By the time enhance calls submit, the submission is already ours to
       // keep, so disabling the buttons now is safe.
       this.rollingId = String(formData.get("rollTarget") ?? "pending");
-      // A roll persists a single slot server-side; reflect the frozen winner
-      // onto that slot so the editor updates without a reseed.
       return async ({ result, update }) => {
         if (result.type === "success") {
           const data = result.data as
@@ -1353,9 +1144,6 @@ export class EventDraft {
             ];
             row.drawnAt = data.drawnAt ?? new Date().toISOString();
           }
-          // Adopt exactly the version this roll wrote (reflected above) - not
-          // the reloaded page data, which may already contain someone else's
-          // later save.
           this.knownUpdatedAt = data?.newUpdatedAt ?? this.knownUpdatedAt;
         } else if (result.type === "failure") {
           this.rollError =
@@ -1373,8 +1161,6 @@ export class EventDraft {
     this.saving = true;
     return async ({ result, update }) => {
       this.saving = false;
-      // Adopt exactly the version this save wrote - not the reloaded page
-      // data, which may already contain someone else's later save.
       if (result.type === "success") {
         const data = result.data as { newUpdatedAt?: number } | undefined;
         this.knownUpdatedAt = data?.newUpdatedAt ?? this.knownUpdatedAt;

@@ -27,8 +27,6 @@
   const SERVICES = homepageServices();
   const STATISTICS = homepageStatistics();
   let { data } = $props();
-  // The hero art belongs to the theme; the id comes from the root layout load,
-  // so it is already resolved on the first server render.
   const theme = $derived(themeById(page.data.theme));
   let heroImage: HTMLImageElement;
   let statsSection: HTMLElement;
@@ -107,7 +105,6 @@
     };
   });
 
-  // Fireflies
   let canvas: HTMLCanvasElement;
   onMount(() => {
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -190,7 +187,6 @@
     };
   });
 
-  // Count-up
   onMount(() => {
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reducedMotion || !statsSection) return;
@@ -291,12 +287,6 @@
     return date.toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
   }
 
-  // Exhibition. The intrinsic size of each piece travels with it: the frames sit
-  // in a CSS multi-column flow, where a lazy image with no dimensions lays out at
-  // zero height, never intersects the viewport, and so never loads - a deadlock
-  // that leaves the whole section blank. Width and height give the placeholder a
-  // real box, which both breaks the deadlock and holds the column against reflow
-  // as each piece arrives.
   const ART = [
     { src: "fruma_banner.avif", title: "Fruma", desc: "Stained-glass guardian", w: 1920, h: 1080 },
     { src: "cozy_aspec.avif", title: "Cozy", desc: "A quiet evening in", w: 926, h: 1186 },
@@ -310,12 +300,8 @@
   let lightbox = $state<number | null>(null);
   let lightboxDialog = $state<HTMLDialogElement | null>(null);
   let lightboxClose = $state<HTMLButtonElement | null>(null);
-  // Where focus sat before the lightbox opened, so closing returns it there
-  // instead of dumping the keyboard user back at the top of the page.
   let lightboxOpener: HTMLElement | null = null;
 
-  // A modal dialog makes the rest of the page inert and turns Escape into a
-  // native close, so keyboard focus cannot wander behind the open image.
   $effect(() => {
     if (lightbox === null || !lightboxDialog) return;
     if (!lightboxDialog.open) lightboxDialog.showModal();
@@ -331,7 +317,6 @@
     lightboxDialog?.close();
   }
 
-  /** Every dismissal (button, scrim, Escape) ends here through the dialog's close event. */
   function onLightboxClosed() {
     lightbox = null;
     lightboxOpener?.focus();
@@ -340,7 +325,6 @@
 
 </script>
 
-<!-- Hero -->
 <section class="seq-hero seq-home-page">
   <div class="seq-hero-bg-wrap">
     <img
@@ -368,7 +352,6 @@
   </div>
 </section>
 
-<!-- Stats -->
 <section bind:this={statsSection} style="padding:4rem 1.5rem;background:var(--color-deep)">
   <div style="max-width:64rem;margin:0 auto">
     <div class="divider-gold" style="margin-bottom:3rem"></div>
@@ -384,7 +367,6 @@
   </div>
 </section>
 
-<!-- Latest: running/next-day events and the newest fresh post, streamed after first paint; absent when empty. -->
 {#await data.latest then { events, posts }}
   {#if events.length > 0 || posts.length > 0}
     <section class="seq-latest" aria-label="Latest news, announcements and events">
@@ -480,7 +462,6 @@
   }
 </style>
 
-<!-- Services -->
 <section id="services" style="padding:5rem 1.5rem;max-width:72rem;margin:0 auto">
   <SectionHeading style="margin-bottom:3rem">Services</SectionHeading>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.5rem">
@@ -498,7 +479,6 @@
   </div>
 </section>
 
-<!-- Statistics -->
 <section id="statistics" style="padding:0 1.5rem 5rem;max-width:72rem;margin:0 auto">
   <SectionHeading style="margin-bottom:3rem">Statistics</SectionHeading>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.5rem">
@@ -517,7 +497,6 @@
 
 <SequoianTree />
 
-<!-- Members -->
 <section id="members" class="seq-branchmasters-section">
   <div class="seq-branchmasters-heading">
     <SectionHeading kicker="The Guild">The Branchmasters</SectionHeading>
@@ -532,7 +511,6 @@
   </div>
 </section>
 
-<!-- Exhibition -->
 <section style="padding:5rem 1.5rem;background:var(--color-deep)">
   <div style="max-width:80rem;margin:0 auto">
     <SectionHeading kicker="Community" gradient="enchant" style="margin-bottom:2.5rem">Exhibition</SectionHeading>
@@ -556,7 +534,6 @@
       aria-label={ART[lightbox].title}
       onclose={onLightboxClosed}
     >
-      <!-- The scrim is the click-anywhere-to-close target, so it has to be a real control. -->
       <button
         type="button"
         onclick={closeLightbox}
@@ -577,7 +554,6 @@
   {/if}
 </section>
 
-<!-- Recruitment -->
 <section id="join" style="background:var(--color-deep);padding:1rem 0 3rem">
   <div style="max-width:36rem;margin:0 auto;padding:3rem 2rem;text-align:center">
     <div style="width:3rem;height:1px;margin:0 auto 1.75rem;background:linear-gradient(90deg,transparent,color-mix(in srgb, var(--color-gold) 30%, transparent),transparent)"></div>

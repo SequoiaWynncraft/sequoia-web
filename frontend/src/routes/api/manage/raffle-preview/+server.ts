@@ -15,13 +15,6 @@ function unavailable(error: string): RafflePreviewResponse {
   return { entrants: [], totalTickets: 0, error };
 }
 
-/**
- * Resolves a DRAFT raffle's entrant pool for the editor's preview panel.
- * POST because the draft is unsaved editor state: the body carries the whole
- * draft event (same payload the save submits) so rules can reference
- * unsaved milestones and tracker wiring. Preview is display-only - the
- * stale-tolerant roster is fine here; rolling re-resolves strictly.
- */
 export const POST: RequestHandler = async ({ request, cookies, fetch, locals }) => {
   await requireEventManager({ cookies, fetch, locals });
   const body = (await request.json().catch(() => null)) as {
@@ -42,21 +35,10 @@ export const POST: RequestHandler = async ({ request, cookies, fetch, locals }) 
 
   const pool = await resolveEligibility(fetch, parsed.event, raffle, stats.members);
   if (pool.error) return json(unavailable(pool.error));
-  // Mirror the roll's exclusions: a slot already drawn in THIS raffle bars
-  // its winner from the remaining slots, and with the event-wide flag on,
-  // another raffle's frozen winner can never win here either. Winners are
-  // SERVER-owned - the draft's copy can be missing after an undo or a
-  // preset load - so the persisted event is the authority here, exactly as
-  // it is for the roll itself.
   const stored = await eventStore.get(parsed.event.slug).catch(() => null);
-  // Only raffles the DRAFT retains bar their winners: a raffle the manager
-  // deleted disappears with its record on save, so its winner re-enters the
-  // pool - the preview must not exclude what the next roll cannot.
   const draftCounts = new Map(
     (parsed.event.raffles ?? []).map((entry) => [entry.id, entry.winnerCount]),
   );
-  // The save path keeps only slots below the draft's winner count, so a
-  // winner in a slot the draft is shrinking away re-enters the pool too.
   const keptWinners = (entry: NonNullable<typeof parsed.event.raffles>[number]) =>
     (entry.winners ?? []).filter((winner) => winner.slot < (draftCounts.get(entry.id) ?? 0));
   const winnersOf = (source: { raffles?: typeof parsed.event.raffles }) => [

@@ -24,8 +24,6 @@
   import type { DiscordContext } from "./types";
 
   let { initial, channels }: { initial: CeremonyResponse; channels: DiscordContext["channels"] } = $props();
-  // The saved response seeds one local draft; Rust owns persistence and normalization.
-  // svelte-ignore state_referenced_locally
   const seeded = ceremonyState(structuredClone(initial));
   let saved = $state<CeremonyState>(seeded.state);
   let mentionSupported = $state(seeded.mentionSupported);
@@ -36,9 +34,7 @@
   let repeatSupported = $state(seeded.repeatSupported);
   let screenSupported = $state(seeded.screenSupported);
   let draft = $state(structuredClone(seeded.state.settings));
-  // svelte-ignore state_referenced_locally
   let storyId = $state((initial.catalog.find((item) => item.ready) ?? initial.catalog[0])?.id ?? "");
-  // Sample values per category. Older servers without a catalog only preview raids with the fixed lists.
   const LEGACY_TIERS = CEREMONY_TIERS.map(({ id }) => id as string);
   const LEGACY_RAIDS = [CEREMONY_ALL_RAIDS, ...CEREMONY_RAIDS];
   function pick<T>(wanted: T, options: readonly T[]): T {
@@ -47,7 +43,6 @@
   function entryOf<K extends CeremonyCategoryKind>(list: CeremonyCategory[] | null, kind: K) {
     return list?.find((item): item is Extract<CeremonyCategory, { kind: K }> => item.kind === kind);
   }
-  // svelte-ignore state_referenced_locally
   const initialCategories = ceremonyCategories(initial);
   const initialRaid = entryOf(initialCategories, "raid");
   const initialWar = entryOf(initialCategories, "war");
@@ -65,7 +60,6 @@
   let roleTier = $state(pick("gold", initialRole?.tiers ?? []));
   let badgeTitle = $state("Founder");
   let sceneChoice = $state<CeremonySceneChoice>("scheduled");
-  // "draft" plays the film the draft policy would pick most; any other value is one film, for this preview only.
   let previewFilm = $state("draft");
   let previewPayload = $state<"award" | "welcome">("award");
   let busy = $state(false);
@@ -96,22 +90,17 @@
   const filmChances = $derived(ceremonyFilmChances(draft.screen.film, films));
   const issue = $derived(ceremonyInputIssue(draft) ?? (screenShown ? ceremonyScreenIssue(draft.screen, films, crashLimits) : null));
   const catalogById = $derived(new Map(saved.catalog.map((item) => [item.id, item])));
-  // Only stories the server catalog lists are shown, in catalog order; unknown saved rows are kept and sent back untouched.
   const rows = $derived(ceremonyCatalogRows(draft.stories, saved.catalog));
-  // Catalog advice only. Managers may allow any story for any tier.
   const suggestions = $derived(new Map(saved.catalog.map((item) => [item.id, ceremonySuggestedTiers(item)])));
-  // Older servers always send images, so their artwork rule still applies.
   const imagesInUse = $derived(ceremonyImagesInUse({ ...draft, stories: rows }, imagesSupported, imageTiersSupported));
   const readinessIssue = $derived(ceremonyReadinessIssue(draft, saved.ready, imagesInUse));
   const draftReady = $derived(readinessIssue === null);
   const savedChances = $derived(new Map(saved.effective_chances.map((item) => [item.id, item.percent])));
   const tierRows = $derived(ceremonyTierStories({ stories: rows, story_tiers: draft.story_tiers }, allowedTier));
   const displayedChances = $derived(storyTiersSupported ? ceremonyProposedChances(tierRows) : dirty ? ceremonyProposedChances(draft.stories) : savedChances);
-  // Next pick odds: the server's while clean, otherwise the same penalty rule over the draft.
   const history = $derived(repeatHistory(saved));
   const recentIds = $derived(repeatSupported ? repeatRecentIds(history.recent, draft.repeat.recent) : new Set<string>());
   const repeatIssues = $derived(repeatFieldIssue(draft.repeat));
-  // Older servers have no penalty, so their next pick uses the base odds.
   const tierChances = $derived(saved.current_chances_by_tier?.[allowedTier]);
   const nextChances = $derived(storyTiersSupported
     ? !dirty && tierChances ? new Map(tierChances.map(item => [item.id, item.percent])) : repeatChances(tierRows, draft.repeat, repeatSupported ? history.recent : [])
@@ -148,11 +137,9 @@
   });
   const achievementIssue = $derived(ceremonyAchievementIssue(achievement));
   const scheduledLabel = $derived(ceremonySceneLabel(saved.effective_scene));
-  // Screen stories always preview one explicit film, so the still and its animation match.
   const offeredFilms = $derived(screenShown ? selected?.films?.filter(id => filmLabels.has(id)) ?? [] : []);
   const screening = $derived(ceremonyPreviewScreening(offeredFilms, draft.screen.film, previewFilm, previewPayload,
     selected?.crash_text && !crashIssues ? $state.snapshot(draft.screen.error) : null));
-  // Only a preview that shows the sample award needs valid award inputs.
   const previewAwardIssue = $derived(ceremonyPreviewAwardIssue(achievement, screening));
   const previewReady = $derived(selected?.ready === true && previewAwardIssue === null);
   const previewRequest = $derived.by(() => {
@@ -200,7 +187,6 @@
     cancelPreview();
     previewError = null;
     if (format === "png" && pngCache?.key === input.key) { showCachedStill(); return; }
-    // Animation always has an exact-identity still to return to without another render.
     if (format === "gif" && pngCache?.key !== input.key) return;
     previewBusy = true;
     pendingFormat = format;
@@ -234,7 +220,6 @@
   $effect(() => {
     const input = previewRequest;
     const ready = previewReady;
-    // Replacements retain the correctly labeled previous still until new bytes arrive.
     untrack(() => { cancelPreview(); if (animated) showCachedStill(); });
     previewError = null;
     if (!ready) { untrack(clearPreview); return; }
@@ -271,7 +256,6 @@
   async function save() {
     if (busy || !dirty || issue || conflict || (draft.enabled && !draftReady)) return;
     busy = true; error = null; notice = null; navigationBlocked = false;
-    // Freeze the sent draft. Controls stay disabled until normalization returns.
     const result = await requestDiscord<CeremonyResponse>(globalThis.fetch.bind(globalThis), "ceremonies", "PUT", ceremonySaveBody($state.snapshot(draft), mentionSupported, repeatSupported, imagesSupported, imageTiersSupported, storyTiersSupported, screenSupported));
     busy = false;
     if (!result.ok) {

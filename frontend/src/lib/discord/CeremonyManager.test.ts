@@ -5,7 +5,6 @@ import type { CeremonyResponse } from "./ceremony";
 
 vi.mock("$app/navigation", () => ({ beforeNavigate: vi.fn() }));
 
-// Fictional ids, labels and member name. A UI state, never a substitute for real API or renderer acceptance.
 const unavailable: CeremonyResponse = {
   settings: {
     version: 0, guild_id: "1111111111111111111", enabled: false, channel_id: "",
@@ -39,7 +38,6 @@ const ready: CeremonyResponse = {
   viewer: { display_name: "FictionalMember" },
 };
 
-// Five original stories, then the seven a newer server appends in catalog order: disabled at weight 0, each with sample suggested tiers.
 const original = [["sample_story", "Sample story", 30], ["other_story", "Other story", 10], ["meadow_story", "Meadow story", 20], ["harbor_story", "Harbor story", 20], ["summit_story", "Summit story", 20]] as const;
 const added = [
   ["still_pool", "Still pool", ["platinum", "diamond"]], ["parliament_of_owls", "Parliament of owls", ["diamond", "obsidian"]],
@@ -62,7 +60,6 @@ const twelve: CeremonyResponse = {
   effective_scene: { season: "normal", ambiance: "dusk" },
   viewer: { display_name: "FictionalMember" },
 };
-/** One odds row, from its opening tag to the next row. */
 function storyRow(body: string, label: string): string {
   const rows = body.split(/<div class="story /).slice(1);
   return rows.find(row => row.includes(`aria-label="${label} weight"`)) ?? "";
@@ -225,7 +222,6 @@ describe("achievement ceremony interface", () => {
     expect(body).toMatch(/<option[^>]*value="scheduled"[^>]*selected/);
     expect(body).toContain("Now: Snow night");
     expect(body).toContain("Uses your head and name (FictionalMember) with sample values. Marked DEMO, never posted.");
-    // The scene is stated once in the header and once beside the scene control, not repeated in hints.
     expect(body.match(/Snow night\./g)).toHaveLength(1);
     expect(body).not.toMatch(/renderer|bundle|Sierra/i);
     expect(body).toContain("Play animation");
@@ -365,7 +361,6 @@ describe("ceremony image tier controls", () => {
 });
 
 describe("ceremony screen films", () => {
-  // Fictional films and words. The first ready story is a screen story, so the preview offers films.
   const screen = { film: { mode: "fixed" as const, film: "comedy" }, error: { title: "Popcorn jam", body: "Something sticky is in the projector.", code: "STOP CODE: BUTTER" } };
   const screened: CeremonyResponse = {
     ...ready,
