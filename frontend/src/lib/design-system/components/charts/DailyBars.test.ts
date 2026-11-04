@@ -1,54 +1,65 @@
+import { Window } from "happy-dom";
 import type { ComponentProps } from "svelte";
 import { render } from "svelte/server";
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 
 import DailyBars from "./DailyBars.svelte";
 
-function markup(props: ComponentProps<typeof DailyBars>): string {
-  return render(DailyBars, { props }).body.replace(/ class="[^"]*"/g, "").replace(/<!--.*?-->/g, "");
-}
+const window = new Window();
+afterAll(() => window.happyDOM.close());
 
-function tableRows(body: string): string[] {
-  const tbody = body.slice(body.indexOf("<tbody>"), body.indexOf("</tbody>"));
-  return [...tbody.matchAll(/<tr>(.*?)<\/tr>/g)].map((match) => match[1]);
+function table(props: ComponentProps<typeof DailyBars>) {
+  const page = new window.DOMParser().parseFromString(render(DailyBars, { props }).body, "text/html");
+  return {
+    caption: page.querySelector("table > caption")?.textContent,
+    columns: [...page.querySelectorAll('thead th[scope="col"]')].map((cell) => cell.textContent),
+    rows: [...page.querySelectorAll("tbody > tr")].map((row) => ({
+      period: row.querySelector('th[scope="row"]')?.textContent,
+      value: row.querySelector("td")?.textContent,
+    })),
+  };
 }
 
 describe("DailyBars table", () => {
   it("lists every day in the window, zero days included, newest first", () => {
-    const body = markup({
+    const { rows } = table({
       points: [{ day: "2026-10-30", value: 3 }],
       from: "2026-10-29",
       to: "2026-10-31",
       metricLabel: "Wars",
     });
 
-    const rows = tableRows(body);
-    expect(rows).toHaveLength(3);
-    expect(rows[0]).toContain("Oct 31, 2026");
-    expect(rows[0]).toContain(">0</td>");
-    expect(rows[1]).toContain(">3</td>");
-    expect(rows[2]).toContain("Oct 29, 2026");
+    expect(rows).toEqual([
+      { period: "Oct 31, 2026", value: "0" },
+      { period: "Oct 30, 2026", value: "3" },
+      { period: "Oct 29, 2026", value: "0" },
+    ]);
   });
 
   it("names each row by its period and the table by metric and range", () => {
-    const body = markup({ points: [], from: "2026-10-30", to: "2026-10-31", metricLabel: "Playtime", unit: " h" });
-
-    expect(body).toContain("<caption>Playtime per day, Oct 30, 2026 to Oct 31, 2026</caption>");
-    expect(tableRows(body).every((row) => row.startsWith('<th scope="row">'))).toBe(true);
-    expect(tableRows(body)[0]).toContain(">0 h</td>");
+    expect(table({ points: [], from: "2026-10-30", to: "2026-10-31", metricLabel: "Playtime", unit: " h" })).toEqual({
+      caption: "Playtime per day, Oct 30, 2026 to Oct 31, 2026",
+      columns: ["Day", "Playtime"],
+      rows: [
+        { period: "Oct 31, 2026", value: "0 h" },
+        { period: "Oct 30, 2026", value: "0 h" },
+      ],
+    });
   });
 
   it("buckets a long window by week without dropping quiet weeks", () => {
-    const body = markup({
+    const { caption, columns, rows } = table({
       points: [{ day: "2026-01-01", value: 5 }],
       from: "2025-09-29",
       to: "2026-11-02",
       metricLabel: "Raids",
     });
 
-    const rows = tableRows(body);
+    expect(caption).toBe("Raids per week, Sep 29, 2025 to Nov 2, 2026");
+    expect(columns).toEqual(["Week of", "Raids"]);
     expect(rows).toHaveLength(Math.ceil(400 / 7));
-    expect(body).toContain("Raids per week");
-    expect(rows.filter((row) => row.includes(">0</td>"))).toHaveLength(rows.length - 1);
+    expect(rows[0]).toEqual({ period: "Nov 2, 2026", value: "0" });
+    expect(rows.at(-1)).toEqual({ period: "Sep 29, 2025", value: "0" });
+    expect(rows.filter((row) => row.value !== "0")).toEqual([{ period: "Dec 29, 2025", value: "5" }]);
   });
 });
