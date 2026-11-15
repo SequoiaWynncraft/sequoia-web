@@ -4,7 +4,6 @@
   import { page } from "$app/state";
   import SectionHeading from "#lib/design-system/components/SectionHeading.svelte";
   import StatBlock from "#lib/design-system/components/StatBlock.svelte";
-  import ServiceCard from "#lib/design-system/components/ServiceCard.svelte";
   import OfficerStrip from "#lib/design-system/components/OfficerStrip.svelte";
   import SequoianTree from "#lib/components/SequoianTree.svelte";
   import Icon from "#lib/components/Icon.svelte";
@@ -20,12 +19,9 @@
     type HomepageStats,
   } from "#lib/api/guildOverview.js";
   import { NMSR_BASE_URL } from "#lib/config/public.js";
-  import { homepageServices, homepageStatistics } from "#lib/site/nav.js";
   import { themeById } from "#lib/site/themePreferences.js";
 
   const IMG = "/assets/images/";
-  const SERVICES = homepageServices();
-  const STATISTICS = homepageStatistics();
   let { data } = $props();
   const theme = $derived(themeById(page.data.theme));
   let heroImage: HTMLImageElement;
@@ -461,39 +457,6 @@
     line-height: var(--leading-normal);
   }
 </style>
-
-<section id="services" style="padding:5rem 1.5rem;max-width:72rem;margin:0 auto">
-  <SectionHeading style="margin-bottom:3rem">Services</SectionHeading>
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.5rem">
-    {#each SERVICES as service}
-      <ServiceCard
-        flagship={service.flagship}
-        title={service.label}
-        description={service.description ?? ""}
-        cta={service.cta ?? "Visit"}
-        href={service.to}
-      >
-        {#snippet icon()}{#if service.icon}<Icon name={service.icon} />{/if}{/snippet}
-      </ServiceCard>
-    {/each}
-  </div>
-</section>
-
-<section id="statistics" style="padding:0 1.5rem 5rem;max-width:72rem;margin:0 auto">
-  <SectionHeading style="margin-bottom:3rem">Statistics</SectionHeading>
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.5rem">
-    {#each STATISTICS as stat}
-      <ServiceCard
-        title={stat.label}
-        description={stat.description ?? ""}
-        cta={stat.cta ?? "View"}
-        href={stat.to}
-      >
-        {#snippet icon()}{#if stat.icon}<Icon name={stat.icon} />{/if}{/snippet}
-      </ServiceCard>
-    {/each}
-  </div>
-</section>
 
 <SequoianTree />
 
