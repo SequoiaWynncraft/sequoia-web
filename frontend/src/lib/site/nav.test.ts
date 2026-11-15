@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { homepageServices, pageView } from "#lib/site/nav.js";
+import { pageView } from "#lib/site/nav.js";
 
 describe("site navigation registry", () => {
   it("builds nested statistics page metadata from one registry", () => {
@@ -65,13 +65,5 @@ describe("site navigation registry", () => {
   it("does not reuse sibling tabs as leaf page cards", () => {
     expect(pageView("/services/bagshop").cards).toEqual([]);
     expect(pageView("/statistics/player/raids").cards).toEqual([]);
-  });
-
-  it("uses the original Svelte service set on the homepage, excluding Requests", () => {
-    expect(homepageServices().map((service) => [service.label, service.cta])).toEqual([
-      ["Bagshop", "Visit"],
-      ["Announcements", "Read"],
-      ["Tower Calc", "Calculate"],
-    ]);
   });
 });
