@@ -181,6 +181,7 @@ impl Database {
         }
 
         let Some(previous_snapshot_id) = previous_snapshot_id else {
+            raise_high_water_in_tx(&mut tx, &[snapshot_id]).await?;
             tx.commit()
                 .await
                 .context("failed to commit baseline snapshot ingest")?;
@@ -194,7 +195,9 @@ impl Database {
             });
         };
 
+        // The baseline must be read before this snapshot raises the high-water marks.
         let previous_members = member_counters_in_tx(&mut tx, previous_snapshot_id).await?;
+        raise_high_water_in_tx(&mut tx, &[previous_snapshot_id, snapshot_id]).await?;
         let report = calculate_deltas(&previous_members, &snapshot.members);
         for delta in &report.deltas {
             sqlx::query(
@@ -535,20 +538,15 @@ async fn member_counters_in_tx(
             counters.rank,
             counters.online,
             counters.joined_at,
-            GREATEST(counters.current_guild_raids, highest_prior.current_guild_raids)
+            GREATEST(counters.current_guild_raids, high_water.current_guild_raids)
                 AS current_guild_raids,
             counters.total_guild_raids,
             counters.captured_at
         FROM member_raid_counters counters
         JOIN guild_snapshots snapshot ON snapshot.id = counters.snapshot_id
-        LEFT JOIN LATERAL (
-            SELECT MAX(history.current_guild_raids) AS current_guild_raids
-            FROM member_raid_counters history
-            JOIN guild_snapshots history_snapshot ON history_snapshot.id = history.snapshot_id
-            WHERE history.player_uuid = counters.player_uuid
-              AND history.captured_at <= counters.captured_at
-              AND history_snapshot.guild_uuid = snapshot.guild_uuid
-        ) highest_prior ON true
+        LEFT JOIN member_raid_high_water high_water
+            ON high_water.guild_uuid = snapshot.guild_uuid
+           AND high_water.player_uuid = counters.player_uuid
         WHERE counters.snapshot_id = $1
         "#,
     )
@@ -571,6 +569,36 @@ async fn member_counters_in_tx(
             })
         })
         .collect()
+}
+
+/// Raise each member's high-water mark to the counters of the given snapshots. Snapshots
+/// are ingested in order under the guild lock, so the marks cover every snapshot up to the
+/// newest one. An ingest passes the previous snapshot too: a build from before the marks
+/// existed can still be writing while this one starts, and its last snapshot would
+/// otherwise be missing from them.
+async fn raise_high_water_in_tx(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    snapshot_ids: &[i64],
+) -> anyhow::Result<()> {
+    sqlx::query(
+        r#"
+        INSERT INTO member_raid_high_water (guild_uuid, player_uuid, current_guild_raids)
+        SELECT snapshot.guild_uuid, counters.player_uuid, MAX(counters.current_guild_raids)
+        FROM member_raid_counters counters
+        JOIN guild_snapshots snapshot ON snapshot.id = counters.snapshot_id
+        WHERE counters.snapshot_id = ANY($1)
+          AND counters.current_guild_raids IS NOT NULL
+        GROUP BY snapshot.guild_uuid, counters.player_uuid
+        ON CONFLICT (guild_uuid, player_uuid) DO UPDATE
+        SET current_guild_raids = EXCLUDED.current_guild_raids
+        WHERE member_raid_high_water.current_guild_raids < EXCLUDED.current_guild_raids
+        "#,
+    )
+    .bind(snapshot_ids)
+    .execute(&mut **tx)
+    .await
+    .context("failed to raise member raid high-water marks")?;
+    Ok(())
 }
 
 fn row_to_raid_event(row: sqlx::postgres::PgRow) -> anyhow::Result<RaidEvent> {
