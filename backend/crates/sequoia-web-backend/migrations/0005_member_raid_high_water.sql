@@ -1,6 +1,9 @@
 -- The highest current-guild raid count seen for each member of each guild. Every ingest needs
 -- it as the baseline for new deltas, and reading it from member_raid_counters meant scanning
 -- each member's whole history on every poll.
+--
+-- Stop the previous build before this runs. It does not maintain the table, so counters it
+-- wrote after the backfill below could be missing from the marks.
 CREATE TABLE member_raid_high_water (
     guild_uuid UUID NOT NULL,
     player_uuid UUID NOT NULL,
