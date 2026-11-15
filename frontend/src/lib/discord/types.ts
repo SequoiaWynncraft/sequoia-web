@@ -29,6 +29,8 @@ export interface SourceInfo {
   thread: { id: string; parent_id: string; archived: boolean; locked: boolean } | null;
   pending_thread_restore?: { id: string; parent_id: string; archived: boolean; locked: boolean } | null;
   pinned: boolean; retired: boolean; verified_version: number | null;
+  /** A reviewed incoming-webhook original that Sierra edits in place through its webhook. */
+  webhook_edit?: boolean;
 }
 export interface Definition {
   name: string;
