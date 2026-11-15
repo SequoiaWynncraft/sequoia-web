@@ -10,9 +10,6 @@ export interface NavLeaf {
   title?: string;
   lead?: string;
   placeholder?: string;
-  cta?: string;
-  flagship?: boolean;
-  hideFromHome?: boolean;
 }
 
 export interface NavGroup {
@@ -217,8 +214,6 @@ export const SECTIONS: NavSection[] = [
         title: "Bagshop",
         lead: "Marketplace for crafter bags from raids.",
         placeholder: "Bagshop",
-        cta: "Visit",
-        flagship: true,
       },
       {
         label: "Announcements",
@@ -229,7 +224,6 @@ export const SECTIONS: NavSection[] = [
         title: "Announcements",
         lead: "Guild-internal announcements for members.",
         placeholder: "Announcements",
-        cta: "Read",
       },
       {
         label: "Requests",
@@ -240,8 +234,6 @@ export const SECTIONS: NavSection[] = [
         title: "Requests",
         lead: "Request Aspects and Tomes here.",
         placeholder: "Requests",
-        cta: "Request",
-        hideFromHome: true,
       },
       {
         label: "Tower Calc",
@@ -252,7 +244,6 @@ export const SECTIONS: NavSection[] = [
         title: "Tower Calc",
         lead: "Set upgrade levels, HQ, connections and externals to see DPS, EHP and defence rating.",
         placeholder: "Tower Calc",
-        cta: "Calculate",
       },
     ],
   },
@@ -315,36 +306,6 @@ export function cardsFor(path: string): NavLeaf[] {
   }
 
   return [];
-}
-
-export function homepageServices(): NavLeaf[] {
-  return cardsFor("/services").filter((s) => !s.hideFromHome);
-}
-
-export function homepageStatistics(): NavLeaf[] {
-  return [
-    {
-      label: "Rankings",
-      to: "/statistics/global/rankings?window=1d&wwindow=1d",
-      icon: "trophy",
-      description: "Where every guild stands.",
-      cta: "View",
-    },
-    {
-      label: "Raid",
-      to: "/statistics/guilds/raid",
-      icon: "sword",
-      description: "Raid output and member contributions.",
-      cta: "View",
-    },
-    {
-      label: "Activity",
-      to: "/statistics/player/activity?range=1w",
-      icon: "online",
-      description: "Member presence and gains over time.",
-      cta: "View",
-    },
-  ];
 }
 
 export function pageView(path: string): PageView {
