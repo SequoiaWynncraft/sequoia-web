@@ -170,7 +170,7 @@
               <div class="mg-order-head">
                 <span class="mg-type mg-type-{order.orderType}">{order.orderType === "buy" ? "Buy order" : "Sell offer"}</span>
                 {#if order.splitPart > 0}<span class="mg-part">Part {order.splitPart}/2</span>{/if}
-                <span class="mg-order-status">{order.claimedByMention ? "Claimed" : "Unclaimed"}</span>
+                <span class="mg-order-status">{order.claimed ? "Claimed" : "Unclaimed"}</span>
               </div>
               <p class="mg-player">
                 {order.userName || "Unknown"}{#if order.minecraftIgn} · IGN {order.minecraftIgn}{/if}
@@ -181,7 +181,7 @@
                 {#each order.remainingItems as item (item.raid + item.rarity)}
                   <li>
                     <span>{item.raid} · {item.rarity} × {item.amount}</span>
-                    {#if order.claimedByMention}
+                    {#if order.claimed}
                       <span class="mg-item-actions">
                         <Button
                           size="sm"
@@ -205,7 +205,7 @@
                 {/each}
               </ul>
 
-              {#if order.claimedByMention}
+              {#if order.claimed}
                 <label class="mg-reason">
                   <span class="seq-field-label">Decline reason (shown to the customer)</span>
                   <input class="seq-input seq-input-mono" bind:value={declineReasons[order.messageId]} placeholder="Reason" />
@@ -213,7 +213,7 @@
               {/if}
 
               <div class="mg-order-foot">
-                {#if !order.claimedByMention}
+                {#if !order.claimed}
                   <Button size="sm" variant="primary" disabled={busy.has(`order:${order.messageId}`)} onclick={() => claim(order)}>
                     Claim
                   </Button>

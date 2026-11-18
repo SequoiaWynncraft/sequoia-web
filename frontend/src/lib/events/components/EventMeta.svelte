@@ -8,7 +8,7 @@
     align = "start",
     showStatus = true,
   }: {
-    event: GuildEvent;
+    event: Pick<GuildEvent, "access" | "startsAt" | "endsAt">;
     status: EventStatus;
     align?: "start" | "center" | "end";
     showStatus?: boolean;

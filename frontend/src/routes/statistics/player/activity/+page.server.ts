@@ -5,6 +5,7 @@ import { getMemberProgress } from "#lib/server/memberProgress.js";
 import {
   getLinkedRankProfiles,
   memberRanksByUuid,
+  ranksForPlayers,
   type MemberRankEntry,
 } from "#lib/server/rankProfiles.js";
 import { loadWeeklyRaidAnnouncement } from "#lib/server/weeklyRaidAnnouncement.js";
@@ -55,7 +56,7 @@ async function loadRoster(fetch: typeof globalThis.fetch) {
         setTimeout(resolve, RANKS_GRACE_MS, EMPTY_RANKS);
       }),
     ]);
-    return { stats, ranks };
+    return { stats, ranks: ranksForPlayers(ranks, stats.members) };
   } catch {
     return { stats: null, ranks: EMPTY_RANKS };
   }

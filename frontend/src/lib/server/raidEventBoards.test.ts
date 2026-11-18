@@ -313,3 +313,53 @@ describe("war-point trackers", () => {
     expect(result.error).toBe("2 wars are still waiting for point values - roll once they're calculated.");
   });
 });
+
+describe("backend response contracts", () => {
+  it("copies only the documented raid event fields", async () => {
+    const { loadRaidEvents } = await import("#lib/server/raidEventBoards.js");
+    vi.stubGlobal("fetch", async () =>
+      Response.json([
+        {
+          id: "e1",
+          slug: "s",
+          name: "Fixture",
+          starts_at: "2020-01-01T00:00:00Z",
+          ends_at: "2020-01-02T00:00:00Z",
+          tracking: "mod",
+          raid: null,
+          created_by: "fixture-operator",
+        },
+        { id: 7, slug: "broken" },
+      ]),
+    );
+
+    expect(await loadRaidEvents(fetch)).toEqual([
+      { id: "e1", slug: "s", name: "Fixture", starts_at: "2020-01-01T00:00:00Z", ends_at: "2020-01-02T00:00:00Z", tracking: "mod", raid: null },
+    ]);
+  });
+
+  it("copies only the documented leaderboard entry fields", async () => {
+    const { loadTrackerLeaderboard } = await import("#lib/server/raidEventBoards.js");
+    vi.stubGlobal("fetch", async () =>
+      Response.json([
+        { player_uuid: "u1", username: "Fixture", raids: 4, rank: "recruit", discord_id: "800000000000000008" },
+      ]),
+    );
+
+    expect(await loadTrackerLeaderboard(fetch, "e1")).toEqual({
+      leaderboard: [{ player_uuid: "u1", username: "Fixture", raids: 4, rank: "recruit" }],
+      error: null,
+    });
+  });
+
+  it("keeps upstream error text for manager tools but not for viewers", async () => {
+    const { loadTrackerLeaderboard, viewerLeaderboardError } = await import("#lib/server/raidEventBoards.js");
+    vi.stubGlobal("fetch", async () => Response.json({ error: "invalid internal API token" }, { status: 401 }));
+
+    const result = await loadTrackerLeaderboard(fetch, "e1");
+
+    expect(result.error).toBe("invalid internal API token");
+    expect(viewerLeaderboardError(result.error)).toBe("Member contributions are temporarily unavailable.");
+    expect(viewerLeaderboardError(null)).toBeNull();
+  });
+});

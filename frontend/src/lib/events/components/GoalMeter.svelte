@@ -1,13 +1,13 @@
 <script lang="ts">
   import { milestoneWindow } from "../goalMeter";
-  import type { EventGoal } from "../types";
+  import type { ViewerEventGoal } from "../viewerEvent";
 
   let {
     goal,
     current,
     size = "full",
   }: {
-    goal: EventGoal;
+    goal: ViewerEventGoal;
     current: number | null;
     size?: "band" | "full";
   } = $props();

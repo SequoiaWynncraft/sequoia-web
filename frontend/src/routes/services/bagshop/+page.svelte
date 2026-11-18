@@ -405,7 +405,7 @@
                     {order.orderType === "buy" ? "Buy order" : "Sell offer"}
                   </span>
                   <span class="bag-order-status">
-                    {order.claimedByMention ? "Claimed — in progress" : "Awaiting staff"}
+                    {order.claimed ? "Claimed — in progress" : "Awaiting staff"}
                   </span>
                   <span class="bag-order-date">{formatDate(order.createdAt)}</span>
                 </div>

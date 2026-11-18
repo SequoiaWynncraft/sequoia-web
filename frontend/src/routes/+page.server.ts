@@ -1,6 +1,7 @@
 import type { PageServerLoad } from "./$types";
 
-import { homepageEvents, type HubEvent } from "#lib/events/helpers.js";
+import { homepageEvents } from "#lib/events/helpers.js";
+import type { HomepageEvent } from "#lib/events/viewerEvent.js";
 import type { Viewer } from "#lib/site/viewer.js";
 import { eventStore } from "#lib/server/eventStore.js";
 import { canSeeEvent, resolveEventAudience } from "#lib/server/eventVisibility.js";
@@ -26,7 +27,7 @@ export const load: PageServerLoad = async ({ fetch, parent }) => {
   }
 };
 
-async function loadHomepageEvents(fetchImpl: typeof fetch, viewer: Viewer | null): Promise<HubEvent[]> {
+async function loadHomepageEvents(fetchImpl: typeof fetch, viewer: Viewer | null): Promise<HomepageEvent[]> {
   const now = new Date();
   const { audience } = await resolveEventAudience(fetchImpl, viewer);
   if (audience === "anonymous") return [];

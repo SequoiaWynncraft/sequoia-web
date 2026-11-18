@@ -114,6 +114,23 @@ export function memberRanksByUuid(
   return entries;
 }
 
+/**
+ * Narrows a rank map to the players a page lists. `memberRanksByUuid` covers
+ * every linked profile, including people no longer on the roster, while the
+ * browser only looks up the rows it renders - by the same lower-cased UUID.
+ */
+export function ranksForPlayers(
+  ranks: Record<string, MemberRankEntry>,
+  players: readonly { uuid: string | null }[],
+): Record<string, MemberRankEntry> {
+  const picked: Record<string, MemberRankEntry> = {};
+  for (const { uuid } of players) {
+    const key = uuid?.toLowerCase();
+    if (key && Object.hasOwn(ranks, key)) picked[key] = ranks[key];
+  }
+  return picked;
+}
+
 export function progressionRankLabels(response: RankProfilesResponse): string[] {
   const legacy = new Set(Object.keys(LEGACY_RANK_EQUIVALENTS));
   const labels = response.catalog.roles

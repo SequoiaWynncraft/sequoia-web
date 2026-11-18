@@ -4,7 +4,7 @@ import type { StageMessage } from "#lib/events/stageProtocol.js";
 import { canSeeEvent, resolveEventAudience } from "#lib/server/eventVisibility.js";
 import { eventStore } from "#lib/server/eventStore.js";
 import { roomEpoch, subscribe } from "#lib/server/liveRolls.js";
-import { raffleRollStore, toStageRoll } from "#lib/server/raffleRolls.js";
+import { raffleRollStore, toStageMessage } from "#lib/server/raffleRolls.js";
 import { requestError } from "#lib/server/requestError.js";
 import { loadViewer } from "#lib/server/viewerSession.js";
 
@@ -34,11 +34,7 @@ export const GET: RequestHandler = async ({ params, cookies, fetch, locals }) =>
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       const send = (message: StageMessage) => {
-        const outgoing =
-          message.type === "snapshot" || message.type === "roll"
-            ? { ...message, now: Date.now() }
-            : message;
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify(outgoing)}\n\n`));
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(toStageMessage(message))}\n\n`));
       };
       let buffered: StageMessage[] | null = [];
       unsubscribe = subscribe(
@@ -61,9 +57,7 @@ export const GET: RequestHandler = async ({ params, cookies, fetch, locals }) =>
         return;
       }
       try {
-        const rolls = (await raffleRollStore.latestForEvent(params.slug))
-          .filter((roll) => !roll.pending)
-          .map(toStageRoll);
+        const rolls = (await raffleRollStore.latestForEvent(params.slug)).filter((roll) => !roll.pending);
         send({
           type: "snapshot",
           now: Date.now(),

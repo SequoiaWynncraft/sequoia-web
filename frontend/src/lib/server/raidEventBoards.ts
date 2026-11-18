@@ -2,6 +2,7 @@ import type { GuildMemberStats } from "#lib/api/guildStats.js";
 import type { GuildEvent, TrackerKind } from "#lib/events/types.js";
 import type { RaffleEntrant } from "#lib/events/raffle.js";
 import type { BadgeTier } from "#lib/site/honours.js";
+import { isRecord } from "#lib/api/guards.js";
 import { sequoiaBackendInternalHeaders, sequoiaBackendOrigin } from "#lib/server/sequoiaBackend.js";
 import {
   sequoiaWebBackendInternalHeaders,
@@ -32,7 +33,16 @@ export interface RaidLeaderboardEntry {
 
 export type LeaderboardResult = { leaderboard: RaidLeaderboardEntry[]; error: string | null };
 
-const LEADERBOARD_UNAVAILABLE = "Member contributions are temporarily unavailable.";
+export const LEADERBOARD_UNAVAILABLE = "Member contributions are temporarily unavailable.";
+
+/**
+ * Leaderboard failures carry upstream error text (internal token and tracker
+ * configuration problems among them). Manager tools show it; viewer pages get
+ * the fixed notice instead.
+ */
+export function viewerLeaderboardError(error: string | null): string | null {
+  return error === null ? null : LEADERBOARD_UNAVAILABLE;
+}
 
 export function normalizeUuid(value: string): string {
   return value.replaceAll("-", "").toLowerCase();
@@ -48,7 +58,7 @@ export async function loadRaidEvents(fetchImpl: typeof fetch): Promise<RaidEvent
       signal: AbortSignal.timeout(6000),
     });
     if (!response.ok) return [];
-    return await readJson<RaidEvent[]>(response, []);
+    return parseRows(await readJson<unknown>(response, []), parseRaidEvent, "raid event");
   } catch {
     return [];
   }
@@ -66,7 +76,8 @@ export async function loadTrackerLeaderboard(
       { headers, signal: AbortSignal.timeout(6000) },
     );
     if (!response.ok) return { leaderboard: [], error: await readError(response) };
-    return { leaderboard: await readJson<RaidLeaderboardEntry[]>(response, []), error: null };
+    const leaderboard = parseRows(await readJson<unknown>(response, []), parseLeaderboardEntry, "leaderboard row");
+    return { leaderboard, error: null };
   } catch {
     return { leaderboard: [], error: LEADERBOARD_UNAVAILABLE };
   }
@@ -311,6 +322,60 @@ function rosterMembersOnly(
       },
     ];
   });
+}
+
+function isTrackerKind(value: unknown): value is TrackerKind {
+  return value === "api" || value === "mod" || value === "wars";
+}
+
+/**
+ * Copies the documented fields of each backend row; anything else the backend
+ * adds stays server-side. Malformed rows are dropped and logged so contract
+ * drift shows up rather than silently reshaping a board.
+ */
+function parseRows<T>(body: unknown, parse: (value: unknown) => T | null, label: string): T[] {
+  if (!Array.isArray(body)) {
+    console.warn(`sequoia-web-backend: expected a list of ${label}s`);
+    return [];
+  }
+  const rows = body.map(parse).filter((row) => row !== null);
+  if (rows.length < body.length) {
+    console.warn(`sequoia-web-backend: dropped ${body.length - rows.length} malformed ${label}(s)`);
+  }
+  return rows;
+}
+
+function parseRaidEvent(value: unknown): RaidEvent | null {
+  if (!isRecord(value)) return null;
+  const { id, slug, name, starts_at, ends_at, tracking, raid } = value;
+  if (
+    typeof id !== "string" ||
+    typeof slug !== "string" ||
+    typeof name !== "string" ||
+    typeof starts_at !== "string" ||
+    typeof ends_at !== "string"
+  ) {
+    return null;
+  }
+  const event: RaidEvent = { id, slug, name, starts_at, ends_at };
+  if (isTrackerKind(tracking)) event.tracking = tracking;
+  if (typeof raid === "string" || raid === null) event.raid = raid;
+  return event;
+}
+
+function parseLeaderboardEntry(value: unknown): RaidLeaderboardEntry | null {
+  if (!isRecord(value)) return null;
+  const { player_uuid, username, raids, rank } = value;
+  if (
+    typeof player_uuid !== "string" ||
+    typeof username !== "string" ||
+    typeof raids !== "number" ||
+    !Number.isFinite(raids) ||
+    typeof rank !== "string"
+  ) {
+    return null;
+  }
+  return { player_uuid, username, raids, rank };
 }
 
 async function readJson<T>(response: Response, fallback: T): Promise<T> {

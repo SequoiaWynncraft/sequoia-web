@@ -5,9 +5,11 @@ import { eventStore, type StoredEvent } from "#lib/server/eventStore.js";
 import { canSeeEvent, resolveEventAudience } from "#lib/server/eventVisibility.js";
 import { getGuildStats } from "#lib/server/guildStats.js";
 import {
+  LEADERBOARD_UNAVAILABLE,
   loadModLeaderboard,
   loadRaidEvents,
   loadTrackerLeaderboard,
+  viewerLeaderboardError,
   type RaidLeaderboardEntry,
 } from "#lib/server/raidEventBoards.js";
 import {
@@ -127,7 +129,7 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
             leaderboardRoster,
           );
     leaderboard = result.leaderboard;
-    leaderboardError = result.error;
+    leaderboardError = viewerLeaderboardError(result.error);
   } else if (isMember && selectedEvent) {
     const result =
       selectedEvent.tracking === "mod"
@@ -140,7 +142,7 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
             )
         : await loadTrackerLeaderboard(fetch, selectedEvent.id);
     leaderboard = result.leaderboard;
-    leaderboardError = result.error;
+    leaderboardError = viewerLeaderboardError(result.error);
   }
 
   if (leaderboard.length > 0) {
@@ -184,7 +186,7 @@ export const load: PageServerLoad = async ({ fetch, url, parent }) => {
 function unavailableLeaderboard() {
   return {
     leaderboard: [] as RaidLeaderboardEntry[],
-    error: "Member contributions are temporarily unavailable.",
+    error: LEADERBOARD_UNAVAILABLE,
   };
 }
 

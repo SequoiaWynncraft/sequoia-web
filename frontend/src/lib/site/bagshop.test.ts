@@ -87,17 +87,15 @@ describe("orderRemainingTotal / isCancellable", () => {
     messageId: "1",
     orderType: "buy",
     note: "",
-    userId: "42",
     userName: "tester",
     minecraftIgn: "Tester",
     createdAt: 1_700_000_000,
-    claimedByMention: null,
+    claimed: false,
     remainingItems: [
       { raid: "NOTG", rarity: "Rare", amount: 3 },
       { raid: "NOL", rarity: "Unique", amount: 2 },
     ],
     processedItems: [],
-    linkedMessageId: null,
     splitPart: 0,
   };
 
@@ -116,6 +114,6 @@ describe("orderRemainingTotal / isCancellable", () => {
 
   it("treats an unclaimed order as cancellable", () => {
     expect(isCancellable(order)).toBe(true);
-    expect(isCancellable({ ...order, claimedByMention: "staff <@1>" })).toBe(false);
+    expect(isCancellable({ ...order, claimed: true })).toBe(false);
   });
 });
