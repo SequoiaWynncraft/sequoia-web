@@ -44,18 +44,23 @@ export interface ProcessedItem {
   declineReason?: string | null;
 }
 
+/**
+ * An order as the browser sees it. The bag shop service also returns the
+ * customer's Discord id, the claiming staff member's Discord mention and
+ * internal message links; the `/api/bagshop` proxy reduces those to this shape
+ * (see `toBrowserOrder`), and the pages only need to know whether an order is
+ * claimed.
+ */
 export interface Order {
   messageId: string;
   orderType: OrderType;
   note: string;
-  userId: string;
   userName: string;
   minecraftIgn: string;
   createdAt: number;
-  claimedByMention?: string | null;
+  claimed: boolean;
   remainingItems: OrderItem[];
   processedItems: ProcessedItem[];
-  linkedMessageId?: string | null;
   splitPart: number;
 }
 
@@ -95,7 +100,7 @@ export interface InventoryPatch {
   cap?: number;
 }
 
-function isInventoryItem(value: unknown): value is InventoryItem {
+export function isInventoryItem(value: unknown): value is InventoryItem {
   return (
     isRecord(value) &&
     typeof value.key === "string" &&
@@ -106,7 +111,7 @@ function isInventoryItem(value: unknown): value is InventoryItem {
   );
 }
 
-function isOrderItem(value: unknown): value is OrderItem {
+export function isOrderItem(value: unknown): value is OrderItem {
   return (
     isRecord(value) &&
     typeof value.raid === "string" &&
@@ -115,7 +120,7 @@ function isOrderItem(value: unknown): value is OrderItem {
   );
 }
 
-function isProcessedItem(value: unknown): value is ProcessedItem {
+export function isProcessedItem(value: unknown): value is ProcessedItem {
   return (
     isRecord(value) &&
     isOrderItem(value.item) &&
@@ -124,12 +129,12 @@ function isProcessedItem(value: unknown): value is ProcessedItem {
   );
 }
 
-function isOrder(value: unknown): value is Order {
+export function isOrder(value: unknown): value is Order {
   return (
     isRecord(value) &&
     typeof value.messageId === "string" &&
     (value.orderType === "buy" || value.orderType === "sell") &&
-    typeof value.userId === "string" &&
+    typeof value.claimed === "boolean" &&
     typeof value.createdAt === "number" &&
     typeof value.splitPart === "number" &&
     Array.isArray(value.remainingItems) &&
@@ -139,11 +144,11 @@ function isOrder(value: unknown): value is Order {
   );
 }
 
-function isMe(value: unknown): value is BagshopMe {
+export function isMe(value: unknown): value is BagshopMe {
   return isRecord(value) && typeof value.minecraftUuid === "string" && typeof value.staff === "boolean";
 }
 
-function isPlacedOrderItem(value: unknown): value is PlacedOrderItem {
+export function isPlacedOrderItem(value: unknown): value is PlacedOrderItem {
   return (
     isRecord(value) &&
     typeof value.raid === "string" &&
@@ -154,7 +159,7 @@ function isPlacedOrderItem(value: unknown): value is PlacedOrderItem {
   );
 }
 
-function isPlacedOrder(value: unknown): value is PlacedOrder {
+export function isPlacedOrder(value: unknown): value is PlacedOrder {
   return (
     isRecord(value) &&
     (value.orderType === "buy" || value.orderType === "sell") &&
@@ -170,7 +175,11 @@ function isArrayOf<T>(value: unknown, guard: (item: unknown) => item is T): valu
   return Array.isArray(value) && value.every(guard);
 }
 
-const ERROR_CODES: Record<string, BagshopErrorCode> = {
+/**
+ * The error codes the bag shop answers with, and how the client classifies
+ * them. The `/api/bagshop` proxy forwards only these codes.
+ */
+export const BAGSHOP_ERROR_CODES: Readonly<Record<string, BagshopErrorCode>> = {
   out_of_stock: "out_of_stock",
   all_capped: "all_capped",
   below_minimum: "below_minimum",
@@ -179,6 +188,7 @@ const ERROR_CODES: Record<string, BagshopErrorCode> = {
   not_owner: "forbidden",
   not_allowed: "forbidden",
   bagshop_unreachable: "network_error",
+  invalid_response: "invalid_response",
 };
 
 async function request(
@@ -216,7 +226,7 @@ async function request(
       ? (typeof body.error === "string" ? body.error : typeof body.message === "string" ? body.message : "")
       : "";
     const code: BagshopErrorCode =
-      ERROR_CODES[raw] ??
+      BAGSHOP_ERROR_CODES[raw] ??
       (response.status === 401 ? "unauthorized" : response.status === 403 ? "forbidden" : "http_error");
     return { ok: false, error: { code, message: raw || `Request failed (${response.status}).`, status: response.status } };
   }

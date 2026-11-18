@@ -1,6 +1,7 @@
 import type { PageServerLoad } from "./$types";
 
 import { eventStatus } from "#lib/events/helpers.js";
+import { viewerEvent } from "#lib/events/viewerEvent.js";
 import { canSeeEvent, resolveEventAudience } from "#lib/server/eventVisibility.js";
 import { eventStore, type StoredEvent } from "#lib/server/eventStore.js";
 import { raffleRollStore, toStageRoll } from "#lib/server/raffleRolls.js";
@@ -36,7 +37,7 @@ export const load: PageServerLoad = async ({ fetch, locals, params, parent }) =>
     requestError(locals, 503, "The event is being updated - reload in a moment.");
   }
   return {
-    event: stored.event,
+    event: viewerEvent(stored.event),
     status: eventStatus(stored.event, new Date()),
     rolls,
   };

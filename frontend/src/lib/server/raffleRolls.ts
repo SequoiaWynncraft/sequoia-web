@@ -1,6 +1,6 @@
 import type { Client, Row } from "@libsql/client";
 
-import type { StageEntrant, StageRoll } from "#lib/events/stageProtocol.js";
+import type { StageEntrant, StageMessage, StageRoll } from "#lib/events/stageProtocol.js";
 
 import { database } from "./db";
 
@@ -12,25 +12,50 @@ export interface RaffleRoll extends StageRoll {
 }
 
 /**
- * Projects a persisted roll onto the public wire shape. Structural typing
- * would happily serialize the extra fields - `createdBy` is a manager's
- * Discord id and must never reach a viewer - so everything the stage sends
- * or returns goes through this explicit pick.
+ * Projects a roll onto the public wire shape. Structural typing would happily
+ * serialize extra fields - a persisted roll's `createdBy` is a manager's
+ * Discord id, and a freshly drawn one also names its event - so everything the
+ * stage loads, snapshots or streams goes through this explicit pick, entrants
+ * and winner included.
  */
-export function toStageRoll(roll: RaffleRoll): StageRoll {
+export function toStageRoll(roll: StageRoll): StageRoll {
   return {
     rollId: roll.rollId,
     raffleId: roll.raffleId,
     slot: roll.slot,
     prize: roll.prize,
-    entrants: roll.entrants,
+    entrants: roll.entrants.map(toStageEntrant),
     winnerIndex: roll.winnerIndex,
-    winner: roll.winner,
-    spin: roll.spin,
+    winner: toStageEntrant(roll.winner),
+    spin: { turns: roll.spin.turns, durationMs: roll.spin.durationMs },
     state: roll.state,
     startedAt: roll.startedAt,
     settlesAt: roll.settlesAt,
   };
+}
+
+function toStageEntrant(entrant: StageEntrant): StageEntrant {
+  return { player_uuid: entrant.player_uuid, username: entrant.username, tickets: entrant.tickets };
+}
+
+/**
+ * The one place stage messages become wire bytes. Publishers hand over
+ * whatever roll they hold (a fresh draw still names its event); only the
+ * fields in `StageMessage` leave, and the server clock is stamped on send.
+ */
+export function toStageMessage(message: StageMessage): StageMessage {
+  switch (message.type) {
+    case "snapshot":
+      return { type: "snapshot", now: Date.now(), rolls: message.rolls.map(toStageRoll) };
+    case "roll":
+      return { type: "roll", now: Date.now(), roll: toStageRoll(message.roll) };
+    case "settled":
+      return { type: "settled", rollId: message.rollId, raffleId: message.raffleId, slot: message.slot };
+    case "retired":
+      return { type: "retired", raffleId: message.raffleId, slot: message.slot, rollId: message.rollId };
+    case "event-updated":
+      return { type: "event-updated" };
+  }
 }
 
 export interface RaffleRollStore {

@@ -7,6 +7,7 @@ import {
   getLinkedRankProfiles,
   inGameRankLadder,
   memberRanksByUuid,
+  ranksForPlayers,
   type InGameRankLadder,
   type MemberRankEntry,
 } from "#lib/server/rankProfiles.js";
@@ -70,5 +71,11 @@ export const load: PageServerLoad = async ({ fetch, locals, params }) => {
     () => null,
   );
 
-  return { stats, liveSeason, activity, ranks, rankLadder };
+  return {
+    stats,
+    liveSeason,
+    activity,
+    ranks: ranks && ranksForPlayers(ranks, stats.members),
+    rankLadder,
+  };
 };

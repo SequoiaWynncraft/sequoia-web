@@ -16,7 +16,8 @@ vi.mock("#lib/server/rankProfiles.js", () => ({
   getLinkedRankProfiles: async () => [],
   memberRanksByUuid: () => ({}),
 }));
-vi.mock("#lib/server/raidEventBoards.js", () => ({
+vi.mock("#lib/server/raidEventBoards.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("#lib/server/raidEventBoards.js")>()),
   loadRaidEvents: vi.fn(async () => [{ id: "summer-slam", name: "Summer Slam", tracking: "mod", raid: null }]),
   loadModLeaderboard: vi.fn(async () => ({ leaderboard: [], error: null })),
   loadTrackerLeaderboard: vi.fn(async () => ({ leaderboard: [], error: null })),

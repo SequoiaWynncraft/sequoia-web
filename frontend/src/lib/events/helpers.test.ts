@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { eventHubView, eventStatus, homepageEvents, hubGroups } from "#lib/events/helpers.js";
+import { eventStatus, homepageEvents, hubGroups } from "#lib/events/helpers.js";
+import { hubEvent } from "#lib/events/viewerEvent.js";
 import type { GuildEvent } from "#lib/events/types.js";
 
 const THEME = {
@@ -66,21 +67,19 @@ describe("event helpers", () => {
       rules: ["Secret rule"],
     });
 
-    expect(eventHubView(event)).toEqual({
+    expect(hubEvent(event)).toEqual({
       slug: event.slug,
       name: event.name,
       tagline: event.tagline,
       access: event.access,
       theme: event.theme,
-      startsAt: undefined,
-      endsAt: undefined,
     });
   });
 
   it("flags unpublished entries so a manager can tell a draft from a live event", () => {
     const event = makeEvent({ startsAt: "2026-07-05T00:00:00Z", endsAt: "2026-07-19T23:59:59Z" });
-    expect(eventHubView(event, false).draft).toBe(true);
-    expect(eventHubView(event, true).draft).toBeUndefined();
+    expect(hubEvent(event, false).draft).toBe(true);
+    expect(hubEvent(event, true).draft).toBeUndefined();
 
     const now = new Date("2026-07-11T12:00:00Z");
     const groups = hubGroups([{ event, published: false }], now);

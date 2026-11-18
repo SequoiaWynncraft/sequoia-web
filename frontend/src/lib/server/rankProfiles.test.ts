@@ -5,6 +5,8 @@ import {
   honoursForMinecraft,
   inGameRankLadder,
   memberRanksByUuid,
+  ranksForPlayers,
+  type MemberRankEntry,
 } from "#lib/server/rankProfiles.js";
 
 const MEMBER = "11111111-1111-1111-1111-111111111111";
@@ -249,5 +251,28 @@ describe("honoursForMinecraft", () => {
       warHonours: [],
       badges: [],
     });
+  });
+});
+
+describe("ranksForPlayers", () => {
+  const entry = (rank: string): MemberRankEntry => ({
+    rank,
+    rankColor: null,
+    rankOrder: null,
+    insignia: null,
+    insigniaUrl: null,
+    honours: 0,
+  });
+
+  it("keeps only the players a page lists, keyed as the page looks them up", () => {
+    const ranks = { [MEMBER]: entry("Member rank"), [RETIRED]: entry("Former member rank") };
+
+    expect(ranksForPlayers(ranks, [{ uuid: MEMBER.toUpperCase() }, { uuid: null }])).toEqual({
+      [MEMBER]: entry("Member rank"),
+    });
+  });
+
+  it("does not resolve inherited object keys", () => {
+    expect(ranksForPlayers({}, [{ uuid: "constructor" }])).toEqual({});
   });
 });

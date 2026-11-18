@@ -73,5 +73,5 @@ export function orderRemainingTotal(order: Order, unitPriceByKey: Map<string, nu
 }
 
 export function isCancellable(order: Order): boolean {
-  return order.claimedByMention === null || order.claimedByMention === undefined;
+  return !order.claimed;
 }

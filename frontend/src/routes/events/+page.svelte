@@ -5,7 +5,7 @@
   import EventSky from "#lib/events/components/EventSky.svelte";
   import EventMeta from "#lib/events/components/EventMeta.svelte";
   import GoalMeter from "#lib/events/components/GoalMeter.svelte";
-  import type { HubEvent } from "#lib/events/helpers.js";
+  import type { HubEvent } from "#lib/events/viewerEvent.js";
   import { raidIconUrl } from "#lib/events/raidIcons.js";
   import type { EventStatus } from "#lib/events/types.js";
 

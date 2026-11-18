@@ -2,6 +2,7 @@ import type { PageServerLoad } from "./$types";
 
 import { eventChart, eventStatus } from "#lib/events/helpers.js";
 import { standingsUnit, type GuildEvent, type StandingsUnit } from "#lib/events/types.js";
+import { eventTeaser, viewerEvent, type ViewerEvent } from "#lib/events/viewerEvent.js";
 import { canSeeEvent, resolveEventAudience, type Membership } from "#lib/server/eventVisibility.js";
 import { eventStore } from "#lib/server/eventStore.js";
 import { loadEventRaidCounts, sumCounts, type EventDayCount } from "#lib/server/eventActivity.js";
@@ -15,10 +16,12 @@ import {
 } from "#lib/server/rankProfiles.js";
 import { requestError } from "#lib/server/requestError.js";
 import {
+  LEADERBOARD_UNAVAILABLE,
   loadModLeaderboard,
   loadRaidEvents,
   loadTrackerLeaderboard,
   sameUuid,
+  viewerLeaderboardError,
   type LeaderboardResult,
   type RaidLeaderboardEntry,
 } from "#lib/server/raidEventBoards.js";
@@ -74,8 +77,10 @@ export const load: PageServerLoad = async ({ fetch, locals, params, parent }) =>
           : "notMember";
 
   if (event.access === "members" && membership !== "member") {
+    // Typed as the full view so both branches give the page one `data.event` type.
+    const teaser: ViewerEvent = eventTeaser(event);
     return {
-      event: publicView(event),
+      event: teaser,
       status,
       draft: false,
       manager: false,
@@ -141,7 +146,12 @@ export const load: PageServerLoad = async ({ fetch, locals, params, parent }) =>
           };
         });
       }
-      standings = { state: "board", leaderboard: result.leaderboard, error: result.error, unit };
+      standings = {
+        state: "board",
+        leaderboard: result.leaderboard,
+        error: viewerLeaderboardError(result.error),
+        unit,
+      };
       const mine = viewer
         ? result.leaderboard.find((entry) => sameUuid(entry.player_uuid, viewer.minecraftUuid))
         : undefined;
@@ -160,13 +170,13 @@ export const load: PageServerLoad = async ({ fetch, locals, params, parent }) =>
       : [];
 
   return {
-    event,
+    event: viewerEvent(event, { spinningSlots }),
     status,
     draft: !stored.published,
     manager: audience === "manager",
     locked: false as const,
     lockReason: null,
-    chart,
+    chart: chart && { label: chart.label },
     days,
     progress,
     today,
@@ -187,7 +197,7 @@ async function loadTrackerStandings(
   const unit = standingsUnit(tracking);
   if (tracking === "api") return { ...(await loadTrackerLeaderboard(fetchImpl, tracker.eventId)), unit };
   if (!tracked || roster === null) {
-    return { leaderboard: [], error: "Member contributions are temporarily unavailable.", unit };
+    return { leaderboard: [], error: LEADERBOARD_UNAVAILABLE, unit };
   }
   const board = await loadModLeaderboard(
     fetchImpl,
@@ -196,18 +206,4 @@ async function loadTrackerStandings(
     tracking,
   );
   return { ...board, unit };
-}
-
-function publicView(event: GuildEvent): GuildEvent {
-  return {
-    slug: event.slug,
-    name: event.name,
-    tagline: event.tagline,
-    access: event.access,
-    theme: event.theme,
-    startsAt: event.startsAt,
-    endsAt: event.endsAt,
-    about: event.about,
-    icon: event.icon,
-  };
 }

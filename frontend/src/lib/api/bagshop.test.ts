@@ -12,14 +12,12 @@ const orderRow: Order = {
   messageId: "abc",
   orderType: "buy",
   note: "",
-  userId: "42",
   userName: "tester",
   minecraftIgn: "Tester",
   createdAt: 1_700_000_000,
-  claimedByMention: null,
+  claimed: false,
   remainingItems: [{ raid: "NOTG", rarity: "Rare", amount: 2 }],
   processedItems: [],
-  linkedMessageId: null,
   splitPart: 0,
 };
 
