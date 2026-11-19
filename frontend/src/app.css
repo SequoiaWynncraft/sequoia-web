@@ -917,8 +917,11 @@ textarea.seq-input {
   left: 1.15rem;
   z-index: 2;
   display: grid;
-  grid-template-columns: minmax(3.2rem, 1fr) minmax(3.2rem, 1fr);
-  gap: 0.42rem 6.15rem;
+  /* Columns hug their content and sit at the card edges, so the gap is whatever
+     width is left: wide on desktop, narrow on phones, never clipping a value. */
+  grid-template-columns: max-content max-content;
+  justify-content: space-between;
+  gap: 0.42rem 1rem;
   opacity: 0;
   pointer-events: none;
   transform: translate3d(0, 0.18rem, 0) scale(0.98);
