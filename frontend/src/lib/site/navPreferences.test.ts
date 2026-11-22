@@ -39,6 +39,7 @@ describe("navbar visibility preference", () => {
       "Services",
       "Services > Bagshop",
       "Services > Requests",
+      "Leaf",
     ]);
   });
 
@@ -142,6 +143,7 @@ describe("navbar visibility preference", () => {
       "/events",
       "/statistics",
       "/services",
+      "/leaf",
     ]);
     expect(statistics?.items.map((item) => [item.group, item.label])).toEqual([
       ["Player", "Raids"],

@@ -45,6 +45,7 @@ export const variables = defineEnvVars({
     schema: optional,
     description: "sequoia-backend INTERNAL_API_TOKEN; gates mod-tracked contribution reads.",
   },
+  LEAF_BASE_URL: { schema: optional, description: "Leaf service origin; defaults to https://leaf.seqwawa.com." },
   BAGSHOP_API_URL: { schema: optional, description: "Internal bag shop bot HTTP API origin." },
   SEQUOIA_DISCORD_MANAGEMENT_URL: {
     schema: optional,
