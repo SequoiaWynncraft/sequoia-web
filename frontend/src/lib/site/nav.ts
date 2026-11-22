@@ -247,6 +247,10 @@ export const SECTIONS: NavSection[] = [
       },
     ],
   },
+  {
+    label: "Leaf",
+    to: "/leaf",
+  },
 ];
 
 const EXTRA_PAGES: (NavLeaf & { parent?: string })[] = [
