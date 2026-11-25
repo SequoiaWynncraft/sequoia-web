@@ -75,7 +75,7 @@
         7 days, or the HQ Team role, and 7 days in the guild.
       </p>
       <p>
-        Any member with 7 days in the guild can pay Leaf instead, with the request channel's Leaf buttons{#if data.prices}:
+        Any member with 7 days in the guild can also buy an extra request with Leaf, on top of a free one, with the request channel's Leaf buttons{#if data.prices}:
           {leaf(data.prices.tome)} Leaf for a tome request, {leaf(data.prices.aspect)} Leaf for an aspect request.{:else}, which show the price.{/if}
         A request paid with Leaf goes ahead of free requests in the queue.
       </p>
