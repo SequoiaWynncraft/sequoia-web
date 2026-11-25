@@ -32,10 +32,17 @@ export interface LeafRates {
   changed: { at: string; label: string } | null;
 }
 
-/** What a tome or aspect request costs in Leaf. */
+/** The Leaf one LE costs, and the least LE one request may ask for. */
+export interface LePrice {
+  leafPerLe: number;
+  minimum: number;
+}
+
+/** What a tome or aspect request costs in Leaf, and what LE costs (null while the backend doesn't sell LE). */
 export interface RequestPrices {
   tome: number;
   aspect: number;
+  le: LePrice | null;
 }
 
 export interface LeafGuide {
@@ -87,7 +94,15 @@ export function parseLeafRates(body: unknown): LeafRates | null {
 /** The backend's `/api/reward-queue/prices` answer, or null for anything that isn't one. */
 export function parseRequestPrices(body: unknown): RequestPrices | null {
   if (!isRecord(body) || !isNonNegativeInteger(body.tome) || !isNonNegativeInteger(body.aspect)) return null;
-  return { tome: body.tome, aspect: body.aspect };
+  return { tome: body.tome, aspect: body.aspect, le: parseLePrice(body.le) };
+}
+
+/** The answer's `le`, `{ "leaf_per_le", "minimum" }` as whole numbers of 1 or more, or null for anything else. */
+function parseLePrice(value: unknown): LePrice | null {
+  if (!isRecord(value)) return null;
+  const { leaf_per_le: leafPerLe, minimum } = value;
+  if (!isNonNegativeInteger(leafPerLe) || !isNonNegativeInteger(minimum) || leafPerLe < 1 || minimum < 1) return null;
+  return { leafPerLe, minimum };
 }
 
 /** Leaf's rates and the request prices, each cached for every visitor; null where one can't be read. */

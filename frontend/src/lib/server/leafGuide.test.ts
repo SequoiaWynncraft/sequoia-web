@@ -97,7 +97,21 @@ describe("parseLeafRates", () => {
 
 describe("parseRequestPrices", () => {
   it("reads the backend's prices", () => {
-    expect(parseRequestPrices({ tome: 3000, aspect: 2500 })).toEqual({ tome: 3000, aspect: 2500 });
+    expect(parseRequestPrices({ tome: 3000, aspect: 2500 })).toEqual({ tome: 3000, aspect: 2500, le: null });
+  });
+
+  it("reads the LE price when the backend sells LE", () => {
+    expect(parseRequestPrices({ tome: 3000, aspect: 3000, le: { leaf_per_le: 200, minimum: 32 } })).toEqual({
+      tome: 3000,
+      aspect: 3000,
+      le: { leafPerLe: 200, minimum: 32 },
+    });
+  });
+
+  it("keeps the request prices when the LE price isn't one", () => {
+    for (const le of [null, 200, {}, { leaf_per_le: 200 }, { leaf_per_le: 0, minimum: 32 }, { leaf_per_le: 200, minimum: 1.5 }]) {
+      expect(parseRequestPrices({ tome: 3000, aspect: 3000, le })?.le, JSON.stringify(le)).toBeNull();
+    }
   });
 
   it("rejects anything else", () => {
@@ -122,7 +136,7 @@ describe("loadLeafGuide", () => {
     const guide = await loadLeafGuide(fetchImpl);
 
     expect(guide.rates?.sections).toHaveLength(leafRatesFixture.sections.length);
-    expect(guide.prices).toEqual({ tome: 3000, aspect: 3000 });
+    expect(guide.prices).toEqual({ tome: 3000, aspect: 3000, le: null });
   });
 
   it("falls back on each source alone when it is down, errs or answers in the wrong shape", async () => {

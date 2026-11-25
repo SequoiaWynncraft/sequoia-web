@@ -80,6 +80,15 @@
         A request paid with Leaf goes ahead of free requests in the queue.
       </p>
 
+      {#if data.prices?.le}
+        <h3>LE for Leaf</h3>
+        <p>
+          Any member with 7 days in the guild can turn Leaf into LE: {leaf(data.prices.le.leafPerLe)} Leaf for 1 LE,
+          at least {leaf(data.prices.le.minimum)} LE. Ask with the request channel's LE with Leaf button, or at the
+          Treasury in Guild Town. Staff pay it in game, and a denied request gives all its Leaf back.
+        </p>
+      {/if}
+
       <h2>Who can use it</h2>
       <p>
         Leaf is for current Sequoia members. Anyone signed in to seqwawa.com can play Guild Town as a guest,
