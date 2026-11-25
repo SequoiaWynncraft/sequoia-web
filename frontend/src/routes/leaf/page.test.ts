@@ -64,7 +64,7 @@ describe("Leaf guide page", () => {
     expect(text(body)).toContain("Leaf's rates can't be shown right now.");
     expect(text(body)).not.toContain("The price is under Quest swaps above.");
     expect(text(body)).toContain(
-      "Any member with 7 days in the guild can pay Leaf instead, with the request channel's Leaf buttons, which show the price. A request paid with Leaf goes ahead of free requests in the queue.",
+      "Any member with 7 days in the guild can also buy an extra request with Leaf, on top of a free one, with the request channel's Leaf buttons, which show the price. A request paid with Leaf goes ahead of free requests in the queue.",
     );
     expect([...body.querySelectorAll("h2")].map((h) => h.textContent)).toEqual([
       "Where to see your Leaf",
