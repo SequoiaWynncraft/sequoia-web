@@ -19,7 +19,7 @@ const text = (body: ReturnType<typeof leafPage>) => body.body.textContent?.repla
 
 describe("Leaf guide page", () => {
   it("shows Leaf's rates with their numbers in bold, and the request prices", () => {
-    const body = leafPage({ rates: parseLeafRates(leafRatesFixture), prices: { tome: 3000, aspect: 2500 } });
+    const body = leafPage({ rates: parseLeafRates(leafRatesFixture), prices: { tome: 3000, aspect: 2500, le: null } });
 
     expect([...body.querySelectorAll("h3")].map((h) => h.textContent)).toEqual(
       expect.arrayContaining(["Raids", "Quest swaps", "Recent changes"]),
@@ -29,6 +29,19 @@ describe("Leaf guide page", () => {
     expect(text(body)).toContain("The price is under Quest swaps above.");
     expect(text(body)).toContain("3,000 Leaf for a tome request, 2,500 Leaf for an aspect request.");
     expect(text(body)).not.toContain("What Leaf pays right now");
+    expect(text(body)).not.toContain("LE for Leaf");
+  });
+
+  it("says what LE costs when the backend sells it", () => {
+    const body = leafPage({
+      rates: null,
+      prices: { tome: 3000, aspect: 3000, le: { leafPerLe: 200, minimum: 32 } },
+    });
+
+    expect([...body.querySelectorAll("h3")].map((h) => h.textContent)).toContain("LE for Leaf");
+    expect(text(body)).toContain(
+      "Any member with 7 days in the guild can turn Leaf into LE: 200 Leaf for 1 LE, at least 32 LE. Ask with the request channel's LE with Leaf button, or at the Treasury in Guild Town. Staff pay it in game, and a denied request gives all its Leaf back.",
+    );
   });
 
   it("renders markup in a rate as text", () => {
