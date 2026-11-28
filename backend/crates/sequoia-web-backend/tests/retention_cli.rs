@@ -135,7 +135,7 @@ async fn preview_refuses_a_legacy_schema_without_writing() -> anyhow::Result<()>
             .context("migration file name")?
             .to_string_lossy()
             .into_owned();
-        if !name.starts_with("0005") {
+        if !name.starts_with("0006") {
             std::fs::copy(&path, legacy.join(name))?;
         }
     }

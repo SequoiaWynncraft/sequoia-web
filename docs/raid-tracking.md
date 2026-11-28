@@ -72,4 +72,4 @@ Nothing is pruned by default. Each pass is one transaction holding each guild's 
 2. **Apply:** back up the database, then run `sequoia-web-backend retention --apply`. It migrates first, like starting the server. Deleted history can't be recomputed.
 3. **Schedule:** `TRACKER_RETENTION=apply` runs a pass daily, starting 10 minutes after startup. `dry-run` logs the counts instead.
 
-The first applied pass rewrites every legacy counter row to clear presence, so tables grow until vacuum and only `VACUUM FULL` or a rebuild returns disk space. Migration `0005` builds three indexes, and writes to deltas and anomalies wait while they build.
+The first applied pass rewrites every legacy counter row to clear presence, so tables grow until vacuum and only `VACUUM FULL` or a rebuild returns disk space. Migration `0006` builds three indexes, and writes to deltas and anomalies wait while they build.
