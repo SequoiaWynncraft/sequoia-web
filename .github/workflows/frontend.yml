@@ -47,7 +47,7 @@ jobs:
         with:
           version: "2026.10.17"
           sha256: fe6dd17e68e09682b31d2e7bb7bb755d22636ac1af5d94621e300f2ca9e9fe8a
-          install_args: bun node
+          install_args: bun
           cache_key_prefix: mise-frontend
           cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - name: Restore dependency cache

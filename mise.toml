@@ -1,8 +1,7 @@
 min_version = { hard = "2026.10.17" }
 
 [tools]
-bun = "1.4.4"
-node = "26.13.0"
+bun = "1.4.5"
 gitleaks = "8.30.1"
 
 # rust-toolchain.toml owns the Rust version and components; this pins the
@@ -57,7 +56,7 @@ run = "bun audit --ignore=GHSA-g3hv-75wg-m249 --ignore=GHSA-gcqx-w48m-w2h4"
 [tasks."check:web"]
 depends = ["deps:web"]
 dir = "frontend"
-run = "node --run check"
+run = "bun run check"
 
 [tasks."fmt:backend"]
 depends = ["setup:rust"]
@@ -124,5 +123,5 @@ if [ ! -f "$usage_schema" ]; then
   echo "api:types: no schema at $usage_schema; check out sequoia-backend next to this repository or pass the path" >&2
   exit 1
 fi
-frontend/node_modules/.bin/openapi-typescript "$usage_schema" -o frontend/src/lib/api/generated/public-api.ts ${usage_check:+--check}
+bun --bun frontend/node_modules/.bin/openapi-typescript "$usage_schema" -o frontend/src/lib/api/generated/public-api.ts ${usage_check:+--check}
 '''

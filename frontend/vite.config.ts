@@ -3,7 +3,7 @@ import { sveltekit } from "@sveltejs/kit/vite";
 import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
 import { defineConfig, loadEnv, type ConfigEnv } from "vite";
 
-import { contentSecurityPolicy } from "./src/lib/config/csp";
+import { contentSecurityPolicy } from "./src/lib/config/csp.ts";
 
 /**
  * The CSP for one Vite invocation. `mode` only picks the env file; whether
