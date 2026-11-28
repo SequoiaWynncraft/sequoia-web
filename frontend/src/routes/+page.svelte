@@ -25,6 +25,8 @@
   let { data } = $props();
   const theme = $derived(themeById(page.data.theme));
   let heroImage: HTMLImageElement;
+  // A slight zoom hides the parallax edge, but it would crop art shown whole.
+  const heroScale = $derived(theme.heroFullImage ? 1 : 1.045);
   let statsSection: HTMLElement;
   let refreshedHomepageStats = $state<HomepageStats | null>(null);
   const homepageStats = $derived(refreshedHomepageStats ?? data.homepageStats);
@@ -69,7 +71,7 @@
     let raf = 0;
     const render = () => {
       const heroOffset = Math.max(-18, smoothScrollY * -0.032);
-      heroImage.style.transform = `translate3d(0,${heroOffset}px,0) scale(1.045)`;
+      heroImage.style.transform = `translate3d(0,${heroOffset}px,0) scale(${heroScale})`;
     };
     const tick = () => {
       const delta = targetScrollY - smoothScrollY;
@@ -104,7 +106,7 @@
   let canvas: HTMLCanvasElement;
   onMount(() => {
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reducedMotion || !canvas) return;
+    if (reducedMotion || !canvas || theme.heroHideSparks) return;
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
@@ -321,7 +323,7 @@
 
 </script>
 
-<section class="seq-hero seq-home-page">
+<section class="seq-hero seq-home-page" class:seq-hero-full={theme.heroFullImage}>
   <div class="seq-hero-bg-wrap">
     <img
       src={IMG + theme.heroImage}
@@ -331,17 +333,22 @@
       fetchpriority="high"
       class="seq-hero-bg"
       bind:this={heroImage}
-      style="transform:translate3d(0,0px,0) scale(1.045)"
+      style="transform:translate3d(0,0px,0) scale({heroScale})"
     />
   </div>
   <div class="seq-hero-vignette"></div>
   <div class="seq-hero-fade"></div>
   <canvas bind:this={canvas} class="seq-hero-particles"></canvas>
-  <div class="seq-hero-content">
-    <h1 class="seq-hero-title text-gold-gradient">
-      {BRAND.name}
-    </h1>
-  </div>
+  {#if theme.heroHideTitle}
+    <!-- Kept for screen readers and the document outline; the art shows the name. -->
+    <h1 class="seq-visually-hidden">{BRAND.name}</h1>
+  {:else}
+    <div class="seq-hero-content">
+      <h1 class="seq-hero-title text-gold-gradient">
+        {BRAND.name}
+      </h1>
+    </div>
+  {/if}
   <div class="seq-hero-scroll">
     <span class="seq-hero-kicker">Explore</span>
     <div class="seq-hero-chevron"></div>

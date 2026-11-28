@@ -55,6 +55,7 @@ describe("THEMES", () => {
   it.each([
     ["", "gaz-purple"],
     ["autumn", "autumn"],
+    ["winter", "winter"],
     ["no-such-theme", "gaz-purple"],
   ])("resolves a configured default of %j to %s and offers it", async (configured, expected) => {
     vi.resetModules();
