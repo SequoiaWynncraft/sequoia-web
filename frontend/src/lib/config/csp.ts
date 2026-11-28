@@ -1,7 +1,7 @@
 import type { sveltekit } from "@sveltejs/kit/vite";
 
-import { RAID_ICON_BASE } from "../events/raidIcons";
-import { resolveApiBaseUrl, resolveNmsrBaseUrl } from "./endpoints";
+import { RAID_ICON_BASE } from "../events/raidIcons.ts";
+import { resolveApiBaseUrl, resolveNmsrBaseUrl } from "./endpoints.ts";
 
 type KitConfig = NonNullable<Parameters<typeof sveltekit>[0]>;
 type CspDirectives = NonNullable<NonNullable<KitConfig["csp"]>["directives"]>;

@@ -120,6 +120,7 @@ export interface components {
             position?: number;
             colors?: components["schemas"]["RoleColors"];
         };
+        /** @description Discord role palette as uppercase six-digit CSS RGB values. Secondary and tertiary preserve enhanced gradient and holographic role colours. */
         RoleColors: {
             primary: string | null;
             secondary: string | null;
@@ -129,6 +130,7 @@ export interface components {
             key: string;
             category: string;
             series?: string | null;
+            /** @description Metal tier for tiered awards; null for untiered awards such as raid.tcc. */
             tier?: string | null;
             title: string;
             subtitle?: string | null;
@@ -148,6 +150,8 @@ export interface components {
             role_keys: string[];
             award_keys: string[];
             summary: components["schemas"]["RankSummary"];
+            /** @description The effective non-default role palette from this member's complete assigned-role set in the main Sequoia Discord. Omitted when no effective colour is available. */
+            display_colors?: components["schemas"]["RoleColors"];
         };
         DiscordIdentity: {
             id: string;
