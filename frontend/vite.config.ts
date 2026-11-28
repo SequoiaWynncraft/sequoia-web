@@ -24,6 +24,7 @@ export default defineConfig((configEnv) => ({
       preprocess: vitePreprocess(),
       adapter: adapter(),
       csp: { mode: "auto", directives: securityPolicy(configEnv) },
+      inlineStyleThreshold: Infinity,
       version: {
         pollInterval: 60_000,
       },

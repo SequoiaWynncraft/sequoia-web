@@ -43,10 +43,6 @@ body {
 
 .slot-bevel { box-shadow: var(--bevel-slot); }
 
-.section-padding { padding: var(--section-pad-y) var(--section-pad-x); }
-@media (min-width: 640px) {
-  .section-padding { padding: var(--section-pad-y-lg) var(--section-pad-x-lg); }
-}
 
 .card-hover {
   border: 1px solid color-mix(in srgb, var(--color-gold) 30%, transparent);
@@ -69,4 +65,3 @@ body {
 
 .animate-fade-in-up { animation: seq-fade-in-up 0.6s var(--ease-out-soft) both; }
 .animate-fade-in { animation: seq-fade-in 0.5s ease both; }
-.animate-scale-in { animation: seq-scale-in 0.5s var(--ease-out-soft) both; }
