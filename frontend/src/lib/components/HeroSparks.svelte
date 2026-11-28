@@ -68,6 +68,13 @@
     animation-play-state: paused;
   }
 
+  /* Also covers the setting being switched on after the sparks were added. */
+  @media (prefers-reduced-motion: reduce) {
+    .field {
+      display: none;
+    }
+  }
+
   @keyframes rise {
     to {
       transform: translateY(-104cqh);

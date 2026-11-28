@@ -41,7 +41,6 @@
   /** The card a press began on; with pointer capture the click itself lands on the lane. */
   let pressed: string | null = null;
   const TAP_SLOP = 6;
-  let reducedMotion = false;
 
   function measure() {
     const set = track.firstElementChild as HTMLElement | null;
@@ -67,7 +66,8 @@
   function onpointerdown(event: PointerEvent) {
     travelled = 0;
     pressed = cardAt(event.target);
-    if (event.button !== 0 || unit <= 0 || reducedMotion) return;
+    // Read live: with reduced motion the lane is a native scroller and drag stands down.
+    if (event.button !== 0 || unit <= 0 || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     event.preventDefault();
     offset = currentOffset();
     dragX = event.clientX;
@@ -102,7 +102,6 @@
   }
 
   onMount(() => {
-    reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
     measure();
     const resize = new ResizeObserver(measure);
     resize.observe(lane);
