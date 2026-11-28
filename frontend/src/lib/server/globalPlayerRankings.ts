@@ -4,14 +4,13 @@ import {
   type GlobalPlayerRankingsResponse,
   type PlayerMetric,
   type PlayerWindow,
-} from "$lib/api/globalPlayers";
-import { SEQUOIA_API_BASE_URL } from "$lib/config/public";
-import { createCachedResource, type CachedResource } from "$lib/server/serverCache";
+} from "#lib/api/globalPlayers.js";
+import { SEQUOIA_API_BASE_URL } from "#lib/config/public.js";
+import { createCachedResource, type CachedResource } from "#lib/server/serverCache.js";
 
 const FRESH_MS = 2 * 60 * 1000;
 const STALE_MS = 60 * 60 * 1000;
 
-// One resource per (metric, window) pair - a small fixed set (3 x 4).
 const resources = new Map<string, CachedResource<GlobalPlayerRankings>>();
 
 export async function getGlobalPlayerRankings(

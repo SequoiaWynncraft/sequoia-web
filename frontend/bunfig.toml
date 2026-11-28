@@ -1,4 +1,2 @@
-# App tooling runs on Bun. The root test:web command invokes Node's script
-# runner explicitly for Vitest, without loading this Bun-only policy.
 [run]
 bun = true

@@ -1,11 +1,4 @@
-/**
- * Handwritten client for the bag shop bot, consumed through the same-origin
- * `/api/bagshop/**` proxy (which attaches the viewer's session token server-side).
- * Every method returns a discriminated {@link ApiResult} and runtime-validates the
- * response, so contract drift surfaces as a typed error instead of a render crash.
- */
-
-import { isRecord } from "$lib/api/guards";
+import { isRecord } from "#lib/api/guards.js";
 
 export type BagshopErrorCode =
   | "http_error"
@@ -48,29 +41,31 @@ export interface OrderItem {
 export interface ProcessedItem {
   item: OrderItem;
   filled: boolean;
-  // Omitted by the bot's Gson (no `serializeNulls`) for filled items — hence optional.
   declineReason?: string | null;
 }
 
+/**
+ * An order as the browser sees it. The bag shop service also returns the
+ * customer's Discord id, the claiming staff member's Discord mention and
+ * internal message links; the `/api/bagshop` proxy reduces those to this shape
+ * (see `toBrowserOrder`), and the pages only need to know whether an order is
+ * claimed.
+ */
 export interface Order {
   messageId: string;
   orderType: OrderType;
   note: string;
-  userId: string;
   userName: string;
   minecraftIgn: string;
   createdAt: number;
-  // Both null on the bot when unclaimed / unsplit, so Gson omits them: optional here.
-  claimedByMention?: string | null;
+  claimed: boolean;
   remainingItems: OrderItem[];
   processedItems: ProcessedItem[];
-  linkedMessageId?: string | null;
   splitPart: number;
 }
 
 export interface BagshopMe {
   minecraftUuid: string;
-  // Null → omitted by the bot's Gson: optional.
   minecraftUsername?: string | null;
   discordId?: string | null;
   staff: boolean;
@@ -105,10 +100,7 @@ export interface InventoryPatch {
   cap?: number;
 }
 
-// ─── Type guards ─────────────────────────────────────────────────────────────
-
-/** Runtime guard for an {@link InventoryItem} shape. */
-function isInventoryItem(value: unknown): value is InventoryItem {
+export function isInventoryItem(value: unknown): value is InventoryItem {
   return (
     isRecord(value) &&
     typeof value.key === "string" &&
@@ -119,8 +111,7 @@ function isInventoryItem(value: unknown): value is InventoryItem {
   );
 }
 
-/** Runtime guard for an {@link OrderItem} shape. */
-function isOrderItem(value: unknown): value is OrderItem {
+export function isOrderItem(value: unknown): value is OrderItem {
   return (
     isRecord(value) &&
     typeof value.raid === "string" &&
@@ -129,24 +120,21 @@ function isOrderItem(value: unknown): value is OrderItem {
   );
 }
 
-/** Runtime guard for a {@link ProcessedItem} shape. */
-function isProcessedItem(value: unknown): value is ProcessedItem {
+export function isProcessedItem(value: unknown): value is ProcessedItem {
   return (
     isRecord(value) &&
     isOrderItem(value.item) &&
     typeof value.filled === "boolean" &&
-    // The bot's Gson omits null fields, so filled items arrive with no `declineReason` key.
     (value.declineReason == null || typeof value.declineReason === "string")
   );
 }
 
-/** Runtime guard for an {@link Order} shape. */
-function isOrder(value: unknown): value is Order {
+export function isOrder(value: unknown): value is Order {
   return (
     isRecord(value) &&
     typeof value.messageId === "string" &&
     (value.orderType === "buy" || value.orderType === "sell") &&
-    typeof value.userId === "string" &&
+    typeof value.claimed === "boolean" &&
     typeof value.createdAt === "number" &&
     typeof value.splitPart === "number" &&
     Array.isArray(value.remainingItems) &&
@@ -156,13 +144,11 @@ function isOrder(value: unknown): value is Order {
   );
 }
 
-/** Runtime guard for a {@link BagshopMe} shape. */
-function isMe(value: unknown): value is BagshopMe {
+export function isMe(value: unknown): value is BagshopMe {
   return isRecord(value) && typeof value.minecraftUuid === "string" && typeof value.staff === "boolean";
 }
 
-/** Runtime guard for a {@link PlacedOrderItem} shape. */
-function isPlacedOrderItem(value: unknown): value is PlacedOrderItem {
+export function isPlacedOrderItem(value: unknown): value is PlacedOrderItem {
   return (
     isRecord(value) &&
     typeof value.raid === "string" &&
@@ -173,8 +159,7 @@ function isPlacedOrderItem(value: unknown): value is PlacedOrderItem {
   );
 }
 
-/** Runtime guard for a {@link PlacedOrder} shape. */
-function isPlacedOrder(value: unknown): value is PlacedOrder {
+export function isPlacedOrder(value: unknown): value is PlacedOrder {
   return (
     isRecord(value) &&
     (value.orderType === "buy" || value.orderType === "sell") &&
@@ -186,14 +171,15 @@ function isPlacedOrder(value: unknown): value is PlacedOrder {
   );
 }
 
-/** True if the value is an array whose every element satisfies `guard`. */
 function isArrayOf<T>(value: unknown, guard: (item: unknown) => item is T): value is T[] {
   return Array.isArray(value) && value.every(guard);
 }
 
-// ─── Request plumbing ────────────────────────────────────────────────────────
-
-const ERROR_CODES: Record<string, BagshopErrorCode> = {
+/**
+ * The error codes the bag shop answers with, and how the client classifies
+ * them. The `/api/bagshop` proxy forwards only these codes.
+ */
+export const BAGSHOP_ERROR_CODES: Readonly<Record<string, BagshopErrorCode>> = {
   out_of_stock: "out_of_stock",
   all_capped: "all_capped",
   below_minimum: "below_minimum",
@@ -201,11 +187,10 @@ const ERROR_CODES: Record<string, BagshopErrorCode> = {
   channel_unavailable: "channel_unavailable",
   not_owner: "forbidden",
   not_allowed: "forbidden",
-  // The proxy's 503 outage body — treat it as a transport failure, like a direct fetch reject.
   bagshop_unreachable: "network_error",
+  invalid_response: "invalid_response",
 };
 
-/** Issues a proxy request and normalizes transport/HTTP failures into a typed {@link BagshopError}. */
 async function request(
   fetchImpl: typeof fetch,
   path: string,
@@ -241,7 +226,7 @@ async function request(
       ? (typeof body.error === "string" ? body.error : typeof body.message === "string" ? body.message : "")
       : "";
     const code: BagshopErrorCode =
-      ERROR_CODES[raw] ??
+      BAGSHOP_ERROR_CODES[raw] ??
       (response.status === 401 ? "unauthorized" : response.status === 403 ? "forbidden" : "http_error");
     return { ok: false, error: { code, message: raw || `Request failed (${response.status}).`, status: response.status } };
   }
@@ -249,7 +234,6 @@ async function request(
   return { ok: true, data: body };
 }
 
-/** Passes a successful result through only if its data satisfies `guard`, else an `invalid_response` error. */
 function validated<T>(result: ApiResult<unknown>, guard: (v: unknown) => v is T): ApiResult<T> {
   if (!result.ok) return result;
   if (!guard(result.data)) {
@@ -258,15 +242,12 @@ function validated<T>(result: ApiResult<unknown>, guard: (v: unknown) => v is T)
   return { ok: true, data: result.data };
 }
 
-// ─── Client ──────────────────────────────────────────────────────────────────
-
 export interface BagshopClient {
   getInventory(): Promise<ApiResult<InventoryItem[]>>;
   getMe(): Promise<ApiResult<BagshopMe>>;
   getMyOrders(): Promise<ApiResult<Order[]>>;
   placeOrder(payload: PlaceOrderPayload): Promise<ApiResult<PlacedOrder>>;
   cancelOrder(messageId: string): Promise<ApiResult<null>>;
-  // Staff (allowlisted) operations — the bot rejects non-staff with 403.
   getOpenOrders(): Promise<ApiResult<Order[]>>;
   claimOrder(messageId: string): Promise<ApiResult<Order>>;
   declineOrder(messageId: string, reason: string): Promise<ApiResult<Order>>;
@@ -275,11 +256,6 @@ export interface BagshopClient {
   patchInventory(key: string, patch: InventoryPatch): Promise<ApiResult<InventoryItem>>;
 }
 
-/**
- * Builds a {@link BagshopClient} bound to the given `fetch` (SvelteKit's load `fetch`
- * on the server, `window.fetch` in the browser). Every method routes through the
- * same-origin `/api/bagshop/**` proxy and runtime-validates its response.
- */
 export function createBagshopClient(options: { fetch: typeof fetch }): BagshopClient {
   const f = options.fetch;
 
@@ -341,10 +317,7 @@ export function createBagshopClient(options: { fetch: typeof fetch }): BagshopCl
   };
 }
 
-/** Splits an inventory key like "NOTG_Rare" into its raid and rarity parts. */
 export function splitInventoryKey(key: string): { raid: string; rarity: string } {
-  // Split on the last "_" so raid codes that themselves contain underscores stay intact
-  // (rarities never do). Keys without a separator keep the whole string as the raid.
   const sep = key.lastIndexOf("_");
   return sep < 0 ? { raid: key, rarity: "" } : { raid: key.slice(0, sep), rarity: key.slice(sep + 1) };
 }

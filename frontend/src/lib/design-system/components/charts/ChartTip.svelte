@@ -2,7 +2,6 @@
   export interface ChartTipRow {
     label: string;
     value: string;
-    /** Optional legend swatch color shown before the label. */
     mark?: string;
   }
 
@@ -113,7 +112,6 @@
     border-top: 1px solid var(--color-border-subtle);
   }
 
-  /* Anchor marker: stays on the hovered column even when the card clamps. */
   .tip-caret {
     position: absolute;
     top: 100%;

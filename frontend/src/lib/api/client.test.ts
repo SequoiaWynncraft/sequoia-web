@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { createSequoiaApiClient } from "$lib/api/client";
-import type { SeasonRaidActivityResponse } from "$lib/api/client";
+import { createSequoiaApiClient } from "#lib/api/client.js";
+import type { SeasonRaidActivityResponse } from "#lib/api/client.js";
 import {
   branchLeadershipBadge,
   type GuildOverviewResponse,
-} from "$lib/api/guildOverview";
+} from "#lib/api/guildOverview.js";
 
 const guildOverviewBody: GuildOverviewResponse = {
   generated_at: "2026-07-08T12:00:00Z",

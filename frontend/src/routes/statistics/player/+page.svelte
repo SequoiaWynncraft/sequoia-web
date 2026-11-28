@@ -1,5 +1,5 @@
 <script lang="ts">
-  import RegistryPage from "$lib/components/RegistryPage.svelte";
+  import RegistryPage from "#lib/components/RegistryPage.svelte";
 </script>
 
 <RegistryPage path="/statistics/player" />

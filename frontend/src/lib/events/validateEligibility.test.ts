@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseGuildEvent } from "$lib/events/validate";
+import { parseGuildEvent } from "#lib/events/validate.js";
 
 const VALID = {
   slug: "test-event",
@@ -160,9 +160,6 @@ describe("raffle eligibility parsing", () => {
   });
 
   it("parses a stored production-shaped event verbatim (rollback safety)", () => {
-    // A drawn, windowed, milestone-gated raffle exactly as pre-eligibility
-    // code persisted it. If this ever fails, stored rows silently vanish
-    // from listings - see eventStore.rowToStored.
     const stored = {
       ...VALID,
       access: "members",

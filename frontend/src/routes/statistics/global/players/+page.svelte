@@ -1,17 +1,17 @@
 <script lang="ts">
-  import StatsHeader from "$lib/components/StatsHeader.svelte";
-  import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
-  import LedgerTable from "$lib/design-system/components/LedgerTable.svelte";
-  import type { LedgerColumn } from "$lib/design-system/components/ledgerTable";
-  import ScopeChips from "$lib/design-system/components/ScopeChips.svelte";
-  import Podium from "$lib/design-system/components/Podium.svelte";
+  import StatsHeader from "#lib/components/StatsHeader.svelte";
+  import SectionLabel from "#lib/design-system/components/SectionLabel.svelte";
+  import LedgerTable from "#lib/design-system/components/LedgerTable.svelte";
+  import type { LedgerColumn } from "#lib/design-system/components/ledgerTable.js";
+  import ScopeChips from "#lib/design-system/components/ScopeChips.svelte";
+  import Podium from "#lib/design-system/components/Podium.svelte";
   import {
     PLAYER_METRICS,
     PLAYER_WINDOWS,
     type GlobalPlayerRankingEntry,
-  } from "$lib/api/globalPlayers";
-  import type { PlayerSearchHit } from "$lib/server/globalPlayer";
-  import { nmsrFace } from "$lib/site/nmsr";
+  } from "#lib/api/globalPlayers.js";
+  import type { PlayerSearchHit } from "#lib/server/globalPlayer.js";
+  import { nmsrFace } from "#lib/site/nmsr.js";
 
   let { data } = $props();
 
@@ -45,7 +45,6 @@
   const windowNote = $derived.by(() => {
     if (!rankings) return null;
     if (rankings.from && rankings.to) {
-      // Tracking may have started inside the requested window - never claim more.
       const truncated = rankings.data_since !== null && rankings.data_since > rankings.from;
       const from = truncated && rankings.data_since ? rankings.data_since : rankings.from;
       return `${truncated ? "tracked " : ""}${day(from)} to ${day(rankings.to)}`;

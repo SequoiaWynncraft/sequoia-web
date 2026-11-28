@@ -43,7 +43,6 @@ describe("post status", () => {
 describe("canSeePost", () => {
   it("applies each tier to each viewer", () => {
     const cases: [PostAudience["tier"], boolean[]][] = [
-      // anonymous, signedIn, member, manager
       ["everyone", [true, true, true, true]],
       ["signedIn", [false, true, true, true]],
       ["members", [false, false, true, true]],
@@ -84,7 +83,6 @@ describe("canSeePost", () => {
     const unverified: PostViewer = { ...MEMBER, seqRank: null, branches: [] };
     expect(canSeePost(post({ tier: "members", seqRanks: ["Druid"] }), true, unverified, NOW)).toBe(false);
     expect(canSeePost(post({ tier: "members", branches: ["events"] }), true, unverified, NOW)).toBe(false);
-    // The roster-backed guild rank still applies.
     expect(canSeePost(post({ tier: "members", guildRanks: ["captain"] }), true, unverified, NOW)).toBe(true);
   });
 });

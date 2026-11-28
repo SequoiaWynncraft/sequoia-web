@@ -1,16 +1,16 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
-  import StatsHeader from "$lib/components/StatsHeader.svelte";
-  import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
-  import LedgerTable from "$lib/design-system/components/LedgerTable.svelte";
-  import type { LedgerColumn } from "$lib/design-system/components/ledgerTable";
-  import ScopeChips from "$lib/design-system/components/ScopeChips.svelte";
-  import SeasonLedger from "$lib/design-system/components/charts/SeasonLedger.svelte";
-  import DeferredPanel from "$lib/design-system/components/DeferredPanel.svelte";
-  import { RANKING_WINDOWS, type GlobalRaidRankingEntry } from "$lib/api/globalRankings";
-  import type { SeasonRankingEntry } from "$lib/api/seasonRankings";
-  import { KNOWN_RAIDS } from "$lib/site/raids";
-  import { compact } from "$lib/site/format";
+  import StatsHeader from "#lib/components/StatsHeader.svelte";
+  import SectionLabel from "#lib/design-system/components/SectionLabel.svelte";
+  import LedgerTable from "#lib/design-system/components/LedgerTable.svelte";
+  import type { LedgerColumn } from "#lib/design-system/components/ledgerTable.js";
+  import ScopeChips from "#lib/design-system/components/ScopeChips.svelte";
+  import SeasonLedger from "#lib/design-system/components/charts/SeasonLedger.svelte";
+  import DeferredPanel from "#lib/design-system/components/DeferredPanel.svelte";
+  import { RANKING_WINDOWS, type GlobalRaidRankingEntry } from "#lib/api/globalRankings.js";
+  import type { SeasonRankingEntry } from "#lib/api/seasonRankings.js";
+  import { KNOWN_RAIDS } from "#lib/site/raids.js";
+  import { compact } from "#lib/site/format.js";
 
   let { data } = $props();
 
@@ -34,7 +34,6 @@
   );
   const ownPosition = $derived(
     rankings?.entries.find((entry) => entry.name === guildName)?.position ??
-      // Outside the fetched top slice, the guild's own rankings map still knows the placement.
       (season !== null ? (stats?.rankings[`guildSeason${season}`] ?? null) : null),
   );
 
@@ -93,7 +92,6 @@
     return `?${query}`;
   }
 
-  /** Gambits per completion, the efficiency measure raiders compare. */
   function ratio(gambits: number, raids: number): string {
     return raids > 0 ? (gambits / raids).toFixed(1) : "-";
   }
@@ -118,7 +116,6 @@
       },
     ];
     if (raidRace?.totals_only) {
-      // Lifetime and warm-up boards rank by current totals.
       columns.push(
         {
           key: "total",
@@ -293,7 +290,6 @@
 
   const trophies: Trophy[] = $derived.by(() => {
     if (!stats) return [];
-    // The live season is a standing, not a finish — it stays off the wall.
     const liveSeasonSlug = `guildSeason${stats.season_ranks.at(-1)?.season ?? -1}`;
     const entries: Trophy[] = [];
     for (const [slug, position] of Object.entries(stats.rankings)) {
@@ -317,7 +313,7 @@
     if (activeWindow !== "7d") query.set("window", activeWindow);
     if (activeWarWindow !== "7d") query.set("wwindow", activeWarWindow);
     if (activeRaid) query.set("raid", activeRaid);
-    void goto(`?${query}`, { noScroll: true, keepFocus: true });
+    void goto(`?${query}`, { reset: false });
   }
 </script>
 

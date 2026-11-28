@@ -1,10 +1,10 @@
 <script lang="ts">
   import { getContext } from "svelte";
 
-  import Field from "$lib/design-system/components/forms/Field.svelte";
-  import FormSection from "$lib/design-system/components/forms/FormSection.svelte";
-  import TextArea from "$lib/design-system/components/forms/TextArea.svelte";
-  import EmojiPicker from "$lib/emoji/EmojiPicker.svelte";
+  import Field from "#lib/design-system/components/forms/Field.svelte";
+  import FormSection from "#lib/design-system/components/forms/FormSection.svelte";
+  import TextArea from "#lib/design-system/components/forms/TextArea.svelte";
+  import EmojiPicker from "#lib/emoji/EmojiPicker.svelte";
 
   import { EDITOR_KEY, EventDraft } from "../draft.svelte";
 

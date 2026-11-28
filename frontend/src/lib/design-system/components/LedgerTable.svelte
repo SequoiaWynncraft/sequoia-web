@@ -1,4 +1,6 @@
 <script lang="ts" generics="Row">
+  import { untrack } from "svelte";
+
   import type { LedgerColumn } from "./ledgerTable";
 
   let {
@@ -20,19 +22,16 @@
     showRank?: boolean;
     highlight?: (row: Row) => boolean;
     maxHeight?: string;
-    /** Bindable active sort column, for parents that mirror the ordering. */
     sortKey?: string;
   } = $props();
 
-  // svelte-ignore state_referenced_locally — props intentionally seed the initial sort only
-  let descending = $state(defaultDescending);
+  let descending = $state(untrack(() => defaultDescending));
 
   const sorted = $derived.by(() => {
     const column = columns.find((candidate) => candidate.key === sortKey) ?? columns[0];
     return orderRows(column, descending);
   });
 
-  /** Ranks stay pinned to the default ordering so re-sorting never re-ranks rows. */
   const ranks = $derived.by(() => {
     const column = columns.find((candidate) => candidate.key === defaultSort) ?? columns[0];
     return new Map(orderRows(column, defaultDescending).map((row, index) => [rowKey(row), index + 1]));
@@ -71,13 +70,8 @@
     return descending ? "descending" : "ascending";
   }
 
-  /** How long a pointer must rest on a label before its tooltip fades in. */
   const TIP_DELAY_MS = 120;
 
-  /**
-   * The active hover label. It renders outside `.ledger-scroll` and is positioned
-   * with viewport coordinates, so the scroll container's `overflow` cannot clip it.
-   */
   let tip = $state<{ text: string; x: number; y: number } | null>(null);
   let tipTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -86,16 +80,11 @@
     tip = null;
   }
 
-  /**
-   * Attaches a hover/focus label to an element, replacing the native `title`
-   * so it appears far sooner. Reacts to pointer and keyboard alike.
-   */
   function tooltip(node: HTMLElement, text: string | null) {
     let label = text;
 
     const show = () => {
       clearTimeout(tipTimer);
-      // No label, no tooltip — an empty one would render as a bare bordered box.
       if (!label) return;
       const shown = label;
       tipTimer = setTimeout(() => {
@@ -169,7 +158,7 @@
                 {@render column.cell(row)}
               {:else}
                 {#if avatar}
-                  <!-- svelte-ignore a11y_no_noninteractive_tabindex — focusable on purpose, so the label is keyboard-reachable -->
+                  <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
                   <span
                     class="tip-anchor"
                     role={avatarAlt ? "img" : undefined}
@@ -193,7 +182,7 @@
                     style={secondaryColor ? `color:${secondaryColor}` : undefined}>{secondary}</span
                   >{/if}
                 {#if icon}
-                  <!-- svelte-ignore a11y_no_noninteractive_tabindex — focusable on purpose, so the label is keyboard-reachable -->
+                  <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
                   <span
                     class="tip-anchor"
                     role={icon.alt ? "img" : undefined}
@@ -342,8 +331,6 @@
     outline-offset: 2px;
   }
 
-  /* Custom hover label — replaces the native `title` so it appears far sooner.
-     Fixed positioning keeps it clear of `.ledger-scroll`'s overflow clip. */
   .seq-tip {
     position: fixed;
     z-index: 3;
@@ -365,7 +352,6 @@
     image-rendering: pixelated;
   }
 
-  /* The pixel face renders optically smaller than Inter — size up a step. */
   td.name-cell {
     font-family: var(--font-display);
     font-size: var(--text-sm);

@@ -1,9 +1,10 @@
 <script lang="ts">
-  import ManageHeader from "$lib/manage/ManageHeader.svelte";
-  import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
-  import { messageLink, settingsAuditChanges } from "$lib/manage/auditTarget";
-  import type { AuditEntry } from "$lib/server/auditLog";
-  import AreaGate from "$lib/manage/AreaGate.svelte";
+  import { pageTitle } from "#lib/site/brand.js";
+  import ManageHeader from "#lib/manage/ManageHeader.svelte";
+  import SectionLabel from "#lib/design-system/components/SectionLabel.svelte";
+  import { messageLink, settingsAuditChanges } from "#lib/manage/auditTarget.js";
+  import type { AuditEntry } from "#lib/server/auditLog.js";
+  import AreaGate from "#lib/manage/AreaGate.svelte";
 
   let { data } = $props();
 
@@ -32,7 +33,7 @@
 </script>
 
 <svelte:head>
-  <title>Audit log - Sequoia</title>
+  <title>{pageTitle("Audit log")}</title>
   <meta name="robots" content="noindex" />
 </svelte:head>
 

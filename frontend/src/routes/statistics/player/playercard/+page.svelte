@@ -1,27 +1,22 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
-  import StatsHeader from "$lib/components/StatsHeader.svelte";
-  import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
-  import BarList from "$lib/design-system/components/BarList.svelte";
-  import DeferredPanel from "$lib/design-system/components/DeferredPanel.svelte";
-  import ScopeChips from "$lib/design-system/components/ScopeChips.svelte";
-  import DailyBars from "$lib/design-system/components/charts/DailyBars.svelte";
-  import { raidSeriesFor } from "$lib/site/raids";
-  import { tierColor } from "$lib/site/rankColors";
-  import { nmsrFullBodyIso } from "$lib/site/nmsr";
-  import type { PlayerCardResponse } from "$lib/api/playerCard";
-  import type { PlayerSeriesResponse } from "$lib/api/playerSeries";
-  import { insigniaLabel } from "$lib/site/honours";
+  import StatsHeader from "#lib/components/StatsHeader.svelte";
+  import SectionLabel from "#lib/design-system/components/SectionLabel.svelte";
+  import BarList from "#lib/design-system/components/BarList.svelte";
+  import DeferredPanel from "#lib/design-system/components/DeferredPanel.svelte";
+  import ScopeChips from "#lib/design-system/components/ScopeChips.svelte";
+  import DailyBars from "#lib/design-system/components/charts/DailyBars.svelte";
+  import { raidSeriesFor } from "#lib/site/raids.js";
+  import { tierColor } from "#lib/site/rankColors.js";
+  import { nmsrFullBodyIso } from "#lib/site/nmsr.js";
+  import type { PlayerCardResponse } from "#lib/api/playerCard.js";
+  import { trackWindow, type PlayerSeriesResponse } from "#lib/api/playerSeries.js";
+  import { insigniaLabel } from "#lib/site/honours.js";
 
   let { data } = $props();
 
-  // svelte-ignore state_referenced_locally — seeded here, kept in sync by the effect below
-  let query = $state(data.player);
-  $effect(() => {
-    query = data.player;
-  });
+  let query = $derived(data.player);
 
-  /** How many names the dropdown offers — enough to be useful, never the whole roster. */
   const MAX_SUGGESTIONS = 10;
 
   const suggestions = $derived.by(() => {
@@ -35,7 +30,7 @@
   function search(event: SubmitEvent) {
     event.preventDefault();
     const name = query.trim();
-    if (name) void goto(`?player=${encodeURIComponent(name)}`, { keepFocus: true });
+    if (name) void goto(`?player=${encodeURIComponent(name)}`, { reset: false });
   }
 
   function raidBars(card: PlayerCardResponse) {
@@ -47,7 +42,6 @@
     }));
   }
 
-  /** Meta line for the Raids section: lifetime total, plus the Sequoia share when known. */
   function raidsMeta(card: PlayerCardResponse): string {
     const total = `${(card.raids_total ?? 0).toLocaleString()} total`;
     if (card.current_guild_raids === null) return total;
@@ -100,7 +94,6 @@
     }
   }
 
-  // Tracking chart: one full-history series, sliced client-side per metric and range.
   const METRICS = [
     { key: "playtime", label: "playtime" },
     { key: "wars", label: "wars" },
@@ -120,20 +113,8 @@
     { key: "6m", label: "6m" },
     { key: "all", label: "all" },
   ];
-  const RANGE_DAYS: Record<string, number> = { "1w": 7, "1m": 30, "3m": 91, "6m": 182, all: 399 };
-
   let metric = $state("playtime");
   let trackRange = $state("1m");
-
-  function trackWindow(series: PlayerSeriesResponse): { from: string; to: string } {
-    const to = series.to;
-    const from = new Date(
-      Date.parse(`${to}T00:00:00Z`) - (RANGE_DAYS[trackRange] - 1) * 24 * 60 * 60 * 1000,
-    )
-      .toISOString()
-      .slice(0, 10);
-    return { from: from < series.from ? series.from : from, to };
-  }
 
   function trackPoints(series: PlayerSeriesResponse, from: string): { day: string; value: number }[] {
     return series.days
@@ -282,7 +263,7 @@
 
           {#await result.series then series}
             {#if series && series.days.length > 0}
-              {@const window = trackWindow(series)}
+              {@const window = trackWindow(series, trackRange)}
               <div class="card-section">
                 <SectionLabel meta="{formatDate(window.from)} to {formatDate(window.to)}">
                   {#snippet children()}Tracking{/snippet}
@@ -320,7 +301,6 @@
               <SectionLabel meta="{honours.badges.length + honours.warHonours.length} awarded">
                 {#snippet children()}Honours{/snippet}
               </SectionLabel>
-              <!-- One row per honour category — future awards slot in as rows. -->
               {#if honours.warHonours.length > 0}
                 <div class="honour-row">
                   <span class="honour-label">War honours</span>

@@ -1,14 +1,14 @@
 import { createClient } from "@libsql/client";
 import { describe, expect, it, vi } from "vitest";
 
-import type { Viewer } from "$lib/site/viewer";
+import type { Viewer } from "#lib/site/viewer.js";
 import { load as loadAudit } from "../../routes/manage/development/audit/+page.server";
 
 import { createAuditLog, listManagementAudit, mergeAuditEntries, type AuditEntry } from "./auditLog";
 
-vi.mock("$lib/server/manageCapabilities", () => ({ pageAreaAccess: vi.fn().mockResolvedValue("granted") }));
+vi.mock("#lib/server/manageCapabilities.js", () => ({ pageAreaAccess: vi.fn().mockResolvedValue("granted") }));
 vi.mock("./db", () => ({ database: () => Promise.resolve(createClient({ url: ":memory:" })) }));
-vi.mock("$env/dynamic/private", () => ({ env: { SEQUOIA_DISCORD_MANAGEMENT_URL: "http://sierra:8082" } }));
+vi.mock("$app/env/private", () => ({ SEQUOIA_DISCORD_MANAGEMENT_URL: "http://sierra:8082" }));
 
 const MANAGER: Viewer = {
   discordId: "1234",

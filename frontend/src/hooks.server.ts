@@ -1,12 +1,13 @@
-import type { Handle, HandleServerError, ServerInit } from "@sveltejs/kit";
+import type { Handle, HandleServerError, ServerInit } from "@sveltejs/kit/hooks";
 
-import { legacyManageRedirect } from "$lib/manage/redirects";
-import { closeDatabase } from "$lib/server/db";
-import { retireAllRooms } from "$lib/server/liveRolls";
-import { parseThemeId, THEME_COOKIE } from "$lib/site/themePreferences";
+import { legacyManageRedirect } from "#lib/manage/redirects.js";
+import { closeDatabase } from "#lib/server/db.js";
+import { retireAllRooms } from "#lib/server/liveRolls.js";
+import { applySecurityHeaders } from "#lib/server/securityHeaders.js";
+import { fillBrandPlaceholders } from "#lib/site/brand.js";
+import { parseThemeId, THEME_COOKIE } from "#lib/site/themePreferences.js";
 import { REQUEST_FINISHED, REQUEST_STARTED } from "../retirement.js";
 
-/** Docker uses a signal adapter-node does not consume so its listener stays live during the drain. */
 export const init: ServerInit = () => {
   process.once("SIGUSR2", retireAllRooms);
   process.once("sveltekit:shutdown", closeDatabase);
@@ -27,12 +28,6 @@ const handleRequest: Handle = async ({ event, resolve }) => {
   event.locals.requestId = requestId;
   let response: Response | undefined;
 
-  // A stale tab's form POST to a legacy management path must reach the real
-  // action with its body intact. A redirect can't deliver that: actions
-  // dispatch before `load`, and `use:enhance` clients turn a redirect action
-  // result into a GET navigation, dropping the submission. Re-dispatch the
-  // request at its console home instead - both native and enhanced forms
-  // then get the destination action's genuine result.
   if (event.request.method === "POST") {
     const target = legacyManageRedirect(event.url.pathname, event.url.search);
     if (target) {
@@ -42,28 +37,21 @@ const handleRequest: Handle = async ({ event, resolve }) => {
           method: "POST",
           headers: event.request.headers,
           body,
-          // A redirecting action (create's 303, delete's 303) must reach the
-          // BROWSER - following it here would return the destination's HTML
-          // while the address bar stays on the legacy URL.
           redirect: "manual",
         }),
       );
     }
   }
 
-  // The chosen palette has to be on <html> before any CSS applies, so it is
-  // stamped into the shell rather than set from the client - no flash of the
-  // wrong theme, and no client JS involved.
   response ??= await resolve(event, {
     transformPageChunk: ({ html }) =>
-      html.replace("%seq.theme%", parseThemeId(event.cookies.get(THEME_COOKIE))),
+      fillBrandPlaceholders(html.replace("%seq.theme%", parseThemeId(event.cookies.get(THEME_COOKIE)))),
   });
   response.headers.set("x-request-id", requestId);
+  applySecurityHeaders(response.headers, event.url);
 
   const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
   if (contentType.startsWith("text/html") || event.url.pathname.endsWith("/__data.json")) {
-    // Every page includes session-aware layout data. Never reuse its HTML or
-    // SvelteKit data response after logout or across a deployment.
     response.headers.set("cache-control", "private, no-store");
   }
 
@@ -80,16 +68,34 @@ const handleRequest: Handle = async ({ event, resolve }) => {
   return response;
 };
 
-export const handleError: HandleServerError = ({ error, event, status, message }) => {
+export const handleError: HandleServerError = (caught) => {
+  const { event } = caught;
   const requestId = event.locals.requestId ?? crypto.randomUUID();
-  if (status >= 500) {
+  const status = serverFailureStatus(caught);
+  if (status !== null) {
     console.error("unexpected frontend error", {
       requestId,
       method: event.request.method,
       path: event.url.pathname,
       status,
-      error,
+      error: caught.error,
     });
   }
-  return { message, requestId };
+  return { requestId };
 };
+
+function serverFailureStatus(caught: Parameters<HandleServerError>[0]): number | null {
+  switch (caught.kind) {
+    case "unknown":
+      return 500;
+    case "framework":
+      return caught.error.status >= 500 ? caught.error.status : null;
+    case "app":
+    case "validation":
+      return null;
+    default: {
+      const _exhaustive: never = caught;
+      return _exhaustive;
+    }
+  }
+}

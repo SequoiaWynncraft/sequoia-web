@@ -1,21 +1,16 @@
 import type { RequestHandler } from "./$types";
 
-import { requireBranchArea } from "$lib/server/branchAccess";
+import { requireBranchArea } from "#lib/server/branchAccess.js";
 import {
   buildExport,
   findExportDataset,
   parseExportParams,
-} from "$lib/server/communityExports";
-import { csvResponse } from "$lib/server/csv";
-import { requestError } from "$lib/server/requestError";
+} from "#lib/server/communityExports.js";
+import { csvResponse } from "#lib/server/csv.js";
+import { requestError } from "#lib/server/requestError.js";
 
 export const prerender = false;
 
-/**
- * CSV download for one community dataset. Gated here as well as on the page:
- * endpoints don't inherit the layout's guard, and the download URL is
- * shareable.
- */
 export const GET: RequestHandler = async ({ params, url, cookies, fetch, locals }) => {
   await requireBranchArea(
     { cookies, fetch, locals },

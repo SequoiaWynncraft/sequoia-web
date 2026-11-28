@@ -1,13 +1,14 @@
 <script lang="ts">
-  import ManageHeader from "$lib/manage/ManageHeader.svelte";
-  import EventEditor from "$lib/events/editor/EventEditor.svelte";
-  import AreaGate from "$lib/manage/AreaGate.svelte";
+  import { pageTitle } from "#lib/site/brand.js";
+  import ManageHeader from "#lib/manage/ManageHeader.svelte";
+  import EventEditor from "#lib/events/editor/EventEditor.svelte";
+  import AreaGate from "#lib/manage/AreaGate.svelte";
 
   let { data, form } = $props();
 </script>
 
 <svelte:head>
-  <title>New event - Sequoia</title>
+  <title>{pageTitle("New event")}</title>
   <meta name="robots" content="noindex" />
 </svelte:head>
 

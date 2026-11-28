@@ -1,4 +1,5 @@
-import type { IconName } from "$lib/icons";
+import type { IconName } from "#lib/icons.js";
+import { BRAND } from "#lib/site/brand.js";
 
 export interface NavLeaf {
   label: string;
@@ -9,9 +10,6 @@ export interface NavLeaf {
   title?: string;
   lead?: string;
   placeholder?: string;
-  cta?: string;
-  flagship?: boolean;
-  hideFromHome?: boolean;
 }
 
 export interface NavGroup {
@@ -63,7 +61,7 @@ export const SECTIONS: NavSection[] = [
     label: "News",
     to: "/news",
     icon: "document",
-    kicker: "Sequoia",
+    kicker: BRAND.name,
     title: "News",
     lead: "News and updates from the guild.",
     placeholder: "News",
@@ -73,7 +71,7 @@ export const SECTIONS: NavSection[] = [
     to: "/events",
     icon: "trophy",
     description: "Guild events - live, upcoming, and past.",
-    kicker: "Sequoia",
+    kicker: BRAND.name,
     title: "Events",
   },
   {
@@ -205,7 +203,7 @@ export const SECTIONS: NavSection[] = [
     icon: "bag",
     kicker: "Services",
     title: "Community",
-    lead: "Sequoia services: bagshop, announcements, requests, and tools.",
+    lead: `${BRAND.name} services: bagshop, announcements, requests, and tools.`,
     items: [
       {
         label: "Bagshop",
@@ -216,8 +214,6 @@ export const SECTIONS: NavSection[] = [
         title: "Bagshop",
         lead: "Marketplace for crafter bags from raids.",
         placeholder: "Bagshop",
-        cta: "Visit",
-        flagship: true,
       },
       {
         label: "Announcements",
@@ -228,7 +224,6 @@ export const SECTIONS: NavSection[] = [
         title: "Announcements",
         lead: "Guild-internal announcements for members.",
         placeholder: "Announcements",
-        cta: "Read",
       },
       {
         label: "Requests",
@@ -239,8 +234,6 @@ export const SECTIONS: NavSection[] = [
         title: "Requests",
         lead: "Request Aspects and Tomes here.",
         placeholder: "Requests",
-        cta: "Request",
-        hideFromHome: true,
       },
       {
         label: "Tower Calc",
@@ -251,9 +244,12 @@ export const SECTIONS: NavSection[] = [
         title: "Tower Calc",
         lead: "Set upgrade levels, HQ, connections and externals to see DPS, EHP and defence rating.",
         placeholder: "Tower Calc",
-        cta: "Calculate",
       },
     ],
+  },
+  {
+    label: "Leaf",
+    to: "/leaf",
   },
 ];
 
@@ -281,7 +277,7 @@ export function leavesOf(section: NavSection): NavLeaf[] {
   return [];
 }
 
-export function tabsFor(path: string): NavLeaf[] {
+function tabsFor(path: string): NavLeaf[] {
   for (const s of SECTIONS) {
     if (s.items && (s.to === path || s.items.some((item) => item.to === path))) return s.items;
     if (s.groups) {
@@ -314,41 +310,6 @@ export function cardsFor(path: string): NavLeaf[] {
   }
 
   return [];
-}
-
-export function homepageServices(): NavLeaf[] {
-  return cardsFor("/services").filter((s) => !s.hideFromHome);
-}
-
-/**
- * The three headline statistics pages surfaced on the homepage, ordered
- * left-to-right. These carry curated query strings (e.g. a default window) so
- * the cards land on a ready-to-read view rather than a bare page.
- */
-export function homepageStatistics(): NavLeaf[] {
-  return [
-    {
-      label: "Rankings",
-      to: "/statistics/global/rankings?window=1d&wwindow=1d",
-      icon: "trophy",
-      description: "Where every guild stands.",
-      cta: "View",
-    },
-    {
-      label: "Raid",
-      to: "/statistics/guilds/raid",
-      icon: "sword",
-      description: "Raid output and member contributions.",
-      cta: "View",
-    },
-    {
-      label: "Activity",
-      to: "/statistics/player/activity?range=1w",
-      icon: "online",
-      description: "Member presence and gains over time.",
-      cta: "View",
-    },
-  ];
 }
 
 export function pageView(path: string): PageView {

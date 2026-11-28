@@ -1,6 +1,6 @@
-import { isPlayerSeriesResponse, type PlayerSeriesResponse } from "$lib/api/playerSeries";
-import { SEQUOIA_API_BASE_URL } from "$lib/config/public";
-import { createCachedResource, type CachedResource } from "$lib/server/serverCache";
+import { isPlayerSeriesResponse, type PlayerSeriesResponse } from "#lib/api/playerSeries.js";
+import { SEQUOIA_API_BASE_URL } from "#lib/config/public.js";
+import { createCachedResource, type CachedResource } from "#lib/server/serverCache.js";
 
 const FRESH_MS = 5 * 60 * 1000;
 const STALE_MS = 60 * 60 * 1000;
@@ -8,14 +8,14 @@ const MAX_PLAYERS = 64;
 
 const resources = new Map<string, CachedResource<PlayerSeriesResponse>>();
 
-/** Full-history series for one player; callers slice ranges client-side. */
 export async function getPlayerSeries(
   fetchImpl: typeof fetch,
   playerUuid: string,
   from: string,
   to: string,
 ): Promise<PlayerSeriesResponse> {
-  const key = `${playerUuid.toLowerCase()}:${from}..${to}`;
+  const uuid = playerUuid.toLowerCase();
+  const key = `${uuid}:${from}..${to}`;
   let resource = resources.get(key);
   if (!resource) {
     if (resources.size >= MAX_PLAYERS) {
@@ -23,11 +23,12 @@ export async function getPlayerSeries(
       if (oldest !== undefined) resources.delete(oldest);
     }
     resource = createCachedResource<PlayerSeriesResponse>({
-      key: `player-series:${key}`,
+      key: `player-series:${uuid}:v2`,
       freshMs: FRESH_MS,
       staleMs: STALE_MS,
       load: (impl) => loadSeries(impl, playerUuid, from, to),
-      validate: isPlayerSeriesResponse,
+      validate: (value): value is PlayerSeriesResponse =>
+        isPlayerSeriesResponse(value) && value.from === from && value.to === to,
     });
     resources.set(key, resource);
   }

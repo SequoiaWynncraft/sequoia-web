@@ -1,7 +1,7 @@
 <script lang="ts">
   import { getContext } from "svelte";
 
-  import FormSection from "$lib/design-system/components/forms/FormSection.svelte";
+  import FormSection from "#lib/design-system/components/forms/FormSection.svelte";
 
   import { EDITOR_KEY, EventDraft } from "../draft.svelte";
 

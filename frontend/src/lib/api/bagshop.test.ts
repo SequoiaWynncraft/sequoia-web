@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createBagshopClient, splitInventoryKey, type BagshopMe, type InventoryItem, type Order } from "$lib/api/bagshop";
+import { createBagshopClient, splitInventoryKey, type BagshopMe, type InventoryItem, type Order } from "#lib/api/bagshop.js";
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -12,14 +12,12 @@ const orderRow: Order = {
   messageId: "abc",
   orderType: "buy",
   note: "",
-  userId: "42",
   userName: "tester",
   minecraftIgn: "Tester",
   createdAt: 1_700_000_000,
-  claimedByMention: null,
+  claimed: false,
   remainingItems: [{ raid: "NOTG", rarity: "Rare", amount: 2 }],
   processedItems: [],
-  linkedMessageId: null,
   splitPart: 0,
 };
 
@@ -30,7 +28,6 @@ const meRow: BagshopMe = {
   staff: true,
 };
 
-/** Records the URL + method of each proxy request while replying with `body`. */
 function recordingClient(body: unknown) {
   const calls: { url: string; method: string }[] = [];
   const client = createBagshopClient({

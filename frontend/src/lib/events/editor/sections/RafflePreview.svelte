@@ -1,8 +1,8 @@
 <script lang="ts">
-  import PlayerName from "$lib/design-system/components/PlayerName.svelte";
+  import PlayerName from "#lib/design-system/components/PlayerName.svelte";
   import { getContext } from "svelte";
 
-  import type { RafflePreviewResponse } from "$lib/events/rafflePreview";
+  import type { RafflePreviewResponse } from "#lib/events/rafflePreview.js";
   
   import { EDITOR_KEY, EventDraft } from "../draft.svelte";
 
@@ -20,9 +20,6 @@
     ),
   );
 
-  // Debounced re-resolve while open: any draft change re-runs this effect via
-  // the payload read; the abort keeps a slow response from clobbering a newer
-  // one.
   $effect(() => {
     if (!open) return;
     const payload = JSON.stringify({ event: draft.draftEvent, raffleId });

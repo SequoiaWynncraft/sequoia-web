@@ -1,12 +1,3 @@
-/**
- * Discord-dialect markdown for the live preview. `discord-markdown-parser`
- * (simple-markdown with Discord's rules) supplies the grammar; this module only
- * adds Discord's list syntax, which that parser omits, and narrows its loose AST
- * into the closed node set the preview renders. Nothing here produces HTML: the
- * renderer emits elements, so authored markup always stays text, and only
- * http(s) link targets survive.
- */
-
 import shortcodeData from "emojibase-data/en/shortcodes/joypixels.json";
 
 import { SimpleMarkdown, rulesExtended, type Capture, type ParserRule, type SingleASTNode } from "./parser";
@@ -30,17 +21,10 @@ export type DiscordNode =
   | { type: "emoji"; name: string; id: string | null; animated: boolean }
   | { type: "timestamp"; seconds: number; format: TimestampFormat };
 
-/**
- * Where text appears decides which syntax Discord renders: message content and
- * embed descriptions/field values take the full dialect, while embed titles and
- * field names only take inline styling (mentions and links stay literal).
- */
 export type MarkdownSurface = "content" | "title";
 
 const ITEM = /^( *)([-*]|\d{1,9}\.) +(\S[^\n]*)(?:\n|$)/;
 
-// Emojibase's Discord preset uses JoyPixels names. Keep this inside the grammar
-// so code, escapes, custom emoji and link destinations retain their own rules.
 const SHORTCODES = new Map(
   Object.entries(shortcodeData).flatMap(([hex, names]) => {
     const unicode = String.fromCodePoint(...hex.split("-").map((point) => Number.parseInt(point, 16)));
@@ -56,10 +40,6 @@ const shortcode: ParserRule = {
   parse: (capture) => ({ name: SHORTCODES.get(capture[1]) }),
 };
 
-/**
- * Discord lists: `-`/`*` or `1.` at a line start, consecutive lines of one
- * kind, deeper indentation nesting under the previous item.
- */
 const list: ParserRule = {
   order: SimpleMarkdown.defaultRules.list.order,
   match(source, _state, previous) {
@@ -135,7 +115,6 @@ const titleParser = SimpleMarkdown.parserFor(
   {
     ...Object.fromEntries(TITLE_RULES.map((name) => [name, rulesExtended[name]])),
     shortcode,
-    // Titles keep URLs as text, but their spelling must not become emoji.
     literalUrl: { ...rulesExtended.url, parse: (capture) => ({ content: capture[0] }) },
   },
 );
@@ -190,7 +169,6 @@ function convert(node: SingleASTNode): DiscordNode | DiscordNode[] {
     case "codeBlock":
       return { type: "codeBlock", lang: str(node.lang), text: str(node.content) };
     case "blockQuote": {
-      // The quote's own closing newline ends the block; it is not an empty line inside it.
       const quoted = children(node);
       if (quoted.at(-1)?.type === "br") quoted.pop();
       return { type: "blockQuote", children: quoted };
@@ -212,7 +190,6 @@ function convert(node: SingleASTNode): DiscordNode | DiscordNode[] {
     case "url":
     case "autolink": {
       const href = safeHref(node.target ?? (Array.isArray(node.content) ? node.content[0]?.content : node.content));
-      // An unsafe target keeps its visible text but never becomes a link.
       return href ? { type: "link", href, children: children(node) } : children(node);
     }
     case "user":
@@ -234,23 +211,16 @@ function convert(node: SingleASTNode): DiscordNode | DiscordNode[] {
     case "timestamp": {
       const seconds = Number(node.timestamp);
       const format = FORMATS.has(str(node.format)) ? (node.format as TimestampFormat) : "f";
-      // Finite numbers can still exceed Date's range; the renderer formats an ISO attribute.
       if (!Number.isNaN(new Date(seconds * 1000).getTime())) return { type: "timestamp", seconds, format };
       return { type: "text", text: `<t:${str(node.timestamp)}${node.format ? `:${str(node.format)}` : ""}>` };
     }
     default:
-      // A rule this module does not know renders as its text, never as markup.
       return Array.isArray(node.content) ? normalize(node.content) : { type: "text", text: str(node.content) };
   }
 }
 
 const BLOCKS = new Set<DiscordNode["type"]>(["codeBlock", "blockQuote", "heading", "subtext", "list"]);
 
-/**
- * Converts and merges adjacent text runs the grammar split apart. The line
- * break that ends a block is part of the block, as in Discord: it must not
- * render as an extra empty line after a code block.
- */
 function normalize(nodes: SingleASTNode[]): DiscordNode[] {
   const out: DiscordNode[] = [];
   for (const converted of nodes.flatMap(convert)) {
@@ -262,7 +232,6 @@ function normalize(nodes: SingleASTNode[]): DiscordNode[] {
   return out;
 }
 
-/** Discord enlarges messages made only of (at most 30) emoji. */
 export function isJumboEmoji(nodes: DiscordNode[]): boolean {
   let count = 0;
   for (const node of nodes) {

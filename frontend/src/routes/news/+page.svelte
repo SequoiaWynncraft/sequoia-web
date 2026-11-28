@@ -1,17 +1,18 @@
 <script lang="ts">
-  import PageHeader from "$lib/components/PageHeader.svelte";
-  import PostHub from "$lib/posts/components/PostHub.svelte";
+  import { BRAND, pageTitle } from "#lib/site/brand.js";
+  import PageHeader from "#lib/components/PageHeader.svelte";
+  import PostHub from "#lib/posts/components/PostHub.svelte";
 
   let { data } = $props();
 </script>
 
 <svelte:head>
-  <title>News - Sequoia</title>
-  <meta name="description" content="News and updates from Sequoia." />
+  <title>{pageTitle("News")}</title>
+  <meta name="description" content={`News and updates from ${BRAND.name}.`} />
 </svelte:head>
 
 <div class="news-page">
-  <PageHeader kicker="Sequoia" title="News" />
+  <PageHeader kicker={BRAND.name} title="News" />
   <PostHub hub={data.hub} feed="news" />
 </div>
 

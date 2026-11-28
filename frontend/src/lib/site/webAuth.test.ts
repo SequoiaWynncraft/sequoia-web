@@ -4,7 +4,7 @@ vi.mock("$app/state", () => ({
   page: { url: new URL("https://dev.seqwawa.com/events/private-preview?tab=standings") },
 }));
 
-vi.mock("$lib/config/public", () => ({
+vi.mock("#lib/config/public.js", () => ({
   SEQUOIA_API_BASE_URL: "https://api.seqwawa.com",
 }));
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { PostDraft } from "$lib/posts/editor/draft.svelte";
-import type { GuildPost } from "$lib/posts/types";
+import { PostDraft } from "#lib/posts/editor/draft.svelte.js";
+import type { GuildPost } from "#lib/posts/types.js";
 
 const POST: GuildPost = {
   slug: "hello",

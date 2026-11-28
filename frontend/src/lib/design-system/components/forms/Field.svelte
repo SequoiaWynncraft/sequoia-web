@@ -13,7 +13,6 @@
     hint?: string;
     /** Shown in place of the hint and flags the field visually. */
     error?: string;
-    /** Tighter row gap for dense repeater rows. */
     tight?: boolean;
     /** "div" for read-only content or multiple inputs a label must not wrap. */
     element?: "label" | "div";
@@ -23,13 +22,6 @@
   const descriptionId = $props.id();
   let main = $state<HTMLElement | null>(null);
 
-  // The children snippet takes no parameters (call sites stay plain), so the
-  // hint/error association is wired onto the rendered control directly: the
-  // first form control inside the field is described by whichever text is
-  // showing. Composite fields (color pairs, instant pairs) describe their
-  // first control - the pair reads as one field.
-  // Merge, never clobber: a control may carry its own external descriptions -
-  // only this field's generated id is ever added or removed.
   let tagged: Element | null = null;
 
   function withoutOwnId(el: Element): string[] {
@@ -39,8 +31,6 @@
   }
 
   function setIds(el: Element, ids: string[]) {
-    // Idempotent on purpose: the observer below watches this attribute, so a
-    // write that changes nothing must not happen at all - it would loop.
     const value = ids.join(" ");
     if (ids.length === 0) {
       if (el.hasAttribute("aria-describedby")) el.removeAttribute("aria-describedby");
@@ -63,10 +53,6 @@
     void hint;
     if (!main) return;
     associate();
-    // The snippet may swap its control (input -> select) without any prop
-    // changing, and Svelte may rewrite the control's aria-describedby from
-    // its own props - either way the merged id is lost and only the DOM
-    // knows. setIds' no-op guard keeps our own writes from retriggering.
     const observer = new MutationObserver(associate);
     observer.observe(main, {
       childList: true,

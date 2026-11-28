@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { load } from "./+page.server";
 
-vi.mock("$env/dynamic/private", () => ({ env: { SEQUOIA_DISCORD_MANAGEMENT_URL: "http://sierra:8082" } }));
+vi.mock("$app/env/private", () => ({ SEQUOIA_DISCORD_MANAGEMENT_URL: "http://sierra:8082" }));
 
 describe("achievement ceremonies protected page", () => {
   it("does not ask Sierra without a session", async () => {
@@ -24,7 +24,6 @@ describe("achievement ceremonies protected page", () => {
     }
   });
   it("passes the server's settings, catalog and scene through unchanged with channel choices", async () => {
-    // Fictional guild, channel and story ids.
     const ceremonies = {
       settings: { version: 4, guild_id: "1111111111111111111", enabled: false, channel_id: "2222222222222222222", stories: [{ id: "sample_story", enabled: true, weight: 10 }] },
       catalog: [{ id: "sample_story", label: "Sample story", description: "", layout: "banner", ready: true }],

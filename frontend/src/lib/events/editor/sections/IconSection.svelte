@@ -1,9 +1,9 @@
 <script lang="ts">
   import { getContext } from "svelte";
 
-  import Field from "$lib/design-system/components/forms/Field.svelte";
-  import FormSection from "$lib/design-system/components/forms/FormSection.svelte";
-  import { RAID_ICONS, raidIconUrl } from "$lib/events/raidIcons";
+  import Field from "#lib/design-system/components/forms/Field.svelte";
+  import FormSection from "#lib/design-system/components/forms/FormSection.svelte";
+  import { RAID_ICONS, raidIconUrl } from "#lib/events/raidIcons.js";
 
   import { EDITOR_KEY, EventDraft } from "../draft.svelte";
 

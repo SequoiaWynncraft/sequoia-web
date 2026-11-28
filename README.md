@@ -1,20 +1,11 @@
-# Sequoia website
+# Sequoia
 
-## Development
-
-Install [Mise](https://mise.jdx.dev/getting-started.html), then run from the repository root:
+Wynncraft guild website.
 
 ```sh
-mise trust mise.toml
-mise install bun node
-mise exec -- bun install --frozen-lockfile
-mise exec -- bun run test:web
+mise trust
+mise run setup
+mise run dev
 ```
 
-The developer toolchain pins Bun 1.4.4 and Node 22.23.4. Frontend tests require Node 22.23.4 or newer and use the existing Vitest runner. Bun remains the dependency manager and app runtime.
-
-To run one test file with the same command:
-
-```sh
-mise exec -- bun run test:web src/lib/discord/format.test.ts
-```
+Code and documentation: [MIT](LICENSE). Images and fonts are excluded.

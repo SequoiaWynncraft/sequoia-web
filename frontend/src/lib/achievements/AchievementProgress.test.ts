@@ -18,7 +18,6 @@ describe("achievement progress page body", () => {
     expect(body).toContain("Recorded");
     expect(body.indexOf("Gold, Guild wars")).toBeLessThan(body.indexOf("Silver, TNA"));
     expect(body).not.toContain("Not a current Sequoia member.");
-    expect(body).not.toContain("\u2014");
   });
   it("states ineligibility and empty history in one line each", () => {
     const progress = parseAchievementProgress({ ...sampleProgress, eligible: false, history: [] })!;

@@ -1,18 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { GuildMemberStats } from "$lib/api/guildStats";
+import type { GuildMemberStats } from "#lib/api/guildStats.js";
 
-vi.mock("$lib/server/sequoiaBackend", () => ({
+vi.mock("#lib/server/sequoiaBackend.js", () => ({
   sequoiaBackendInternalHeaders: () => ({ authorization: "Bearer mod" }),
   sequoiaBackendOrigin: () => "https://backend.test",
 }));
-vi.mock("$lib/server/sequoiaWebBackend", () => ({
+vi.mock("#lib/server/sequoiaWebBackend.js", () => ({
   sequoiaWebBackendUrl: (path: string) => `https://web.test${path}`,
   sequoiaWebBackendInternalHeaders: () => ({ authorization: "Bearer web" }),
 }));
 
-// Imported after the mocks so the module binds the stubbed backends.
-const { loadModLeaderboard, loadRaffleEligible } = await import("$lib/server/raidEventBoards");
+const { loadModLeaderboard, loadRaffleEligible } = await import("#lib/server/raidEventBoards.js");
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -44,7 +43,6 @@ interface ApiEntry {
   rank: string;
 }
 
-/** Routes fetch by path and records the window the mod leaderboard was queried with. */
 function stubRoutes(config: {
   tracked: TrackedEvent[];
   modEntries?: ModEntry[];
@@ -137,11 +135,8 @@ describe("loadRaffleEligible", () => {
     });
 
     expect(result.error).toBeNull();
-    // The raffle's own window - not the whole event - is what the board counts.
     expect(seen.modFrom).toBe("2026-08-01T00:00:00.000Z");
     expect(seen.modTo).toBe("2026-08-07T00:00:00.000Z");
-    // Alice: floor(20/5)=4 tickets. Bob: floor(4/5)=0, dropped. Outsider: off
-    // the roster, dropped. Identity comes from the roster, not the mod report.
     expect(result.entrants).toEqual([{ player_uuid: "uuid-alice", username: "Alice", tickets: 4 }]);
   });
 
@@ -172,15 +167,10 @@ describe("loadRaffleEligible", () => {
     });
 
     expect(result.error).toBeNull();
-    // Bob (12 raids) is below the gate and dropped even though he earns tickets;
-    // Alice (30) clears it: floor(30/5)=6.
     expect(result.entrants).toEqual([{ player_uuid: "uuid-alice", username: "Alice", tickets: 6 }]);
   });
 
   it("measures the milestone gate over the full window, not the raffle window", async () => {
-    // The gate reads the tracker's whole window while tickets read the raffle
-    // window; the stub returns the same board for both, so a member clearing the
-    // gate on full-window totals still qualifies.
     const seen = stubRoutes({
       tracked: [MONTH],
       modEntries: [{ player_uuid: "uuid-alice", username: "Alice", raids: 25 }],
@@ -194,8 +184,6 @@ describe("loadRaffleEligible", () => {
 
     expect(result.error).toBeNull();
     expect(result.entrants).toEqual([{ player_uuid: "uuid-alice", username: "Alice", tickets: 5 }]);
-    // The gate's unwindowed fetch is the last mod call, so `seen` reflects it:
-    // the whole tracked window (MONTH), not the raffle's narrower window.
     expect(seen.modFrom).toBe(MONTH.starts_at);
     expect(seen.modTo).toBe(MONTH.ends_at);
     expect(seen.modRaid).toBeNull();
@@ -227,7 +215,6 @@ describe("loadRaffleEligible", () => {
     });
 
     expect(result.error).toBeNull();
-    // Alice: floor(30/10)=3. Bob: floor(9/10)=0, dropped.
     expect(result.entrants).toEqual([{ player_uuid: "uuid-alice", username: "Alice", tickets: 3 }]);
   });
 });
@@ -283,7 +270,6 @@ describe("war-point trackers", () => {
     expect(result.error).toBeNull();
     expect(seen.warFrom).toBe("2026-08-01T00:00:00.000Z");
     expect(seen.warTo).toBe("2026-08-07T00:00:00.000Z");
-    // Alice: floor(52.5/10)=5. Bob: floor(9/10)=0, dropped.
     expect(result.entrants).toEqual([{ player_uuid: "uuid-alice", username: "Alice", tickets: 5 }]);
   });
 
@@ -309,7 +295,6 @@ describe("war-point trackers", () => {
   });
 
   it("checks the full-window milestone board for pending wars too", async () => {
-    // The windowed ticket board is final, but the unwindowed gate is not.
     stubRoutes({ tracked: [WARS], warEntries: [] });
     const fetchImpl: typeof fetch = async (input, init) => {
       const url = new URL(String(input));
@@ -326,5 +311,55 @@ describe("war-point trackers", () => {
       failOnPending: true,
     });
     expect(result.error).toBe("2 wars are still waiting for point values - roll once they're calculated.");
+  });
+});
+
+describe("backend response contracts", () => {
+  it("copies only the documented raid event fields", async () => {
+    const { loadRaidEvents } = await import("#lib/server/raidEventBoards.js");
+    vi.stubGlobal("fetch", async () =>
+      Response.json([
+        {
+          id: "e1",
+          slug: "s",
+          name: "Fixture",
+          starts_at: "2020-01-01T00:00:00Z",
+          ends_at: "2020-01-02T00:00:00Z",
+          tracking: "mod",
+          raid: null,
+          created_by: "fixture-operator",
+        },
+        { id: 7, slug: "broken" },
+      ]),
+    );
+
+    expect(await loadRaidEvents(fetch)).toEqual([
+      { id: "e1", slug: "s", name: "Fixture", starts_at: "2020-01-01T00:00:00Z", ends_at: "2020-01-02T00:00:00Z", tracking: "mod", raid: null },
+    ]);
+  });
+
+  it("copies only the documented leaderboard entry fields", async () => {
+    const { loadTrackerLeaderboard } = await import("#lib/server/raidEventBoards.js");
+    vi.stubGlobal("fetch", async () =>
+      Response.json([
+        { player_uuid: "u1", username: "Fixture", raids: 4, rank: "recruit", discord_id: "800000000000000008" },
+      ]),
+    );
+
+    expect(await loadTrackerLeaderboard(fetch, "e1")).toEqual({
+      leaderboard: [{ player_uuid: "u1", username: "Fixture", raids: 4, rank: "recruit" }],
+      error: null,
+    });
+  });
+
+  it("keeps upstream error text for manager tools but not for viewers", async () => {
+    const { loadTrackerLeaderboard, viewerLeaderboardError } = await import("#lib/server/raidEventBoards.js");
+    vi.stubGlobal("fetch", async () => Response.json({ error: "invalid internal API token" }, { status: 401 }));
+
+    const result = await loadTrackerLeaderboard(fetch, "e1");
+
+    expect(result.error).toBe("invalid internal API token");
+    expect(viewerLeaderboardError(result.error)).toBe("Member contributions are temporarily unavailable.");
+    expect(viewerLeaderboardError(null)).toBeNull();
   });
 });

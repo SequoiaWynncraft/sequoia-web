@@ -1,6 +1,5 @@
 import { hasCount, toCount, toInstant, type EventDraft } from "./draft.svelte";
 
-/** Editor sections in page order; ids double as the anchor fragments. */
 export const EDITOR_SECTIONS = [
   { id: "identity", label: "Identity", category: "Setup" },
   { id: "schedule", label: "Schedule", category: "Setup" },
@@ -25,12 +24,6 @@ function invalidInstant(value: string): boolean {
   return value !== "" && Number.isNaN(Date.parse(toInstant(value)));
 }
 
-/**
- * Per-section problems for the rail badges. Deliberately lighter than the
- * server validator (which stays the authority and reports first-error-only):
- * these are the mistakes a manager can see and fix in place, keyed to where
- * they live on the page.
- */
 export function sectionIssues(draft: EventDraft): Partial<Record<SectionId, string[]>> {
   const issues: Partial<Record<SectionId, string[]>> = {};
   const add = (section: SectionId, message: string) => {
@@ -141,15 +134,10 @@ export function sectionIssues(draft: EventDraft): Partial<Record<SectionId, stri
         if (rule.type === "stat") {
           if (!hasCount(rule.min)) add("raffles", "A stat rule needs a minimum");
           const fromTracker = rule.statSource === "tracker";
-          // Reachable from a hand-edited preset, where the source picker is
-          // hidden (it only shows for raids) and the save would fail unexplained.
           if (fromTracker && rule.stat !== "raids") {
             add("raffles", "Only raids can be counted from the mod tracker");
           }
           if (fromTracker && draft.trackerKind !== "mod") {
-            // The mod raid log is the only sub-day source; without it the rule
-            // would fail at roll time, when it is far too late to fix. A war
-            // tracker is mod-fed too, but its board counts war points.
             add(
               "raffles",
               draft.trackerKind === "wars"
@@ -163,9 +151,6 @@ export function sectionIssues(draft: EventDraft): Partial<Record<SectionId, stri
           } else if (invalidInstant(rule.windowFrom) || invalidInstant(rule.windowTo)) {
             add("raffles", "Stat window times must be valid HH:MM");
           } else {
-            // Rollup windows are inclusive of both days, so equal bounds mean a
-            // single day; a tracker window is a true instant range and cannot
-            // be empty. This mirrors `allowEqual` in the server validator.
             const from = Date.parse(toInstant(rule.windowFrom));
             const to = Date.parse(toInstant(rule.windowTo));
             if (fromTracker ? from >= to : from > to) {

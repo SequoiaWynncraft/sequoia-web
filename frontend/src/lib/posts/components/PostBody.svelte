@@ -1,11 +1,10 @@
 <script lang="ts">
-  import { emojiUrl } from "$lib/emoji/catalog";
+  import { emojiUrl } from "#lib/emoji/catalog.js";
 
   import { parseMarkdown, type Inline } from "../markdown";
 
   let { source }: { source: string } = $props();
 
-  // Rendered from tokens, never {@html}: an author's markup stays text.
   const blocks = $derived(parseMarkdown(source));
 </script>
 

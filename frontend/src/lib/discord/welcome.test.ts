@@ -42,7 +42,6 @@ describe("proposed welcome enable guard", () => {
     expect(welcomeReadinessIssue(draft, [])).toBeNull();
     expect(welcomeReadinessIssue({ ...draft, channel_id: "" }, catalog)).toContain("valid channel");
     expect(welcomeReadinessIssue({ ...draft, variants: draft.variants.map((variant) => ({ ...variant, weight: 0 })) }, catalog)).toContain("positive weight");
-    // An older server always sends images, so the caller passes true.
     expect(welcomeReadinessIssue(draft, catalog, true)).toContain("normal and winter artwork");
   });
 });
@@ -160,7 +159,6 @@ describe("night schedule draft", () => {
       expect(welcomeNightIssue({ ...settings.night, timezone }, timezones)?.timezone).toBeTruthy();
     }
     expect(welcomeNightIssue({ ...settings.night, timezone: "Europe/Stockholm" }, timezones)).toBeNull();
-    // Validation applies while night is off as well, so a later enable cannot surprise the admin.
     expect(welcomeInputIssue({ ...settings, night: { ...settings.night, enabled: false, timezone: "Nowhere" } }, timezones)).toContain("timezone");
   });
   it("blocks only turning on or changing an enabled schedule while night artwork is not ready", () => {
@@ -179,7 +177,6 @@ describe("night schedule draft", () => {
     expect(welcomeNightReadinessIssue(enabled, saved, false, false)).toBeNull();
     expect(welcomeNightReadinessIssue({ ...enabled, start: "22:00" }, enabled, false, false)).toBeNull();
     expect(welcomeNightReadinessIssue(enabled, saved, false, true)).toContain("Turn off night");
-    // Turning images back on with an unchanged night schedule rechecks night artwork.
     expect(welcomeNightReadinessIssue(enabled, enabled, false, true, false)).toContain("Turn off night");
     expect(welcomeNightReadinessIssue(enabled, enabled, true, true, false)).toBeNull();
   });
@@ -196,11 +193,9 @@ describe("night schedule draft", () => {
       { moon: false, saved: settings.night },
     ].map((scene) => welcomePreviewKey("ready", "normal", "Member", message, "none", "minecraft", scene));
     expect(new Set(keys).size).toBe(keys.length);
-    // Following the saved schedule or moon must not reuse a still rendered before that setting changed.
     const changed = { ...settings.night, moon: true };
     expect(welcomePreviewKey("ready", "normal", "Member", message, "none", "minecraft", { saved: changed })).not.toBe(keys[0]);
     expect(welcomePreviewKey("ready", "normal", "Member", message, "none", "minecraft", { night: true, saved: changed })).not.toBe(keys[2]);
-    // Fully explicit scenes do not depend on the saved schedule.
     expect(welcomePreviewKey("ready", "normal", "Member", message, "none", "minecraft", { night: true, moon: false, saved: changed })).toBe(keys[4]);
   });
 });

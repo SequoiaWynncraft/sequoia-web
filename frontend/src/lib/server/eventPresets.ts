@@ -6,14 +6,8 @@ import { recordAudit } from "./auditLog";
 import { database } from "./db";
 import { requireEventManager } from "./eventManagers";
 
-/**
- * Named editor presets: the raw draft payload the form builds, stored
- * verbatim. A preset is a starting point, not a publishable event - it is
- * only ever rendered back into the editor, which validates before saving.
- */
 export interface EventPreset {
   name: string;
-  /** The form's draft event object, JSON-encoded. */
   payload: string;
   updatedAt: number;
 }
@@ -44,7 +38,6 @@ type ManageRequest = {
   locals: App.Locals;
 };
 
-/** Shared ?/savePreset form action: upserts a named preset. */
 export async function savePresetAction(event: ManageRequest) {
   const manager = await requireEventManager(event);
   const form = await event.request.formData();
@@ -76,14 +69,12 @@ export async function savePresetAction(event: ManageRequest) {
   return { presetSaved: name, auditWarning: !audited };
 }
 
-/** Shared ?/deletePreset form action. */
 export async function deletePresetAction(event: ManageRequest) {
   const manager = await requireEventManager(event);
   const name = presetName((await event.request.formData()).get("presetName"));
   if (!name) return fail(400, { presetError: "Malformed submission." });
   const db = await presetDb();
   const result = await db.execute({ sql: "DELETE FROM guild_event_presets WHERE name = ?", args: [name] });
-  // A stale double-delete removes nothing and must not mint an audit row.
   const audited = result.rowsAffected > 0 ? await recordAudit(manager, "preset.delete", name) : true;
   return { presetDeleted: name, auditWarning: !audited };
 }

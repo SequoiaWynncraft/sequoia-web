@@ -18,7 +18,6 @@
     href?: ((key: string) => string) | null;
     /** Select mode: chips switch state in place (client-driven views). */
     onselect?: ((key: string) => void) | null;
-    /** Muted trailing text, e.g. the resolved date window. */
     note?: string | null;
     label?: string;
   } = $props();

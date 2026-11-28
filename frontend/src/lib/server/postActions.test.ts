@@ -1,8 +1,8 @@
 import type { RequestEvent } from "@sveltejs/kit";
 import { describe, expect, it, vi } from "vitest";
 
-import type { GuildPost } from "$lib/posts/types";
-import type { Viewer } from "$lib/site/viewer";
+import type { GuildPost } from "#lib/posts/types.js";
+import type { Viewer } from "#lib/site/viewer.js";
 
 import { requireBranchArea } from "./branchAccess";
 import { createPostAction, withServerFields } from "./postActions";

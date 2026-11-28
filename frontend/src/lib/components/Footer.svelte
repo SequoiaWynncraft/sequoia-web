@@ -1,8 +1,7 @@
 <script lang="ts">
-  import { SECTIONS, leavesOf } from "$lib/site/nav";
+  import { BRAND } from "#lib/site/brand.js";
+  import { SECTIONS, leavesOf } from "#lib/site/nav.js";
 
-  const DISCORD = "https://discord.gg/seq";
-  const MAP = "https://map.seqwawa.com";
 </script>
 
 <footer class="seq-footer">
@@ -10,15 +9,20 @@
     <div class="seq-footer-top">
       <div class="seq-footer-brand-block">
         <div class="seq-footer-brand">
-          <img src="/assets/images/fruma-icon.png" alt="" width="30" height="30" class="seq-footer-logo" />
-          <span class="seq-footer-name">SEQUOIA</span>
+          <img src={BRAND.logo} alt="" width="30" height="30" class="seq-footer-logo" />
+          <span class="seq-footer-name">{BRAND.name.toUpperCase()}</span>
         </div>
         <p class="seq-footer-copy">
-          Sequoia, rooted in purpose. Wynncraft guild resources, guides, and member stats in one place.
+          {BRAND.description}
         </p>
-        <a href={DISCORD} target="_blank" rel="noreferrer" class="seq-text-cta">
-          Join us on Discord
-        </a>
+        <div class="seq-footer-ctas">
+          <a href={BRAND.discordUrl} target="_blank" rel="noreferrer" class="seq-text-cta">
+            Join us on Discord
+          </a>
+          <a href={BRAND.githubUrl} target="_blank" rel="noreferrer" class="seq-text-cta">
+            GitHub
+          </a>
+        </div>
       </div>
 
       <div class="seq-footer-nav">
@@ -27,7 +31,7 @@
               Map
             </div>
             <ul class="seq-footer-list">
-              <li><a href={MAP} target="_blank" rel="noreferrer" class="seq-footer-link">Territory Map</a></li>
+              <li><a href={BRAND.mapUrl} target="_blank" rel="noreferrer" class="seq-footer-link">Territory Map</a></li>
             </ul>
           </div>
         {#each SECTIONS as s}
@@ -52,10 +56,10 @@
 
     <div class="seq-footer-bottom">
       <span class="seq-footer-muted">
-        © {new Date().getFullYear()} Sequoia. Not affiliated with Wynncraft or Mojang.
+        © {new Date().getFullYear()} {BRAND.name}. Not affiliated with Wynncraft or Mojang.
       </span>
       <div class="seq-footer-links">
-        <a href="https://map.seqwawa.com" target="_blank" rel="noreferrer" class="seq-footer-muted">Territory Map</a>
+        <a href={BRAND.mapUrl} target="_blank" rel="noreferrer" class="seq-footer-muted">Territory Map</a>
         <a href="https://wiki.seqwawa.com" target="_blank" rel="noreferrer" class="seq-footer-muted">Guides Wiki</a>
         <a href="/legal" class="seq-footer-muted">Legal</a>
       </div>

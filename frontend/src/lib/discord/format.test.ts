@@ -110,7 +110,6 @@ describe("definitionIssues", () => {
 
   it("trims embed text exactly as Rust does at U+0085 and U+FEFF", () => {
     const titled = (title: string) => draft({ embeds: [{ type: "rich", title }] });
-    // Rust's str::trim removes NEL (White_Space) but keeps a byte-order mark.
     expect(definitionIssues(titled(`\u0085${"t".repeat(256)}\u0085`))).toEqual({});
     expect(definitionIssues(titled(`\uFEFF${"t".repeat(256)}\uFEFF`))["embeds.0.title"]).toContain("258");
     const metadata = draft({ embeds: [{ type: "rich", title: "Rules", author: { name: "\u0085" }, footer: { text: "\uFEFF" } }] });

@@ -1,6 +1,5 @@
-import { env } from "$env/dynamic/private";
+import { SEQUOIA_DISCORD_MANAGEMENT_URL } from "$app/env/private";
 
-/** Thin server-only adapter. Rust owns authorization, validation and persistence. */
 export async function discordManagement(
   fetchImpl: typeof fetch,
   token: string | undefined,
@@ -8,7 +7,7 @@ export async function discordManagement(
   init: RequestInit = {},
 ): Promise<Response> {
   if (!token) return Response.json({ error: "Sign in to manage Discord" }, { status: 401 });
-  const origin = env.SEQUOIA_DISCORD_MANAGEMENT_URL;
+  const origin = SEQUOIA_DISCORD_MANAGEMENT_URL;
   if (!origin) return Response.json({ error: "Discord management is not connected yet" }, { status: 503 });
   try {
     return await fetchImpl(`${origin.replace(/\/$/, "")}/v1/${path}`, {

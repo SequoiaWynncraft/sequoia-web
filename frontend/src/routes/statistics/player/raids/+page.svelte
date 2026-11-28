@@ -1,13 +1,13 @@
 <script lang="ts">
-  import StatsHeader from "$lib/components/StatsHeader.svelte";
-  import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
-  import LedgerTable from "$lib/design-system/components/LedgerTable.svelte";
-  import type { LedgerColumn } from "$lib/design-system/components/ledgerTable";
-  import DeferredPanel from "$lib/design-system/components/DeferredPanel.svelte";
-  import { raidSeriesFor } from "$lib/site/raids";
-  import { nmsrFace } from "$lib/site/nmsr";
-  import Podium from "$lib/design-system/components/Podium.svelte";
-  import type { GuildMemberStats } from "$lib/api/guildStats";
+  import StatsHeader from "#lib/components/StatsHeader.svelte";
+  import SectionLabel from "#lib/design-system/components/SectionLabel.svelte";
+  import LedgerTable from "#lib/design-system/components/LedgerTable.svelte";
+  import type { LedgerColumn } from "#lib/design-system/components/ledgerTable.js";
+  import DeferredPanel from "#lib/design-system/components/DeferredPanel.svelte";
+  import { raidSeriesFor } from "#lib/site/raids.js";
+  import { nmsrFace } from "#lib/site/nmsr.js";
+  import Podium from "#lib/design-system/components/Podium.svelte";
+  import type { GuildMemberStats } from "#lib/api/guildStats.js";
 
   let { data } = $props();
 

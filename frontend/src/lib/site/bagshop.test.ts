@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { InventoryItem, Order } from "$lib/api/bagshop";
+import type { InventoryItem, Order } from "#lib/api/bagshop.js";
 import {
   currencyParts,
   formatEb,
@@ -8,7 +8,7 @@ import {
   isCancellable,
   orderRemainingTotal,
   roundToLe,
-} from "$lib/site/bagshop";
+} from "#lib/site/bagshop.js";
 
 function inv(key: string, over: Partial<InventoryItem> = {}): InventoryItem {
   return { key, stock: 0, sellPrice: 0, buyPrice: 0, cap: 0, ...over };
@@ -87,17 +87,15 @@ describe("orderRemainingTotal / isCancellable", () => {
     messageId: "1",
     orderType: "buy",
     note: "",
-    userId: "42",
     userName: "tester",
     minecraftIgn: "Tester",
     createdAt: 1_700_000_000,
-    claimedByMention: null,
+    claimed: false,
     remainingItems: [
       { raid: "NOTG", rarity: "Rare", amount: 3 },
       { raid: "NOL", rarity: "Unique", amount: 2 },
     ],
     processedItems: [],
-    linkedMessageId: null,
     splitPart: 0,
   };
 
@@ -110,12 +108,12 @@ describe("orderRemainingTotal / isCancellable", () => {
   });
 
   it("returns null when any item's price is unknown rather than counting it as zero", () => {
-    const prices = new Map([["NOTG_Rare", 10]]); // NOL_Unique missing
+    const prices = new Map([["NOTG_Rare", 10]]);
     expect(orderRemainingTotal(order, prices)).toBeNull();
   });
 
   it("treats an unclaimed order as cancellable", () => {
     expect(isCancellable(order)).toBe(true);
-    expect(isCancellable({ ...order, claimedByMention: "staff <@1>" })).toBe(false);
+    expect(isCancellable({ ...order, claimed: true })).toBe(false);
   });
 });

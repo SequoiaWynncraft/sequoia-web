@@ -3,7 +3,7 @@
   import Container from "./Container.svelte";
   import Breadcrumbs, { type Crumb } from "./Breadcrumbs.svelte";
   import SectionTabs from "./SectionTabs.svelte";
-  import type { NavLeaf } from "$lib/site/nav";
+  import type { NavLeaf } from "#lib/site/nav.js";
 
   let {
     crumbs,

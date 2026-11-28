@@ -1,12 +1,13 @@
 <script lang="ts">
-  import AreaGate from "$lib/manage/AreaGate.svelte";
-  import ManageHeader from "$lib/manage/ManageHeader.svelte";
+  import { pageTitle } from "#lib/site/brand.js";
+  import AreaGate from "#lib/manage/AreaGate.svelte";
+  import ManageHeader from "#lib/manage/ManageHeader.svelte";
 
   let { data } = $props();
 </script>
 
 <svelte:head>
-  <title>Blog - Sequoia</title>
+  <title>{pageTitle("Blog")}</title>
   <meta name="robots" content="noindex" />
 </svelte:head>
 

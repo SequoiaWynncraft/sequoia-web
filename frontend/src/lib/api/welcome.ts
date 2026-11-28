@@ -1,6 +1,6 @@
 import type { ApiResult } from "./client";
 import { isRecord } from "./guards";
-import type { WelcomeFont, WelcomeMessage, WelcomePreviewEffect, WelcomeSeason } from "$lib/discord/welcome";
+import type { WelcomeFont, WelcomeMessage, WelcomePreviewEffect, WelcomeSeason } from "#lib/discord/welcome.js";
 
 export interface WelcomePreviewRequest {
   variant_id: string;
@@ -16,7 +16,6 @@ export interface WelcomePreviewRequest {
   moon?: boolean;
 }
 
-/** Same-origin binary transport only. The caller owns cancellation and image playback. */
 export async function requestWelcomePreview(
   fetchImpl: typeof fetch,
   input: WelcomePreviewRequest,

@@ -2,18 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import { ALL_DAYS, PRESET_DAYS, resolveRange, resolveScope } from "./range";
 
-/** Days a from..to pair covers, counted the way the rollup feed sums them. */
 function inclusiveDays({ from, to }: { from: string; to: string }): number {
   return (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000 + 1;
 }
 
 const NOW = new Date("2026-09-06T10:00:00.000Z");
 
-/**
- * The chips are labelled in days, and the feed sums whole UTC days inclusively.
- * These cases pin that an N-day chip asks for exactly N days - the off-by-one
- * that made a "1d" scope sum two days and report 26h of playtime.
- */
 describe("resolveRange", () => {
   it.each(Object.entries(PRESET_DAYS))("spans exactly %s worth of days", (range, days) => {
     expect(inclusiveDays(resolveRange(range, NOW))).toBe(days);
@@ -74,7 +68,6 @@ describe("resolveScope", () => {
   });
 
   it("does not mistake a prototype key for a preset", () => {
-    // `in` would accept these and resolve them to a NaN window.
     expect(resolveScope("constructor")).toBe("now");
     expect(resolveScope("toString")).toBe("now");
   });

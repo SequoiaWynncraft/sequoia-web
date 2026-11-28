@@ -1,9 +1,8 @@
-import type { GuildEvent } from "$lib/events/types";
-import { parseGuildEvent } from "$lib/events/validate";
+import type { GuildEvent } from "#lib/events/types.js";
+import { parseGuildEvent } from "#lib/events/validate.js";
 
 export type EventPayload = { event: GuildEvent; published: boolean } | { error: string };
 
-/** Parses and validates a management form submission's JSON payload. */
 export function parseEventPayload(form: FormData): EventPayload {
   const raw = form.get("payload");
   if (typeof raw !== "string" || raw.length > 65536) return { error: "Malformed submission." };

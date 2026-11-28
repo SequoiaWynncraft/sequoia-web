@@ -1,20 +1,19 @@
 <script lang="ts">
-  import StatsHeader from "$lib/components/StatsHeader.svelte";
-  import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
-  import LedgerTable from "$lib/design-system/components/LedgerTable.svelte";
-  import type { LedgerColumn } from "$lib/design-system/components/ledgerTable";
-  import DeferredPanel from "$lib/design-system/components/DeferredPanel.svelte";
-  import ScopeChips from "$lib/design-system/components/ScopeChips.svelte";
-  import { nmsrFace } from "$lib/site/nmsr";
-  import Podium from "$lib/design-system/components/Podium.svelte";
+  import StatsHeader from "#lib/components/StatsHeader.svelte";
+  import SectionLabel from "#lib/design-system/components/SectionLabel.svelte";
+  import LedgerTable from "#lib/design-system/components/LedgerTable.svelte";
+  import type { LedgerColumn } from "#lib/design-system/components/ledgerTable.js";
+  import DeferredPanel from "#lib/design-system/components/DeferredPanel.svelte";
+  import ScopeChips from "#lib/design-system/components/ScopeChips.svelte";
+  import { nmsrFace } from "#lib/site/nmsr.js";
+  import Podium from "#lib/design-system/components/Podium.svelte";
   import WeeklyRaidAnnouncement from "./WeeklyRaidAnnouncement.svelte";
-  import type { GuildMemberStats } from "$lib/api/guildStats";
-  import type { MemberProgressEntry } from "$lib/api/memberProgress";
-  import { insigniaLabel } from "$lib/site/honours";
+  import type { GuildMemberStats } from "#lib/api/guildStats.js";
+  import type { MemberProgressEntry } from "#lib/api/memberProgress.js";
+  import { insigniaLabel } from "#lib/site/honours.js";
 
   let { data } = $props();
 
-  // "now" is the roster as it stands; every other scope shows gains over that window.
   const SCOPES = [
     { key: "now", label: "now" },
     { key: "1d", label: "1d" },
@@ -34,7 +33,6 @@
   const totalPlaytime = $derived(
     stats ? stats.members.reduce((sum, member) => sum + (member.playtime ?? 0), 0) : 0,
   );
-  // Aggregate count — per-member flags are null for restricted or stale presence.
   const onlineCount = $derived(stats?.guild.online_now ?? 0);
   const activeThisWeek = $derived(
     stats
@@ -59,7 +57,6 @@
     return totals;
   });
 
-  /** UTC rollup days summed by the backend - the range is from..to inclusive. */
   const windowDays = $derived(
     data.view === "gains"
       ? Math.max(1, Math.round((Date.parse(data.to) - Date.parse(data.from)) / 86_400_000) + 1)
@@ -76,7 +73,6 @@
 
   let gainsSortKey = $state("playtime");
 
-  /** The podium mirrors the ledger's sort; the name column falls back to raids. */
   const podiumMetric = $derived.by(() => {
     switch (gainsSortKey) {
       case "wars":
@@ -180,7 +176,6 @@
         if (!standing?.insigniaUrl || !standing.insignia) return null;
         return { src: standing.insigniaUrl, alt: insigniaLabel(standing.insignia) };
       },
-      // Text fallback so an insignia without artwork still shows its grade.
       secondary: (member) => {
         const standing = standingOf(member);
         return standing?.insignia && !standing.insigniaUrl

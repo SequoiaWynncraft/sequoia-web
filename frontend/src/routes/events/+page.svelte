@@ -1,12 +1,13 @@
 <script lang="ts">
-  import PageHeader from "$lib/components/PageHeader.svelte";
-  import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
-  import EventSky from "$lib/events/components/EventSky.svelte";
-  import EventMeta from "$lib/events/components/EventMeta.svelte";
-  import GoalMeter from "$lib/events/components/GoalMeter.svelte";
-  import type { HubEvent } from "$lib/events/helpers";
-  import { raidIconUrl } from "$lib/events/raidIcons";
-  import type { EventStatus } from "$lib/events/types";
+  import { BRAND, pageTitle } from "#lib/site/brand.js";
+  import PageHeader from "#lib/components/PageHeader.svelte";
+  import SectionLabel from "#lib/design-system/components/SectionLabel.svelte";
+  import EventSky from "#lib/events/components/EventSky.svelte";
+  import EventMeta from "#lib/events/components/EventMeta.svelte";
+  import GoalMeter from "#lib/events/components/GoalMeter.svelte";
+  import type { HubEvent } from "#lib/events/viewerEvent.js";
+  import { raidIconUrl } from "#lib/events/raidIcons.js";
+  import type { EventStatus } from "#lib/events/types.js";
 
   let { data } = $props();
 
@@ -24,12 +25,12 @@
 </script>
 
 <svelte:head>
-  <title>Events - Sequoia</title>
-  <meta name="description" content="Sequoia guild events - live, upcoming, and past." />
+  <title>{pageTitle("Events")}</title>
+  <meta name="description" content={`${BRAND.name} guild events - live, upcoming, and past.`} />
 </svelte:head>
 
 <div class="ev-hub">
-  <PageHeader kicker="Sequoia" title="Events" />
+  <PageHeader kicker={BRAND.name} title="Events" />
   {#if data.manager}
     <a class="ev-manage-link focus-ring" href="/manage/events">◆ Manage</a>
   {/if}
@@ -149,7 +150,6 @@
     display: grid;
     gap: 6px;
     min-width: 0;
-    /* The icon marks the row; the name keeps the remaining width. */
     flex-grow: 1;
   }
 
@@ -160,8 +160,6 @@
     min-width: 0;
   }
 
-  /* Only managers are ever sent a draft, so the badge doubles as the cue that
-     this shelf is showing more than the guild can see. */
   .ev-band-draft {
     flex-shrink: 0;
     padding: 2px 7px;
