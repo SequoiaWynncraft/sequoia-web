@@ -42,10 +42,11 @@
   let pressed: string | null = null;
   const TAP_SLOP = 6;
 
+  /** The animation must move by the distance from one set to the next, so measure exactly that. */
   function measure() {
-    const set = track.firstElementChild as HTMLElement | null;
-    if (!set) return;
-    unit = set.offsetWidth;
+    const [first, second] = track.children as HTMLCollectionOf<HTMLElement>;
+    if (!first) return;
+    unit = second ? second.offsetLeft - first.offsetLeft : first.offsetWidth;
     if (unit > 0) copies = Math.max(2, Math.ceil(lane.clientWidth / unit) + 1);
   }
 
@@ -153,8 +154,14 @@
 </section>
 
 <style>
+  /*
+   * Every size here is fixed, never read from the cards: a card's insides are absolutely
+   * placed, so a browser sizing the row from its content (Firefox does) would get ~4 px a
+   * card and stack the sets on top of each other.
+   */
   .lane {
     --gap: 1.65rem;
+    --card: clamp(15.25rem, 13.5vw, 17.25rem);
     position: relative;
     overflow: hidden;
     cursor: grab;
@@ -203,7 +210,10 @@
   }
 
   .set {
-    display: flex;
+    display: grid;
+    flex: none;
+    grid-auto-flow: column;
+    grid-auto-columns: var(--card);
     gap: var(--gap);
     margin: 0;
     padding: 0 var(--gap) 0 0;
@@ -211,15 +221,13 @@
   }
 
   li {
-    flex: 0 0 clamp(15.25rem, 13.5vw, 17.25rem);
+    min-width: 0;
   }
 
   @media (max-width: 720px) {
     .lane {
       --gap: 0.85rem;
-    }
-    li {
-      flex-basis: clamp(11.5rem, 60vw, 13.75rem);
+      --card: clamp(11.5rem, 60vw, 13.75rem);
     }
   }
 
