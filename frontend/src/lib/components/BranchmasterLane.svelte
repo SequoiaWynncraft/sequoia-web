@@ -33,7 +33,14 @@
   let dragX = 0;
   let dragFrom = 0;
   let offset = 0;
-  let held: HTMLElement[] = [];
+  /** The card under a dragging pointer, and the card a tap opened; both show their numbers. */
+  let held = $state<string | null>(null);
+  let open = $state<string | null>(null);
+  /** How far the current press has travelled; a tap stays under TAP_SLOP. */
+  let travelled = 0;
+  /** The card a press began on; with pointer capture the click itself lands on the lane. */
+  let pressed: string | null = null;
+  const TAP_SLOP = 6;
   let reducedMotion = false;
 
   function measure() {
@@ -54,7 +61,12 @@
     track.style.transform = `translate3d(${-offset}px,0,0)`;
   }
 
+  const cardAt = (target: EventTarget | null) =>
+    target instanceof Element ? (target.closest<HTMLElement>("[data-card]")?.dataset.card ?? null) : null;
+
   function onpointerdown(event: PointerEvent) {
+    travelled = 0;
+    pressed = cardAt(event.target);
     if (event.button !== 0 || unit <= 0 || reducedMotion) return;
     event.preventDefault();
     offset = currentOffset();
@@ -63,15 +75,12 @@
     dragging = true;
     place();
     lane.setPointerCapture(event.pointerId);
-    const item = (event.target as Element).closest<HTMLElement>("[data-card]");
-    if (item) {
-      held = [...track.querySelectorAll<HTMLElement>(`[data-card="${CSS.escape(item.dataset.card ?? "")}"]`)];
-      for (const card of held) card.classList.add("held");
-    }
+    held = pressed;
   }
 
   function onpointermove(event: PointerEvent) {
     if (!dragging) return;
+    travelled = Math.max(travelled, Math.abs(event.clientX - dragX));
     offset = wrap(dragFrom - (event.clientX - dragX));
     place();
   }
@@ -79,12 +88,17 @@
   function release() {
     if (!dragging) return;
     dragging = false;
-    for (const card of held) card.classList.remove("held");
-    held = [];
+    held = null;
     // Hand the position back to the animation: a negative delay starts it part way.
     const progress = offset / unit;
     resumeAt = -(direction === "left" ? progress : 1 - progress) * duration;
     track.style.transform = "";
+  }
+
+  /** A tap toggles a card's numbers; touch screens have no hover to show them. */
+  function onclick() {
+    if (travelled >= TAP_SLOP) return;
+    open = pressed === open ? null : pressed;
   }
 
   onMount(() => {
@@ -102,7 +116,8 @@
   });
 </script>
 
-<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+<!-- Pointer-only extras: the numbers stay in the DOM for screen readers either way. -->
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions, a11y_click_events_have_key_events -->
 <section
   bind:this={lane}
   class="lane"
@@ -117,6 +132,7 @@
   {onpointerdown}
   {onpointermove}
   onpointerup={release}
+  {onclick}
   onpointercancel={release}
   onlostpointercapture={release}
 >
@@ -124,7 +140,13 @@
     {#each { length: copies }, copy (copy)}
       <ul class="set" aria-hidden={copy > 0 ? "true" : undefined}>
         {#each members as member (member.username)}
-          <li data-card={member.username}><BranchmasterCard {member} /></li>
+          <li
+            data-card={member.username}
+            class:held={held === member.username}
+            class:open={open === member.username}
+          >
+            <BranchmasterCard {member} />
+          </li>
         {/each}
       </ul>
     {/each}

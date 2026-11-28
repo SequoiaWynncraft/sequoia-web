@@ -220,7 +220,7 @@
     white-space: nowrap;
   }
 
-  /* Pointer hover, or the card a finger is dragging, shows its numbers. */
+  /* Pointer hover, the card being dragged, or a tapped card shows its numbers. */
   @media (hover: hover) {
     .card:hover .lift {
       transform: translateY(-1.3rem);
@@ -237,11 +237,11 @@
     }
   }
 
-  :global(.held) > .card .lift {
+  :global(:is(.held, .open)) > .card .lift {
     transform: translateY(-1.3rem);
   }
 
-  :global(.held) > .card .stats {
+  :global(:is(.held, .open)) > .card .stats {
     opacity: 1;
     translate: 0 0;
   }
