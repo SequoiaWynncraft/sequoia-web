@@ -42,11 +42,14 @@
   let pressed: string | null = null;
   const TAP_SLOP = 6;
 
-  /** The animation must move by the distance from one set to the next, so measure exactly that. */
+  /**
+   * The first set is always shown (reduced motion hides the copies) and its size is fixed
+   * in CSS, never read from the cards, so its width is exactly one loop of the drift.
+   */
   function measure() {
-    const [first, second] = track.children as HTMLCollectionOf<HTMLElement>;
-    if (!first) return;
-    unit = second ? second.offsetLeft - first.offsetLeft : first.offsetWidth;
+    const set = track.firstElementChild as HTMLElement | null;
+    if (!set) return;
+    unit = set.offsetWidth;
     if (unit > 0) copies = Math.max(2, Math.ceil(lane.clientWidth / unit) + 1);
   }
 
