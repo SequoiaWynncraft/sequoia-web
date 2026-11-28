@@ -19,7 +19,10 @@
   let track: HTMLElement;
   /** Width of one full set of cards, gap included; the animation moves exactly this far. */
   let unit = $state(0);
-  /** Enough sets that the lane never shows an empty edge; the first is the real one. */
+  /**
+   * Enough sets that the lane never shows an empty edge. The first is the real one;
+   * the rest are hidden from screen readers but stay hoverable and draggable.
+   */
   let copies = $state(2);
   let offscreen = $state(false);
   let dragging = $state(false);
@@ -119,7 +122,7 @@
 >
   <div bind:this={track} class="track">
     {#each { length: copies }, copy (copy)}
-      <ul class="set" aria-hidden={copy > 0 ? "true" : undefined} inert={copy > 0}>
+      <ul class="set" aria-hidden={copy > 0 ? "true" : undefined}>
         {#each members as member (member.username)}
           <li data-card={member.username}><BranchmasterCard {member} /></li>
         {/each}
@@ -203,6 +206,7 @@
   @media (prefers-reduced-motion: reduce) {
     .lane {
       overflow-x: auto;
+      touch-action: auto;
       cursor: auto;
       mask-image: none;
       scroll-snap-type: x proximity;

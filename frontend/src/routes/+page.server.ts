@@ -18,8 +18,8 @@ export const load: PageServerLoad = async ({ fetch, parent }) => {
   ]).then(([posts, events]) => ({ posts, events }));
   // Streamed: the roster needs the rank profiles too, so it never holds up the first paint.
   const branchmasters = getGuildOverview(fetch, { allowStale: true })
-    .then((overview) => overview.branchmasters)
-    .catch(() => []);
+    .then((overview) => ({ members: overview.branchmasters, stale: overview.stale }))
+    .catch(() => ({ members: [], stale: true }));
   try {
     const overview = await getGuildOverview(fetch, {
       allowStale: true,

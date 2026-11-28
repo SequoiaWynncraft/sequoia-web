@@ -30,7 +30,7 @@ function lane(members: BranchmasterCardData[]) {
 }
 
 describe("BranchmasterLane", () => {
-  it("shows one real set of cards and hides the copies that fill the loop", () => {
+  it("shows one real set of cards and hides the loop's copies from screen readers only", () => {
     const body = lane([member("Shironappa", true), member("Notedes")]);
     const sets = [...body.querySelectorAll("ul")];
 
@@ -38,7 +38,8 @@ describe("BranchmasterLane", () => {
     expect(sets[0].hasAttribute("aria-hidden")).toBe(false);
     for (const copy of sets.slice(1)) {
       expect(copy.getAttribute("aria-hidden")).toBe("true");
-      expect(copy.hasAttribute("inert")).toBe(true);
+      // Copies scroll into view, so they must keep taking hover and drag.
+      expect(copy.hasAttribute("inert")).toBe(false);
     }
   });
 

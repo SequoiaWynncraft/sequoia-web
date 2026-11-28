@@ -34,7 +34,7 @@ function homepage() {
     homepageStats: null,
     statsStale: false,
     latest: Promise.resolve({ events: [], posts: [] }),
-    branchmasters: Promise.resolve([]),
+    branchmasters: Promise.resolve({ members: [], stale: false }),
   };
   const { body } = render(HomePage, { props: { data } });
   return new window.DOMParser().parseFromString(body, "text/html");

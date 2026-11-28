@@ -38,21 +38,24 @@
 
   // The server may answer from a stale cache; only then ask for fresh numbers.
   onMount(() => {
-    if (!data.statsStale) return;
-    const client = createSequoiaApiClient({ fetch: window.fetch.bind(window) });
     let cancelled = false;
-
-    client.getGuildOverview()
-      .then((result) => {
-        if (cancelled || !result.ok) return;
-        applyHomepageStats(result.data.stats);
-        if (result.data.branchmasters.length > 0) refreshedBranchmasters = result.data.branchmasters;
-      })
-      .catch(() => undefined);
+    void data.branchmasters.then((roster) => {
+      if (!cancelled && (data.statsStale || roster.stale)) refreshOverview();
+    });
 
     return () => {
       cancelled = true;
     };
+
+    function refreshOverview() {
+      createSequoiaApiClient({ fetch: window.fetch.bind(window) }).getGuildOverview()
+        .then((result) => {
+          if (cancelled || !result.ok) return;
+          applyHomepageStats(result.data.stats);
+          if (result.data.branchmasters.length > 0) refreshedBranchmasters = result.data.branchmasters;
+        })
+        .catch(() => undefined);
+    }
   });
 
   function applyHomepageStats(stats: HomepageStats) {
@@ -382,7 +385,7 @@
     {#await data.branchmasters}
       <div class="seq-branchmasters-pending"></div>
     {:then streamed}
-      {@const { masters, novices } = lanes(refreshedBranchmasters ?? streamed)}
+      {@const { masters, novices } = lanes(refreshedBranchmasters ?? streamed.members)}
       {#if masters.length > 0}
         <BranchmasterLane members={masters} direction="left" label="Branchmasters" />
       {/if}
