@@ -1,16 +1,13 @@
 <script lang="ts">
-  import PlayerName from "$lib/design-system/components/PlayerName.svelte";
-  import { groupPrizeRows, type PrizeSlotRow } from "$lib/events/prizeBoard";
-  import { prizeIconUrl } from "$lib/events/prizeIcons";
+  import PlayerName from "#lib/design-system/components/PlayerName.svelte";
+  import { groupPrizeRows, type PrizeSlotRow } from "#lib/events/prizeBoard.js";
+  import { prizeIconUrl } from "#lib/events/prizeIcons.js";
 
   let { rows }: { rows: PrizeSlotRow[] } = $props();
 
   const groups = $derived(groupPrizeRows(rows));
 </script>
 
-<!-- One card per distinct prize: art, name, xN, and the winners as they
-     land. Unrolled slots collapse into a single quiet line instead of a
-     row each - 26 slots must not mean 26 rows. -->
 <div class="pb">
   {#each groups as group (group.key)}
     {@const won = group.slots.filter((slot) => slot.winner !== null)}

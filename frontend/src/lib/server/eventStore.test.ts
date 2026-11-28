@@ -1,8 +1,7 @@
 import { createClient } from "@libsql/client";
 import { describe, expect, it } from "vitest";
 
-import { SEED_EVENTS } from "$lib/events/seed";
-import type { GuildEvent } from "$lib/events/types";
+import type { GuildEvent } from "#lib/events/types.js";
 
 import { createEventStore } from "./eventStore";
 
@@ -25,12 +24,26 @@ const DRAFT: GuildEvent = {
 };
 
 describe("event store", () => {
-  it("seeds the code-defined events on first use", async () => {
+  it("starts a fresh database with no events", async () => {
     const { store } = memoryStore();
-    const events = await store.listPublished();
-    expect(events.map((event) => event.slug).sort()).toEqual(
-      SEED_EVENTS.map((event) => event.slug).sort(),
+    expect(await store.list()).toEqual([]);
+  });
+
+  it("keeps the events an existing database already holds", async () => {
+    const client = createClient({ url: ":memory:" });
+    await client.execute(
+      "CREATE TABLE guild_events (slug TEXT PRIMARY KEY, data TEXT NOT NULL, published INTEGER NOT NULL DEFAULT 1, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)",
     );
+    await client.execute("CREATE TABLE guild_events_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)");
+    await client.execute("INSERT INTO guild_events_meta (key, value) VALUES ('seeded', '1')");
+    await client.execute({
+      sql: "INSERT INTO guild_events (slug, data, published, created_at, updated_at) VALUES (?, ?, 1, 1, 1)",
+      args: [DRAFT.slug, JSON.stringify(DRAFT)],
+    });
+
+    const store = createEventStore(() => Promise.resolve(client));
+    expect(await store.listPublished()).toEqual([DRAFT]);
+    expect((await client.execute("SELECT value FROM guild_events_meta")).rows).toHaveLength(1);
   });
 
   it("round-trips writes and hides drafts from the published list", async () => {
@@ -55,7 +68,6 @@ describe("event store", () => {
     const { store } = memoryStore();
     expect(await store.insert(DRAFT, { published: false })).toBe(true);
 
-    // A losing concurrent create must not overwrite the stored event.
     expect(await store.insert({ ...DRAFT, name: "Impostor" }, { published: true })).toBe(false);
     expect((await store.get("draft-event"))?.event.name).toBe("Draft Event");
 
@@ -68,28 +80,16 @@ describe("event store", () => {
     const first = await store.get("draft-event");
     expect(first).not.toBeNull();
 
-    // Another manager improves the event (guarded, as the save action does, so
-    // the version token strictly advances); the stale tab's delete must lose.
     expect(
       await store.update({ ...DRAFT, name: "Improved" }, { published: true, ifUpdatedAt: first!.updatedAt }),
     ).not.toBeNull();
     expect(await store.remove("draft-event", { ifUpdatedAt: first!.updatedAt })).toBe(false);
     expect((await store.get("draft-event"))?.event.name).toBe("Improved");
 
-    // Deleting the current version succeeds exactly once.
     const current = await store.get("draft-event");
     expect(await store.remove("draft-event", { ifUpdatedAt: current!.updatedAt })).toBe(true);
     expect(await store.remove("draft-event", { ifUpdatedAt: current!.updatedAt })).toBe(false);
     expect(await store.get("draft-event")).toBeNull();
   });
 
-  it("never resurrects deleted seed events", async () => {
-    const { client, store } = memoryStore();
-    expect(await store.remove("colossus-sprint")).toBe(true);
-    expect(await store.remove("colossus-sprint")).toBe(false);
-
-    // A fresh store over the same database must respect the seed marker.
-    const reopened = createEventStore(() => Promise.resolve(client));
-    expect(await reopened.get("colossus-sprint")).toBeNull();
-  });
 });

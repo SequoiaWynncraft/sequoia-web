@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { errorCopy } from "$lib/site/errorCopy";
+import { errorCopy } from "#lib/site/errorCopy.js";
 
 describe("errorCopy", () => {
   it("uses the real status as the heading", () => {

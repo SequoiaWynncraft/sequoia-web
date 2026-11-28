@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { load } from "./+page.server";
-import { catalogFixture } from "$lib/achievements/catalog.fixture";
+import { catalogFixture } from "#lib/achievements/catalog.fixture.js";
 
-vi.mock("$env/dynamic/private", () => ({ env: { SEQUOIA_DISCORD_MANAGEMENT_URL: "http://sierra:8082" } }));
+vi.mock("$app/env/private", () => ({ SEQUOIA_DISCORD_MANAGEMENT_URL: "http://sierra:8082" }));
 
 describe("achievement catalog protected page", () => {
   it("does not ask Sierra without a session", async () => {

@@ -10,7 +10,6 @@
     ...rest
   }: {
     value?: string | undefined;
-    /** Tabular numerals for slugs, hex colors and other codes. */
     mono?: boolean;
     invalid?: boolean;
   } & Omit<HTMLInputAttributes, "value" | "type"> = $props();

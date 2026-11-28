@@ -13,7 +13,6 @@
     value?: string | undefined;
     invalid?: boolean;
     children: Snippet;
-    // `multiple` is excluded: it would bind string[] behind a string contract.
   } & Omit<HTMLSelectAttributes, "value" | "multiple"> = $props();
 </script>
 

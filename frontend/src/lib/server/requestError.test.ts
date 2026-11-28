@@ -10,6 +10,7 @@ describe("requestError", () => {
       expect.objectContaining({
         status: 404,
         body: {
+          status: 404,
           message: "No such event",
           requestId: "request-123",
         },

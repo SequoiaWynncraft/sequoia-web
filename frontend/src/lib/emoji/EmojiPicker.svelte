@@ -7,7 +7,6 @@
     textarea,
     value = $bindable(""),
   }: {
-    /** The field shortcodes go into; insertion lands at its caret. */
     textarea: HTMLTextAreaElement | undefined;
     value: string;
   } = $props();

@@ -1,11 +1,12 @@
 <script lang="ts">
-  import Button from "$lib/design-system/components/Button.svelte";
-  import ScopeChips from "$lib/design-system/components/ScopeChips.svelte";
-  import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
-  import AreaGate from "$lib/manage/AreaGate.svelte";
-  import ManageHeader from "$lib/manage/ManageHeader.svelte";
-  import { formatPostDate } from "$lib/posts/format";
-  import { POST_FEEDS, type PostStatus } from "$lib/posts/types";
+  import { pageTitle } from "#lib/site/brand.js";
+  import Button from "#lib/design-system/components/Button.svelte";
+  import ScopeChips from "#lib/design-system/components/ScopeChips.svelte";
+  import SectionLabel from "#lib/design-system/components/SectionLabel.svelte";
+  import AreaGate from "#lib/manage/AreaGate.svelte";
+  import ManageHeader from "#lib/manage/ManageHeader.svelte";
+  import { formatPostDate } from "#lib/posts/format.js";
+  import { POST_FEEDS, type PostStatus } from "#lib/posts/types.js";
 
   let { data } = $props();
 
@@ -29,7 +30,7 @@
 </script>
 
 <svelte:head>
-  <title>Posts - Sequoia</title>
+  <title>{pageTitle("Posts")}</title>
   <meta name="robots" content="noindex" />
 </svelte:head>
 

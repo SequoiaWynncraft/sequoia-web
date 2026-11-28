@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { REPEAT_DEFAULT, repeatChances, repeatFieldIssue, repeatHistory, repeatIssue, repeatRecentIds, repeatSummary } from "./repeat";
 
-// Fictional event ids.
 const rows = [
   { id: "fox", enabled: true, weight: 30 },
   { id: "owl", enabled: true, weight: 10 },
@@ -20,7 +19,6 @@ describe("repeat penalty next odds", () => {
     expect(repeatChances(rows, { percent: 100, recent: 1 }, ["fox", "owl"])).toEqual(new Map([["fox", 0], ["owl", 100], ["deer", 0]]));
   });
   it("reduces a recent event's weight by the percent", () => {
-    // fox 30 halved to 15 against owl 10.
     expect(repeatChances(rows, { percent: 50, recent: 1 }, ["fox"])).toEqual(new Map([["fox", 60], ["owl", 40], ["deer", 0]]));
   });
   it("falls back to the base odds when every choice is penalized away", () => {

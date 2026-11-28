@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { SEED_EVENTS } from "$lib/events/seed";
-import { ICON_PLACEMENTS, parseGuildEvent } from "$lib/events/validate";
+import { ICON_PLACEMENTS, parseGuildEvent } from "#lib/events/validate.js";
 
 const VALID = {
   slug: "test-event",
@@ -23,18 +22,32 @@ function expectError(value: unknown, fragment: string) {
 }
 
 describe("parseGuildEvent", () => {
-  it("accepts every seed event, only normalizing instants", () => {
-    for (const event of SEED_EVENTS) {
-      const result = parseGuildEvent(JSON.parse(JSON.stringify(event)));
-      expect(result).toEqual({
-        ok: true,
-        event: {
-          ...event,
-          startsAt: event.startsAt ? new Date(event.startsAt).toISOString() : undefined,
-          endsAt: event.endsAt ? new Date(event.endsAt).toISOString() : undefined,
+  it("accepts a fully populated event, only normalizing instants", () => {
+    const event = {
+      ...VALID,
+      theme: { ...VALID.theme, sky: ["#171120", "#251b38"] },
+      access: "members",
+      startsAt: "2026-07-05T00:00:00Z",
+      endsAt: "2026-07-19T23:59:59Z",
+      about: ["A raid push."],
+      goals: [
+        {
+          metricLabel: "clears",
+          milestones: [{ at: 600, unlock: "Raffle" }],
+          feed: "raids",
+          countRaid: "The Canyon Colossus",
+          finalTotal: 683,
         },
-      });
-    }
+      ],
+      prizes: [{ donor: "member", prize: "Store credit" }],
+      prizesNote: "Donated by members.",
+      comp: { roles: [{ role: "Healer", builds: "Acolyte", note: "Preferred" }], note: "Bring one healer." },
+      rules: ["Clears inside the window count."],
+    };
+    expect(parseGuildEvent(event)).toEqual({
+      ok: true,
+      event: { ...event, startsAt: "2026-07-05T00:00:00.000Z", endsAt: "2026-07-19T23:59:59.000Z" },
+    });
   });
 
   it("canonicalizes colors, whitespace, and instants", () => {
@@ -123,7 +136,6 @@ describe("parseGuildEvent", () => {
     });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    // Duplicates drop and the order becomes canonical.
     expect(result.event.icon).toEqual({
       file: "raid_icon_tna_transparent.png",
       placements: ["hero", "meta"],
@@ -135,7 +147,6 @@ describe("parseGuildEvent", () => {
       ...VALID,
       icon: {
         file: "raid_icon_tna_transparent.png",
-        // Derived from the catalog so a future placement cannot dodge this test.
         placements: [...ICON_PLACEMENTS].reverse(),
       },
     });
@@ -187,7 +198,6 @@ describe("parseGuildEvent", () => {
     expect(parsed.ok).toBe(true);
     if (parsed.ok) {
       expect(parsed.event.raffles?.[0].icon).toBe("le.svg");
-      // Cosmetic field: never a reason to reject a stored event row.
       expect(parsed.event.raffles?.[1].icon).toBeUndefined();
     }
   });
@@ -213,7 +223,6 @@ describe("parseGuildEvent", () => {
       },
       "whitelist-only but has more winners than surviving include-list members",
     );
-    // Fully excluded whitelist: saves would only ever roll into an error.
     expectError(
       {
         ...VALID,
@@ -230,8 +239,6 @@ describe("parseGuildEvent", () => {
       },
       "more winners than surviving include-list members",
     );
-    // A partially excluded whitelist with fewer surviving members than winner
-    // slots would fail deterministically after drawing every survivor.
     expectError(
       {
         ...VALID,
@@ -252,8 +259,6 @@ describe("parseGuildEvent", () => {
       },
       "more winners than surviving include-list members",
     );
-    // Partially excluded is fine when the surviving member count exactly
-    // matches the winner count.
     const partial = parseGuildEvent({
       ...VALID,
       raffles: [
@@ -273,7 +278,6 @@ describe("parseGuildEvent", () => {
     });
     expect(partial.ok).toBe(true);
 
-    // Having more survivors than winner slots remains valid.
     const extra = parseGuildEvent({
       ...VALID,
       raffles: [
@@ -292,8 +296,6 @@ describe("parseGuildEvent", () => {
     });
     expect(extra.ok).toBe(true);
 
-    // Frozen winners already occupy slots, so only the remaining slots need
-    // surviving whitelist members.
     const partiallyDrawn = parseGuildEvent({
       ...VALID,
       raffles: [
@@ -312,7 +314,6 @@ describe("parseGuildEvent", () => {
     });
     expect(partiallyDrawn.ok).toBe(true);
 
-    // One frozen winner leaves two slots, which one survivor cannot fill.
     expectError(
       {
         ...VALID,
@@ -335,8 +336,6 @@ describe("parseGuildEvent", () => {
     const zed = { player_uuid: "u1", username: "Zed" };
     const yara = { player_uuid: "u2", username: "Yara" };
     const shared = (include: (typeof zed)[]) => ({ whitelistOnly: true, include });
-    // Two one-slot whitelists sharing their ONLY member: each passes alone,
-    // but whichever rolls second must fail - reject at save.
     expectError(
       {
         ...VALID,
@@ -348,7 +347,6 @@ describe("parseGuildEvent", () => {
       },
       "whitelist raffles overlap too much",
     );
-    // Two members cover two slots even when both lists overlap fully.
     const feasible = parseGuildEvent({
       ...VALID,
       raffleExcludeWinners: true,
@@ -358,7 +356,6 @@ describe("parseGuildEvent", () => {
       ],
     });
     expect(feasible.ok).toBe(true);
-    // Without event-wide exclusion the pools are independent - no joint check.
     const independent = parseGuildEvent({
       ...VALID,
       raffles: [
@@ -482,7 +479,6 @@ describe("parseGuildEvent", () => {
     if (!result.ok) throw new Error(result.error);
     expect(result.event.goals?.[0].milestoneStyle).toBe("markers");
     expect(result.event.goals?.[0].milestones[0].label).toBe("1.3x");
-    // Absent label and style stay absent - old events keep validating unchanged.
     expect(result.event.goals?.[0].milestones[1].label).toBeUndefined();
 
     expectError(
@@ -841,6 +837,9 @@ describe("parseGuildEvent", () => {
     expectError({ ...VALID, theme: { ...VALID.theme, accent: "purple" } }, "accent");
     expectError({ ...VALID, startsAt: "2026-07-05T00:00:00Z" }, "both dates");
     expectError({ ...VALID, startsAt: "2026-07-05T00:00", endsAt: "2026-07-06T00:00" }, "timezone");
+    expectError({ ...VALID, startsAt: "2026-02-29T00:00:00Z", endsAt: "2026-03-06T00:00:00Z" }, "real calendar date");
+    expectError({ ...VALID, startsAt: "2026-07-05T24:00:00Z", endsAt: "2026-07-06T00:00:00Z" }, "start date");
+    expectError({ ...VALID, startsAt: "2026/07/05 00:00:00Z", endsAt: "2026-07-06T00:00:00Z" }, "start date");
     expectError(
       { ...VALID, startsAt: "2026-07-06T00:00:00Z", endsAt: "2026-07-05T00:00:00Z" },
       "end after it starts",
@@ -868,8 +867,6 @@ describe("parseGuildEvent", () => {
     const hidden = parseGuildEvent({ ...VALID, raffleHideWheel: true });
     expect(hidden.ok).toBe(true);
     if (hidden.ok) expect(hidden.event.raffleHideWheel).toBe(true);
-    // Anything but literal true - including false - stays absent, so old
-    // events and sloppy payloads keep their wheel.
     const shown = parseGuildEvent({ ...VALID, raffleHideWheel: false });
     expect(shown.ok).toBe(true);
     if (shown.ok) expect(shown.event.raffleHideWheel).toBeUndefined();

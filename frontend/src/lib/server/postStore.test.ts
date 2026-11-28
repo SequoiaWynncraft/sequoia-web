@@ -1,7 +1,7 @@
 import { createClient } from "@libsql/client";
 import { describe, expect, it } from "vitest";
 
-import type { GuildPost } from "$lib/posts/types";
+import type { GuildPost } from "#lib/posts/types.js";
 
 import { createPostStore } from "./postStore";
 
@@ -56,7 +56,6 @@ describe("post store", () => {
       ifUpdatedAt: stored.updatedAt,
     });
     expect(next).toBeGreaterThan(stored.updatedAt);
-    // The old token lost: a stale tab can neither save nor delete.
     expect(await store.update(post("guarded"), { published: true, ifUpdatedAt: stored.updatedAt })).toBeNull();
     expect(await store.remove("guarded", { ifUpdatedAt: stored.updatedAt })).toBe(false);
 

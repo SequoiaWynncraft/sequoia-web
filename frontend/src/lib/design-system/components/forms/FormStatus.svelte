@@ -14,7 +14,6 @@
     warning?: string | null;
     saved?: boolean;
     savedText?: string;
-    /** Remove the default form-flow spacing for inline status surfaces. */
     compact?: boolean;
     size?: "xs" | "sm";
     /**
@@ -26,9 +25,6 @@
   } = $props();
 </script>
 
-<!-- One status line for every management form: an error always outranks a
-     stale success, and both live in the same spot so the eye knows where to
-     look. No animation - state changes are message changes. -->
 {#if error}
   <p class="form-status form-status-error" class:form-status-compact={compact} class:form-status-xs={size === "xs"} role={live ? "alert" : undefined}>{error}</p>
 {:else if warning}

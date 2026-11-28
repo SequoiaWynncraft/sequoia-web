@@ -1,16 +1,15 @@
 import { fail } from "@sveltejs/kit";
 import type { Cookies } from "@sveltejs/kit";
 
-import type { TrackerKind } from "$lib/events/types";
-import type { Viewer } from "$lib/site/viewer";
+import { parseInstant } from "#lib/events/instant.js";
+import type { TrackerKind } from "#lib/events/types.js";
+import type { Viewer } from "#lib/site/viewer.js";
 
 import { recordAudit } from "./auditLog";
 import { trackerOption, type TrackerOption } from "./eventFormContext";
 import { requireEventManager } from "./eventManagers";
 import type { RaidEvent } from "./raidEventBoards";
 import { sequoiaWebBackendInternalHeaders, sequoiaWebBackendUrl } from "./sequoiaWebBackend";
-
-const ZONED_PATTERN = /(?:z|[+-]\d\d:\d\d)$/i;
 
 interface TrackerRequest {
   id?: string;
@@ -28,10 +27,6 @@ type ManageRequest = {
   locals: App.Locals;
 };
 
-/**
- * Shared ?/createTracker form action for the event editor: creates a raid
- * tracker event in the backend and returns it as a picker option.
- */
 export async function createTrackerAction(event: ManageRequest) {
   const authorized = await authorizeAndParse(event);
   if (typeof authorized.parsed === "string") return fail(400, { trackerError: authorized.parsed });
@@ -49,7 +44,6 @@ export async function createTrackerAction(event: ManageRequest) {
   return { trackerCreated: result, auditWarning: !audited };
 }
 
-/** Shared ?/updateTracker form action: full update of an existing tracker. */
 export async function updateTrackerAction(event: ManageRequest) {
   const authorized = await authorizeAndParse(event);
   if (typeof authorized.parsed === "string") return fail(400, { trackerError: authorized.parsed });
@@ -116,8 +110,8 @@ function parseTrackerRequest(raw: FormDataEntryValue | null): TrackerRequest | s
   const record = json as Record<string, unknown>;
   const name = typeof record.name === "string" ? record.name.trim() : "";
   if (!name || name.length > 80) return "the tracker needs a name";
-  const startsAt = instant(record.startsAt);
-  const endsAt = instant(record.endsAt);
+  const startsAt = parseInstant(record.startsAt);
+  const endsAt = parseInstant(record.endsAt);
   if (!startsAt || !endsAt) return "the tracker needs a start and an end";
   if (Date.parse(startsAt) >= Date.parse(endsAt)) return "the tracker must end after it starts";
   if (record.tracking !== "api" && record.tracking !== "mod" && record.tracking !== "wars") {
@@ -133,20 +127,11 @@ function parseTrackerRequest(raw: FormDataEntryValue | null): TrackerRequest | s
   return request;
 }
 
-function instant(value: unknown): string | null {
-  if (typeof value !== "string" || !ZONED_PATTERN.test(value.trim()) || Number.isNaN(Date.parse(value))) {
-    return null;
-  }
-  return new Date(Date.parse(value)).toISOString();
-}
-
 function trackerSlug(name: string): string {
   const base = name
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 48);
-  // The backend requires unique slugs; a time suffix keeps retries and
-  // same-named events from colliding.
   return `${base || "tracker"}-${Date.now().toString(36)}`;
 }

@@ -1,10 +1,10 @@
 import type { PageServerLoad } from "./$types";
 
-import { hubGroups, type HubEvent } from "$lib/events/helpers";
-import type { EventGoal } from "$lib/events/types";
-import { canSeeEvent, resolveEventAudience } from "$lib/server/eventVisibility";
-import { loadGoalProgress } from "$lib/server/goalProgress";
-import { eventStore } from "$lib/server/eventStore";
+import { eventStatus, hubGroups, type HubEntry } from "#lib/events/helpers.js";
+import { hubGoal } from "#lib/events/viewerEvent.js";
+import { canSeeEvent, resolveEventAudience } from "#lib/server/eventVisibility.js";
+import { loadGoalProgress } from "#lib/server/goalProgress.js";
+import { eventStore } from "#lib/server/eventStore.js";
 
 export const prerender = false;
 
@@ -12,10 +12,6 @@ export const load: PageServerLoad = async ({ fetch, parent }) => {
   const now = new Date();
   const { viewer } = await parent();
 
-  // Membership decides which events may even be listed, so it is authorized
-  // against a fresh roster and fails closed - a stale one outlives the
-  // departure that should have closed access. Anonymous viewers are turned away
-  // before the roster costs anything, since they see no events either way.
   const { audience } = await resolveEventAudience(fetch, viewer);
 
   const stored = audience === "anonymous" ? [] : await eventStore.list();
@@ -27,32 +23,28 @@ export const load: PageServerLoad = async ({ fetch, parent }) => {
   return {
     groups,
     manager: audience === "manager",
-    // Optional live progress streams after the hub instead of delaying its
-    // first response when the activity feed is slow or unavailable. A draft is
-    // only ever a manager's preview, so it is not worth a feed request.
-    progress: loadProgress(
-      fetch,
-      groups.live.filter((event) => !event.draft),
-      now,
-    ),
+    progress: loadProgress(fetch, visible, now),
   };
 };
 
+/** Band progress for live, listed events, read from the stored goal's feed settings. */
 async function loadProgress(
   fetchImpl: typeof fetch,
-  liveEvents: HubEvent[],
+  entries: HubEntry[],
   now: Date,
 ): Promise<Record<string, number | null>> {
   const progress: Record<string, number | null> = {};
   await Promise.all(
-    liveEvents
-      .filter((event) => event.goal?.feed !== undefined && event.startsAt)
-      .map(async (event) => {
-        progress[event.slug] = await loadGoalProgress(fetchImpl, event.goal as EventGoal, {
-          from: event.startsAt as string,
-          to: now.toISOString(),
-        });
-      }),
+    entries.flatMap(({ event, published }) => {
+      const goal = hubGoal(event);
+      if (!published || eventStatus(event, now) !== "live" || !goal?.feed || !event.startsAt) return [];
+      const window = { from: event.startsAt, to: now.toISOString() };
+      return [
+        loadGoalProgress(fetchImpl, goal, window).then((value) => {
+          progress[event.slug] = value;
+        }),
+      ];
+    }),
   );
   return progress;
 }

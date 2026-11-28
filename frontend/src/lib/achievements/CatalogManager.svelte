@@ -1,17 +1,17 @@
 <script lang="ts">
-  import { onMount, tick } from "svelte";
+  import { onMount, tick, untrack } from "svelte";
   import { beforeNavigate } from "$app/navigation";
-  import { requestDiscord } from "$lib/api/discordManagement";
-  import { requestCeremonyPreview } from "$lib/api/ceremony";
-  import Button from "$lib/design-system/components/Button.svelte";
-  import Field from "$lib/design-system/components/forms/Field.svelte";
-  import FormStatus from "$lib/design-system/components/forms/FormStatus.svelte";
-  import TextInput from "$lib/design-system/components/forms/TextInput.svelte";
-  import NumberInput from "$lib/design-system/components/forms/NumberInput.svelte";
-  import Select from "$lib/design-system/components/forms/Select.svelte";
-  import Toggle from "$lib/design-system/components/forms/Toggle.svelte";
-  import ConfirmDialog from "$lib/design-system/components/forms/ConfirmDialog.svelte";
-  import ManageHeader from "$lib/manage/ManageHeader.svelte";
+  import { requestDiscord } from "#lib/api/discordManagement.js";
+  import { requestCeremonyPreview } from "#lib/api/ceremony.js";
+  import Button from "#lib/design-system/components/Button.svelte";
+  import Field from "#lib/design-system/components/forms/Field.svelte";
+  import FormStatus from "#lib/design-system/components/forms/FormStatus.svelte";
+  import TextInput from "#lib/design-system/components/forms/TextInput.svelte";
+  import NumberInput from "#lib/design-system/components/forms/NumberInput.svelte";
+  import Select from "#lib/design-system/components/forms/Select.svelte";
+  import Toggle from "#lib/design-system/components/forms/Toggle.svelte";
+  import ConfirmDialog from "#lib/design-system/components/forms/ConfirmDialog.svelte";
+  import ManageHeader from "#lib/manage/ManageHeader.svelte";
   import {
     canSortMilestones, catalogBody, catalogEditable, catalogGroups, catalogIssue, catalogThresholdMax, categoryIssue,
     milestonePreviewable, nextMilestone, parseCatalogResponse, resetCategory, sameCategory, sortMilestones,
@@ -19,14 +19,10 @@
   } from "./catalog";
 
   let { initial }: { initial: CatalogResponse } = $props();
-  // The saved view seeds one local draft; Rust owns validation, ids and persistence.
-  // svelte-ignore state_referenced_locally
-  let saved = $state<CatalogResponse>(structuredClone(initial));
-  // svelte-ignore state_referenced_locally
-  let draft = $state(structuredClone(initial.catalog.categories));
+  let saved = $state<CatalogResponse>(untrack(() => structuredClone(initial)));
+  let draft = $state(untrack(() => structuredClone(initial.catalog.categories)));
   let expanded = $state<Record<string, boolean>>({});
-  // svelte-ignore state_referenced_locally
-  let storyId = $state(initial.stories.find((story) => story.ready)?.id ?? "");
+  let storyId = $state(untrack(() => initial.stories.find((story) => story.ready)?.id ?? ""));
   let busy = $state(false);
   let error = $state<string | null>(null);
   let notice = $state<string | null>(null);
@@ -79,7 +75,6 @@
 
   onMount(() => clearPreview);
 
-  // A shown image is cleared once its story changes or its milestone is edited away from what was saved.
   $effect(() => {
     const shown = previewed;
     if (!shown) return;
@@ -97,7 +92,6 @@
     previewError = null;
     previewBusy = true;
     const requestSerial = serial;
-    // The response belongs to the story it was requested for, not to a later selection.
     const requestedStory = storyId;
     const description = `${name(category)} ${milestone.label} at ${number.format(milestone.at)}`;
     controller = new AbortController();
@@ -123,14 +117,12 @@
 
   function received(response: CatalogResponse) {
     saved = response;
-    // Keep the chosen story only while the new response still offers it ready.
     const ready = response.stories.filter((story) => story.ready);
     storyId = ready.some((story) => story.id === storyId) ? storyId : ready[0]?.id ?? "";
     draft = structuredClone(response.catalog.categories);
     conflict = false;
     error = null;
     navigationBlocked = false;
-    // A saved catalog can rename or remove the previewed milestone.
     clearPreview();
   }
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { RankProfilesResponse } from "$lib/api/client";
-import { parseWynncraftGuildOverview } from "$lib/server/guildOverview";
+import type { RankProfilesResponse } from "#lib/api/client.js";
+import { parseWynncraftGuildOverview } from "#lib/server/guildOverview.js";
 
 const BRANCHMASTER = "11111111-1111-1111-1111-111111111111";
 const NOVICE = "22222222-2222-2222-2222-222222222222";
@@ -157,9 +157,6 @@ describe("parseWynncraftGuildOverview", () => {
   });
 
   it("keeps the guild stats when a version-skewed profile snapshot cannot be read", () => {
-    // The shared validator checks only that `catalog.roles` and `profiles` are
-    // arrays, so a skewed snapshot reaches the parser and throws on the first
-    // dereference. The stats do not depend on profiles at all and must survive.
     const guild = {
       level: 240,
       territories: 60,

@@ -1,6 +1,6 @@
 import type { PageServerLoad } from "./$types";
 
-import { loadPostHub } from "$lib/server/postPages";
+import { loadPostHub } from "#lib/server/postPages.js";
 
 export const prerender = false;
 

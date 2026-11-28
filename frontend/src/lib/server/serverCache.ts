@@ -18,6 +18,7 @@ export interface CachedResourceOptions<T> {
 
 export interface CachedResource<T> {
   get(fetchImpl: typeof fetch, options?: { allowStale?: boolean }): Promise<CachedValue<T>>;
+  put(data: T): Promise<CachedValue<T>>;
 }
 
 type Entry<T> = { data: T; updatedAt: number };
@@ -34,10 +35,15 @@ export function createCachedResource<T>(options: CachedResourceOptions<T>): Cach
   }
 
   async function refresh(fetchImpl: typeof fetch): Promise<Entry<T>> {
-    const data = await options.load(fetchImpl);
+    return store(await options.load(fetchImpl));
+  }
+
+  async function store(data: T): Promise<Entry<T>> {
     const entry = { data, updatedAt: Date.now() };
     memory = entry;
-    await writeCache(options.key, JSON.stringify(data), entry.updatedAt).catch(() => undefined);
+    await writeCache(options.key, JSON.stringify(data), entry.updatedAt).catch((error: unknown) => {
+      console.warn(`api_cache write failed for ${options.key}:`, error);
+    });
     return entry;
   }
 
@@ -81,6 +87,9 @@ export function createCachedResource<T>(options: CachedResourceOptions<T>): Cach
         throw error;
       }
     },
+    async put(data) {
+      return value(await store(data), false);
+    },
   };
 }
 
@@ -107,12 +116,40 @@ async function readCache(key: string): Promise<{ value: string; updatedAt: numbe
   return { value: row.value, updatedAt: row.updated_at };
 }
 
+export const CACHE_MAX_ROWS = 2048;
+export const CACHE_MAX_BYTES = 64 * 1024 * 1024;
+export const CACHE_MAX_VALUE_BYTES = 1024 * 1024;
+
+const EVICT_BEYOND_BUDGET = `
+  DELETE FROM api_cache WHERE key IN (
+    SELECT key FROM (
+      SELECT key,
+        SUM(bytes) OVER newest AS kept_bytes,
+        ROW_NUMBER() OVER newest AS kept_rows
+      FROM api_cache
+      WINDOW newest AS (ORDER BY updated_at DESC, key ROWS UNBOUNDED PRECEDING)
+    )
+    WHERE kept_bytes > ? OR kept_rows > ?
+  )`;
+
 async function writeCache(key: string, value: string, updatedAt: number) {
   const db = await cacheDb();
-  await db.execute({
-    sql: "INSERT OR REPLACE INTO api_cache (key, value, updated_at) VALUES (?, ?, ?)",
-    args: [key, value, updatedAt],
-  });
+  const bytes = Buffer.byteLength(value);
+  if (bytes > CACHE_MAX_VALUE_BYTES) {
+    console.warn(`api_cache skipped ${key}: ${bytes} bytes exceeds the ${CACHE_MAX_VALUE_BYTES}-byte limit`);
+    await db.execute({ sql: "DELETE FROM api_cache WHERE key = ?", args: [key] });
+    return;
+  }
+  await db.batch(
+    [
+      {
+        sql: "INSERT OR REPLACE INTO api_cache (key, value, updated_at, bytes) VALUES (?, ?, ?, ?)",
+        args: [key, value, updatedAt, bytes],
+      },
+      { sql: EVICT_BEYOND_BUDGET, args: [CACHE_MAX_BYTES, CACHE_MAX_ROWS] },
+    ],
+    "write",
+  );
 }
 
 function cacheDb(): Promise<Client> {
@@ -123,11 +160,6 @@ function cacheDb(): Promise<Client> {
   return cacheDbPromise;
 }
 
-/**
- * Persisted rows outlive every staleMs (max 3 days today), and per-guild,
- * per-player, and per-query keys mint new rows forever - without a sweep the
- * table only ever grows (and version-bumped keys orphan their old rows).
- */
 const SWEEP_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const SWEEP_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
@@ -137,9 +169,14 @@ async function initCacheDb(): Promise<Client> {
     CREATE TABLE IF NOT EXISTS api_cache (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL,
-      updated_at INTEGER NOT NULL
+      updated_at INTEGER NOT NULL,
+      bytes INTEGER NOT NULL DEFAULT 0
     )
   `);
+  await addByteAccounting(db);
+  await db.execute("CREATE INDEX IF NOT EXISTS api_cache_newest ON api_cache (updated_at DESC, key, bytes)");
+  await db.execute({ sql: "DELETE FROM api_cache WHERE bytes > ?", args: [CACHE_MAX_VALUE_BYTES] });
+  await db.execute({ sql: EVICT_BEYOND_BUDGET, args: [CACHE_MAX_BYTES, CACHE_MAX_ROWS] });
   const sweep = () =>
     db
       .execute({
@@ -147,13 +184,22 @@ async function initCacheDb(): Promise<Client> {
         args: [Date.now() - SWEEP_MAX_AGE_MS],
       })
       .catch((error: unknown) => {
-        // Once a day at most - a persistent failure must be visible, or the
-        // retention guarantee dies silently.
         console.warn("api_cache sweep failed:", error);
       });
   void sweep();
   const timer = setInterval(sweep, SWEEP_INTERVAL_MS);
-  // A held timer must not keep a short-lived process (tests, prerender) alive.
   if (typeof timer === "object" && "unref" in timer) timer.unref();
   return db;
+}
+
+async function addByteAccounting(db: Client): Promise<void> {
+  const columns = await db.execute("SELECT name FROM pragma_table_info('api_cache')");
+  if (columns.rows.some((row) => row.name === "bytes")) return;
+  await db.batch(
+    [
+      "ALTER TABLE api_cache ADD COLUMN bytes INTEGER NOT NULL DEFAULT 0",
+      "UPDATE api_cache SET bytes = length(CAST(value AS BLOB))",
+    ],
+    "write",
+  );
 }

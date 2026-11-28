@@ -1,6 +1,6 @@
 <script lang="ts">
-  import Button from "$lib/design-system/components/Button.svelte";
-  import { webAuthStartUrl } from "$lib/site/webAuth";
+  import Button from "#lib/design-system/components/Button.svelte";
+  import { webAuthStartUrl } from "#lib/site/webAuth.js";
   import type { AreaAccess } from "./types";
 
   let {

@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
   import { page } from "$app/state";
-  import { SECTIONS } from "$lib/site/nav";
+  import { SECTIONS } from "#lib/site/nav.js";
 
   import type { ShellStats } from "./+layout.server";
 
@@ -49,7 +49,6 @@
 
 <style>
   .stats-shell {
-    /* The data-dense register reads small — scale the type tokens up a step. */
     --text-2xs: 0.75rem;
     --text-xs: 0.8125rem;
     --text-sm: 0.9375rem;

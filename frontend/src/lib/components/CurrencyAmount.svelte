@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { currencyParts, formatEb } from "$lib/site/bagshop";
-  import { CURRENCY_ASSET_BY_UNIT } from "$lib/site/currency";
+  import { currencyParts, formatEb } from "#lib/site/bagshop.js";
+  import { CURRENCY_ASSET_BY_UNIT } from "#lib/site/currency.js";
 
   let { value, size = "md" }: { value: number; size?: "sm" | "md" | "lg" } = $props();
 

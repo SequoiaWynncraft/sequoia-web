@@ -1,7 +1,7 @@
-import { type HeldTerritoriesResponse, type HeldTerritory } from "$lib/api/territories";
-import { isRecord } from "$lib/server/guards";
-import { createCachedResource } from "$lib/server/serverCache";
-import { fetchWynncraftJson } from "$lib/server/wynncraft";
+import { type HeldTerritoriesResponse, type HeldTerritory } from "#lib/api/territories.js";
+import { isRecord } from "#lib/api/guards.js";
+import { createCachedResource } from "#lib/server/serverCache.js";
+import { fetchWynncraftJson } from "#lib/server/wynncraft.js";
 
 const GUILD_NAME = "Sequoia";
 const FRESH_MS = 60 * 1000;
@@ -39,7 +39,7 @@ async function loadHeldTerritories(fetchImpl: typeof fetch): Promise<HeldTerrito
   return parseHeldTerritories(payload);
 }
 
-export function parseHeldTerritories(value: unknown): HeldTerritory[] {
+function parseHeldTerritories(value: unknown): HeldTerritory[] {
   if (!isRecord(value)) throw new Error("Unexpected Wynncraft territory response.");
 
   const held = Object.entries(value).flatMap(([name, entry]): HeldTerritory[] => {
@@ -49,7 +49,6 @@ export function parseHeldTerritories(value: unknown): HeldTerritory[] {
     return [{ name, acquired: entry.acquired }];
   });
 
-  // Longest-held first.
   held.sort((a, b) => Date.parse(a.acquired) - Date.parse(b.acquired) || a.name.localeCompare(b.name));
   return held;
 }

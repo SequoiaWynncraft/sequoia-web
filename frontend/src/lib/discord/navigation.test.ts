@@ -33,7 +33,6 @@ function message(id: string, name: string, channel: string, extra: Partial<Manag
   };
 }
 
-// Rust lists by last update, so arrival order says nothing about Discord's.
 const messages = [
   message("ffa", "FFA Guide", "21", { message_id: "905", source: threadSource("21", "20", "900") }),
   message("roles-draft", "Military roles", "", { published_version: null, delivery_state: "draft" }),
@@ -57,7 +56,6 @@ describe("message browser", () => {
       ["unplaced", ["Military roles"]],
       ["guild-info", ["Guild banner", "guild-info", "Sequoian Insignias"]],
       ["military-info", ["Beginners War Guide", "FFA Guide"]],
-      // Its parent is not described anywhere, so it is not filed under a guess.
       ["Orphan guide", ["Orphan guide"]],
       ["rules-and-roles", ["rules-and-roles"]],
       ["unavailable", ["Old announcement"]],
@@ -96,26 +94,22 @@ describe("message browser", () => {
     const guild = { key: `${MAIN_GUILD}:10`, kind: "channel" as const };
     const unplaced = { key: `${MAIN_GUILD}:unplaced`, kind: "unplaced" as const };
 
-    // Channels start closed; drafts without a channel stay in sight.
     expect([isOpen(disclosure, military, browsing), isOpen(disclosure, unplaced, browsing)]).toEqual([false, true]);
     disclosure = toggle(disclosure, guild, browsing);
     disclosure = toggle(disclosure, unplaced, browsing);
 
-    // A search shows every match; closing one there is temporary.
     expect(isOpen(disclosure, military, searching)).toBe(true);
     disclosure = toggle(disclosure, guild, searching);
     expect(isOpen(disclosure, guild, searching)).toBe(false);
     disclosure = endSearch(disclosure);
     expect([isOpen(disclosure, guild, browsing), isOpen(disclosure, military, browsing), isOpen(disclosure, unplaced, browsing)]).toEqual([true, false, false]);
 
-    // Opening a message found by search leaves its channel open afterwards.
     disclosure = toggle(disclosure, military, searching);
     disclosure = reveal(disclosure, groupKey(messages[0], messages, context.channels));
     expect(isOpen(disclosure, military, searching)).toBe(true);
     disclosure = endSearch(disclosure);
     expect(isOpen(disclosure, military, browsing)).toBe(true);
 
-    // The other server keeps its own layout; a server with one group opens it.
     const branch = { key: `${BRANCH}:unavailable`, kind: "unavailable" as const };
     expect(isOpen(disclosure, branch, browsing)).toBe(false);
     expect(isOpen(disclosure, branch, { searching: false, single: true })).toBe(true);

@@ -4,7 +4,7 @@ import {
   getPartyFinderDmLevel,
   parsePartyFinderDmLevel,
   setPartyFinderDmLevel,
-} from "$lib/server/partyFinderPreferences";
+} from "#lib/server/partyFinderPreferences.js";
 
 describe("partyFinderPreferences", () => {
   it("accepts only supported levels", () => {

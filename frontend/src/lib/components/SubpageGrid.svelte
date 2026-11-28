@@ -1,7 +1,7 @@
 <script lang="ts">
-  import Card from "$lib/design-system/components/Card.svelte";
+  import Card from "#lib/design-system/components/Card.svelte";
   import Icon from "./Icon.svelte";
-  import type { NavLeaf } from "$lib/site/nav";
+  import type { NavLeaf } from "#lib/site/nav.js";
 
   let { items }: { items: NavLeaf[] } = $props();
 </script>

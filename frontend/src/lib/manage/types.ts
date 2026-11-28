@@ -9,11 +9,6 @@
  */
 export type AreaAccess = "granted" | "signin" | "unverified" | "denied";
 
-/**
- * Backend branch ids (`RankSummary.branches[].branch`) from the sequoia
- * role catalog. Stable ids, not Discord display labels, so renaming a role
- * cannot open or close a gate.
- */
 export type ManageBranchKey =
   | "events"
   | "treasury"
@@ -22,7 +17,6 @@ export type ManageBranchKey =
   | "military"
   | "end_game";
 
-/** Per-area access for the management console, resolved once per request. */
 export interface ManageCapabilities {
   events: AreaAccess;
   treasury: AreaAccess;
@@ -30,7 +24,6 @@ export interface ManageCapabilities {
   development: AreaAccess;
   military: AreaAccess;
   endGame: AreaAccess;
-  /** Discord staff and branch managers, decided by Sierra's Rust authority. */
   discord: AreaAccess;
 }
 

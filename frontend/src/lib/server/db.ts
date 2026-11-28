@@ -2,16 +2,12 @@ import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { env } from "$env/dynamic/private";
+import { SEQUOIA_WEB_DB_URL, TURSO_AUTH_TOKEN, TURSO_DATABASE_URL } from "$app/env/private";
 import { createClient, type Client } from "@libsql/client";
 
 let dbPromise: Promise<Client> | undefined;
 let dbClient: Client | undefined;
 
-/**
- * Shared libsql client for all server-side storage. Each consumer owns its
- * tables: run CREATE TABLE IF NOT EXISTS once behind a module-level memo.
- */
 export function database(): Promise<Client> {
   dbPromise ??= createDatabase().catch((error: unknown) => {
     dbPromise = undefined;
@@ -20,7 +16,6 @@ export function database(): Promise<Client> {
   return dbPromise;
 }
 
-/** Flushes and releases the local database before the process exits. */
 export function closeDatabase(): void {
   dbPromise = undefined;
   dbClient?.close();
@@ -34,14 +29,14 @@ async function createDatabase(): Promise<Client> {
 
   dbClient = createClient({
     url,
-    authToken: env.TURSO_AUTH_TOKEN?.trim() || undefined,
+    authToken: TURSO_AUTH_TOKEN?.trim() || undefined,
     timeout: 5000,
   });
   return dbClient;
 }
 
 function databaseUrl(): string {
-  return env.TURSO_DATABASE_URL?.trim() || env.SEQUOIA_WEB_DB_URL?.trim() || "file:.data/sequoia-web.db";
+  return TURSO_DATABASE_URL?.trim() || SEQUOIA_WEB_DB_URL?.trim() || "file:.data/sequoia-web.db";
 }
 
 function localDatabasePath(url: string): string | null {

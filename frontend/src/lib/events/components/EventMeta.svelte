@@ -8,10 +8,9 @@
     align = "start",
     showStatus = true,
   }: {
-    event: GuildEvent;
+    event: Pick<GuildEvent, "access" | "startsAt" | "endsAt">;
     status: EventStatus;
     align?: "start" | "center" | "end";
-    /** Hub shelves already group by status - the chip would repeat them. */
     showStatus?: boolean;
   } = $props();
 

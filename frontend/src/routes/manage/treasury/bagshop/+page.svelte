@@ -1,17 +1,18 @@
 <script lang="ts">
+  import { pageTitle } from "#lib/site/brand.js";
   import { invalidateAll } from "$app/navigation";
   import { SvelteSet } from "svelte/reactivity";
 
-  import Button from "$lib/design-system/components/Button.svelte";
-  import Card from "$lib/design-system/components/Card.svelte";
-  import LedgerTable from "$lib/design-system/components/LedgerTable.svelte";
-  import type { LedgerColumn } from "$lib/design-system/components/ledgerTable";
-  import FormStatus from "$lib/design-system/components/forms/FormStatus.svelte";
-  import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
-  import { createBagshopClient, RARITIES, type Order } from "$lib/api/bagshop";
-  import AreaGate from "$lib/manage/AreaGate.svelte";
-  import ManageHeader from "$lib/manage/ManageHeader.svelte";
-  import { groupInventoryByRaid } from "$lib/site/bagshop";
+  import Button from "#lib/design-system/components/Button.svelte";
+  import Card from "#lib/design-system/components/Card.svelte";
+  import LedgerTable from "#lib/design-system/components/LedgerTable.svelte";
+  import type { LedgerColumn } from "#lib/design-system/components/ledgerTable.js";
+  import FormStatus from "#lib/design-system/components/forms/FormStatus.svelte";
+  import SectionLabel from "#lib/design-system/components/SectionLabel.svelte";
+  import { createBagshopClient, RARITIES, type Order } from "#lib/api/bagshop.js";
+  import AreaGate from "#lib/manage/AreaGate.svelte";
+  import ManageHeader from "#lib/manage/ManageHeader.svelte";
+  import { groupInventoryByRaid } from "#lib/site/bagshop.js";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
@@ -29,8 +30,6 @@
     index: number;
   }
 
-  // Flat rows in raid-group + rarity order; `index` pins the ledger's
-  // ordering since none of the editable columns is sortable.
   const inventoryRows = $derived.by<InventoryRow[]>(() => {
     const rows: InventoryRow[] = [];
     for (const group of groups) {
@@ -50,13 +49,10 @@
     return rows;
   });
 
-  // Message/inventory IDs with an action in flight — a Set so concurrent Fill/Decline/Save
-  // actions keep independent pending state rather than clobbering one another.
   const busy = new SvelteSet<string>();
   let actionError = $state<string | null>(null);
   let declineReasons = $state<Record<string, string>>({});
 
-  // Inventory editor drafts, keyed by inventory key.
   let drafts = $state<Record<string, { stock: string; price: string; cap: string }>>({});
   let savedKey = $state<string | null>(null);
 
@@ -64,11 +60,9 @@
     return drafts[key] ?? { stock: String(stock), price: String(price), cap: String(cap) };
   }
 
-  /** A per-order lock so a claim/fill/decline can't race another mutation on the same order. */
   const orderLock = (order: Order) => `order:${order.messageId}`;
 
   async function run(lockId: string, fn: () => Promise<{ ok: boolean; error?: { code: string; message: string } }>) {
-    // Serialize by resource: ignore a second action while one on the same order/row is in flight.
     if (busy.has(lockId)) return;
     busy.add(lockId);
     actionError = null;
@@ -101,11 +95,9 @@
     return run(orderLock(order), () => client.declineOrder(order.messageId, reason));
   }
 
-  /** Parses an inventory field: "" → unchanged (null), a non-negative integer → its value, anything else → invalid. */
   function parseInventoryField(raw: string): number | null | "invalid" {
     const trimmed = raw.trim();
     if (trimmed === "") return null;
-    // Reject decimals, negatives and other malformed input rather than truncating with parseInt.
     if (!/^\d+$/.test(trimmed)) return "invalid";
     return Number(trimmed);
   }
@@ -145,7 +137,7 @@
 </script>
 
 <svelte:head>
-  <title>Manage bag shop - Sequoia</title>
+  <title>{pageTitle("Manage bag shop")}</title>
   <meta name="robots" content="noindex" />
 </svelte:head>
 
@@ -161,7 +153,6 @@
   {:else}
     <FormStatus error={actionError} />
 
-    <!-- ─── Open orders ───────────────────────────────────────────────── -->
     <section class="mg-section">
       <SectionLabel>
         {#snippet children()}Open orders{/snippet}
@@ -179,7 +170,7 @@
               <div class="mg-order-head">
                 <span class="mg-type mg-type-{order.orderType}">{order.orderType === "buy" ? "Buy order" : "Sell offer"}</span>
                 {#if order.splitPart > 0}<span class="mg-part">Part {order.splitPart}/2</span>{/if}
-                <span class="mg-order-status">{order.claimedByMention ? "Claimed" : "Unclaimed"}</span>
+                <span class="mg-order-status">{order.claimed ? "Claimed" : "Unclaimed"}</span>
               </div>
               <p class="mg-player">
                 {order.userName || "Unknown"}{#if order.minecraftIgn} · IGN {order.minecraftIgn}{/if}
@@ -190,7 +181,7 @@
                 {#each order.remainingItems as item (item.raid + item.rarity)}
                   <li>
                     <span>{item.raid} · {item.rarity} × {item.amount}</span>
-                    {#if order.claimedByMention}
+                    {#if order.claimed}
                       <span class="mg-item-actions">
                         <Button
                           size="sm"
@@ -214,7 +205,7 @@
                 {/each}
               </ul>
 
-              {#if order.claimedByMention}
+              {#if order.claimed}
                 <label class="mg-reason">
                   <span class="seq-field-label">Decline reason (shown to the customer)</span>
                   <input class="seq-input seq-input-mono" bind:value={declineReasons[order.messageId]} placeholder="Reason" />
@@ -222,7 +213,7 @@
               {/if}
 
               <div class="mg-order-foot">
-                {#if !order.claimedByMention}
+                {#if !order.claimed}
                   <Button size="sm" variant="primary" disabled={busy.has(`order:${order.messageId}`)} onclick={() => claim(order)}>
                     Claim
                   </Button>
@@ -238,7 +229,6 @@
       {/if}
     </section>
 
-    <!-- ─── Inventory editor ──────────────────────────────────────────── -->
     <section class="mg-section">
       <SectionLabel>
         {#snippet children()}Stock, prices &amp; caps{/snippet}
@@ -262,8 +252,6 @@
         <input class="seq-input seq-input-mono mg-num-input" type="number" min="0" aria-label="Cap for {row.bag}" bind:value={draft.cap} oninput={(e) => (drafts[row.key] = { ...draft, cap: e.currentTarget.value })} />
       {/snippet}
       {#snippet saveCell(row: InventoryRow)}
-        <!-- The bag label is a plain cell in the ledger, so the button names
-             its own row for screen readers. -->
         <Button
           size="sm"
           variant="secondary"

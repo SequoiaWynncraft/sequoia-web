@@ -1,10 +1,3 @@
-/* ═══════════════════════════════════════════════════════════════════
-   SEQUOIA — BASE & UTILITY HELPERS
-   Global reset + the handful of reusable utility classes the original
-   site relies on (gradient text, gold dividers, card hover, status dot).
-   These are shipped so component/card HTML can use them directly.
-   ═══════════════════════════════════════════════════════════════════ */
-
 *, *::before, *::after { box-sizing: border-box; }
 
 html { scroll-behavior: smooth; }
@@ -24,7 +17,6 @@ body {
 }
 ::placeholder { color: var(--color-text-dim); opacity: 1; }
 
-/* ── Gradient text ── */
 .text-gold-gradient {
   background: var(--gradient-gold);
   -webkit-background-clip: text;
@@ -44,22 +36,18 @@ body {
   -webkit-text-fill-color: transparent;
 }
 
-/* ── Gold hairline divider ── */
 .divider-gold {
   height: 1px;
   background: linear-gradient(to right, transparent, color-mix(in srgb, var(--color-gold) 18%, transparent) 30%, color-mix(in srgb, var(--color-gold) 18%, transparent) 70%, transparent);
 }
 
-/* ── Inventory-slot bevel ── */
 .slot-bevel { box-shadow: var(--bevel-slot); }
 
-/* ── Section rhythm ── */
 .section-padding { padding: var(--section-pad-y) var(--section-pad-x); }
 @media (min-width: 640px) {
   .section-padding { padding: var(--section-pad-y-lg) var(--section-pad-x-lg); }
 }
 
-/* ── Card hover (gold→enchant lift) ── */
 .card-hover {
   border: 1px solid color-mix(in srgb, var(--color-gold) 30%, transparent);
   transition: transform var(--dur-slow) var(--ease-out-soft),
@@ -72,16 +60,13 @@ body {
   border-color: color-mix(in srgb, var(--color-enchant) 50%, transparent);
 }
 
-/* ── Online status dot ── */
 .status-pulse { animation: seq-pulse-dot 1.5s ease-in-out infinite; }
 
-/* ── Focus ring ── */
 .focus-ring:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--color-gold) 50%, transparent);
   outline-offset: 2px;
 }
 
-/* ── Animation helpers ── */
 .animate-fade-in-up { animation: seq-fade-in-up 0.6s var(--ease-out-soft) both; }
 .animate-fade-in { animation: seq-fade-in 0.5s ease both; }
 .animate-scale-in { animation: seq-scale-in 0.5s var(--ease-out-soft) both; }

@@ -3,14 +3,9 @@
 node_modules/
 frontend/node_modules/
 backend/target/
-.svelte-kit/
 frontend/.svelte-kit/
-build/
 frontend/build/
 .data/
 .env
 .env.*
 !.env.example
-!.env.*.example
-output/
-.playwright-cli/

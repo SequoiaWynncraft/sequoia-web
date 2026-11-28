@@ -1,14 +1,12 @@
 <script lang="ts">
+  import { BRAND } from "#lib/site/brand.js";
   import { page } from "$app/state";
   import Icon from "./Icon.svelte";
-  import { DEFAULT_HIDDEN_NAV, visibleSections } from "$lib/site/navPreferences";
-  import { nmsrFace } from "$lib/site/nmsr";
-  import { webAuthLogoutUrl, webAuthStartUrl } from "$lib/site/webAuth";
-  import type { Viewer } from "$lib/site/viewer";
+  import { DEFAULT_HIDDEN_NAV, visibleSections } from "#lib/site/navPreferences.js";
+  import { nmsrFace } from "#lib/site/nmsr.js";
+  import { webAuthLogoutUrl, webAuthStartUrl } from "#lib/site/webAuth.js";
+  import type { Viewer } from "#lib/site/viewer.js";
 
-  const DISCORD = "https://discord.gg/seq";
-  const MAP = "https://map.seqwawa.com";
-  // Sentinel for `open`; section keys are route paths, so this can't collide.
   const ACCOUNT = "#account";
 
   let {
@@ -17,8 +15,6 @@
     navHidden = [...DEFAULT_HIDDEN_NAV],
   }: { viewer?: Viewer | null; manage?: boolean; navHidden?: string[] } = $props();
 
-  // The menu the viewer chose in account settings. Hidden pages keep their
-  // routes, tabs, and breadcrumbs - they just are not listed up here.
   const sections = $derived(visibleSections(navHidden));
 
   const signInUrl = $derived(webAuthStartUrl());
@@ -36,6 +32,21 @@
     return page.url.pathname === to || page.url.pathname.startsWith(to + "/");
   }
 
+  function menuHandlers(key: string) {
+    return {
+      onmouseenter: () => (open = key),
+      onfocusin: () => (open = key),
+      onfocusout: (event: FocusEvent & { currentTarget: HTMLElement }) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) open = null;
+      },
+      onkeydown: (event: KeyboardEvent & { currentTarget: HTMLElement }) => {
+        if (event.key !== "Escape" || open !== key) return;
+        event.currentTarget.querySelector<HTMLElement>(".seq-nav-link")?.focus();
+        open = null;
+      },
+    };
+  }
+
   function clampToViewport(node: HTMLElement) {
     const rect = node.getBoundingClientRect();
     const overflow = rect.right - (window.innerWidth - 16);
@@ -45,11 +56,10 @@
 
 <svelte:window onscroll={() => { if (mobileOpen) mobileOpen = false; }} />
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
 <nav class="seq-top-nav" onmouseleave={() => open = null}>
   <div class="seq-top-nav-shell">
     <a href="/" class="seq-nav-brand" onclick={() => mobileOpen = false}>
-      SEQUOIA
+      {BRAND.name.toUpperCase()}
     </a>
 
     <div class="seq-nav-desktop">
@@ -57,12 +67,12 @@
         {@const hasMenu = !!(s.groups || s.items)}
         {@const active = isActive(s.to)}
         {@const isOpen = open === s.to}
-        <!-- svelte-ignore a11y_no_static_element_interactions -->
-        <span class="seq-nav-item" onmouseenter={() => open = s.to} style="position:relative">
+        <span class="seq-nav-item" {...menuHandlers(s.to)} style="position:relative">
           <a
             href={s.to}
             class="seq-nav-link"
             class:seq-nav-link-active={active}
+            aria-expanded={hasMenu ? isOpen : undefined}
           >
             {s.label}
             {#if hasMenu}
@@ -110,25 +120,16 @@
         </span>
       {/each}
 
-      <a href={MAP} target="_blank" rel="noreferrer" class="seq-nav-link seq-nav-accent">Map</a>
-      <a href={DISCORD} target="_blank" rel="noreferrer" class="seq-nav-link seq-nav-accent">Discord</a>
+      <a href={BRAND.mapUrl} target="_blank" rel="noreferrer" class="seq-nav-link seq-nav-accent">Map</a>
+      <a href={BRAND.discordUrl} target="_blank" rel="noreferrer" class="seq-nav-link seq-nav-accent">Discord</a>
       {#if manage}
         <a href="/manage" class="seq-nav-link" class:seq-nav-link-active={isActive("/manage")}>
           Manage
         </a>
       {/if}
       {#if viewer}
-        <!-- svelte-ignore a11y_no_static_element_interactions -->
-        <span
-          class="seq-nav-item"
-          onmouseenter={() => open = ACCOUNT}
-          onfocusin={() => open = ACCOUNT}
-          onfocusout={(event) => {
-            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) open = null;
-          }}
-          style="position:relative"
-        >
-          <a href={viewerCardUrl ?? signOutUrl} class="seq-nav-link seq-nav-viewer">
+        <span class="seq-nav-item" {...menuHandlers(ACCOUNT)} style="position:relative">
+          <a href={viewerCardUrl ?? signOutUrl} class="seq-nav-link seq-nav-viewer" aria-expanded={open === ACCOUNT}>
             <img class="seq-nav-face" src={nmsrFace(viewer.minecraftUuid, 18)} alt="" width="18" height="18" />
             {viewer.minecraftUsername ?? "Account"}
             <svg class="seq-nav-chevron" class:seq-nav-chevron-open={open === ACCOUNT} width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -223,8 +224,8 @@
             {/each}
           {/if}
         {/each}
-        <a href={MAP} target="_blank" rel="noreferrer" onclick={() => mobileOpen = false} class="seq-mobile-link seq-nav-accent">Map</a>
-        <a href={DISCORD} target="_blank" rel="noreferrer" onclick={() => mobileOpen = false} class="seq-mobile-link seq-nav-accent">Discord</a>
+        <a href={BRAND.mapUrl} target="_blank" rel="noreferrer" onclick={() => mobileOpen = false} class="seq-mobile-link seq-nav-accent">Map</a>
+        <a href={BRAND.discordUrl} target="_blank" rel="noreferrer" onclick={() => mobileOpen = false} class="seq-mobile-link seq-nav-accent">Discord</a>
         {#if viewer}
           {#if viewerCardUrl}
             <a href={viewerCardUrl} onclick={() => mobileOpen = false} class="seq-mobile-link seq-mobile-viewer">

@@ -1,7 +1,6 @@
 import type { ApiResult } from "./client";
 import { isRecord } from "./guards";
 
-/** Same-origin client; Rust remains the validation and persistence authority. */
 export async function requestDiscord<T>(
   fetchImpl: typeof fetch,
   path: string,

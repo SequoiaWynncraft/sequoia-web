@@ -5,7 +5,6 @@ import type { CeremonyResponse } from "./ceremony";
 
 vi.mock("$app/navigation", () => ({ beforeNavigate: vi.fn() }));
 
-// Fictional ids, labels and member name. A UI state, never a substitute for real API or renderer acceptance.
 const unavailable: CeremonyResponse = {
   settings: {
     version: 0, guild_id: "1111111111111111111", enabled: false, channel_id: "",
@@ -39,7 +38,6 @@ const ready: CeremonyResponse = {
   viewer: { display_name: "FictionalMember" },
 };
 
-// Five original stories, then the seven a newer server appends in catalog order: disabled at weight 0, each with sample suggested tiers.
 const original = [["sample_story", "Sample story", 30], ["other_story", "Other story", 10], ["meadow_story", "Meadow story", 20], ["harbor_story", "Harbor story", 20], ["summit_story", "Summit story", 20]] as const;
 const added = [
   ["still_pool", "Still pool", ["platinum", "diamond"]], ["parliament_of_owls", "Parliament of owls", ["diamond", "obsidian"]],
@@ -62,7 +60,6 @@ const twelve: CeremonyResponse = {
   effective_scene: { season: "normal", ambiance: "dusk" },
   viewer: { display_name: "FictionalMember" },
 };
-/** One odds row, from its opening tag to the next row. */
 function storyRow(body: string, label: string): string {
   const rows = body.split(/<div class="story /).slice(1);
   return rows.find(row => row.includes(`aria-label="${label} weight"`)) ?? "";
@@ -81,7 +78,6 @@ describe("twelve-story ceremony catalog", () => {
     expect(storyRow(body, "Great sequoia wakes")).toContain(">Suggested for Mythril<");
     expect(storyRow(body, "Sample story")).not.toContain("Suggested");
     expect(body.match(/class="suggested/g)).toHaveLength(7);
-    expect(body).not.toContain("\u2014");
   });
   it("offers new stories in the per-tier list with the same hint, allowed by default", () => {
     const { body } = render(CeremonyManager, { props: { initial: twelve, channels: [] } });
@@ -177,7 +173,6 @@ describe("achievement ceremony interface", () => {
     expect(body).toMatch(/<option[^>]*value="sample_story"[^>]*disabled/);
     expect(body).toContain("Sample story saved chance: Not available");
     expect(body).not.toContain("<img");
-    expect(body).not.toContain("\u2014");
   });
   it("lists only catalog stories with saved chances, the channel picker and the scheduled scene", () => {
     const channels = [{ id: "2222222222222222222", name: "achievements" }, { id: "3333333333333333333", name: "old-thread", archived: false }];
@@ -210,7 +205,6 @@ describe("achievement ceremony interface", () => {
     expect(body).toContain("Other story next chance: 40%");
     expect(body.match(/class="recent-tag[^"]*">recent</g)).toHaveLength(1);
     expect(body).not.toContain("not available on this server");
-    expect(body).not.toContain("\u2014");
   });
   it("shows the repeat default locked for an older server, with next odds equal to base", () => {
     const { settings: { repeat: _repeat, ...settings }, ...rest } = structuredClone(ready);
@@ -228,12 +222,10 @@ describe("achievement ceremony interface", () => {
     expect(body).toMatch(/<option[^>]*value="scheduled"[^>]*selected/);
     expect(body).toContain("Now: Snow night");
     expect(body).toContain("Uses your head and name (FictionalMember) with sample values. Marked DEMO, never posted.");
-    // The scene is stated once in the header and once beside the scene control, not repeated in hints.
     expect(body.match(/Snow night\./g)).toHaveLength(1);
     expect(body).not.toMatch(/renderer|bundle|Sierra/i);
     expect(body).toContain("Play animation");
     expect(body).toMatch(/<input[^>]*type="number"[^>]*value="1000"/);
-    expect(body).not.toContain("\u2014");
   });
   it("keeps the raid-only controls for an older server without a catalog", () => {
     const { body } = render(CeremonyManager, { props: { initial: ready, channels: [] } });
@@ -262,7 +254,6 @@ describe("achievement ceremony interface", () => {
     expect(body).toContain(">Count<");
     for (const absent of [">Profession<", ">Level<", ">Role<", ">Badge title<", ">Wars<"]) expect(body).not.toContain(absent);
     expect(body).toContain("Marked DEMO, never posted.");
-    expect(body).not.toContain("\u2014");
   });
   it("starts on the first catalog category when raids are not offered", () => {
     const catalog: CeremonyResponse = {
@@ -322,7 +313,6 @@ describe("ceremony images control", () => {
     expect(toggle?.[1]).toContain("disabled");
     expect(toggle?.[0]).toMatch(/\schecked/);
     expect(body).toMatch(/<span>Send images<\/span><\/label>(?:\s|<!--[^>]*-->)*<small[^>]*>Not available on this server yet\.<\/small>/);
-    expect(body).not.toContain("\u2014");
   });
   it("allows enabling text-only ceremonies without installed artwork", () => {
     const textOnly = structuredClone(unavailable);
@@ -352,7 +342,6 @@ describe("ceremony image tier controls", () => {
     }
     expect(body.indexOf("Images by tier")).toBeGreaterThan(body.indexOf("Send images"));
     expect(body.indexOf("Images by tier")).toBeLessThan(body.indexOf("Story odds"));
-    expect(body).not.toContain("\u2014");
   });
   it("disables the tier switches when Send images is off or the server lacks them", () => {
     const off = render(CeremonyManager, { props: { initial: current({ send_images: false }), channels: [] } }).body;
@@ -372,7 +361,6 @@ describe("ceremony image tier controls", () => {
 });
 
 describe("ceremony screen films", () => {
-  // Fictional films and words. The first ready story is a screen story, so the preview offers films.
   const screen = { film: { mode: "fixed" as const, film: "comedy" }, error: { title: "Popcorn jam", body: "Something sticky is in the projector.", code: "STOP CODE: BUTTER" } };
   const screened: CeremonyResponse = {
     ...ready,

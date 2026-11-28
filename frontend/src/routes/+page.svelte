@@ -1,37 +1,30 @@
 <script lang="ts">
+  import { BRAND } from "#lib/site/brand.js";
   import { onMount } from "svelte";
   import { page } from "$app/state";
-  import SectionHeading from "$lib/design-system/components/SectionHeading.svelte";
-  import StatBlock from "$lib/design-system/components/StatBlock.svelte";
-  import ServiceCard from "$lib/design-system/components/ServiceCard.svelte";
-  import OfficerStrip from "$lib/design-system/components/OfficerStrip.svelte";
-  import SequoianTree from "$lib/components/SequoianTree.svelte";
-  import Icon from "$lib/components/Icon.svelte";
-  import EventSky from "$lib/events/components/EventSky.svelte";
-  import { formatWindow } from "$lib/events/format";
-  import { eventStatus } from "$lib/events/helpers";
-  import { formatPostDate } from "$lib/posts/format";
-  import { POST_FEEDS, postHref } from "$lib/posts/types";
-  import { createSequoiaApiClient } from "$lib/api/client";
+  import SectionHeading from "#lib/design-system/components/SectionHeading.svelte";
+  import StatBlock from "#lib/design-system/components/StatBlock.svelte";
+  import OfficerStrip from "#lib/design-system/components/OfficerStrip.svelte";
+  import SequoianTree from "#lib/components/SequoianTree.svelte";
+  import Icon from "#lib/components/Icon.svelte";
+  import EventSky from "#lib/events/components/EventSky.svelte";
+  import { formatWindow } from "#lib/events/format.js";
+  import { eventStatus } from "#lib/events/helpers.js";
+  import { formatPostDate } from "#lib/posts/format.js";
+  import { POST_FEEDS, postHref } from "#lib/posts/types.js";
+  import { createSequoiaApiClient } from "#lib/api/client.js";
   import {
     branchLeadershipBadge,
     type BranchmasterMember,
     type HomepageStats,
-  } from "$lib/api/guildOverview";
-  import { NMSR_BASE_URL } from "$lib/config/public";
-  import { homepageServices, homepageStatistics } from "$lib/site/nav";
-  import { themeById } from "$lib/site/themePreferences";
+  } from "#lib/api/guildOverview.js";
+  import { NMSR_BASE_URL } from "#lib/config/public.js";
+  import { themeById } from "#lib/site/themePreferences.js";
 
   const IMG = "/assets/images/";
-  const SERVICES = homepageServices();
-  const STATISTICS = homepageStatistics();
   let { data } = $props();
-  // The hero art belongs to the theme; the id comes from the root layout load,
-  // so it is already resolved on the first server render.
   const theme = $derived(themeById(page.data.theme));
   let heroImage: HTMLImageElement;
-  // A slight zoom hides the parallax edge, but it would crop art shown whole.
-  const heroScale = $derived(theme.heroFullImage ? 1 : 1.045);
   let statsSection: HTMLElement;
   let refreshedHomepageStats = $state<HomepageStats | null>(null);
   const homepageStats = $derived(refreshedHomepageStats ?? data.homepageStats);
@@ -76,7 +69,7 @@
     let raf = 0;
     const render = () => {
       const heroOffset = Math.max(-18, smoothScrollY * -0.032);
-      heroImage.style.transform = `translate3d(0,${heroOffset}px,0) scale(${heroScale})`;
+      heroImage.style.transform = `translate3d(0,${heroOffset}px,0) scale(1.045)`;
     };
     const tick = () => {
       const delta = targetScrollY - smoothScrollY;
@@ -108,7 +101,6 @@
     };
   });
 
-  // Fireflies
   let canvas: HTMLCanvasElement;
   onMount(() => {
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -191,7 +183,6 @@
     };
   });
 
-  // Count-up
   onMount(() => {
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reducedMotion || !statsSection) return;
@@ -292,12 +283,6 @@
     return date.toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
   }
 
-  // Exhibition. The intrinsic size of each piece travels with it: the frames sit
-  // in a CSS multi-column flow, where a lazy image with no dimensions lays out at
-  // zero height, never intersects the viewport, and so never loads - a deadlock
-  // that leaves the whole section blank. Width and height give the placeholder a
-  // real box, which both breaks the deadlock and holds the column against reflow
-  // as each piece arrives.
   const ART = [
     { src: "fruma_banner.avif", title: "Fruma", desc: "Stained-glass guardian", w: 1920, h: 1080 },
     { src: "cozy_aspec.avif", title: "Cozy", desc: "A quiet evening in", w: 926, h: 1186 },
@@ -309,13 +294,14 @@
     { src: "nolers3.avif", title: "Nolers III", desc: "Fan art", w: 868, h: 512 },
   ];
   let lightbox = $state<number | null>(null);
+  let lightboxDialog = $state<HTMLDialogElement | null>(null);
   let lightboxClose = $state<HTMLButtonElement | null>(null);
-  // Where focus sat before the lightbox opened, so closing returns it there
-  // instead of dumping the keyboard user back at the top of the page.
   let lightboxOpener: HTMLElement | null = null;
 
   $effect(() => {
-    if (lightbox !== null) lightboxClose?.focus();
+    if (lightbox === null || !lightboxDialog) return;
+    if (!lightboxDialog.open) lightboxDialog.showModal();
+    lightboxClose?.focus();
   });
 
   function openLightbox(index: number, opener: HTMLElement) {
@@ -324,20 +310,18 @@
   }
 
   function closeLightbox() {
+    lightboxDialog?.close();
+  }
+
+  function onLightboxClosed() {
     lightbox = null;
     lightboxOpener?.focus();
+    lightboxOpener = null;
   }
 
 </script>
 
-<svelte:window
-  onkeydown={(event) => {
-    if (event.key === "Escape" && lightbox !== null) closeLightbox();
-  }}
-/>
-
-<!-- Hero -->
-<section class="seq-hero seq-home-page" class:seq-hero-full={theme.heroFullImage}>
+<section class="seq-hero seq-home-page">
   <div class="seq-hero-bg-wrap">
     <img
       src={IMG + theme.heroImage}
@@ -347,7 +331,7 @@
       fetchpriority="high"
       class="seq-hero-bg"
       bind:this={heroImage}
-      style="transform:translate3d(0,0px,0) scale({heroScale})"
+      style="transform:translate3d(0,0px,0) scale(1.045)"
     />
   </div>
   <div class="seq-hero-vignette"></div>
@@ -355,7 +339,7 @@
   <canvas bind:this={canvas} class="seq-hero-particles"></canvas>
   <div class="seq-hero-content">
     <h1 class="seq-hero-title text-gold-gradient">
-      Sequoia
+      {BRAND.name}
     </h1>
   </div>
   <div class="seq-hero-scroll">
@@ -364,7 +348,6 @@
   </div>
 </section>
 
-<!-- Stats -->
 <section bind:this={statsSection} style="padding:4rem 1.5rem;background:var(--color-deep)">
   <div style="max-width:64rem;margin:0 auto">
     <div class="divider-gold" style="margin-bottom:3rem"></div>
@@ -380,7 +363,6 @@
   </div>
 </section>
 
-<!-- Latest: running/next-day events and the newest fresh post, streamed after first paint; absent when empty. -->
 {#await data.latest then { events, posts }}
   {#if events.length > 0 || posts.length > 0}
     <section class="seq-latest" aria-label="Latest news, announcements and events">
@@ -476,44 +458,8 @@
   }
 </style>
 
-<!-- Services -->
-<section id="services" style="padding:5rem 1.5rem;max-width:72rem;margin:0 auto">
-  <SectionHeading style="margin-bottom:3rem">Services</SectionHeading>
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.5rem">
-    {#each SERVICES as service}
-      <ServiceCard
-        flagship={service.flagship}
-        title={service.label}
-        description={service.description ?? ""}
-        cta={service.cta ?? "Visit"}
-        href={service.to}
-      >
-        {#snippet icon()}{#if service.icon}<Icon name={service.icon} />{/if}{/snippet}
-      </ServiceCard>
-    {/each}
-  </div>
-</section>
-
-<!-- Statistics -->
-<section id="statistics" style="padding:0 1.5rem 5rem;max-width:72rem;margin:0 auto">
-  <SectionHeading style="margin-bottom:3rem">Statistics</SectionHeading>
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.5rem">
-    {#each STATISTICS as stat}
-      <ServiceCard
-        title={stat.label}
-        description={stat.description ?? ""}
-        cta={stat.cta ?? "View"}
-        href={stat.to}
-      >
-        {#snippet icon()}{#if stat.icon}<Icon name={stat.icon} />{/if}{/snippet}
-      </ServiceCard>
-    {/each}
-  </div>
-</section>
-
 <SequoianTree />
 
-<!-- Members -->
 <section id="members" class="seq-branchmasters-section">
   <div class="seq-branchmasters-heading">
     <SectionHeading kicker="The Guild">The Branchmasters</SectionHeading>
@@ -528,7 +474,6 @@
   </div>
 </section>
 
-<!-- Exhibition -->
 <section style="padding:5rem 1.5rem;background:var(--color-deep)">
   <div style="max-width:80rem;margin:0 auto">
     <SectionHeading kicker="Community" gradient="enchant" style="margin-bottom:2.5rem">Exhibition</SectionHeading>
@@ -546,20 +491,19 @@
   </div>
 
   {#if lightbox !== null}
-    <div
-      role="dialog"
-      aria-modal="true"
+    <dialog
+      bind:this={lightboxDialog}
+      class="seq-lightbox"
       aria-label={ART[lightbox].title}
-      style="position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:2rem;animation:seq-fade-in 0.2s ease both"
+      onclose={onLightboxClosed}
     >
-      <!-- The scrim is the click-anywhere-to-close target, so it has to be a real control. -->
       <button
         type="button"
         onclick={closeLightbox}
         aria-label="Close image"
         style="position:absolute;inset:0;border:0;background:color-mix(in srgb, var(--color-abyss) 92%, transparent);backdrop-filter:blur(8px);cursor:zoom-out"
       ></button>
-      <img src={IMG + ART[lightbox].src} alt={ART[lightbox].title} style="position:relative;max-width:90vw;max-height:85vh;object-fit:contain;border-radius:4px;box-shadow:var(--shadow-lg)" />
+      <img src={IMG + ART[lightbox].src} alt={ART[lightbox].title} width={ART[lightbox].w} height={ART[lightbox].h} style="position:relative;width:auto;height:auto;max-width:90vw;max-height:85vh;object-fit:contain;border-radius:4px;box-shadow:var(--shadow-lg)" />
       <button
         bind:this={lightboxClose}
         type="button"
@@ -569,16 +513,15 @@
       >
         Close
       </button>
-    </div>
+    </dialog>
   {/if}
 </section>
 
-<!-- Recruitment -->
 <section id="join" style="background:var(--color-deep);padding:1rem 0 3rem">
   <div style="max-width:36rem;margin:0 auto;padding:3rem 2rem;text-align:center">
     <div style="width:3rem;height:1px;margin:0 auto 1.75rem;background:linear-gradient(90deg,transparent,color-mix(in srgb, var(--color-gold) 30%, transparent),transparent)"></div>
     <a
-      href="https://discord.gg/seq" target="_blank" rel="noreferrer"
+      href={BRAND.discordUrl} target="_blank" rel="noreferrer"
       class="seq-apply-link"
     >
       Apply Now

@@ -1,8 +1,8 @@
 <script lang="ts">
-  import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
-  import EventSky from "$lib/events/components/EventSky.svelte";
-  import type { PostCard, PostHub } from "$lib/server/postPages";
-  import { webAuthStartUrl } from "$lib/site/webAuth";
+  import SectionLabel from "#lib/design-system/components/SectionLabel.svelte";
+  import EventSky from "#lib/events/components/EventSky.svelte";
+  import type { PostCard, PostHub } from "#lib/server/postPages.js";
+  import { webAuthStartUrl } from "#lib/site/webAuth.js";
 
   import { formatPostDate } from "../format";
   import { POST_FEEDS, postHref, type PostFeed, type PostStatus } from "../types";
@@ -20,8 +20,6 @@
     [
       { key: "pinned", label: "Pinned", cards: hub.pinned },
       { key: "latest", label: "Latest", cards: hub.latest },
-      // Only managers are ever sent these two, so the shelves double as the cue
-      // that the page is showing more than the guild can see.
       { key: "upcoming", label: "Drafts and scheduled", cards: hub.upcoming },
       { key: "expired", label: "Expired", cards: hub.expired },
     ].filter((shelf) => shelf.cards.length > 0),

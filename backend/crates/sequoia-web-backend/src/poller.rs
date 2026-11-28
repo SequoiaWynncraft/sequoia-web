@@ -16,15 +16,10 @@ use crate::{
     wynn::{WynnClient, WynnError},
 };
 
-/// Upper bound on a rate-limit backoff, so a bogus header cannot stall polling.
 const MAX_RATE_LIMIT_DELAY: Duration = Duration::from_secs(15 * 60);
 
-/// Shared poll-loop state the readiness endpoint reports on. Readiness must
-/// reflect whether the tracker's core function is actually operating, not just
-/// whether the HTTP server is up.
 pub struct PollerHealth {
     started_at_unix: i64,
-    /// Unix seconds of the last successful poll; 0 = never.
     last_success_unix: AtomicI64,
     consecutive_failures: AtomicU32,
     task_restarts: AtomicU32,
@@ -89,6 +84,7 @@ pub struct RaidTracker {
     wynn: Option<WynnClient>,
     guild_prefix: String,
     health: Arc<PollerHealth>,
+    store_raw_payloads: bool,
 }
 
 impl RaidTracker {
@@ -97,21 +93,23 @@ impl RaidTracker {
         wynn: Option<WynnClient>,
         guild_prefix: String,
         health: Arc<PollerHealth>,
+        store_raw_payloads: bool,
     ) -> Self {
         Self {
             db,
             wynn,
             guild_prefix,
             health,
+            store_raw_payloads,
         }
     }
 
-    /// Health is recorded here rather than in the poll loop so a successful
-    /// manual `/internal/poll-now` also refreshes readiness - fresh data is
-    /// fresh regardless of who fetched it.
     pub async fn poll_once(&self) -> anyhow::Result<IngestSummary> {
         let result = async {
-            let snapshot = self.fetch_snapshot().await?;
+            let mut snapshot = self.fetch_snapshot().await?;
+            if !self.store_raw_payloads {
+                snapshot.raw_payload = None;
+            }
             self.db.ingest_snapshot(snapshot).await
         }
         .await;
@@ -122,7 +120,6 @@ impl RaidTracker {
         result
     }
 
-    /// Whether a Wynncraft token is configured, i.e. polling can run at all.
     pub fn polling_enabled(&self) -> bool {
         self.wynn.is_some()
     }
@@ -168,8 +165,6 @@ async fn poll_loop(tracker: RaidTracker, interval: Duration) {
                 );
             }
             Err(error) => {
-                // A rate-limited poll waits out the upstream's reset window
-                // instead of hammering it again on the normal cadence.
                 if let Some(WynnError::RateLimited {
                     retry_after: Some(retry),
                 }) = error.downcast_ref::<WynnError>()

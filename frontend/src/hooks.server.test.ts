@@ -106,6 +106,21 @@ describe("server request diagnostics", () => {
     expect(response.headers.get("cache-control")).toBe("public, max-age=60");
   });
 
+  it("adds security headers to page and endpoint responses alike", async () => {
+    const responses = await Promise.all(
+      ["/statistics", "/manage/discord", "/api/guild-overview"].map((path) =>
+        handle({ event: requestEvent(path), resolve: async () => new Response("ok", { status: path === "/manage/discord" ? 403 : 200 }) }),
+      ),
+    );
+
+    expect(responses.map((response) => response.headers.get("x-content-type-options"))).toEqual(["nosniff", "nosniff", "nosniff"]);
+    expect(responses.map((response) => response.headers.get("strict-transport-security"))).toEqual([
+      "max-age=31536000",
+      "max-age=31536000",
+      "max-age=31536000",
+    ]);
+  });
+
   it("logs error responses without query parameters", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const event = requestEvent();
@@ -131,14 +146,9 @@ describe("server request diagnostics", () => {
     const event = requestEvent();
     event.locals.requestId = "request-123";
 
-    expect(
-      handleError({
-        error: new Error("upstream failed"),
-        event,
-        status: 500,
-        message: "Internal Error",
-      }),
-    ).toEqual({ message: "Internal Error", requestId: "request-123" });
+    expect(handleError({ kind: "unknown", error: new Error("upstream failed"), event })).toEqual({
+      requestId: "request-123",
+    });
     expect(error).toHaveBeenCalledWith(
       "unexpected frontend error",
       expect.objectContaining({
@@ -155,13 +165,23 @@ describe("server request diagnostics", () => {
     event.locals.requestId = "request-404";
 
     expect(
+      handleError({ kind: "framework", error: { status: 404, message: "Not Found" }, event }),
+    ).toEqual({ requestId: "request-404" });
+    expect(error).not.toHaveBeenCalled();
+  });
+
+  it("keeps an expected error's own status and message", () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const event = requestEvent();
+    event.locals.requestId = "request-502";
+
+    expect(
       handleError({
-        error: new Error("not found"),
+        kind: "app",
+        error: { status: 502, message: "The guild API is unavailable" },
         event,
-        status: 404,
-        message: "Not Found",
       }),
-    ).toEqual({ message: "Not Found", requestId: "request-404" });
+    ).toEqual({ requestId: "request-502" });
     expect(error).not.toHaveBeenCalled();
   });
 });

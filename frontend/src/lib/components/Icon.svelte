@@ -1,6 +1,6 @@
 <script lang="ts">
-  import type { IconName } from "$lib/icons";
-  import { icons } from "$lib/icons";
+  import type { IconName } from "#lib/icons.js";
+  import { icons } from "#lib/icons.js";
 
   let { name, size = 20, sw = 1.5 }: { name: IconName; size?: number; sw?: number } = $props();
 </script>

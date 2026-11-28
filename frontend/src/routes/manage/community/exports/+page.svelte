@@ -1,16 +1,17 @@
 <script lang="ts">
-  import AreaGate from "$lib/manage/AreaGate.svelte";
-  import ManageHeader from "$lib/manage/ManageHeader.svelte";
-  import Button from "$lib/design-system/components/Button.svelte";
-  import SectionLabel from "$lib/design-system/components/SectionLabel.svelte";
-  import Select from "$lib/design-system/components/forms/Select.svelte";
-  import Toggle from "$lib/design-system/components/forms/Toggle.svelte";
+  import { pageTitle } from "#lib/site/brand.js";
+  import AreaGate from "#lib/manage/AreaGate.svelte";
+  import ManageHeader from "#lib/manage/ManageHeader.svelte";
+  import Button from "#lib/design-system/components/Button.svelte";
+  import SectionLabel from "#lib/design-system/components/SectionLabel.svelte";
+  import Select from "#lib/design-system/components/forms/Select.svelte";
+  import Toggle from "#lib/design-system/components/forms/Toggle.svelte";
 
   let { data } = $props();
 </script>
 
 <svelte:head>
-  <title>Stats exports - Sequoia</title>
+  <title>{pageTitle("Stats exports")}</title>
   <meta name="robots" content="noindex" />
 </svelte:head>
 

@@ -92,7 +92,6 @@ describe("achievement ceremony settings audit summaries", () => {
   const save = (changed: string[], before: object, after: object, action = "discord.ceremony.settings.save") => entry({ outcome: "performed", changed, before, after }, action);
 
   it("labels enabled, destination and changed story rows readably", () => {
-    // Fictional channel and story ids.
     const before = { enabled: false, channel_id: "3333333333333333333", stories: [{ id: "sample_story", enabled: true, weight: 10 }, { id: "other_story", enabled: true, weight: 5 }] };
     const after = { enabled: true, channel_id: "4444444444444444444", stories: [{ id: "sample_story", enabled: true, weight: 10 }, { id: "other_story", enabled: false, weight: 0 }] };
     expect(ceremonyAuditChanges(save(["enabled", "channel_id", "stories"], before, after))).toEqual([

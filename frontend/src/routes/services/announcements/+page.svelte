@@ -1,8 +1,9 @@
 <script lang="ts">
-  import PageHeader from "$lib/components/PageHeader.svelte";
-  import PageScaffold from "$lib/components/PageScaffold.svelte";
-  import PostHub from "$lib/posts/components/PostHub.svelte";
-  import { pageView } from "$lib/site/nav";
+  import { BRAND, pageTitle } from "#lib/site/brand.js";
+  import PageHeader from "#lib/components/PageHeader.svelte";
+  import PageScaffold from "#lib/components/PageScaffold.svelte";
+  import PostHub from "#lib/posts/components/PostHub.svelte";
+  import { pageView } from "#lib/site/nav.js";
 
   let { data } = $props();
 
@@ -10,8 +11,8 @@
 </script>
 
 <svelte:head>
-  <title>Announcements - Sequoia</title>
-  <meta name="description" content="Announcements from Sequoia." />
+  <title>{pageTitle("Announcements")}</title>
+  <meta name="description" content={`Announcements from ${BRAND.name}.`} />
 </svelte:head>
 
 <PageScaffold crumbs={page.crumbs} tabs={page.tabs} width="xl">

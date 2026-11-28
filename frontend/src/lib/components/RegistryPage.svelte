@@ -1,10 +1,10 @@
 <script lang="ts">
-  import PageScaffold from "$lib/components/PageScaffold.svelte";
-  import PageHeader from "$lib/components/PageHeader.svelte";
-  import Placeholder from "$lib/components/Placeholder.svelte";
-  import SubpageGrid from "$lib/components/SubpageGrid.svelte";
-  import { pageView } from "$lib/site/nav";
-  import { DEFAULT_HIDDEN_NAV, visibleCards } from "$lib/site/navPreferences";
+  import PageScaffold from "#lib/components/PageScaffold.svelte";
+  import PageHeader from "#lib/components/PageHeader.svelte";
+  import Placeholder from "#lib/components/Placeholder.svelte";
+  import SubpageGrid from "#lib/components/SubpageGrid.svelte";
+  import { pageView } from "#lib/site/nav.js";
+  import { DEFAULT_HIDDEN_NAV, visibleCards } from "#lib/site/navPreferences.js";
   import { page as appPage } from "$app/state";
 
   let {
@@ -16,8 +16,6 @@
   } = $props();
 
   const page = $derived(pageView(path));
-  // The card grid follows the navbar: an entry hidden from the menu is not
-  // advertised here either, though its tab and URL keep working.
   const cards = $derived(
     visibleCards(page.cards, appPage.data.navHidden ?? [...DEFAULT_HIDDEN_NAV]),
   );

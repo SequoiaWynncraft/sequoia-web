@@ -1,34 +1,31 @@
 <script lang="ts">
-  import { tick } from "svelte";
-  import { requestDiscord } from "$lib/api/discordManagement";
+  import { tick, untrack } from "svelte";
+  import { requestDiscord } from "#lib/api/discordManagement.js";
   import { beforeNavigate, pushState, replaceState } from "$app/navigation";
   import { page } from "$app/state";
-  import ConfirmDialog from "$lib/design-system/components/forms/ConfirmDialog.svelte";
-  import Button from "$lib/design-system/components/Button.svelte";
-  import Field from "$lib/design-system/components/forms/Field.svelte";
-  import FormStatus from "$lib/design-system/components/forms/FormStatus.svelte";
-  import TextInput from "$lib/design-system/components/forms/TextInput.svelte";
-  import Select from "$lib/design-system/components/forms/Select.svelte";
-  import ManageHeader from "$lib/manage/ManageHeader.svelte";
+  import ConfirmDialog from "#lib/design-system/components/forms/ConfirmDialog.svelte";
+  import Button from "#lib/design-system/components/Button.svelte";
+  import Field from "#lib/design-system/components/forms/Field.svelte";
+  import FormStatus from "#lib/design-system/components/forms/FormStatus.svelte";
+  import TextInput from "#lib/design-system/components/forms/TextInput.svelte";
+  import Select from "#lib/design-system/components/forms/Select.svelte";
+  import ManageHeader from "#lib/manage/ManageHeader.svelte";
   import DiscordPreview from "./DiscordPreview.svelte";
   import LayoutEditor from "./LayoutEditor.svelte";
   import EmbedEditor from "./EmbedEditor.svelte";
   import MarkdownField from "./MarkdownField.svelte";
   import MessageBrowser from "./MessageBrowser.svelte";
+  import { capabilities } from "./capabilities";
   import { MAIN_GUILD, UNPLACED, isThread, place, threadLabel, threadParents } from "./navigation";
   import { LIMITS, charCount, definitionIssues, embedGroups, issuesUnder, truncateChars } from "./format";
   import type { Definition, DiscordContext, ManagedMessage, RoleButton, AttachmentRef } from "./types";
 
   let { initial, context: initialContext, problem }: { initial: ManagedMessage[]; context: DiscordContext; problem: string | null } = $props();
-  // svelte-ignore state_referenced_locally
-  let context = $state(structuredClone($state.snapshot(initialContext)));
-  // Initial server data seeds an editable workspace, not a second persistence owner.
-  // svelte-ignore state_referenced_locally
-  let messages = $state<ManagedMessage[]>(initial);
+  let context = $state(untrack(() => structuredClone($state.snapshot(initialContext))));
+  let messages = $state<ManagedMessage[]>(untrack(() => initial));
   let selected = $state<ManagedMessage | null>(null);
   let draft = $state<Definition | null>(null);
   let baseline = $state("");
-  /** Bumped when another message opens, so per-embed UI state starts fresh. */
   let session = $state(0);
   type Tab = "message" | "buttons" | "emoji" | "roles";
   const TABS: { id: Tab; label: string }[] = [
@@ -62,12 +59,10 @@
   let editorSection = $state<HTMLElement>();
 
   const layout = $derived(!!draft?.components_v2?.length);
-  const visibleTabs = $derived(TABS.filter((item) => !layout || item.id !== "buttons"));
-  /** Side-by-side preview needs room for both; below that, staff switch views. */
+  const capability = $derived(capabilities(selected));
+  const visibleTabs = $derived(TABS.filter((item) => item.id !== "buttons" || (!layout && capability.controls)));
   const narrow = $derived(width > 0 && width < 780);
-  /** Without room for the browser beside both, staff pick a message, then work on it alone. */
   const compact = $derived(width > 0 && width < 1040);
-  // A shallow history entry, so the device's back gesture returns to the list, not off the page.
   const showDetail = $derived(!!draft && (!compact || page.state.discordDetail === true));
   const guildId = $derived(context.guild_id ?? MAIN_GUILD);
   const guilds = $derived(context.guilds ?? [{ id: MAIN_GUILD, name: "Sequoia" }]);
@@ -80,9 +75,7 @@
   const selfServiceRoleIds = $derived(new Set(eligibleRoles.map((role) => role.id)));
   const channelIds = $derived(new Set(context.channels.map((channel) => channel.id)));
   const emojiNameIssue = $derived(emojiFile && !/^[a-zA-Z0-9_]{2,32}$/.test(emojiName) ? "Use 2–32 letters, numbers or underscores." : undefined);
-  // @everyone is the guild's own id and never a panel role.
   const roleChoices = $derived(context.roles.filter((r) => r.name !== "@everyone" && r.name.toLowerCase().includes(roleSearch.toLowerCase())));
-  // Roles staff can act on come first; permanently protected ones stay out of the way.
   const actionableRoles = $derived(roleChoices.filter((r) => r.eligible).sort((a, b) => Number(b.approved) - Number(a.approved)));
   const protectedRoles = $derived(roleChoices.filter((r) => !r.eligible));
   const emojiChoices = $derived(context.emojis.filter((e) => e.available && e.name.toLowerCase().includes(emojiSearch.toLowerCase())));
@@ -102,15 +95,15 @@
   const publishHint = $derived.by(() => {
     if (held) return "This source is held for editing only. Its original stays unchanged until replacement is explicitly reviewed.";
     if (unresolved) return "Recover the publication before changing Discord again.";
+    if (!capability.publishable) return "The webhook original no longer exists on Discord. Sierra does not recreate it.";
     if (dirty) return "Saving keeps Discord unchanged. Publish sends the saved version.";
     if (issueCount > 0) return `Fix ${issueCount === 1 ? "1 problem" : `${issueCount} problems`} before publishing.`;
     if (selected && selected.published_version === selected.version) return "Discord matches this saved version.";
     return "Check the preview, then publish the saved draft.";
   });
 
-  beforeNavigate(({ cancel }) => { if (dirty) { cancel(); error = "Save your draft before leaving, or select Discard changes."; } });
+  beforeNavigate(({ cancel, shallow }) => { if (dirty && !shallow) { cancel(); error = "Save your draft before leaving, or select Discard changes."; } });
 
-  // Returning to the list lands on the open message's row, not at the top of the page.
   let detailEntry = false;
   $effect(() => {
     const entry = page.state.discordDetail === true;
@@ -133,7 +126,6 @@
   }
 
   function select(message: ManagedMessage | null) {
-    // The open message only comes back into view; it never reloads over unsaved work.
     if (message && message.id === selected?.id) { void showMessage(); return; }
     if (dirty) { pendingSelection = message; discardDialog?.open(); return; }
     open(message);
@@ -160,7 +152,6 @@
     selected = null; draft = null; baseline = ""; pickerButtonId = null;
     if (page.state.discordDetail) history.back();
   }
-  /** On compact screens the open message replaces the list, with its own history entry. */
   async function showMessage() {
     if (!compact) return;
     if (page.state.discordDetail !== true) {
@@ -284,7 +275,6 @@
     emojiFile = file;
     emojiName = file.name.replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9_]/g, "_").slice(0, 32);
     const image = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = reject; reader.readAsDataURL(file); });
-    // A replacement selection can arrive before the previous FileReader settles.
     if (emojiFile === file) emojiImage = image;
   }
   async function upload() {
@@ -343,7 +333,7 @@
     <MessageBrowser bind:this={browser} {messages} {context} {guildId} selectedId={selected?.id ?? null} fresh={draft && !selected ? draft.name : null} {dirty} {busy}
       hidden={compact && showDetail} onselect={select} onresume={() => void showMessage()} onguild={switchGuild}>
       <details class="import"><summary>Edit an existing message</summary>
-        <p class="hint">Import a reviewed maintained panel by its Discord link. Sierra messages keep their identity. Controlled webhook posts become a Sierra replacement; the original stays until verified retirement. Automated and other-workflow messages are excluded.</p>
+        <p class="hint">Import a reviewed maintained panel by its Discord link. Sierra messages keep their identity. A controlled webhook post reviewed for in-place editing keeps its identity too; other webhook posts become a Sierra replacement, and the original stays until verified retirement. Automated and other-workflow messages are excluded.</p>
         <Field label="Discord message link"><TextInput bind:value={importLink} placeholder="https://discord.com/channels/…" inputmode="url" /></Field>
         <Button variant="secondary" size="sm" disabled={busy || !importLink} onclick={() => perform(importMessage)}>Import message</Button>
       </details>
@@ -368,7 +358,7 @@
         </div>
         {#if selected || dirty}
           <div class="message-actions">
-            {#if selected}<Button variant="ghost" size="sm" disabled={busy || dirty || unresolved} onclick={duplicate}>Duplicate</Button><Button variant="ghost" size="sm" disabled={busy || unresolved} onclick={() => deleteDialog?.open()}>Delete</Button>{/if}
+            {#if selected}<Button variant="ghost" size="sm" disabled={busy || dirty || unresolved} onclick={duplicate}>Duplicate</Button>{#if capability.deletable}<Button variant="ghost" size="sm" disabled={busy || unresolved} onclick={() => deleteDialog?.open()}>Delete</Button>{/if}{/if}
             {#if dirty}<Button variant="ghost" size="sm" disabled={busy} onclick={() => { pendingSelection = selected ?? "close"; discardDialog?.open(); }}>Discard changes</Button>{/if}
           </div>
         {/if}
@@ -405,9 +395,9 @@
               <label class="hint"><input type="checkbox" checked={draft.pinned ?? false} onchange={(e) => { if (draft) draft.pinned = e.currentTarget.checked; }} /> Pin this message on Discord</label>
               {#if selected?.source}
                 <section class="delivery-warning" aria-label="Imported source">
-                  <strong>{held ? "Replacement on hold" : !selected.source.replacement ? "Imported Sierra message" : selected.source.retired ? "Source ownership transferred" : "Original preserved"}</strong>
+                  <strong>{held ? "Replacement on hold" : capability.inPlace ? "Webhook original edited in place" : !selected.source.replacement ? "Imported Sierra message" : selected.source.retired ? "Source ownership transferred" : "Original preserved"}</strong>
                   {#if selected.source.thread?.archived}<p>This reviewed guide is temporarily reopened only for the update, then its fresh original archive and lock state are restored and verified.</p>{/if}
-                  <p><a href={`https://discord.com/channels/${selected.source.guild_id}/${selected.source.channel_id}/${selected.source.message_id}`} target="_blank" rel="noopener noreferrer">Original message</a>. {#if selected.source.replacement}A webhook replacement has a new message ID and Sierra author. Existing links to the original will not redirect.{:else}Sierra updates this message at its existing identity.{/if}</p>
+                  <p><a href={`https://discord.com/channels/${selected.source.guild_id}/${selected.source.channel_id}/${selected.source.message_id}`} target="_blank" rel="noopener noreferrer">Original message</a>. {#if selected.source.replacement}A webhook replacement has a new message ID and Sierra author. Existing links to the original will not redirect.{:else if capability.inPlace && !capability.publishable}The original was deleted outside Sierra. Sierra does not recreate it; delete this record or keep it for reference.{:else if capability.inPlace}Sierra updates this webhook post at its existing identity through its reviewed webhook, so later messages and links stay intact. It supports text, embeds and images; use a separate Sierra message for buttons. Sierra never deletes this original.{:else}Sierra updates this message at its existing identity.{/if}</p>
                   {#if held}<p>This draft is not approved for replacement. Keep the original unchanged. It is not a completed migration.</p>{/if}
                   {#if selected.source.replacement && !selected.source.retired}<p>Publish, then save and update through this manager. Retirement rechecks source payload, channel order, bot-visible indexed references and replacement bytes before deleting only the original. External bookmarks and unseen channels cannot be verified.</p><Button variant="secondary" disabled={busy || dirty || held || selected.published_version !== selected.version || selected.source.verified_version !== selected.version} onclick={() => retireDialog?.open()}>Retire original</Button>{/if}
                 </section>
@@ -492,7 +482,7 @@
           <FormStatus error={error} warning={selected?.delivery_error} saved={!!notice} savedText={notice ?? ""} compact />
           <div class="action-buttons">
             <Button variant={dirty ? "primary" : "secondary"} disabled={busy || !dirty || unresolved} onclick={() => perform(saveDraft)}>Save draft</Button>
-            <Button variant={dirty ? "secondary" : "primary"} disabled={busy || dirty || !selected || unresolved || held || issueCount > 0} onclick={() => perform(publishDraft)}>{busy ? "Working…" : selected?.message_id ? "Update Discord" : "Publish to Discord"}</Button>
+            <Button variant={dirty ? "secondary" : "primary"} disabled={busy || dirty || !selected || unresolved || held || !capability.publishable || issueCount > 0} onclick={() => perform(publishDraft)}>{busy ? "Working…" : selected?.message_id ? "Update Discord" : "Publish to Discord"}</Button>
             <p class="publish-hint">{publishHint}</p>
           </div>
         </footer>
@@ -508,7 +498,7 @@
 </div>
 
 <ConfirmDialog bind:this={retireDialog} title="Retire the original webhook message?" body="Sierra will recheck the unchanged original, the verified replacement and its assets before deleting only the original. Old message links will no longer work. The original snapshot and old-to-new mapping remain stored." confirmLabel="Retire original" danger onconfirm={() => void perform(retireSource)} />
-<ConfirmDialog bind:this={deleteDialog} title="Delete this message?" body={selected?.source?.replacement && !selected.source.retired ? "Delete only the Sierra replacement. The unchanged original must still exist, and the copy must have no bot-visible indexed references. The source snapshot and copy history remain retained." : "The published Discord message will be deleted. Roles and memberships are not affected."} confirmLabel="Delete message" danger onconfirm={() => void perform(confirmedDelete)} />
+<ConfirmDialog bind:this={deleteDialog} title="Delete this message?" body={selected?.source?.replacement && !selected.source.retired ? "Delete only the Sierra replacement. The unchanged original must still exist, and the copy must have no bot-visible indexed references. The source snapshot and copy history remain retained." : capability.inPlace ? "Only this record is removed. Its webhook original no longer exists on Discord." : "The published Discord message will be deleted. Roles and memberships are not affected."} confirmLabel="Delete message" danger onconfirm={() => void perform(confirmedDelete)} />
 <ConfirmDialog bind:this={discardDialog} title="Discard unsaved changes?" body="The published message and last saved draft will remain unchanged." confirmLabel="Discard changes" onconfirm={discard} />
 
 <style>
@@ -525,7 +515,6 @@
   .problem, .inline-issue { margin: 0 0 16px; color: var(--status-error); font-size: var(--text-sm); }
   .inline-issue { margin: 0; font-size: var(--text-xs); }
 
-  /* Compact: the message browser, or the open message with an Edit/Preview switch. */
   .workspace-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; align-items: start; }
   .editor-main[hidden], .discord-preview[hidden] { display: none; }
   .import { border-top: 1px solid var(--border-default); padding-top: 10px; display: grid; gap: 10px; justify-items: start; }
@@ -590,23 +579,19 @@
   .preview-open { margin-left: auto; color: var(--color-gold); font-size: var(--text-xs); }
   .preview-note { margin-top: 10px; }
   .discord-preview { min-width: 0; }
-  /* Only beside the browser; compact screens start at the list itself. */
   .choose-message { display: none; padding: 24px 0; }
   .choose-message p { color: var(--text-body); }
 
   button:focus-visible, summary:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid var(--color-gold); outline-offset: 2px; }
-  /* Inset where a scrolling strip would clip an outer ring. */
   .editor-tabs button:focus-visible, .view-switch button:focus-visible { outline-offset: -2px; }
   h2:focus-visible { outline: 2px solid var(--color-gold); outline-offset: 4px; }
   button:disabled { opacity: 0.5; cursor: default; }
 
-  /* Medium: the open message's editor and preview side by side. */
   @container discord-workspace (min-width: 780px) {
     .workspace-grid.has-detail { grid-template-columns: minmax(0, 1fr) minmax(300px, 0.8fr); }
     .discord-preview { position: sticky; top: 4.5rem; max-height: calc(100vh - 5.5rem); overflow-y: auto; }
   }
 
-  /* Wide: message browser, editor and preview as three columns. Matches `compact`. */
   @container discord-workspace (min-width: 1040px) {
     .workspace-grid, .workspace-grid.has-detail { grid-template-columns: 232px minmax(0, 1.2fr) minmax(320px, 1fr); }
     .discord-preview { max-width: 580px; }
@@ -620,7 +605,6 @@
     .two-fields { grid-template-columns: minmax(0, 1fr); }
     .tools button, .button-tools > button { min-height: 44px; }
     .editor-actions :global(.seq-button) { min-height: 44px; }
-    /* Phones: both actions share one row so the sticky bar stays short. */
     .action-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     .action-buttons :global(.seq-button) { min-width: 0; padding-inline: 0.5rem; white-space: normal; text-align: center; line-height: 1.25; }
     .publish-hint { grid-column: 1 / -1; }

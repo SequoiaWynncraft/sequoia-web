@@ -3,15 +3,13 @@ import {
   type GlobalRaidRankings,
   type GlobalRaidRankingsResponse,
   type RankingWindow,
-} from "$lib/api/globalRankings";
-import { SEQUOIA_API_BASE_URL } from "$lib/config/public";
-import { createCachedResource, type CachedResource } from "$lib/server/serverCache";
+} from "#lib/api/globalRankings.js";
+import { SEQUOIA_API_BASE_URL } from "#lib/config/public.js";
+import { createCachedResource, type CachedResource } from "#lib/server/serverCache.js";
 
 const FRESH_MS = 2 * 60 * 1000;
 const STALE_MS = 60 * 60 * 1000;
 
-// One resource per (window, raid) pair - a small fixed set (4 windows x 6 scopes),
-// plus one per window for the war boards.
 const resources = new Map<string, CachedResource<GlobalRaidRankings>>();
 
 export async function getGlobalRaidRankings(
@@ -24,7 +22,6 @@ export async function getGlobalRaidRankings(
   );
 }
 
-/** Guild war race - same board shape; entry counts are wars, gambits/SR stay zero. */
 export async function getGlobalWarRankings(
   fetchImpl: typeof fetch,
   window: RankingWindow,
@@ -70,8 +67,6 @@ async function loadRankings(
   const response = await fetchImpl(url, { signal: AbortSignal.timeout(8000) });
   if (!response.ok) throw new Error(`Global rankings request failed (${response.status}).`);
   const data = (await response.json()) as Record<string, unknown>;
-  // The extra columns default to zero so a backend that predates them still
-  // renders the board instead of failing validation.
   const normalized = {
     range: data.range,
     baseline_sampled_at: data.baseline_sampled_at ?? null,

@@ -1,6 +1,6 @@
 import type { PageServerLoad } from "./$types";
 
-import { pageAreaAccess } from "$lib/server/manageCapabilities";
+import { pageAreaAccess } from "#lib/server/manageCapabilities.js";
 
 export const prerender = false;
 

@@ -1,15 +1,21 @@
-import { type PlayerCardResponse, type PlayerCharacterSummary } from "$lib/api/playerCard";
-import { getWynncraftGuild } from "$lib/server/wynncraftGuild";
-import { createCachedResource, type CachedResource } from "$lib/server/serverCache";
-import { fetchWynncraftJson } from "$lib/server/wynncraft";
-import { isRecord, nonNegativeInteger, nonNegativeNumber, booleanValue, stringValue } from "$lib/server/guards";
+import { type PlayerCardResponse, type PlayerCharacterSummary } from "#lib/api/playerCard.js";
+import { getWynncraftGuild } from "#lib/server/wynncraftGuild.js";
+import { createCachedResource, type CachedResource } from "#lib/server/serverCache.js";
+import { WYNNCRAFT_API_BASE } from "#lib/server/wynncraft.js";
+import { isRecord } from "#lib/api/guards.js";
+import { nonNegativeInteger, nonNegativeNumber, booleanValue, stringValue } from "#lib/server/guards.js";
 
 const FRESH_MS = 2 * 60 * 1000;
 const STALE_MS = 60 * 60 * 1000;
 
-type StoredPlayer = Record<string, unknown>;
+const MAX_PLAYER_RESOURCES = 128;
+const UUID_PATTERN = /^([0-9a-f]{8})-?([0-9a-f]{4})-?([0-9a-f]{4})-?([0-9a-f]{4})-?([0-9a-f]{12})$/;
 
-const resources = new Map<string, CachedResource<StoredPlayer>>();
+export type WynnPlayerPayload = Record<string, unknown> & { username: string; uuid: string };
+
+const resources = new Map<string, CachedResource<WynnPlayerPayload>>();
+
+export class UnknownPlayerError extends Error {}
 
 export class PlayerNotFoundError extends Error {
   constructor(name: string) {
@@ -24,7 +30,6 @@ export async function getPlayerCard(
   name: string,
   options: PlayerCardOptions = {},
 ): Promise<PlayerCardResponse> {
-  // Fresh roster for the member gate; stale data is only used if the refresh fails.
   const guild = await getWynncraftGuild(fetchImpl);
   const member = findMember(guild.data.members, name);
   if (!member) throw new PlayerNotFoundError(name);
@@ -36,9 +41,6 @@ export async function getPlayerCard(
     throw new Error("Unable to load the player profile.");
   }
 
-  // The guild roster is the only Wynncraft source for the in-guild raid counter and the
-  // guild join date, so both ride along from the gate lookup above instead of costing a
-  // second request.
   const card = parsePlayerCard(value.data, new Date(value.updatedAt).toISOString(), {
     currentGuildRaids: member.currentGuildRaids,
     guildJoined: member.joined,
@@ -46,26 +48,48 @@ export async function getPlayerCard(
   return value.stale ? { ...card, stale: true, online: null, server: null } : card;
 }
 
-function playerResource(uuid: string): CachedResource<StoredPlayer> {
-  let resource = resources.get(uuid);
+function playerResource(uuid: string): CachedResource<WynnPlayerPayload> {
+  const canonical = canonicalUuid(uuid);
+  if (!canonical) throw new Error(`Roster member has an invalid UUID: ${uuid}`);
+  return wynnPlayerResource(canonical);
+}
+
+export function canonicalUuid(value: string): string | null {
+  const match = UUID_PATTERN.exec(value.trim().toLowerCase());
+  return match ? match.slice(1).join("-") : null;
+}
+
+export function wynnPlayerResource(canonical: string): CachedResource<WynnPlayerPayload> {
+  let resource = resources.get(canonical);
   if (!resource) {
+    if (resources.size >= MAX_PLAYER_RESOURCES) {
+      const oldest = resources.keys().next().value;
+      if (oldest !== undefined) resources.delete(oldest);
+    }
     resource = createCachedResource({
-      key: `wynn-player:${uuid}:v1`,
+      key: `wynn-player:${canonical}:v1`,
       freshMs: FRESH_MS,
       staleMs: STALE_MS,
       load: async (fetchImpl) => {
-        const payload = await fetchWynncraftJson(fetchImpl, `/player/${uuid}?fullResult`);
-        if (!isRecord(payload) || typeof payload.username !== "string") {
-          throw new Error("Unexpected Wynncraft player response.");
-        }
+        const response = await fetchImpl(`${WYNNCRAFT_API_BASE}/player/${canonical}?fullResult`, {
+          headers: { accept: "application/json" },
+          signal: AbortSignal.timeout(8000),
+        });
+        if (response.status === 404) throw new UnknownPlayerError(canonical);
+        if (!response.ok) throw new Error(`Wynncraft player request failed with status ${response.status}.`);
+        const payload: unknown = await response.json();
+        if (!isWynnPlayerPayload(payload)) throw new Error("Unexpected Wynncraft player response.");
         return payload;
       },
-      validate: (candidate): candidate is StoredPlayer =>
-        isRecord(candidate) && typeof candidate.username === "string",
+      validate: isWynnPlayerPayload,
     });
-    resources.set(uuid, resource);
+    resources.set(canonical, resource);
   }
   return resource;
+}
+
+export function isWynnPlayerPayload(value: unknown): value is WynnPlayerPayload {
+  return isRecord(value) && typeof value.username === "string" && typeof value.uuid === "string";
 }
 
 type RosterMember = { uuid: string; currentGuildRaids: number | null; joined: string | null };
@@ -94,17 +118,12 @@ function findMember(members: Record<string, unknown>, name: string): RosterMembe
   return null;
 }
 
-/**
- * Reads a roster member's raid count for their current guild. Profiles that restrict
- * main access omit `globalData` entirely, so this is null more often than not for them.
- */
 function memberCurrentGuildRaids(member: Record<string, unknown>): number | null {
   const globalData = isRecord(member.globalData) ? member.globalData : {};
   const raids = isRecord(globalData.currentGuildRaids) ? globalData.currentGuildRaids : {};
   return nonNegativeInteger(raids.total) ?? null;
 }
 
-/** Fields the player endpoint does not report, supplied by the caller when it has them. */
 type PlayerCardExtras = { currentGuildRaids?: number | null; guildJoined?: string | null };
 
 export function parsePlayerCard(

@@ -1,12 +1,12 @@
 <script lang="ts">
   import { getContext } from "svelte";
 
-  import Field from "$lib/design-system/components/forms/Field.svelte";
-  import FormSection from "$lib/design-system/components/forms/FormSection.svelte";
-  import Select from "$lib/design-system/components/forms/Select.svelte";
-  import TextInput from "$lib/design-system/components/forms/TextInput.svelte";
-  import Toggle from "$lib/design-system/components/forms/Toggle.svelte";
-  import { KNOWN_RAIDS } from "$lib/site/raids";
+  import Field from "#lib/design-system/components/forms/Field.svelte";
+  import FormSection from "#lib/design-system/components/forms/FormSection.svelte";
+  import Select from "#lib/design-system/components/forms/Select.svelte";
+  import TextInput from "#lib/design-system/components/forms/TextInput.svelte";
+  import Toggle from "#lib/design-system/components/forms/Toggle.svelte";
+  import { KNOWN_RAIDS } from "#lib/site/raids.js";
 
   import { EDITOR_KEY, EventDraft } from "../draft.svelte";
 
@@ -23,8 +23,6 @@
     bind:checked={draft.goalEnabled}
     label="Track goals"
     onchange={(event) => {
-      // The explicit handler can run before bind:checked applies -
-      // read the DOM state, not the bound one.
       if (event.currentTarget.checked && draft.goals.length === 0) {
         draft.goals.push(draft.newGoalRow());
       }

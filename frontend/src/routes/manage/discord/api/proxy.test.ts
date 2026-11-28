@@ -3,7 +3,11 @@ import type { RequestEvent } from "@sveltejs/kit";
 import { POST, GET, PUT, DELETE } from "./[...path]/+server";
 
 const privateEnv = vi.hoisted(() => ({ SEQUOIA_DISCORD_MANAGEMENT_URL: "http://sierra:8082" }));
-vi.mock("$env/dynamic/private", () => ({ env: privateEnv }));
+vi.mock("$app/env/private", () => ({
+  get SEQUOIA_DISCORD_MANAGEMENT_URL() {
+    return privateEnv.SEQUOIA_DISCORD_MANAGEMENT_URL;
+  },
+}));
 
 function event(method: string, origin: string | null = "https://seqwawa.com", token = "cookie-session", path = "messages") {
   const url = new URL(`https://seqwawa.com/manage/discord/api/${path}`);
@@ -36,7 +40,6 @@ describe("Discord management server boundary", () => {
     expect(arbitrary.fetch).not.toHaveBeenCalled();
   });
   it("preserves welcome renderer transport bytes privately without treating them as JSON", async () => {
-    // Transport sentinels only, not a successful renderer or accepted artwork fixture.
     for (const type of ["image/png", "image/gif"]) {
       const request = event("POST", "https://seqwawa.com", "cookie-session", "welcome/preview");
       const bytes = new Uint8Array([0, 19, 255, 7]);
@@ -117,7 +120,6 @@ describe("Discord management server boundary", () => {
     }
   });
   it("preserves ceremony renderer bytes privately without treating them as JSON", async () => {
-    // Transport sentinels only, not a rendered ceremony.
     for (const type of ["image/png", "image/gif"]) {
       const request = event("POST", "https://seqwawa.com", "cookie-session", "ceremonies/preview");
       const bytes = new Uint8Array([7, 0, 255, 19]);

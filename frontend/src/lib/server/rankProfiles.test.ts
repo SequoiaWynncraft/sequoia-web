@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import type { RankProfilesResponse } from "$lib/api/client";
+import type { RankProfilesResponse } from "#lib/api/client.js";
 import {
   honoursForMinecraft,
   inGameRankLadder,
   memberRanksByUuid,
-} from "$lib/server/rankProfiles";
+  ranksForPlayers,
+  type MemberRankEntry,
+} from "#lib/server/rankProfiles.js";
 
 const MEMBER = "11111111-1111-1111-1111-111111111111";
 const RETIRED = "33333333-3333-3333-3333-333333333333";
@@ -217,8 +219,6 @@ describe("honoursForMinecraft", () => {
   });
 
   it("sorts in-game ranks just below the lowest org rank they can stand for", () => {
-    // Every in-game rank resolves, and the ladder descends owner -> recruit so
-    // an unlinked member sorts among the org ranks rather than beneath them.
     expect(inGameRankLadder(response)).toEqual({
       owner: 143.5,
       chief: 104.5,
@@ -230,9 +230,6 @@ describe("honoursForMinecraft", () => {
   });
 
   it("leaves a rank whose org equivalent is missing unplaced, so it sorts last", () => {
-    // A null is not a 0: LedgerTable pins nulls to the bottom in *both* sort
-    // directions, whereas a placeholder position would float Owner to the top
-    // of an ascending sort.
     const withoutOwnerRank: RankProfilesResponse = {
       ...response,
       catalog: {
@@ -254,5 +251,28 @@ describe("honoursForMinecraft", () => {
       warHonours: [],
       badges: [],
     });
+  });
+});
+
+describe("ranksForPlayers", () => {
+  const entry = (rank: string): MemberRankEntry => ({
+    rank,
+    rankColor: null,
+    rankOrder: null,
+    insignia: null,
+    insigniaUrl: null,
+    honours: 0,
+  });
+
+  it("keeps only the players a page lists, keyed as the page looks them up", () => {
+    const ranks = { [MEMBER]: entry("Member rank"), [RETIRED]: entry("Former member rank") };
+
+    expect(ranksForPlayers(ranks, [{ uuid: MEMBER.toUpperCase() }, { uuid: null }])).toEqual({
+      [MEMBER]: entry("Member rank"),
+    });
+  });
+
+  it("does not resolve inherited object keys", () => {
+    expect(ranksForPlayers({}, [{ uuid: "constructor" }])).toEqual({});
   });
 });

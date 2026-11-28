@@ -9,7 +9,6 @@
     children,
   }: {
     theme: EventTheme;
-    /** Ended events keep their sky but let it fade. */
     dim?: boolean;
     children: Snippet;
   } = $props();
@@ -40,8 +39,6 @@
     background: linear-gradient(172deg, var(--ev-sky-0), var(--ev-sky-1));
   }
 
-  /* Star specks stay faint - atmosphere, not confetti. The slight rotation
-     keeps the tiled pattern from ever reading as aligned rows. */
   .ev-sky-backdrop::before {
     content: "";
     position: absolute;

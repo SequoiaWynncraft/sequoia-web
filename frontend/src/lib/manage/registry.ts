@@ -1,6 +1,5 @@
 import type { AreaAccess, ManageAreaId, ManageBranchKey, ManageCapabilities } from "./types";
 
-/** The copy an area's access gate shows; rendered by AreaGate. */
 export interface AreaGateCopy {
   title: string;
   signinText: string;
@@ -19,25 +18,15 @@ export interface ManageArea {
   branch: ManageBranchKey | null;
   /** Landing page, or null while the branch has no console content yet. */
   href: string | null;
-  /** Section marker: ◆ for org areas, ✦ for event and Discord areas (see DESIGN.md). */
   marker: string;
-  /** Sub-pages listed under the area in the console sidebar. */
   links: { label: string; href: string }[];
   gate: AreaGateCopy;
 }
 
-/** An area with console content: `href` is narrowed to a real route. */
 export interface ManageContentArea extends ManageArea {
   href: string;
 }
 
-/**
- * Every management area, in sidebar order - one per org branch, then the
- * cross-branch Discord area. Adding
- * content to a branch means setting its `href` (and links) here plus a page
- * gated on its capability key; the console shell, landing redirect, and
- * navbar visibility all derive from this table.
- */
 export const MANAGE_AREAS: readonly ManageArea[] = [
   {
     id: "events",
@@ -161,12 +150,10 @@ function hasContent(area: ManageArea): area is ManageContentArea {
   return area.href !== null;
 }
 
-/** Areas with console content, regardless of access - the landing's checklist. */
 export function contentAreas(): ManageContentArea[] {
   return MANAGE_AREAS.filter(hasContent);
 }
 
-/** Granted areas with content, in sidebar order. */
 export function accessibleAreas(capabilities: ManageCapabilities): ManageContentArea[] {
   return MANAGE_AREAS.filter(hasContent).filter((area) => capabilities[area.id] === "granted");
 }
@@ -177,8 +164,7 @@ export function firstAccessible(capabilities: ManageCapabilities): ManageContent
 
 /**
  * The gate state for the console landing when no area is accessible: a
- * missing session or unreachable authority wins over a plain denial, so the
- * viewer sees the state they can actually act on.
+ * missing session or unreachable authority wins over a plain denial.
  */
 export function landingAccess(capabilities: ManageCapabilities): Exclude<AreaAccess, "granted"> {
   const values = Object.values(capabilities);

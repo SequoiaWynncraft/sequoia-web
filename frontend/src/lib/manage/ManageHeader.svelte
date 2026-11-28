@@ -7,7 +7,6 @@
     lead,
     actions,
   }: {
-    /** The console area name, e.g. "Events". */
     area: string;
     title: string;
     lead?: string;

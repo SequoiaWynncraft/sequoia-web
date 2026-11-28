@@ -1,5 +1,5 @@
-import { createCachedResource, type CachedValue } from "$lib/server/serverCache";
-import { fetchWynncraftJson } from "$lib/server/wynncraft";
+import { createCachedResource, type CachedValue } from "#lib/server/serverCache.js";
+import { fetchWynncraftJson } from "#lib/server/wynncraft.js";
 
 export type GuildPayload = Record<string, unknown> & { members: Record<string, unknown> };
 

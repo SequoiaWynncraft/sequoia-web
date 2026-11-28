@@ -19,7 +19,6 @@ describe("withEventLock", () => {
     const second = withEventLock("slug", async () => {
       order.push("second");
     });
-    // The second task must not start while the first still holds the lock.
     await new Promise((r) => setTimeout(r, 10));
     expect(order).toEqual([]);
     gate.resolve();

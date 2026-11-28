@@ -1,76 +1,74 @@
 import type { Client, Row } from "@libsql/client";
 
-import type { StageEntrant, StageRoll } from "$lib/events/stageProtocol";
+import type { StageEntrant, StageMessage, StageRoll } from "#lib/events/stageProtocol.js";
 
 import { database } from "./db";
 
-/** A persisted draw: the snapshot the stage replays, and the audit anchor. */
 export interface RaffleRoll extends StageRoll {
   eventSlug: string;
   createdBy: string;
-  /** A later re-roll of the same slot retired this record. */
   superseded: boolean;
-  /** Inserted ahead of its winner's event commit and not yet made live: the
-   * public page masks the slot, the stage ignores it entirely. A pending row
-   * past its settle time is a failed compensation - invisible everywhere. */
   pending: boolean;
 }
 
 /**
- * Projects a persisted roll onto the public wire shape. Structural typing
- * would happily serialize the extra fields - `createdBy` is a manager's
- * Discord id and must never reach a viewer - so everything the stage sends
- * or returns goes through this explicit pick.
+ * Projects a roll onto the public wire shape. Structural typing would happily
+ * serialize extra fields - a persisted roll's `createdBy` is a manager's
+ * Discord id, and a freshly drawn one also names its event - so everything the
+ * stage loads, snapshots or streams goes through this explicit pick, entrants
+ * and winner included.
  */
-export function toStageRoll(roll: RaffleRoll): StageRoll {
+export function toStageRoll(roll: StageRoll): StageRoll {
   return {
     rollId: roll.rollId,
     raffleId: roll.raffleId,
     slot: roll.slot,
     prize: roll.prize,
-    entrants: roll.entrants,
+    entrants: roll.entrants.map(toStageEntrant),
     winnerIndex: roll.winnerIndex,
-    winner: roll.winner,
-    spin: roll.spin,
+    winner: toStageEntrant(roll.winner),
+    spin: { turns: roll.spin.turns, durationMs: roll.spin.durationMs },
     state: roll.state,
     startedAt: roll.startedAt,
     settlesAt: roll.settlesAt,
   };
 }
 
-export interface RaffleRollStore {
-  insert(roll: RaffleRoll): Promise<void>;
-  /**
-   * The latest non-superseded roll per raffle:slot of an event - the stage's
-   * catch-up snapshot. A roll past its settle time reads as settled even if
-   * the settle timer died with the process.
-   */
-  latestForEvent(eventSlug: string): Promise<RaffleRoll[]>;
-  /** Every roll of an event, newest first - the manage-side history. */
-  listForEvent(eventSlug: string, limit?: number): Promise<RaffleRoll[]>;
-  markSettled(id: string): Promise<void>;
-  /** Flips a pending row live once its winner's event commit lands. Returns
-   * false when the row was already retired or otherwise lost the transition. */
-  markLive(id: string): Promise<boolean>;
-  /** Re-rolling a slot retires its previous roll from the stage snapshot. */
-  markSuperseded(eventSlug: string, raffleId: string, slot: number): Promise<void>;
-  /** Retires exactly one observed roll - concurrent draws must never blanket
-   * a slot and take a rival's fresh record down with the old one. */
-  markSupersededById(id: string): Promise<void>;
-  /**
-   * Deleting an event purges its rolls: a later event reusing the slug must
-   * never inherit the old wheel - a members-only event's entrant names could
-   * otherwise resurface on a public successor's stage.
-   */
-  removeForEvent(eventSlug: string): Promise<void>;
+function toStageEntrant(entrant: StageEntrant): StageEntrant {
+  return { player_uuid: entrant.player_uuid, username: entrant.username, tickets: entrant.tickets };
 }
 
 /**
- * Rolls are event-sourced separately from the event JSON: the winner grafted
- * into the event stays authoritative for display, while these rows carry
- * what a live wheel needs (entrant snapshot, spin, timing) and a history the
- * document overwrites on re-roll.
+ * The one place stage messages become wire bytes. Publishers hand over
+ * whatever roll they hold (a fresh draw still names its event); only the
+ * fields in `StageMessage` leave, and the server clock is stamped on send.
  */
+export function toStageMessage(message: StageMessage): StageMessage {
+  switch (message.type) {
+    case "snapshot":
+      return { type: "snapshot", now: Date.now(), rolls: message.rolls.map(toStageRoll) };
+    case "roll":
+      return { type: "roll", now: Date.now(), roll: toStageRoll(message.roll) };
+    case "settled":
+      return { type: "settled", rollId: message.rollId, raffleId: message.raffleId, slot: message.slot };
+    case "retired":
+      return { type: "retired", raffleId: message.raffleId, slot: message.slot, rollId: message.rollId };
+    case "event-updated":
+      return { type: "event-updated" };
+  }
+}
+
+export interface RaffleRollStore {
+  insert(roll: RaffleRoll): Promise<void>;
+  latestForEvent(eventSlug: string): Promise<RaffleRoll[]>;
+  listForEvent(eventSlug: string, limit?: number): Promise<RaffleRoll[]>;
+  markSettled(id: string): Promise<void>;
+  markLive(id: string): Promise<boolean>;
+  markSuperseded(eventSlug: string, raffleId: string, slot: number): Promise<void>;
+  markSupersededById(id: string): Promise<void>;
+  removeForEvent(eventSlug: string): Promise<void>;
+}
+
 export function createRaffleRollStore(getClient: () => Promise<Client>): RaffleRollStore {
   let readyPromise: Promise<Client> | undefined;
 
@@ -146,9 +144,6 @@ export function createRaffleRollStore(getClient: () => Promise<Client>): RaffleR
       for (const row of result.rows) {
         const roll = rowToRoll(row);
         if (!roll) continue;
-        // An expired pending row is a roll whose commit never landed and
-        // whose cleanup also failed - it must not shadow the slot's real
-        // latest roll, nor mask anything.
         if (roll.pending && Date.now() >= roll.settlesAt) continue;
         const key = `${roll.raffleId}:${roll.slot}`;
         if (!latest.has(key)) latest.set(key, roll);
@@ -208,7 +203,6 @@ export function createRaffleRollStore(getClient: () => Promise<Client>): RaffleR
   };
 }
 
-/** Rows that fail to parse are dropped rather than crashing the stage. */
 function rowToRoll(row: Row): RaffleRoll | null {
   try {
     const entrants = JSON.parse(String(row.entrants)) as StageEntrant[];
@@ -227,8 +221,6 @@ function rowToRoll(row: Row): RaffleRoll | null {
       winnerIndex,
       winner,
       spin,
-      // The settle timer lives in one process's memory; wall clock is the
-      // durable authority on whether a spin has finished.
       state: row.state === "spinning" && Date.now() < settlesAt ? "spinning" : "settled",
       superseded: row.state === "superseded",
       pending: row.state === "pending",
