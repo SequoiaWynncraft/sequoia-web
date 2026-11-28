@@ -93,9 +93,7 @@
     justify-content: center;
     padding: 1rem 1rem 1.6rem;
     clip-path: var(--notch);
-    background:
-      radial-gradient(70% 46% at 50% 47%, color-mix(in srgb, var(--rank) 15%, transparent), transparent 72%),
-      linear-gradient(to bottom, var(--color-surface), color-mix(in srgb, var(--color-surface) 55%, var(--color-abyss)));
+    background: linear-gradient(to bottom, var(--color-surface), color-mix(in srgb, var(--color-surface) 55%, var(--color-abyss)));
   }
 
   .lift {
@@ -124,6 +122,20 @@
     place-items: center;
     width: 5.7rem;
     height: 5.7rem;
+  }
+
+  /* A soft glow of the rank's colour from behind the head; it rises with the head. */
+  .figure::before {
+    content: "";
+    position: absolute;
+    inset: -2.6rem;
+    background: radial-gradient(
+      closest-side,
+      color-mix(in srgb, var(--rank) 13%, transparent),
+      color-mix(in srgb, var(--rank) 5%, transparent) 55%,
+      transparent
+    );
+    pointer-events: none;
   }
 
   img {
