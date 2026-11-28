@@ -25,7 +25,6 @@
     {/if}
     <div class="lift">
     <div class="figure">
-      <span class="light" aria-hidden="true"></span>
       {#if !avatarFailed}
         <img
           src={member.avatarUrl}
@@ -94,9 +93,7 @@
     justify-content: center;
     padding: 1rem 1rem 1.6rem;
     clip-path: var(--notch);
-    background:
-      radial-gradient(70% 46% at 50% 47%, color-mix(in srgb, var(--rank) 15%, transparent), transparent 72%),
-      linear-gradient(to bottom, var(--color-surface), color-mix(in srgb, var(--color-surface) 55%, var(--color-abyss)));
+    background: linear-gradient(to bottom, var(--color-surface), color-mix(in srgb, var(--color-surface) 55%, var(--color-abyss)));
   }
 
   .lift {
@@ -127,19 +124,18 @@
     height: 5.7rem;
   }
 
-  /* The head stands on a pool of its rank's light, with a contact shadow. */
-  .light {
+  /* A soft glow of the rank's colour from behind the head; it rises with the head. */
+  .figure::before {
+    content: "";
     position: absolute;
-    left: 50%;
-    bottom: -0.55rem;
-    width: 7.5rem;
-    height: 1.5rem;
-    translate: -50% 0;
-    background:
-      radial-gradient(closest-side, color-mix(in srgb, var(--color-abyss) 75%, transparent) 30%, transparent 62%),
-      radial-gradient(closest-side, color-mix(in srgb, var(--rank) 55%, transparent), transparent);
-    transition: opacity var(--dur-slow) ease;
-    opacity: 0.85;
+    inset: -2.6rem;
+    background: radial-gradient(
+      closest-side,
+      color-mix(in srgb, var(--rank) 13%, transparent),
+      color-mix(in srgb, var(--rank) 5%, transparent) 55%,
+      transparent
+    );
+    pointer-events: none;
   }
 
   img {
@@ -228,9 +224,6 @@
     .card:hover img {
       translate: 0 -0.2rem;
     }
-    .card:hover .light {
-      opacity: 1;
-    }
     .card:hover .stats {
       opacity: 1;
       translate: 0 0;
@@ -249,7 +242,6 @@
   @media (prefers-reduced-motion: reduce) {
     .lift,
     img,
-    .light,
     .stats {
       transition: none;
     }
