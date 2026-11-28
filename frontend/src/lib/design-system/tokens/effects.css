@@ -30,14 +30,6 @@
   from { opacity: 0; }
   to { opacity: 1; }
 }
-@keyframes seq-scale-in {
-  from { opacity: 0; transform: scale(0.92); }
-  to { opacity: 1; transform: scale(1); }
-}
-@keyframes seq-gold-glow-pulse {
-  0%, 100% { box-shadow: 0 0 12px color-mix(in srgb, var(--color-gold) 20%, transparent), 0 0 4px color-mix(in srgb, var(--color-gold) 10%, transparent); }
-  50% { box-shadow: 0 0 24px color-mix(in srgb, var(--color-gold) 35%, transparent), 0 0 8px color-mix(in srgb, var(--color-gold) 20%, transparent); }
-}
 @keyframes seq-float {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-8px); }

@@ -32,7 +32,9 @@ function homepage() {
     navHidden: [...DEFAULT_HIDDEN_NAV],
     theme: DEFAULT_THEME_ID,
     homepageStats: null,
+    statsStale: false,
     latest: Promise.resolve({ events: [], posts: [] }),
+    branchmasters: Promise.resolve({ members: [], stale: false }),
   };
   const { body } = render(HomePage, { props: { data } });
   return new window.DOMParser().parseFromString(body, "text/html");

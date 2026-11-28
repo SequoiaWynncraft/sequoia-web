@@ -4,7 +4,9 @@
   import { page } from "$app/state";
   import SectionHeading from "#lib/design-system/components/SectionHeading.svelte";
   import StatBlock from "#lib/design-system/components/StatBlock.svelte";
-  import OfficerStrip from "#lib/design-system/components/OfficerStrip.svelte";
+  import HeroSparks from "#lib/components/HeroSparks.svelte";
+  import BranchmasterLane from "#lib/components/BranchmasterLane.svelte";
+  import type { BranchmasterCardData } from "#lib/components/BranchmasterCard.svelte";
   import SequoianTree from "#lib/components/SequoianTree.svelte";
   import Icon from "#lib/components/Icon.svelte";
   import EventSky from "#lib/events/components/EventSky.svelte";
@@ -34,24 +36,28 @@
   let statProgress = $state(1);
   const statEase = $derived(1 - Math.pow(1 - statProgress, 3));
 
-  onMount(() => {
-    const client = createSequoiaApiClient({ fetch: window.fetch.bind(window) });
-    let cancelled = false;
+  let refreshedBranchmasters = $state<BranchmasterMember[] | null>(null);
 
-    client.getGuildOverview()
-      .then((result) => {
-        if (cancelled || !result.ok) return;
-        applyHomepageStats(result.data.stats);
-        branchmasters.members = result.data.branchmasters.map(branchmasterCard);
-      })
-      .catch(() => undefined)
-      .finally(() => {
-        if (!cancelled) branchmastersLoaded = true;
-      });
+  // The server may answer from a stale cache; only then ask for fresh numbers.
+  onMount(() => {
+    let cancelled = false;
+    void data.branchmasters.then((roster) => {
+      if (!cancelled && (data.statsStale || roster.stale)) refreshOverview();
+    });
 
     return () => {
       cancelled = true;
     };
+
+    function refreshOverview() {
+      createSequoiaApiClient({ fetch: window.fetch.bind(window) }).getGuildOverview()
+        .then((result) => {
+          if (cancelled || !result.ok) return;
+          applyHomepageStats(result.data.stats);
+          if (result.data.branchmasters.length > 0) refreshedBranchmasters = result.data.branchmasters;
+        })
+        .catch(() => undefined);
+    }
   });
 
   function applyHomepageStats(stats: HomepageStats) {
@@ -103,88 +109,6 @@
     };
   });
 
-  let canvas: HTMLCanvasElement;
-  onMount(() => {
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reducedMotion || !canvas || theme.heroHideSparks) return;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    // Canvas cannot resolve var(), so the theme's gold is read off the root
-    // once and the per-dot fade rides globalAlpha instead of an rgba string.
-    const gold =
-      getComputedStyle(document.documentElement).getPropertyValue("--color-gold").trim() ||
-      "#e8a33d";
-    let raf = 0, w = 0, h = 0;
-    let visible = true;
-    let pageVisible = !document.hidden;
-    const tau = Math.PI * 2;
-    const dots = Array.from({ length: 36 }, () => ({
-      x: Math.random(), y: Math.random(), r: Math.random() * 1.6 + 0.4,
-      p: Math.random() * Math.PI * 2, s: Math.random() * 0.0008 + 0.0002,
-    }));
-    const resize = () => {
-      const ratio = Math.min(window.devicePixelRatio || 1, 2);
-      w = canvas.offsetWidth;
-      h = canvas.offsetHeight;
-      canvas.width = Math.max(1, Math.floor(w * ratio));
-      canvas.height = Math.max(1, Math.floor(h * ratio));
-      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-    };
-    const start = () => {
-      if (!raf && visible && pageVisible) raf = requestAnimationFrame(draw);
-    };
-    const stop = () => {
-      if (raf) cancelAnimationFrame(raf);
-      raf = 0;
-    };
-    const draw = (t: number) => {
-      if (!visible || !pageVisible) {
-        raf = 0;
-        return;
-      }
-      ctx.clearRect(0, 0, w, h);
-      ctx.shadowBlur = 6;
-      ctx.shadowColor = gold;
-      ctx.fillStyle = gold;
-      for (let i = 0; i < dots.length; i += 1) {
-        const d = dots[i];
-        d.y -= d.s; if (d.y < -0.02) d.y = 1.02;
-        const a = 0.35 + 0.45 * Math.sin(t * 0.002 + d.p);
-        ctx.beginPath(); ctx.arc(d.x * w, d.y * h, d.r, 0, tau);
-        ctx.globalAlpha = a; ctx.fill();
-      }
-      ctx.globalAlpha = 1;
-      raf = requestAnimationFrame(draw);
-    };
-
-    const onVisibilityChange = () => {
-      pageVisible = !document.hidden;
-      if (pageVisible) start(); else stop();
-    };
-
-    let observer: IntersectionObserver | undefined;
-    if ("IntersectionObserver" in window) {
-      observer = new IntersectionObserver(([entry]) => {
-        visible = entry.isIntersecting;
-        if (visible) start(); else stop();
-      });
-      observer.observe(canvas);
-    }
-
-    resize();
-    window.addEventListener("resize", resize);
-    document.addEventListener("visibilitychange", onVisibilityChange);
-    start();
-    return () => {
-      stop();
-      window.removeEventListener("resize", resize);
-      document.removeEventListener("visibilitychange", onVisibilityChange);
-      observer?.disconnect();
-    };
-  });
-
   onMount(() => {
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reducedMotion || !statsSection) return;
@@ -233,39 +157,28 @@
   const nmsrHeadIsoUrl = (username: string) =>
     `${NMSR_BASE_URL.replace(/\/+$/, "")}/headiso/${encodeURIComponent(username)}?w=128`;
 
-  type BranchmasterCard = {
-    username: string;
-    role: BranchmasterMember["rank"];
-    rank: string;
-    rankColor: string | null;
-    online: boolean;
-    avatarUrl: string;
-    stats: Record<string, string>;
-  };
-  const branchmasters = $state<{ members: BranchmasterCard[] }>({ members: [] });
-  let branchmastersLoaded = $state(false);
-  const branchmasterTopLane = $derived(
-    branchmasters.members.filter((member) => member.role === "branchmaster"),
-  );
-  const branchmasterBottomLane = $derived(
-    branchmasters.members.filter((member) => member.role === "branch_novice"),
-  );
-
-  function branchmasterCard(member: BranchmasterMember): BranchmasterCard {
+  function branchmasterCard(member: BranchmasterMember): BranchmasterCardData {
     const badge = branchLeadershipBadge(member);
     return {
       username: member.username,
-      role: member.rank,
       rank: badge.label,
       rankColor: badge.color,
       online: member.online === true,
       avatarUrl: nmsrHeadIsoUrl(member.username),
-      stats: {
-        XP: compactNumber(member.contributed),
-        Wars: formattedNumber(member.wars),
-        Raids: formattedNumber(member.raids),
-        Joined: joinedMonth(member.joined),
-      },
+      stats: [
+        ["XP", compactNumber(member.contributed)],
+        ["Wars", formattedNumber(member.wars)],
+        ["Raids", formattedNumber(member.raids)],
+        ["Joined", joinedMonth(member.joined)],
+      ],
+    };
+  }
+
+  function lanes(members: BranchmasterMember[]) {
+    const cards = members.map((member) => ({ role: member.rank, card: branchmasterCard(member) }));
+    return {
+      masters: cards.filter((entry) => entry.role === "branchmaster").map((entry) => entry.card),
+      novices: cards.filter((entry) => entry.role === "branch_novice").map((entry) => entry.card),
     };
   }
 
@@ -324,9 +237,13 @@
 </script>
 
 <section class="seq-hero seq-home-page" class:seq-hero-full={theme.heroFullImage}>
-  <div class="seq-hero-bg-wrap">
+  <div class="seq-hero-bg-wrap" style:background-image={theme.heroPreview ? `url(${theme.heroPreview})` : undefined}>
     <img
       src={IMG + theme.heroImage}
+      srcset={theme.heroSmall
+        ? `${IMG + theme.heroSmall.src} ${theme.heroSmall.width}w, ${IMG + theme.heroImage} ${theme.heroSmall.fullWidth}w`
+        : undefined}
+      sizes={theme.heroSmall ? "100vw" : undefined}
       alt=""
       aria-hidden="true"
       decoding="async"
@@ -338,7 +255,9 @@
   </div>
   <div class="seq-hero-vignette"></div>
   <div class="seq-hero-fade"></div>
-  <canvas bind:this={canvas} class="seq-hero-particles"></canvas>
+  {#if !theme.heroHideSparks}
+    <HeroSparks />
+  {/if}
   {#if theme.heroHideTitle}
     <!-- Kept for screen readers and the document outline; the art shows the name. -->
     <h1 class="seq-visually-hidden">{BRAND.name}</h1>
@@ -471,13 +390,18 @@
   <div class="seq-branchmasters-heading">
     <SectionHeading kicker="The Guild">The Branchmasters</SectionHeading>
   </div>
-  <div class="seq-branchmasters-marquee" role="region" aria-label="Branchmasters roster">
-    {#if branchmasters.members.length > 0}
-      <OfficerStrip officers={branchmasterTopLane} direction="ltr" />
-      <OfficerStrip officers={branchmasterBottomLane} direction="rtl" />
-    {:else if !branchmastersLoaded}
-      <div class="seq-branchmasters-loading" aria-hidden="true"></div>
-    {/if}
+  <div class="seq-branchmasters-lanes">
+    {#await data.branchmasters}
+      <div class="seq-branchmasters-pending"></div>
+    {:then streamed}
+      {@const { masters, novices } = lanes(refreshedBranchmasters ?? streamed.members)}
+      {#if masters.length > 0}
+        <BranchmasterLane members={masters} direction="left" label="Branchmasters" />
+      {/if}
+      {#if novices.length > 0}
+        <BranchmasterLane members={novices} direction="right" label="Branch novices" />
+      {/if}
+    {/await}
   </div>
 </section>
 

@@ -20,6 +20,10 @@ export interface Theme {
   heroHideTitle?: boolean;
   /** Leave out the gold sparks that drift up over the homepage hero. */
   heroHideSparks?: boolean;
+  /** A narrower copy for phones, and the full image's width so the browser can choose. */
+  heroSmall?: { src: string; width: number; fullWidth: number };
+  /** A few hundred bytes of the art, inlined so the first paint already has its colours. */
+  heroPreview?: string;
   /** Not offered to visitors yet; still usable as the configured default. */
   hidden?: boolean;
 }
@@ -31,6 +35,8 @@ export const THEMES: readonly Theme[] = [
     description:
       "The original Sequoia look: near-black forest surfaces, enchanted gold, and Fruma at dusk.",
     heroImage: "fruma_banner.avif",
+    heroSmall: { src: "fruma_banner-960.avif", width: 960, fullWidth: 1920 },
+    heroPreview: "data:image/webp;base64,UklGRgQBAABXRUJQVlA4IPgAAABwBgCdASogABIAPu1mqk2ppaQiMAgBMB2JaAC32DAI7/wCHBXAOukUlGc11u+64EBKka2z0mkwmfK7V8QA/tzYdANiK3FBlJYm1KdSNrb7wLbmY0k7nrpeSPro8Kg39igGIvZuJw3IimIKaomWkGe6t+nCn+26hI+2yJzWygAGCRyMqlwJ0b3TpzTrtjlxha/JhPN8X02hbI4qIAwiqVVMOMG4RebNUXCX++QdJhEMKsNYMi3APk1/n9JpCDF125bLnP7TurOyC+fjqI7HIbP4Qywn9CILEL1JFXV43xiSWKLBkVobXxleylpFVvhAo/mNtYbm74QAAA==",
   },
   {
     id: "autumn",
@@ -38,6 +44,8 @@ export const THEMES: readonly Theme[] = [
     description:
       "Sunlit amber under a red maple canopy: warm umber surfaces, maple terracotta, and a misty horizon.",
     heroImage: "autumn_banner.avif",
+    heroSmall: { src: "autumn_banner-600.avif", width: 600, fullWidth: 1200 },
+    heroPreview: "data:image/webp;base64,UklGRiABAABXRUJQVlA4IBQBAAAwBwCdASogACUAPuVap02pJSOiNVv4ASAciWQAnTOBBvYj6J8jijRGFXt8xMYCSIPQDBfNOv4Dqdf+nEygw9NaKkAA/ujKfAhF/fulH3oWa7gXvVzOOmzO5lPN7V8O7TzzWW5qXWdiqE2wwW3XtwBMxlpyb+uqvU9AzmuNn9Wl+2Esb5uYqZKH9Vz1FeW1GYb7vRIVDnLqDwzvazU31tOk/L4kpPuNkZ2353BUP+6FsS1d/FUaFIJPN6iaAP0VuoBVtNgrUJnSpVgASxlLsKxD9qJqHXnDElQ9IS6kUMizVpifZOQiTHgWDh/+OPiA87Fz8cop626+8f22HWWPYML3jXnh5YaG6hx163jU121XzcJEwAA=",
     hidden: true,
   },
   {
@@ -46,6 +54,8 @@ export const THEMES: readonly Theme[] = [
     description:
       "Christmas night at the guild tree: the classic midnight palette under string lights and fresh snow.",
     heroImage: "winter_banner.avif",
+    heroSmall: { src: "winter_banner-1280.avif", width: 1280, fullWidth: 2560 },
+    heroPreview: "data:image/webp;base64,UklGRgIBAABXRUJQVlA4IPYAAADwBgCdASogABIAPu1gqE2ppaOiMAgBMB2JQBjk3abqof7a63QBkgZgNncYGTgQCSiSeKo6PkzH9H+3zFqD2nsAAP7s2TFxWqHJtEbMLB7+hvVwbkMEfrZ5EfnfAbe4mnomV1s8SPSA0+F862jCezpU6fH1f3JzUqLuAziGc1DtXphE+Q2TSUqdUF924q3pAOYyJXJsM3gakYrnzYee/bngWyhvJ0/WZgPi/QQ6PkfMEEE8aSnJFjTHdo8WFmZzAU4C/zWtoGuSaDSidP0Kx35Iyur96+QjAz8v20+vGTcdhKXTqKEWbL0KXLSicqIPrkiU5IEgAAA=",
     heroFullImage: true,
     heroHideTitle: true,
     heroHideSparks: true,
