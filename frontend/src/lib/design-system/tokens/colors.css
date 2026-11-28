@@ -67,7 +67,8 @@
   --gradient-diamond: linear-gradient(135deg, var(--color-diamond), var(--color-diamond-light), var(--color-diamond-dark));
 }
 
-:root[data-theme="gaz-purple"] {
+:root[data-theme="gaz-purple"],
+:root[data-theme="winter"] {
   --color-abyss: #0c0e17;
   --color-deep: #13161f;
   --color-surface: #1a1d2a;
