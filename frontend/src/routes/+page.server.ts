@@ -16,14 +16,18 @@ export const load: PageServerLoad = async ({ fetch, parent }) => {
     loadLatestPosts(fetch, viewer).catch(() => []),
     loadHomepageEvents(fetch, viewer).catch(() => []),
   ]).then(([posts, events]) => ({ posts, events }));
+  // Streamed: the roster needs the rank profiles too, so it never holds up the first paint.
+  const branchmasters = getGuildOverview(fetch, { allowStale: true })
+    .then((overview) => ({ members: overview.branchmasters, stale: overview.stale }))
+    .catch(() => ({ members: [], stale: true }));
   try {
     const overview = await getGuildOverview(fetch, {
       allowStale: true,
       includeBranchmasters: false,
     });
-    return { homepageStats: overview.stats, latest };
+    return { homepageStats: overview.stats, statsStale: overview.stale, latest, branchmasters };
   } catch {
-    return { homepageStats: null, latest };
+    return { homepageStats: null, statsStale: true, latest, branchmasters };
   }
 };
 
