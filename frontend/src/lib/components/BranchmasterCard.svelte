@@ -25,7 +25,6 @@
     {/if}
     <div class="lift">
     <div class="figure">
-      <span class="light" aria-hidden="true"></span>
       {#if !avatarFailed}
         <img
           src={member.avatarUrl}
@@ -127,21 +126,6 @@
     height: 5.7rem;
   }
 
-  /* The head stands on a pool of its rank's light, with a contact shadow. */
-  .light {
-    position: absolute;
-    left: 50%;
-    bottom: -0.55rem;
-    width: 7.5rem;
-    height: 1.5rem;
-    translate: -50% 0;
-    background:
-      radial-gradient(closest-side, color-mix(in srgb, var(--color-abyss) 75%, transparent) 30%, transparent 62%),
-      radial-gradient(closest-side, color-mix(in srgb, var(--rank) 55%, transparent), transparent);
-    transition: opacity var(--dur-slow) ease;
-    opacity: 0.85;
-  }
-
   img {
     position: relative;
     display: block;
@@ -228,9 +212,6 @@
     .card:hover img {
       translate: 0 -0.2rem;
     }
-    .card:hover .light {
-      opacity: 1;
-    }
     .card:hover .stats {
       opacity: 1;
       translate: 0 0;
@@ -249,7 +230,6 @@
   @media (prefers-reduced-motion: reduce) {
     .lift,
     img,
-    .light,
     .stats {
       transition: none;
     }
